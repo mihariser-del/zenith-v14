@@ -17,7 +17,9 @@ async function api(path, opts = {}) {
         ...opts,
     });
     if (res.status === 401) throw new Error('Not authenticated');
-    const data = await res.json();
+    let data;
+    const text = await res.text();
+    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || 'Request failed'); }
     if (!res.ok) throw new Error(data.detail || 'Request failed');
     return data;
 }

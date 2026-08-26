@@ -83,9 +83,10 @@ async def delete_chat(chat_id: int, request: Request, db: AsyncSession = Depends
 
 @router.get("/{chat_id}/messages")
 async def get_messages(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy.orm import selectinload
     user = await get_current_user_from_cookie(request, db)
     result = await db.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id).options(selectinload(Chat.messages))
     )
     chat = result.scalar_one_or_none()
     if not chat:

@@ -6,6 +6,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     $('landing-page').style.display = 'flex';
 
+    document.querySelectorAll('.pw-toggle').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const input = $(btn.dataset.target);
+            const isPassword = input.type === 'password';
+            input.type = isPassword ? 'text' : 'password';
+            btn.textContent = isPassword ? '\u2715' : '\uD83D\uDC41';
+        });
+    });
+
     $('start-btn').addEventListener('click', () => {
         $('landing-page').style.display = 'none';
         $('login-screen').style.display = 'flex';

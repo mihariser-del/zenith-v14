@@ -3,7 +3,7 @@ import uuid
 import subprocess
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, UploadFile, File
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse as FastAPIFileResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from auth import get_current_user_from_cookie
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "uploads")
+UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 ALLOWED_TYPES = {
@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
 MAX_SIZE = 20 * 1024 * 1024
 
 
-class FileResponse(BaseModel):
+class FileInfoResponse(BaseModel):
     id: int
     filename: str
     file_size: int
@@ -73,7 +73,7 @@ async def upload_file(
     await db.commit()
     await db.refresh(db_file)
 
-    return {"file": FileResponse.model_validate(db_file)}
+    return {"file": FileInfoResponse.model_validate(db_file)}
 
 
 @router.get("")
@@ -84,7 +84,7 @@ async def list_files(request: Request, chat_id: int = None, db: AsyncSession = D
         query = query.where(UploadedFile.chat_id == chat_id)
     result = await db.execute(query.order_by(UploadedFile.created_at.desc()).limit(50))
     files = result.scalars().all()
-    return {"files": [FileResponse.model_validate(f) for f in files]}
+    return {"files": [FileInfoResponse.model_validate(f) for f in files]}
 
 
 @router.get("/{file_id}/download")
@@ -101,7 +101,7 @@ async def download_file(file_id: int, request: Request, db: AsyncSession = Depen
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File missing from disk")
 
-    return FileResponse(
+    return FastAPIFileResponse(
         path=file_path,
         filename=db_file.filename,
         media_type=db_file.mime_type,

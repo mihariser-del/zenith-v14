@@ -31,7 +31,10 @@
                 <label class="login-label">USERNAME</label>
                 <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
                 <label class="login-label">PASSWORD</label>
-                <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+                <div class="pw-wrap">
+                    <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+                    <button type="button" class="pw-toggle" data-target="login-password" title="Show password">&#128065;</button>
+                </div>
                 <div id="login-msg" class="auth-msg"></div>
                 <button type="submit" class="login-btn" id="login-btn">LOGIN</button>
             </form>
@@ -43,9 +46,15 @@
                 <label class="login-label">EMAIL</label>
                 <input type="email" id="reg-email" placeholder="Enter your email" required autocomplete="email">
                 <label class="login-label">PASSWORD</label>
-                <input type="password" id="reg-password" placeholder="Strong password required" required autocomplete="new-password" minlength="6">
+                <div class="pw-wrap">
+                    <input type="password" id="reg-password" placeholder="Strong password required" required autocomplete="new-password" minlength="6">
+                    <button type="button" class="pw-toggle" data-target="reg-password" title="Show password">&#128065;</button>
+                </div>
                 <label class="login-label">CONFIRM PASSWORD</label>
-                <input type="password" id="reg-password-confirm" placeholder="Confirm your password" required autocomplete="new-password">
+                <div class="pw-wrap">
+                    <input type="password" id="reg-password-confirm" placeholder="Confirm your password" required autocomplete="new-password">
+                    <button type="button" class="pw-toggle" data-target="reg-password-confirm" title="Show password">&#128065;</button>
+                </div>
                 <div id="register-msg" class="auth-msg"></div>
                 <button type="submit" class="login-btn" id="register-btn">CREATE ACCOUNT</button>
             </form>

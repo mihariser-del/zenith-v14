@@ -3,6 +3,9 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
+import os
+os.makedirs("uploads", exist_ok=True)
+
 from database import init_db
 from auth import router as auth_router
 from chats import router as chats_router

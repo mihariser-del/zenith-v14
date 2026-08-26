@@ -100,32 +100,8 @@ const Chat = {
         return `
         <div class="welcome-message">
             <div class="welcome-z-logo">Z</div>
-            <h2>Welcome to Zenith</h2>
-            <p class="welcome-sub">Your AI assistant, powered by OpenRouter</p>
-            <div class="welcome-bubble">
-                <h3>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
-                    What can I do?
-                </h3>
-                <div class="welcome-features">
-                    <div class="welcome-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-                        Think Mode
-                    </div>
-                    <div class="welcome-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-                        Web Search
-                    </div>
-                    <div class="welcome-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
-                        Long-Term Memory
-                    </div>
-                    <div class="welcome-feature">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                        Voice Input
-                    </div>
-                </div>
-            </div>
+            <h2>Hello! I'm <span>Zenith.</span></h2>
+            <p class="welcome-sub">How can I help you today?</p>
         </div>`;
     },
 
@@ -148,7 +124,7 @@ const Chat = {
         container.scrollTop = container.scrollHeight;
     },
 
-    appendMessage(role, content, streaming = false) {
+    appendMessage(role, content, streaming = false, images = []) {
         const container = $('chat-container');
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
@@ -162,7 +138,22 @@ const Chat = {
             bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
             bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         } else {
-            bubble.textContent = content;
+            if (images && images.length > 0) {
+                images.forEach(src => {
+                    const img = document.createElement('img');
+                    img.src = src;
+                    img.className = 'msg-image';
+                    img.alt = 'Attached image';
+                    wrapper.appendChild(img);
+                });
+            }
+            if (content && content !== '(image)') {
+                bubble.textContent = content;
+            } else if (!images || images.length === 0) {
+                bubble.textContent = content;
+            } else {
+                bubble.style.display = 'none';
+            }
         }
 
         wrapper.appendChild(bubble);
@@ -241,7 +232,8 @@ const Chat = {
             else if (att.type === 'image') images.push(att.data);
         });
 
-        this.appendMessage('user', text || '(image)');
+        const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
+        this.appendMessage('user', text || '(image)', false, sendImages);
         input.value = '';
         input.style.height = 'auto';
 
@@ -425,16 +417,16 @@ const Chat = {
 
     renderAtts() {
         const bar = $('att-bar');
-        if (this.attachments.length === 0) { bar.style.display = 'none'; return; }
-        bar.style.display = 'flex';
         bar.innerHTML = '';
+        if (this.attachments.length === 0) { bar.classList.remove('has-items'); return; }
+        bar.classList.add('has-items');
         this.attachments.forEach((att, i) => {
             const div = document.createElement('div');
             div.className = 'att-preview';
             if (att.type === 'image') {
-                div.innerHTML = `<img src="${att.data}"><button class="remove-att" data-i="${i}">X</button>`;
+                div.innerHTML = `<img src="${att.data}" alt="${att.name}"><button class="remove-att" data-i="${i}">\u2715</button>`;
             } else {
-                div.innerHTML = `<div class="file-chip">${att.name}<button class="remove-att" data-i="${i}">X</button></div>`;
+                div.innerHTML = `<div class="file-chip">\uD83D\uDCC4 ${this.escapeHtml(att.name)}<button class="remove-att" data-i="${i}" style="position:static; background:transparent; color:#888; font-size:14px; width:auto; height:auto; margin-left:6px;">\u2715</button></div>`;
             }
             div.querySelector('.remove-att').addEventListener('click', () => {
                 this.attachments.splice(i, 1);

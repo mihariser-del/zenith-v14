@@ -17,15 +17,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     function closeSidebar() {
         $('sidebar').classList.remove('open');
         $('sidebar-overlay').classList.remove('active');
+        $('hamburger-btn').classList.remove('hidden');
     }
 
     function openSidebar() {
         $('sidebar').classList.add('open');
         $('sidebar-overlay').classList.add('active');
+        $('hamburger-btn').classList.add('hidden');
     }
 
     $('hamburger-btn').addEventListener('click', openSidebar);
     $('sidebar-overlay').addEventListener('click', closeSidebar);
+
+    $('tools-toggle').addEventListener('click', () => {
+        $('sidebar-tools').classList.toggle('open');
+        $('tools-toggle').classList.toggle('open');
+    });
 
     $('new-chat-btn').addEventListener('click', async () => {
         await Chat.create();

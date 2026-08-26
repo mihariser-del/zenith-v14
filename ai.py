@@ -137,8 +137,13 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
 
-    if web_search or research or factcheck:
+    has_images = bool(images)
+
+    if not has_images and (web_search or research or factcheck):
         user_model = "perplexity/sonar"
+
+    if has_images and (research or factcheck):
+        user_model = "openai/gpt-4o"
 
     if research or factcheck:
         user_max_tokens = 4096

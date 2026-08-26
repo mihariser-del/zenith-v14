@@ -4,7 +4,7 @@ import httpx
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Message, Chat, Memory, UserSettings, settings, async_session
+from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -22,7 +22,7 @@ def strip_citations(text: str) -> str:
     return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
 
 
-async def build_system_prompt(user_id: int, think: bool) -> str:
+async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "") -> str:
     async with async_session() as db:
         from sqlalchemy import select
 
@@ -36,6 +36,26 @@ async def build_system_prompt(user_id: int, think: bool) -> str:
         )
         memories = memory_result.scalars().all()
 
+        kb_context = ""
+        if last_user_msg:
+            kb_result = await db.execute(
+                select(KnowledgeBase.id).where(KnowledgeBase.user_id == user_id)
+            )
+            kb_ids = [row[0] for row in kb_result.all()]
+            if kb_ids:
+                query = f"%{last_user_msg[:100].lower()}%"
+                item_result = await db.execute(
+                    select(KnowledgeItem).where(
+                        KnowledgeItem.kb_id.in_(kb_ids),
+                        KnowledgeItem.content.ilike(query)
+                    ).limit(10)
+                )
+                kb_items = item_result.scalars().all()
+                if kb_items:
+                    kb_context = "\n\nRelevant knowledge base content:\n" + "\n---\n".join(
+                        f"[{i.source or 'KB'}]: {i.content[:500]}" for i in kb_items
+                    )
+
     if user_settings and user_settings.system_prompt:
         base = user_settings.system_prompt
     elif think:
@@ -46,11 +66,14 @@ async def build_system_prompt(user_id: int, think: bool) -> str:
     if think and "think step-by-step" not in base.lower():
         base += "\nThink step-by-step before answering. Show your reasoning process clearly, then provide your final answer."
 
+    parts = [base]
     if memories:
         memory_text = "\n".join(f"- {m.content}" for m in memories)
-        return f"{base}\n\nThings you remember about this user:\n{memory_text}"
+        parts.append(f"Things you remember about this user:\n{memory_text}")
+    if kb_context:
+        parts.append(kb_context)
 
-    return base
+    return "\n\n".join(parts)
 
 
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False):
@@ -88,7 +111,15 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     if web_search:
         user_model = "perplexity/sonar"
 
-    system_prompt = await build_system_prompt(user_id, think)
+    last_user_msg = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            content = m.get("content", "")
+            if isinstance(content, str):
+                last_user_msg = content
+            break
+
+    system_prompt = await build_system_prompt(user_id, think, last_user_msg)
     messages.insert(0, {"role": "system", "content": system_prompt})
 
     if images and messages:

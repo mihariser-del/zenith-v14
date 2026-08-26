@@ -8,6 +8,7 @@ from auth import router as auth_router
 from chats import router as chats_router
 from memories import router as memories_router
 from user_settings import router as settings_router
+from knowledge import router as knowledge_router
 
 
 @asynccontextmanager
@@ -22,6 +23,7 @@ app.include_router(auth_router)
 app.include_router(chats_router)
 app.include_router(memories_router)
 app.include_router(settings_router)
+app.include_router(knowledge_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

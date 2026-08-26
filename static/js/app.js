@@ -46,6 +46,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('memory-search').addEventListener('input', (e) => Memory.search(e.target.value));
     $('memory-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') Memory.add(); });
 
+    $('kb-btn').addEventListener('click', () => { Knowledge.open(); closeSidebar(); });
+    $('close-kb').addEventListener('click', () => Knowledge.close());
+    $('kb-create-btn').addEventListener('click', () => Knowledge.create());
+    $('close-kb-items').addEventListener('click', () => Knowledge.closeItems());
+    $('kb-item-add-btn').addEventListener('click', () => Knowledge.addItem($('kb-items-modal').dataset.kbId));
+    $('kb-item-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') Knowledge.addItem($('kb-items-modal').dataset.kbId); });
+    $('kb-file-btn').addEventListener('click', () => $('kb-file-input').click());
+    $('kb-file-input').addEventListener('change', () => { if ($('kb-file-input').files.length) Knowledge.addFile($('kb-items-modal').dataset.kbId); });
+
     $('think-btn').addEventListener('click', () => {
         $('think-btn').classList.toggle('active');
     });
@@ -89,5 +98,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('memory-modal').addEventListener('click', e => {
         if (e.target === $('memory-modal')) Memory.close();
+    });
+    $('kb-modal').addEventListener('click', e => {
+        if (e.target === $('kb-modal')) Knowledge.close();
+    });
+    $('kb-items-modal').addEventListener('click', e => {
+        if (e.target === $('kb-items-modal')) Knowledge.closeItems();
     });
 });

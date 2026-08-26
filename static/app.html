@@ -40,6 +40,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
             Memory
         </button>
+        <button class="btn info" id="kb-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            Knowledge
+        </button>
         <button class="btn" id="settings-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             Settings
@@ -244,6 +248,39 @@
     </div>
 </div>
 
+<div id="kb-modal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3 style="text-align:center; margin-bottom: 15px; color: var(--accent-solid);">Knowledge Bases</h3>
+        <p style="text-align:center; color:#888; font-size:13px; margin-bottom:15px;">Upload documents or paste text to give Zenith custom knowledge.</p>
+        <button class="btn primary" id="kb-create-btn" style="margin-bottom:15px; justify-content:center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Knowledge Base
+        </button>
+        <div id="kb-list" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-kb" style="border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: transparent; color: var(--text);">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="kb-items-modal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3 id="kb-items-title" style="text-align:center; margin-bottom: 15px; color: var(--accent-solid);">Items</h3>
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <input type="text" id="kb-item-input" placeholder="Paste text content..." style="flex:1; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; outline:none; font-size:14px;">
+            <button class="btn primary" id="kb-item-add-btn">Add</button>
+        </div>
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <input type="file" id="kb-file-input" accept=".txt,.md,.json,.csv" style="display:none;">
+            <button class="btn" id="kb-file-btn" style="border:1px solid var(--border); padding:8px 12px; border-radius:8px; flex:1; justify-content:center;">Upload File</button>
+        </div>
+        <div id="kb-items-list" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-kb-items" style="border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: transparent; color: var(--text);">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="about-modal" class="modal">
     <div class="modal-content" style="text-align: center;">
         <div class="z-logo" style="margin: 0 auto 10px; width: 64px; height: 64px; font-size: 40px;">Z</div>
@@ -258,6 +295,7 @@
 <script src="/static/js/voice.js"></script>
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/memory.js"></script>
+<script src="/static/js/knowledge.js"></script>
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/app.js"></script>
 </body>

@@ -18,11 +18,11 @@
 - [x] Universal search (search across chats, memory, knowledge)
 
 ## Phase 3 — File Operations
-- [ ] File upload (images + docs)
+- [x] File upload (images + docs)
 - [ ] File editing / replacement
 - [ ] File version history
 - [ ] Folder management
-- [ ] PDF analysis
+- [x] PDF analysis
 - [ ] AI file search
 
 ## Phase 4 — Document Generation

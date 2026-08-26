@@ -163,7 +163,9 @@ const Chat = {
             actions.className = 'msg-actions';
             actions.innerHTML = `
                 <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
-                <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>`;
+                <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>
+                <button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>
+                <button data-action="download-html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .html</button>`;
             actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
                 navigator.clipboard.writeText(content);
                 showToast('Copied!', 'success');
@@ -171,12 +173,37 @@ const Chat = {
             actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
                 Voice.speak(content);
             });
+            actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
+                Chat.downloadAs(content, 'response', 'md');
+            });
+            actions.querySelector('[data-action="download-html"]').addEventListener('click', () => {
+                Chat.downloadAs(content, 'response', 'html');
+            });
             wrapper.appendChild(actions);
         }
 
         container.appendChild(wrapper);
         container.scrollTop = container.scrollHeight;
         return bubble;
+    },
+
+    async downloadAs(content, filename, format) {
+        try {
+            const res = await fetch('/api/generate/document', {
+                method: 'POST',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content, filename, format }),
+            });
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${filename}.${format}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+        } catch (e) {
+            showToast('Download failed: ' + e.message, 'error');
+        }
     },
 
     updateStreamingBubble(bubble, text) {
@@ -268,13 +295,16 @@ const Chat = {
                 // Add action buttons
                 const actions = document.createElement('div');
                 actions.className = 'msg-actions';
-                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>`;
+                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button><button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>`;
                 actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
                     navigator.clipboard.writeText(fullResponse);
                     showToast('Copied!', 'success');
                 });
                 actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
                     Voice.speak(fullResponse);
+                });
+                actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
+                    Chat.downloadAs(fullResponse, 'response', 'md');
                 });
                 bubble.parentElement.appendChild(actions);
             }

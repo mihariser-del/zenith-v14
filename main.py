@@ -11,6 +11,7 @@ from user_settings import router as settings_router
 from knowledge import router as knowledge_router
 from search import router as search_router
 from files import router as files_router
+from generate import router as generate_router
 
 
 @asynccontextmanager
@@ -28,6 +29,7 @@ app.include_router(settings_router)
 app.include_router(knowledge_router)
 app.include_router(search_router)
 app.include_router(files_router)
+app.include_router(generate_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

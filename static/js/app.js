@@ -14,16 +14,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     Voice.init();
     await Chat.init();
 
-    $('new-chat-btn').addEventListener('click', () => Chat.create());
+    function closeSidebar() {
+        $('sidebar').classList.remove('open');
+        $('sidebar-overlay').classList.remove('active');
+    }
+
+    function openSidebar() {
+        $('sidebar').classList.add('open');
+        $('sidebar-overlay').classList.add('active');
+    }
+
+    $('hamburger-btn').addEventListener('click', openSidebar);
+    $('sidebar-overlay').addEventListener('click', closeSidebar);
+
+    $('new-chat-btn').addEventListener('click', async () => {
+        await Chat.create();
+        closeSidebar();
+    });
     $('send-btn').addEventListener('click', () => Chat.send());
-    $('settings-btn').addEventListener('click', () => Settings.open());
+    $('settings-btn').addEventListener('click', () => { Settings.open(); closeSidebar(); });
     $('close-settings').addEventListener('click', () => Settings.close());
     $('save-settings').addEventListener('click', () => Settings.saveFromForm());
-    $('info-btn').addEventListener('click', () => $('about-modal').style.display = 'flex');
+    $('info-btn').addEventListener('click', () => { $('about-modal').style.display = 'flex'; closeSidebar(); });
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
 
-    $('memory-btn').addEventListener('click', () => Memory.open());
+    $('memory-btn').addEventListener('click', () => { Memory.open(); closeSidebar(); });
     $('close-memory').addEventListener('click', () => Memory.close());
     $('memory-add-btn').addEventListener('click', () => Memory.add());
     $('memory-extract-btn').addEventListener('click', () => Memory.autoExtract());
@@ -39,7 +55,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     $('clear-all-btn').addEventListener('click', () => {
-        if (confirm('Delete ALL chats?')) Chat.clearAll();
+        if (confirm('Delete ALL chats?')) { Chat.clearAll(); closeSidebar(); }
     });
 
     $('attach-btn').addEventListener('click', () => $('file-input').click());

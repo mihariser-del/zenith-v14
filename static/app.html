@@ -14,6 +14,12 @@
 
 <div class="toast" id="toast"></div>
 
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<button class="hamburger" id="hamburger-btn" aria-label="Open menu">
+    <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+</button>
+
 <aside class="sidebar" id="sidebar">
     <div class="brand">
         <div class="z-logo">Z</div>
@@ -21,16 +27,31 @@
     </div>
 
     <div class="sidebar-actions">
-        <button class="btn primary" id="new-chat-btn">+ New Chat</button>
+        <button class="btn primary" id="new-chat-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+            New Chat
+        </button>
     </div>
 
     <div class="chat-list" id="chat-list"></div>
 
     <div class="bottom-bar">
-        <button class="btn info" id="memory-btn">Memory</button>
-        <button class="btn" id="settings-btn">Settings</button>
-        <button class="btn info" id="info-btn">About Zenith</button>
-        <button class="btn danger" id="clear-all-btn">Clear All History</button>
+        <button class="btn info" id="memory-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+            Memory
+        </button>
+        <button class="btn" id="settings-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Settings
+        </button>
+        <button class="btn info" id="info-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            About Zenith
+        </button>
+        <button class="btn danger" id="clear-all-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            Clear All History
+        </button>
     </div>
 
     <div class="user-profile-bar">
@@ -48,15 +69,29 @@
     <div class="input-wrapper">
         <div class="attachments-area" id="att-bar"></div>
         <div class="composer-box">
-            <button class="composer-icon" id="attach-btn" title="Attach files">+</button>
+            <button class="composer-icon" id="attach-btn" title="Attach files">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                <span>Attach</span>
+            </button>
             <input type="file" id="file-input" multiple accept="image/*, .txt, .md, .json, .csv, .js, .py, .html, .css" style="display: none;">
             <div class="input-col">
-                <textarea id="user-input" rows="1" placeholder="Ask anything"></textarea>
+                <textarea id="user-input" rows="1" placeholder="Ask anything..."></textarea>
             </div>
-            <button class="composer-icon" id="think-btn" title="Think mode">Think</button>
-            <button class="composer-icon" id="web-btn" title="Web Search">Web</button>
-            <button class="composer-icon" id="mic-btn" title="Voice Input">Mic</button>
-            <button id="send-btn">Send</button>
+            <button class="composer-icon" id="think-btn" title="Think mode">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                <span>Think</span>
+            </button>
+            <button class="composer-icon" id="web-btn" title="Web Search">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                <span>Web</span>
+            </button>
+            <button class="composer-icon" id="mic-btn" title="Voice Input">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+                <span>Mic</span>
+            </button>
+            <button id="send-btn" title="Send message">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            </button>
         </div>
     </div>
 </main>
@@ -66,7 +101,10 @@
         <h3 style="text-align:center; margin-bottom: 20px; color: var(--accent-solid);">Settings</h3>
 
         <details open>
-            <summary>Model</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Model
+            </summary>
             <div class="details-content">
                 <label>AI Model</label>
                 <select id="model-select">
@@ -88,7 +126,10 @@
         </details>
 
         <details>
-            <summary>System Prompt</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                System Prompt
+            </summary>
             <div class="details-content">
                 <label>Personality Preset</label>
                 <select id="personality-select">
@@ -105,7 +146,10 @@
         </details>
 
         <details>
-            <summary>Memory</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+                Memory
+            </summary>
             <div class="details-content">
                 <label>Memory Enabled</label>
                 <select id="memory-enabled">
@@ -116,7 +160,10 @@
         </details>
 
         <details>
-            <summary>Appearance</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+                Appearance
+            </summary>
             <div class="details-content">
                 <label>Theme</label>
                 <select id="theme-select">
@@ -140,7 +187,10 @@
         </details>
 
         <details>
-            <summary>Voice</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                Voice
+            </summary>
             <div class="details-content">
                 <label>Speech Language</label>
                 <select id="speech-lang">
@@ -155,7 +205,10 @@
         </details>
 
         <details>
-            <summary>Chat Behavior</summary>
+            <summary>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Chat Behavior
+            </summary>
             <div class="details-content">
                 <label>Markdown / Code Highlighting</label>
                 <select id="markdown-toggle">

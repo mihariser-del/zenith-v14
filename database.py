@@ -35,6 +35,7 @@ class User(Base):
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
     memories = relationship("Memory", back_populates="user", cascade="all, delete-orphan")
     settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    knowledge_bases = relationship("KnowledgeBase", back_populates="user", cascade="all, delete-orphan")
 
 
 class Chat(Base):
@@ -88,6 +89,32 @@ class UserSettings(Base):
     memory_enabled = Column(Boolean, default=True)
 
     user = relationship("User", back_populates="settings")
+
+
+class KnowledgeBase(Base):
+    __tablename__ = "knowledge_bases"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(100), nullable=False)
+    description = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="knowledge_bases")
+    items = relationship("KnowledgeItem", back_populates="knowledge_base", cascade="all, delete-orphan", order_by="KnowledgeItem.id")
+
+
+class KnowledgeItem(Base):
+    __tablename__ = "knowledge_items"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kb_id = Column(Integer, ForeignKey("knowledge_bases.id", ondelete="CASCADE"), nullable=False)
+    content = Column(Text, nullable=False)
+    source = Column(String(255), default="")
+    source_type = Column(String(50), default="text")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    knowledge_base = relationship("KnowledgeBase", back_populates="items")
 
 
 async def init_db():

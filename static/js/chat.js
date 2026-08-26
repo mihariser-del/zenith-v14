@@ -87,10 +87,43 @@ const Chat = {
         this.renderMessages();
     },
 
+    renderWelcome() {
+        return `
+        <div class="welcome-message">
+            <div class="welcome-z-logo">Z</div>
+            <h2>Welcome to Zenith</h2>
+            <p class="welcome-sub">Your AI assistant, powered by OpenRouter</p>
+            <div class="welcome-bubble">
+                <h3>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+                    What can I do?
+                </h3>
+                <div class="welcome-features">
+                    <div class="welcome-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+                        Think Mode
+                    </div>
+                    <div class="welcome-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        Web Search
+                    </div>
+                    <div class="welcome-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6v6l4 2"/></svg>
+                        Long-Term Memory
+                    </div>
+                    <div class="welcome-feature">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
+                        Voice Input
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    },
+
     async renderMessages() {
         const container = $('chat-container');
         if (!this.activeId) {
-            container.innerHTML = `<div class="welcome-message"><div class="big-icon">&#x1F680;</div><h2>Welcome to Zenith</h2><p>Your AI assistant.</p><p>Click "Think" for deeper reasoning mode.</p></div>`;
+            container.innerHTML = this.renderWelcome();
             return;
         }
 
@@ -98,7 +131,7 @@ const Chat = {
         container.innerHTML = '';
 
         if (messages.length === 0) {
-            container.innerHTML = `<div class="welcome-message"><div class="big-icon">&#x1F680;</div><h2>Welcome to Zenith</h2><p>Your AI assistant.</p><p>Click "Think" for deeper reasoning mode.</p></div>`;
+            container.innerHTML = this.renderWelcome();
             return;
         }
 
@@ -127,8 +160,8 @@ const Chat = {
             const actions = document.createElement('div');
             actions.className = 'msg-actions';
             actions.innerHTML = `
-                <button data-action="copy">Copy</button>
-                <button data-action="speak">Speak</button>`;
+                <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+                <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>`;
             actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
                 navigator.clipboard.writeText(content);
                 showToast('Copied!', 'success');
@@ -222,7 +255,7 @@ const Chat = {
                 // Add action buttons
                 const actions = document.createElement('div');
                 actions.className = 'msg-actions';
-                actions.innerHTML = `<button data-action="copy">Copy</button><button data-action="speak">Speak</button>`;
+                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>`;
                 actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
                     navigator.clipboard.writeText(fullResponse);
                     showToast('Copied!', 'success');

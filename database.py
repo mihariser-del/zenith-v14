@@ -117,6 +117,23 @@ class KnowledgeItem(Base):
     knowledge_base = relationship("KnowledgeBase", back_populates="items")
 
 
+class UploadedFile(Base):
+    __tablename__ = "uploaded_files"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="SET NULL"), nullable=True)
+    filename = Column(String(255), nullable=False)
+    stored_name = Column(String(255), nullable=False)
+    file_size = Column(Integer, default=0)
+    mime_type = Column(String(100), default="application/octet-stream")
+    version = Column(Integer, default=1)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="files")
+    chat = relationship("Chat", back_populates="files")
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

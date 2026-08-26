@@ -12,10 +12,10 @@
 ## Phase 2 — Knowledge & Research
 - [x] Custom knowledge bases
 - [x] Website/PDF knowledge import
-- [ ] Deep research mode
-- [ ] Citation system
-- [ ] Fact-check mode
-- [ ] Universal search (search across chats, memory, knowledge)
+- [x] Deep research mode
+- [x] Citation system
+- [x] Fact-check mode
+- [x] Universal search (search across chats, memory, knowledge)
 
 ## Phase 3 — File Operations
 - [ ] File upload (images + docs)

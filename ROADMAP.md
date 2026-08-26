@@ -26,8 +26,8 @@
 - [ ] AI file search
 
 ## Phase 4 — Document Generation
-- [ ] Document generation (Word/PDF)
-- [ ] Spreadsheet generation (CSV/Excel)
+- [x] Document generation (Word/PDF/HTML/MD)
+- [x] Spreadsheet generation (CSV)
 - [ ] Presentation generation (PPTX)
 
 ## Phase 5 — Media & Voice

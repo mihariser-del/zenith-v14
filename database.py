@@ -37,6 +37,7 @@ class User(Base):
     settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     knowledge_bases = relationship("KnowledgeBase", back_populates="user", cascade="all, delete-orphan")
     files = relationship("UploadedFile", back_populates="user", cascade="all, delete-orphan")
+    login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan")
 
 
 class Chat(Base):
@@ -134,6 +135,19 @@ class UploadedFile(Base):
 
     user = relationship("User", back_populates="files")
     chat = relationship("Chat", back_populates="files")
+
+
+class LoginHistory(Base):
+    __tablename__ = "login_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ip_address = Column(String(45), default="")
+    user_agent = Column(String(500), default="")
+    login_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    success = Column(Boolean, default=True)
+
+    user = relationship("User", back_populates="login_history")
 
 
 async def init_db():

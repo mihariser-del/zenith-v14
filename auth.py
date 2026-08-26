@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
-from database import User, get_db, settings
+from database import User, LoginHistory, get_db, settings
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -95,12 +95,20 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/login")
-async def login(req: LoginRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.username == req.username))
     user = result.scalar_one_or_none()
+    ip = request.client.host if request.client else ""
+    ua = request.headers.get("user-agent", "")[:500]
 
     if not user or not verify_password(req.password, user.password_hash):
+        if user:
+            db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
+            await db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
+    await db.commit()
 
     token = create_token(user.id, user.username, user.is_admin)
     response.set_cookie(

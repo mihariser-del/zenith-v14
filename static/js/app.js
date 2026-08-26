@@ -58,6 +58,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('files-btn').addEventListener('click', () => { Files.open(); closeSidebar(); });
     $('close-files').addEventListener('click', () => Files.close());
 
+    $('security-btn').addEventListener('click', () => { Security.open(); closeSidebar(); });
+    $('close-security').addEventListener('click', () => Security.close());
+
     $('think-btn').addEventListener('click', () => {
         $('think-btn').classList.toggle('active');
     });
@@ -167,5 +170,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('files-modal').addEventListener('click', e => {
         if (e.target === $('files-modal')) Files.close();
+    });
+    $('security-modal').addEventListener('click', e => {
+        if (e.target === $('security-modal')) Security.close();
     });
 });

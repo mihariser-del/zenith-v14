@@ -36,17 +36,17 @@
 - [ ] Background remover
 - [ ] AI upscaling
 - [ ] Thumbnail/logo generator
-- [ ] Speech-to-text
-- [ ] Text-to-speech (enhanced)
-- [ ] Voice commands
+- [x] Speech-to-text
+- [x] Text-to-speech (enhanced)
+- [x] Voice commands (auto-send on stop)
 - [ ] Voice chat (live conversation mode)
 
 ## Phase 6 — Security
 - [ ] Two-factor authentication (TOTP)
 - [ ] Passkeys
-- [ ] Login history
+- [x] Login history
 - [ ] Device management
-- [ ] Security dashboard
+- [x] Security dashboard
 
 ## Phase 7 — Developer Tools
 - [ ] Code execution sandbox

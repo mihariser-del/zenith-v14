@@ -61,6 +61,23 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('security-btn').addEventListener('click', () => { Security.open(); closeSidebar(); });
     $('close-security').addEventListener('click', () => Security.close());
 
+    $('code-btn').addEventListener('click', () => { CodeExec.open(); closeSidebar(); });
+    $('close-code').addEventListener('click', () => CodeExec.close());
+    $('run-code-btn').addEventListener('click', () => CodeExec.run());
+    $('code-modal').addEventListener('click', e => { if (e.target === $('code-modal')) CodeExec.close(); });
+    $('code-editor').addEventListener('keydown', (e) => {
+        if (e.key === 'Tab') {
+            e.preventDefault();
+            const start = e.target.selectionStart;
+            e.target.value = e.target.value.substring(0, start) + '    ' + e.target.value.substring(e.target.selectionEnd);
+            e.target.selectionStart = e.target.selectionEnd = start + 4;
+        }
+        if (e.key === 'Enter' && e.ctrlKey) {
+            e.preventDefault();
+            CodeExec.run();
+        }
+    });
+
     $('think-btn').addEventListener('click', () => {
         $('think-btn').classList.toggle('active');
     });

@@ -13,6 +13,7 @@ from search import router as search_router
 from files import router as files_router
 from generate import router as generate_router
 from security import router as security_router
+from codeexec import router as codeexec_router
 
 
 @asynccontextmanager
@@ -32,6 +33,7 @@ app.include_router(search_router)
 app.include_router(files_router)
 app.include_router(generate_router)
 app.include_router(security_router)
+app.include_router(codeexec_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

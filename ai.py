@@ -17,12 +17,28 @@ DEFAULT_THINK_PROMPT = (
     "Remove any [1][2] citation markers from your text."
 )
 
+RESEARCH_PROMPT = (
+    "You are Zenith, a deep research assistant created by Wanzu Ibrahim. "
+    "When given a research query, provide a comprehensive, well-structured analysis. "
+    "Include multiple perspectives, cite web sources where available, and clearly state "
+    "what is known vs what is uncertain. Structure your response with clear headings. "
+    "End with a brief summary of key findings."
+)
+
 
 def strip_citations(text: str) -> str:
     return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
 
 
-async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "") -> str:
+def process_response(text: str, research: bool) -> str:
+    if research:
+        text = re.sub(r"\[\d+\]", lambda m: m.group(0), text)
+    else:
+        text = strip_citations(text)
+    return text
+
+
+async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False) -> str:
     async with async_session() as db:
         from sqlalchemy import select
 
@@ -56,14 +72,16 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
                         f"[{i.source or 'KB'}]: {i.content[:500]}" for i in kb_items
                     )
 
-    if user_settings and user_settings.system_prompt:
+    if research:
+        base = RESEARCH_PROMPT
+    elif user_settings and user_settings.system_prompt:
         base = user_settings.system_prompt
     elif think:
         base = DEFAULT_THINK_PROMPT
     else:
         base = DEFAULT_SYSTEM_PROMPT
 
-    if think and "think step-by-step" not in base.lower():
+    if think and "think step-by-step" not in base.lower() and not research:
         base += "\nThink step-by-step before answering. Show your reasoning process clearly, then provide your final answer."
 
     parts = [base]
@@ -76,7 +94,7 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
     return "\n\n".join(parts)
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False):
     user_id = None
     messages = []
     user_model = "openai/gpt-4o-mini"
@@ -108,8 +126,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
 
-    if web_search:
+    if web_search or research:
         user_model = "perplexity/sonar"
+
+    if research:
+        user_max_tokens = 4096
+        user_temperature = 0.3
 
     last_user_msg = ""
     for m in reversed(messages):
@@ -119,7 +141,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 last_user_msg = content
             break
 
-    system_prompt = await build_system_prompt(user_id, think, last_user_msg)
+    system_prompt = await build_system_prompt(user_id, think, last_user_msg, research)
     messages.insert(0, {"role": "system", "content": system_prompt})
 
     if images and messages:
@@ -134,6 +156,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             })
         if content_parts:
             last_user["content"] = content_parts
+
+    # research flag needs to be accessible in the generator
+    _research = research
 
     async def generate():
         full_response = ""
@@ -171,7 +196,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                             obj = json.loads(data)
                             delta = obj.get("choices", [{}])[0].get("delta", {})
                             if "content" in delta and delta["content"]:
-                                token = strip_citations(delta["content"])
+                                token = process_response(delta["content"], _research)
                                 full_response += token
                                 yield f"data: {json.dumps({'token': token})}\n\n"
                         except json.JSONDecodeError:

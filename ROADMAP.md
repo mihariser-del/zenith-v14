@@ -10,8 +10,8 @@
 - [x] Live web search (via Perplexity/OpenRouter)
 
 ## Phase 2 — Knowledge & Research
-- [ ] Custom knowledge bases
-- [ ] Website/PDF knowledge import
+- [x] Custom knowledge bases
+- [x] Website/PDF knowledge import
 - [ ] Deep research mode
 - [ ] Citation system
 - [ ] Fact-check mode

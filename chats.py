@@ -124,4 +124,5 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     await db.commit()
 
     web_search = body.get("web_search", False)
-    return await stream_chat(chat.id, think, images=images, web_search=web_search)
+    research = body.get("research", False)
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research)

@@ -63,6 +63,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('web-btn').classList.toggle('active');
     });
 
+    $('research-btn').addEventListener('click', () => {
+        $('research-btn').classList.toggle('active');
+        if ($('research-btn').classList.contains('active')) {
+            $('web-btn').classList.add('active');
+        }
+    });
+
     $('clear-all-btn').addEventListener('click', () => {
         if (confirm('Delete ALL chats?')) { Chat.clearAll(); closeSidebar(); }
     });

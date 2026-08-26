@@ -19,11 +19,15 @@ const Chat = {
     },
 
     async create() {
-        const { chat } = await api('/api/chats', { method: 'POST' });
-        this.chats[chat.id] = chat;
-        this.activeId = chat.id;
-        this.renderList();
-        this.renderMessages();
+        try {
+            const { chat } = await api('/api/chats', { method: 'POST' });
+            this.chats[chat.id] = chat;
+            this.activeId = chat.id;
+            this.renderList();
+            await this.renderMessages();
+        } catch (e) {
+            showToast('Failed to create chat: ' + (e.message || 'Unknown error'), 'error');
+        }
     },
 
     async rename(id, title) {
@@ -46,11 +50,15 @@ const Chat = {
     },
 
     async clearAll() {
-        for (const id of Object.keys(this.chats)) {
-            await api(`/api/chats/${id}`, { method: 'DELETE' });
+        const ids = Object.keys(this.chats);
+        for (const id of ids) {
+            try { await api(`/api/chats/${id}`, { method: 'DELETE' }); } catch (e) {}
         }
         this.chats = {};
+        this.activeId = null;
+        this.renderList();
         await this.create();
+        showToast('All chats cleared', 'success');
     },
 
     renderList() {
@@ -70,12 +78,13 @@ const Chat = {
                 if (e.target.closest('[data-action]')) return;
                 this.switchTo(chat.id);
             });
-            div.querySelector('[data-action="rename"]').addEventListener('click', () => {
-                const newTitle = prompt('Rename chat:', chat.title);
+            div.querySelector('[data-action="rename"]').addEventListener('click', async () => {
+                const newTitle = await showPrompt('Rename chat', chat.title);
                 if (newTitle && newTitle.trim()) this.rename(chat.id, newTitle.trim());
             });
-            div.querySelector('[data-action="delete"]').addEventListener('click', () => {
-                if (confirm('Delete this chat permanently?')) this.remove(chat.id);
+            div.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+                const ok = await showConfirm('Delete chat?', 'This will permanently delete this conversation.', true);
+                if (ok) this.remove(chat.id);
             });
             list.appendChild(div);
         });

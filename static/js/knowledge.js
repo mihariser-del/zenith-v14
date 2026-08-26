@@ -38,16 +38,17 @@ const Knowledge = {
     },
 
     async create() {
-        const name = prompt('Knowledge base name:');
+        const name = await showPrompt('Knowledge base name');
         if (!name || !name.trim()) return;
-        const desc = prompt('Description (optional):') || '';
+        const desc = await showPrompt('Description (optional)') || '';
         await api('/api/knowledge', { method: 'POST', body: JSON.stringify({ name: name.trim(), description: desc.trim() }) });
         await this.load();
         showToast('Knowledge base created', 'success');
     },
 
     async remove(id) {
-        if (!confirm('Delete this knowledge base and all its items?')) return;
+        const ok = await showConfirm('Delete knowledge base?', 'All items in this knowledge base will be permanently deleted.', true);
+        if (!ok) return;
         await api(`/api/knowledge/${id}`, { method: 'DELETE' });
         await this.load();
         showToast('Deleted', 'success');

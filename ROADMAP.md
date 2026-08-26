@@ -49,7 +49,7 @@
 - [x] Security dashboard
 
 ## Phase 7 — Developer Tools
-- [ ] Code execution sandbox
+- [x] Code execution sandbox (Python/JS/Shell)
 - [ ] GitHub integration
 - [ ] Website builder
 - [ ] App builder

@@ -41,7 +41,8 @@ const Files = {
     },
 
     async remove(id) {
-        if (!confirm('Delete this file?')) return;
+        const ok = await showConfirm('Delete file?', 'This file will be permanently deleted.', true);
+        if (!ok) return;
         await api(`/api/files/${id}`, { method: 'DELETE' });
         await this.load();
         showToast('File deleted', 'success');

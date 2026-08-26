@@ -143,8 +143,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         }, 300);
     });
 
-    $('clear-all-btn').addEventListener('click', () => {
-        if (confirm('Delete ALL chats?')) { Chat.clearAll(); closeSidebar(); }
+    $('clear-all-btn').addEventListener('click', async () => {
+        const ok = await showConfirm('Clear all history?', 'All conversations will be permanently deleted. This cannot be undone.', true);
+        if (ok) { await Chat.clearAll(); closeSidebar(); }
     });
 
     $('attach-btn').addEventListener('click', () => $('file-input').click());
@@ -154,6 +155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     $('logout-btn').addEventListener('click', async () => {
+        const ok = await showConfirm('Log out?', 'Are you sure you want to log out?', false);
+        if (!ok) return;
         await api('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
     });

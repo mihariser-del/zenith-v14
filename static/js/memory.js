@@ -40,7 +40,7 @@ const Memory = {
     },
 
     async edit(memory) {
-        const newContent = prompt('Edit memory:', memory.content);
+        const newContent = await showPrompt('Edit memory', memory.content);
         if (newContent && newContent.trim() !== memory.content) {
             await api(`/api/memories/${memory.id}`, { method: 'PATCH', body: JSON.stringify({ content: newContent.trim() }) });
             await this.load();
@@ -49,7 +49,8 @@ const Memory = {
     },
 
     async remove(id) {
-        if (!confirm('Delete this memory?')) return;
+        const ok = await showConfirm('Delete memory?', 'This memory will be permanently removed.', true);
+        if (!ok) return;
         await api(`/api/memories/${id}`, { method: 'DELETE' });
         await this.load();
         showToast('Memory deleted', 'success');

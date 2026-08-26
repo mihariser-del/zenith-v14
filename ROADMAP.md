@@ -7,7 +7,7 @@
 - [x] System prompt editor (Developer Mode)
 - [x] Custom AI personalities
 - [x] Multiple AI models + smart model routing
-- [ ] Live web search (via Perplexity/OpenRouter)
+- [x] Live web search (via Perplexity/OpenRouter)
 
 ## Phase 2 — Knowledge & Research
 - [ ] Custom knowledge bases

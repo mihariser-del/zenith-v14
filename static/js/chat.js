@@ -158,6 +158,7 @@ const Chat = {
         if (!this.activeId) await this.create();
 
         const think = $('think-btn').classList.contains('active');
+        const webSearch = $('web-btn').classList.contains('active');
         let fullContent = text;
         const images = [];
         this.attachments.forEach(att => {
@@ -182,7 +183,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: fullContent, images, think }),
+                body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch }),
             });
 
             const reader = res.body.getReader();
@@ -266,7 +267,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active') }),
+                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active') }),
             });
 
             const reader = res.body.getReader();

@@ -53,7 +53,7 @@ async def build_system_prompt(user_id: int, think: bool) -> str:
     return base
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False):
     user_id = None
     messages = []
     user_model = "openai/gpt-4o-mini"
@@ -84,6 +84,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None):
             user_model = user_settings_obj.model
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
+
+    if web_search:
+        user_model = "perplexity/sonar"
 
     system_prompt = await build_system_prompt(user_id, think)
     messages.insert(0, {"role": "system", "content": system_prompt})

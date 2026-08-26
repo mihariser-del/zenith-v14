@@ -34,6 +34,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('think-btn').classList.toggle('active');
     });
 
+    $('web-btn').addEventListener('click', () => {
+        $('web-btn').classList.toggle('active');
+    });
+
     $('clear-all-btn').addEventListener('click', () => {
         if (confirm('Delete ALL chats?')) Chat.clearAll();
     });

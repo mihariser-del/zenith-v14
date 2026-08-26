@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith v14</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+
+<aside class="sidebar" id="sidebar">
+    <div class="brand">
+        <div class="z-logo">Z</div>
+        <h2>Zenith</h2>
+    </div>
+
+    <div class="sidebar-actions">
+        <button class="btn primary" id="new-chat-btn">+ New Chat</button>
+    </div>
+
+    <div class="chat-list" id="chat-list"></div>
+
+    <div class="bottom-bar">
+        <button class="btn" id="settings-btn">Settings</button>
+        <button class="btn info" id="info-btn">About Zenith</button>
+        <button class="btn danger" id="clear-all-btn">Clear All History</button>
+    </div>
+
+    <div class="user-profile-bar">
+        <div class="user-avatar" id="user-avatar">U</div>
+        <div class="user-meta">
+            <div class="uname" id="user-name-display">User</div>
+        </div>
+        <button class="logout-btn" id="logout-btn">Logout</button>
+    </div>
+</aside>
+
+<main class="main" id="main">
+    <div id="chat-container"></div>
+
+    <div class="input-wrapper">
+        <div class="attachments-area" id="att-bar"></div>
+        <div class="composer-box">
+            <button class="composer-icon" id="attach-btn" title="Attach files">+</button>
+            <input type="file" id="file-input" multiple accept="image/*, .txt, .md, .json, .csv, .js, .py, .html, .css" style="display: none;">
+            <div class="input-col">
+                <textarea id="user-input" rows="1" placeholder="Ask anything"></textarea>
+            </div>
+            <button class="composer-icon" id="think-btn" title="Think mode">Think</button>
+            <button class="composer-icon" id="mic-btn" title="Voice Input">Mic</button>
+            <button id="send-btn">Send</button>
+        </div>
+    </div>
+</main>
+
+<div id="settings-modal" class="modal">
+    <div class="modal-content">
+        <h3 style="text-align:center; margin-bottom: 20px; color: var(--accent-solid);">Settings</h3>
+
+        <details open>
+            <summary>Model</summary>
+            <div class="details-content">
+                <label>AI Model</label>
+                <select id="model-select">
+                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
+                    <option value="openai/gpt-4o">GPT-4o</option>
+                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
+                    <option value="anthropic/claude-4-sonnet">Claude 4 Sonnet</option>
+                    <option value="google/gemini-flash-1.5">Gemini Flash</option>
+                    <option value="perplexity/sonar">Perplexity Sonar (Web)</option>
+                </select>
+                <label>Max Tokens</label>
+                <input type="number" id="max-tokens" value="2048" min="100" max="16384">
+                <label>Temperature</label>
+                <input type="number" id="temperature" value="0.7" min="0" max="2" step="0.1">
+            </div>
+        </details>
+
+        <details>
+            <summary>Appearance</summary>
+            <div class="details-content">
+                <label>Theme</label>
+                <select id="theme-select">
+                    <option value="dark">Dark (Deep Space)</option>
+                    <option value="light">Light (Clean)</option>
+                </select>
+                <label>Accent Color</label>
+                <select id="accent-select">
+                    <option value="#0066ff">Blue (Original)</option>
+                    <option value="#8b5cf6">Purple</option>
+                    <option value="#ff4d4d">Red</option>
+                    <option value="#00ff88">Green</option>
+                </select>
+                <label>Message Spacing</label>
+                <select id="msg-spacing">
+                    <option value="compact">Compact</option>
+                    <option value="cozy" selected>Cozy</option>
+                    <option value="spacious">Spacious</option>
+                </select>
+            </div>
+        </details>
+
+        <details>
+            <summary>Voice</summary>
+            <div class="details-content">
+                <label>Speech Language</label>
+                <select id="speech-lang">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="es-ES">Spanish</option>
+                    <option value="fr-FR">French</option>
+                    <option value="de-DE">German</option>
+                    <option value="ja-JP">Japanese</option>
+                </select>
+            </div>
+        </details>
+
+        <details>
+            <summary>Chat Behavior</summary>
+            <div class="details-content">
+                <label>Markdown / Code Highlighting</label>
+                <select id="markdown-toggle">
+                    <option value="true" selected>Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
+            </div>
+        </details>
+
+        <div class="modal-actions">
+            <button class="btn" id="close-settings" style="border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: transparent; color: var(--text);">Cancel</button>
+            <button class="btn primary" id="save-settings">Save</button>
+        </div>
+    </div>
+</div>
+
+<div id="about-modal" class="modal">
+    <div class="modal-content" style="text-align: center;">
+        <div class="z-logo" style="margin: 0 auto 10px; width: 64px; height: 64px; font-size: 40px;">Z</div>
+        <h2>Zenith v14</h2>
+        <p style="margin-top: 15px;">Created by: <strong>Wanzu Ibrahim</strong></p>
+        <p style="margin-top: 8px; color: #888; font-size: 13px;">Powered by OpenRouter &middot; Built with FastAPI</p>
+        <button class="btn primary" id="close-about" style="margin-top: 20px; border: none; padding: 10px; border-radius: 8px; background: var(--accent-solid); color: white;">Close</button>
+    </div>
+</div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/voice.js"></script>
+<script src="/static/js/settings.js"></script>
+<script src="/static/js/chat.js"></script>
+<script src="/static/js/app.js"></script>
+</body>
+</html>

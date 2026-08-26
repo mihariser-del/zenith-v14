@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith v14</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="auth-page">
+
+<div class="landing-page" id="landing-page">
+    <div class="landing-content">
+        <h1 class="landing-title">WELCOME TO ZENITH</h1>
+        <p class="landing-subtitle">The Pinnacle of Intelligence</p>
+        <button class="start-btn" id="start-btn">START</button>
+    </div>
+</div>
+
+<div class="login-screen" id="login-screen">
+    <div class="login-container">
+        <div class="login-header">
+            <h1>ZENITH</h1>
+            <p>Secure Authentication</p>
+        </div>
+        <div class="auth-tabs">
+            <div class="auth-tab active" data-tab="login">Login</div>
+            <div class="auth-tab" data-tab="register">Register</div>
+        </div>
+        <div id="login-form-container">
+            <form class="login-form" id="login-form">
+                <label class="login-label">USERNAME</label>
+                <input type="text" id="login-username" placeholder="Enter your username" required autocomplete="username">
+                <label class="login-label">PASSWORD</label>
+                <input type="password" id="login-password" placeholder="Enter your password" required autocomplete="current-password">
+                <div id="login-msg" class="auth-msg"></div>
+                <button type="submit" class="login-btn" id="login-btn">LOGIN</button>
+            </form>
+        </div>
+        <div id="register-form-container" style="display:none;">
+            <form class="login-form" id="register-form">
+                <label class="login-label">USERNAME</label>
+                <input type="text" id="reg-username" placeholder="Choose a username" required autocomplete="username" minlength="3">
+                <label class="login-label">EMAIL</label>
+                <input type="email" id="reg-email" placeholder="Enter your email" required autocomplete="email">
+                <label class="login-label">PASSWORD</label>
+                <input type="password" id="reg-password" placeholder="Strong password required" required autocomplete="new-password" minlength="6">
+                <label class="login-label">CONFIRM PASSWORD</label>
+                <input type="password" id="reg-password-confirm" placeholder="Confirm your password" required autocomplete="new-password">
+                <div id="register-msg" class="auth-msg"></div>
+                <button type="submit" class="login-btn" id="register-btn">CREATE ACCOUNT</button>
+            </form>
+        </div>
+        <a class="back-link" id="back-link">&larr; Back to Welcome</a>
+    </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/static/js/api.js"></script>
+<script src="/static/js/auth.js"></script>
+</body>
+</html>

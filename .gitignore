@@ -1,0 +1,9 @@
+.env
+zenith.db
+__pycache__/
+*.pyc
+uploads/*
+!uploads/.gitkeep
+.DS_Store
+*.log
+DEPLOY_PLAN.md

@@ -70,6 +70,56 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    $('factcheck-btn').addEventListener('click', () => {
+        $('factcheck-btn').classList.toggle('active');
+        if ($('factcheck-btn').classList.contains('active')) {
+            $('web-btn').classList.add('active');
+        }
+    });
+
+    $('search-toggle-btn').addEventListener('click', () => {
+        const panel = $('search-results');
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        if (panel.style.display === 'block') $('universal-search').focus();
+    });
+    $('close-search').addEventListener('click', () => {
+        $('search-results').style.display = 'none';
+    });
+
+    let searchTimer;
+    $('universal-search').addEventListener('input', (e) => {
+        clearTimeout(searchTimer);
+        const q = e.target.value.trim();
+        if (!q) { $('search-result-list').innerHTML = ''; return; }
+        searchTimer = setTimeout(async () => {
+            const { results, total } = await api('/api/search', { method: 'POST', body: JSON.stringify({ query: q }) });
+            const list = $('search-result-list');
+            if (results.length === 0) {
+                list.innerHTML = '<p style="color:#888; text-align:center; padding:40px;">No results found.</p>';
+                return;
+            }
+            list.innerHTML = `<p style="color:#888; font-size:13px; margin-bottom:10px;">${total} results</p>`;
+            results.forEach(r => {
+                const typeColors = { chat: '#0066ff', message: '#00ff88', memory: '#ffaa00', knowledge: '#ff44cc' };
+                const div = document.createElement('div');
+                div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; margin-bottom:8px; cursor:pointer;';
+                div.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:4px;">
+                        <span style="font-size:11px; padding:2px 8px; border-radius:4px; background:${typeColors[r.type] || '#666'}22; color:${typeColors[r.type] || '#666'}; font-weight:600;">${r.type}</span>
+                        <strong style="font-size:13px; flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${r.title}</strong>
+                    </div>
+                    <div style="font-size:12px; color:#888;">${r.snippet}</div>`;
+                if (r.type === 'chat') {
+                    div.addEventListener('click', async () => {
+                        await Chat.switchTo(r.id);
+                        $('search-results').style.display = 'none';
+                    });
+                }
+                list.appendChild(div);
+            });
+        }, 300);
+    });
+
     $('clear-all-btn').addEventListener('click', () => {
         if (confirm('Delete ALL chats?')) { Chat.clearAll(); closeSidebar(); }
     });

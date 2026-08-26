@@ -153,6 +153,8 @@ summary svg { width: 16px; height: 16px; }
 .toast.success { border-left-color: #00ff88; }
 
 /* STREAMING CURSOR */
+.thinking-text { color: var(--accent-solid); font-style: italic; animation: thinkingPulse 1.5s ease-in-out infinite; }
+@keyframes thinkingPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 .streaming-cursor::after { content: ''; display: inline-block; width: 2px; height: 1em; background: var(--accent-solid); margin-left: 2px; animation: blink 0.8s infinite; vertical-align: text-bottom; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 

@@ -147,7 +147,9 @@ const Chat = {
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble' + (streaming ? ' streaming-cursor' : '');
 
-        if (role === 'assistant') {
+        if (streaming) {
+            bubble.innerHTML = '<span class="thinking-text">Thinking...</span>';
+        } else if (role === 'assistant') {
             bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
             bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         } else {
@@ -178,6 +180,8 @@ const Chat = {
     },
 
     updateStreamingBubble(bubble, text) {
+        const thinking = bubble.querySelector('.thinking-text');
+        if (thinking) thinking.remove();
         bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
         bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         const container = $('chat-container');
@@ -193,6 +197,7 @@ const Chat = {
         const think = $('think-btn').classList.contains('active');
         const webSearch = $('web-btn').classList.contains('active');
         const research = $('research-btn').classList.contains('active');
+        const factcheck = $('factcheck-btn').classList.contains('active');
         let fullContent = text;
         const images = [];
         this.attachments.forEach(att => {
@@ -217,7 +222,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch, research }),
+                body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch, research, factcheck }),
             });
 
             const reader = res.body.getReader();
@@ -301,7 +306,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active'), research: $('research-btn').classList.contains('active') }),
+                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
             });
 
             const reader = res.body.getReader();

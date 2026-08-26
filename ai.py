@@ -25,6 +25,15 @@ RESEARCH_PROMPT = (
     "End with a brief summary of key findings."
 )
 
+FACTCHECK_PROMPT = (
+    "You are Zenith, a fact-checking assistant created by Wanzu Ibrahim. "
+    "When given a claim to verify, analyze it thoroughly. For each claim: "
+    "1) State whether it is TRUE, FALSE, PARTIALLY TRUE, or UNVERIFIED. "
+    "2) Provide evidence and reasoning. "
+    "3) Cite sources where available. "
+    "Be precise, neutral, and transparent about the limits of your knowledge."
+)
+
 
 def strip_citations(text: str) -> str:
     return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
@@ -38,7 +47,7 @@ def process_response(text: str, research: bool) -> str:
     return text
 
 
-async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False) -> str:
+async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False, factcheck: bool = False) -> str:
     async with async_session() as db:
         from sqlalchemy import select
 
@@ -72,7 +81,9 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
                         f"[{i.source or 'KB'}]: {i.content[:500]}" for i in kb_items
                     )
 
-    if research:
+    if factcheck:
+        base = FACTCHECK_PROMPT
+    elif research:
         base = RESEARCH_PROMPT
     elif user_settings and user_settings.system_prompt:
         base = user_settings.system_prompt
@@ -94,7 +105,7 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
     return "\n\n".join(parts)
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False):
     user_id = None
     messages = []
     user_model = "openai/gpt-4o-mini"
@@ -126,10 +137,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
 
-    if web_search or research:
+    if web_search or research or factcheck:
         user_model = "perplexity/sonar"
 
-    if research:
+    if research or factcheck:
         user_max_tokens = 4096
         user_temperature = 0.3
 
@@ -141,7 +152,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 last_user_msg = content
             break
 
-    system_prompt = await build_system_prompt(user_id, think, last_user_msg, research)
+    system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
     messages.insert(0, {"role": "system", "content": system_prompt})
 
     if images and messages:
@@ -157,8 +168,8 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         if content_parts:
             last_user["content"] = content_parts
 
-    # research flag needs to be accessible in the generator
-    _research = research
+    # flags need to be accessible in the generator
+    _research = research or factcheck
 
     async def generate():
         full_response = ""

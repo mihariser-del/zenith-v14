@@ -23,6 +23,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
 
+    $('memory-btn').addEventListener('click', () => Memory.open());
+    $('close-memory').addEventListener('click', () => Memory.close());
+    $('memory-add-btn').addEventListener('click', () => Memory.add());
+    $('memory-extract-btn').addEventListener('click', () => Memory.autoExtract());
+    $('memory-search').addEventListener('input', (e) => Memory.search(e.target.value));
+    $('memory-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') Memory.add(); });
+
     $('think-btn').addEventListener('click', () => {
         $('think-btn').classList.toggle('active');
     });
@@ -59,5 +66,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('about-modal').addEventListener('click', e => {
         if (e.target === $('about-modal')) $('about-modal').style.display = 'none';
+    });
+    $('memory-modal').addEventListener('click', e => {
+        if (e.target === $('memory-modal')) Memory.close();
     });
 });

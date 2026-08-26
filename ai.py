@@ -4,13 +4,13 @@ import httpx
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Message, Chat, settings, async_session
+from database import Message, Chat, Memory, settings, async_session
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully. Remove any [1][2] citation markers from your text."
+DEFAULT_SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully. Remove any [1][2] citation markers from your text."
 
-THINK_PROMPT = (
+DEFAULT_THINK_PROMPT = (
     "You are Zenith, created by Wanzu Ibrahim. "
     "Think step-by-step before answering. "
     "Show your reasoning process clearly, then provide your final answer. "
@@ -22,14 +22,32 @@ def strip_citations(text: str) -> str:
     return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
 
 
+async def build_system_prompt(user_id: int, think: bool) -> str:
+    async with async_session() as db:
+        from sqlalchemy import select
+        result = await db.execute(
+            select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(30)
+        )
+        memories = result.scalars().all()
+
+    base = DEFAULT_THINK_PROMPT if think else DEFAULT_SYSTEM_PROMPT
+
+    if memories:
+        memory_text = "\n".join(f"- {m.content}" for m in memories)
+        return f"{base}\n\nThings you remember about this user:\n{memory_text}"
+
+    return base
+
+
 async def stream_chat(chat_id: int, think: bool, images: list = None):
-    messages = [{"role": "system", "content": THINK_PROMPT if think else SYSTEM_PROMPT}]
+    user_id = None
+    messages = []
 
     async with async_session() as db:
         from sqlalchemy import select
         from sqlalchemy.orm import selectinload
         result = await db.execute(
-            select(Chat).where(Chat.id == chat_id).options(selectinload(Chat.messages))
+            select(Chat).where(Chat.id == chat_id).options(selectinload(Chat.messages), selectinload(Chat.user))
         )
         chat = result.scalar_one_or_none()
         if not chat:
@@ -37,8 +55,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None):
                 yield f"data: {json.dumps({'error': 'Chat not found'})}\n\n"
             return StreamingResponse(error_gen(), media_type="text/event-stream")
 
+        user_id = chat.user_id
         for msg in chat.messages:
             messages.append({"role": msg.role, "content": msg.content})
+
+    system_prompt = await build_system_prompt(user_id, think)
+    messages.insert(0, {"role": "system", "content": system_prompt})
 
     if images and messages:
         last_user = messages[-1]

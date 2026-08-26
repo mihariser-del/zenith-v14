@@ -6,6 +6,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from database import init_db
 from auth import router as auth_router
 from chats import router as chats_router
+from memories import router as memories_router
 
 
 @asynccontextmanager
@@ -18,6 +19,7 @@ app = FastAPI(title="Zenith", version="14.0", lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(chats_router)
+app.include_router(memories_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

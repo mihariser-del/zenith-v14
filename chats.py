@@ -45,7 +45,10 @@ async def list_chats(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("")
 async def create_chat(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    chat = Chat(user_id=user.id, title="New Chat")
+    result = await db.execute(select(Chat).where(Chat.user_id == user.id, Chat.title.like("New Chat%")))
+    count = len(result.scalars().all())
+    title = "New Chat" if count == 0 else f"New Chat {count + 1}"
+    chat = Chat(user_id=user.id, title=title)
     db.add(chat)
     await db.commit()
     await db.refresh(chat)

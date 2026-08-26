@@ -53,6 +53,11 @@ async def chat_app():
     return FileResponse("static/app.html")
 
 
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_page():
+    return FileResponse("static/admin.html")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)

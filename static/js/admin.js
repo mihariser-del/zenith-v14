@@ -9,8 +9,10 @@ const AdminPanel = {
             const dash = await api('/api/auth/admin/dashboard');
             const { users } = await api('/api/auth/admin/users');
             this.users = users;
+            const normalCount = users.filter(u=>!u.is_admin && !u.username.startsWith('guest_')).length;
             stats.innerHTML = `
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#FFD700;">${dash.total_users}</div><div style="font-size:11px; color:#888;">Total Accounts</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#00ff88;">${normalCount}</div><div style="font-size:11px; color:#888;">Normal Users</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#00ff88;">${dash.active_users}</div><div style="font-size:11px; color:#888;">Active (24h)</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:var(--accent-solid);">${dash.total_chats}</div><div style="font-size:11px; color:#888;">Chats</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#a78bfa;">${dash.total_messages}</div><div style="font-size:11px; color:#888;">Messages</div></div>

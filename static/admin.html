@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zenith Admin - Gold Access</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body.admin-page { display: flex; justify-content: center; align-items: center; min-height: 100vh; background: linear-gradient(135deg, #1a1a0a 0%, #2d2416 50%, #1a1a0a 100%); }
+        .admin-gold-container { background: linear-gradient(145deg, #1a1a1a, #2d2416); border: 2px solid #FFD700; border-radius: 20px; padding: 40px 30px; width: 90%; max-width: 420px; box-shadow: 0 20px 60px rgba(255,215,0,0.2), 0 0 40px rgba(255,215,0,0.1); text-align: center; }
+        .admin-gold-header h1 { font-size: 28px; color: #FFD700; text-shadow: 0 0 10px rgba(255,215,0,0.5); margin-bottom: 8px; letter-spacing: 2px; }
+        .admin-gold-header p { color: rgba(255,215,0,0.6); font-size: 12px; letter-spacing: 1px; margin-bottom: 25px; }
+        .admin-gold-input { width: 100%; padding: 14px 16px; margin-bottom: 12px; background: rgba(0,0,0,0.5); border: 1px solid rgba(255,215,0,0.3); border-radius: 10px; color: #FFD700; outline: none; font-size: 14px; }
+        .admin-gold-input::placeholder { color: rgba(255,215,0,0.4); }
+        .admin-gold-input:focus { border-color: #FFD700; box-shadow: 0 0 15px rgba(255,215,0,0.2); }
+        .admin-gold-btn { width: 100%; padding: 14px; background: linear-gradient(135deg, #FFD700, #FF8C00); border: none; border-radius: 10px; color: #000; font-weight: 800; letter-spacing: 2px; cursor: pointer; margin-top: 10px; transition: all 0.3s; }
+        .admin-gold-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(255,215,0,0.4); }
+        .admin-gold-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .admin-back { display: block; margin-top: 15px; color: rgba(255,215,0,0.5); font-size: 13px; text-decoration: none; cursor: pointer; }
+        .admin-back:hover { color: #FFD700; }
+    </style>
+</head>
+<body class="admin-page">
+    <div class="admin-gold-container">
+        <div class="admin-gold-header">
+            <div style="font-size: 48px; margin-bottom: 10px;">&#9812;</div>
+            <h1>GOLD ACCESS</h1>
+            <p>Admin Authentication</p>
+        </div>
+        <input type="text" id="gold-username" class="admin-gold-input" placeholder="Admin username" autocomplete="username">
+        <input type="password" id="gold-password" class="admin-gold-input" placeholder="Admin password" autocomplete="current-password">
+        <input type="text" id="gold-secret" class="admin-gold-input" placeholder="Secret key (for new admin only)" style="font-size: 12px;">
+        <p style="color: rgba(255,215,0,0.4); font-size: 11px; margin: 8px 0 12px;">Leave secret empty to login. Fill it to create.</p>
+        <div id="gold-msg" class="auth-msg"></div>
+        <button class="admin-gold-btn" id="gold-login">ENTER VAULT</button>
+        <a class="admin-back" id="gold-back">&larr; Back to Zenith</a>
+    </div>
+    <div class="toast" id="toast"></div>
+    <script src="/static/js/api.js"></script>
+    <script>
+        document.getElementById('gold-back').addEventListener('click', () => window.location.href = '/');
+        document.getElementById('gold-login').addEventListener('click', async () => {
+            const username = document.getElementById('gold-username').value.trim();
+            const password = document.getElementById('gold-password').value;
+            const secret = document.getElementById('gold-secret').value.trim();
+            const msg = document.getElementById('gold-msg');
+            const btn = document.getElementById('gold-login');
+            if (!username || !password) { msg.textContent = 'Username and password required'; msg.className = 'auth-msg error'; return; }
+            btn.disabled = true; btn.textContent = 'VERIFYING...';
+            try {
+                await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password, secret }) });
+                msg.textContent = 'Access granted. Redirecting...'; msg.className = 'auth-msg success';
+                setTimeout(() => window.location.href = '/app', 800);
+            } catch (e) { msg.textContent = e.message; msg.className = 'auth-msg error'; btn.disabled = false; btn.textContent = 'ENTER VAULT'; }
+        });
+        document.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('gold-login').click(); });
+    </script>
+</body>
+</html>

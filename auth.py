@@ -127,6 +127,20 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 
+@router.post("/admin/nuke")
+async def nuke_all_users(request: Request, db: AsyncSession = Depends(get_db)):
+    body = await request.json() if request.headers.get("content-type", "").startswith("application/json") else {}
+    if body.get("confirm") != "DELETE_ALL_USERS":
+        raise HTTPException(status_code=400, detail="Must send {\"confirm\": \"DELETE_ALL_USERS\"}")
+    from sqlalchemy import delete
+    from database import Chat, Message, Memory, KnowledgeBase, KnowledgeItem, UploadedFile, LoginHistory, UserSettings
+    for model in [Message, Chat, LoginHistory, UploadedFile, KnowledgeItem, KnowledgeBase, Memory, UserSettings, User]:
+        await db.execute(delete(model))
+    await db.commit()
+    return {"message": "All users and data deleted"}
+
+
+
 @router.get("/me")
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)

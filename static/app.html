@@ -73,13 +73,44 @@
                     <option value="openai/gpt-4o">GPT-4o</option>
                     <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
                     <option value="anthropic/claude-4-sonnet">Claude 4 Sonnet</option>
-                    <option value="google/gemini-flash-1.5">Gemini Flash</option>
+                    <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
+                    <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
                     <option value="perplexity/sonar">Perplexity Sonar (Web)</option>
+                    <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
+                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
                 </select>
                 <label>Max Tokens</label>
                 <input type="number" id="max-tokens" value="2048" min="100" max="16384">
                 <label>Temperature</label>
                 <input type="number" id="temperature" value="0.7" min="0" max="2" step="0.1">
+            </div>
+        </details>
+
+        <details>
+            <summary>System Prompt</summary>
+            <div class="details-content">
+                <label>Personality Preset</label>
+                <select id="personality-select">
+                    <option value="default">Default (Zenith)</option>
+                    <option value="creative">Creative</option>
+                    <option value="professional">Professional</option>
+                    <option value="scholarly">Scholarly</option>
+                    <option value="casual">Casual</option>
+                    <option value="coder">Coder</option>
+                </select>
+                <label>System Prompt (Developer Mode)</label>
+                <textarea id="system-prompt" rows="5" style="width:100%; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; resize:vertical; font-size:13px; font-family:monospace;" placeholder="Custom system prompt..."></textarea>
+            </div>
+        </details>
+
+        <details>
+            <summary>Memory</summary>
+            <div class="details-content">
+                <label>Memory Enabled</label>
+                <select id="memory-enabled">
+                    <option value="true">Enabled</option>
+                    <option value="false">Disabled</option>
+                </select>
             </div>
         </details>
 

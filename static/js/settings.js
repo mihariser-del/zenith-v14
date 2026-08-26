@@ -1,16 +1,14 @@
 const Settings = {
     defaults: {
-        model: 'openai/gpt-4o-mini',
-        maxTokens: 2048,
-        temperature: 0.7,
         theme: 'dark',
         accent: '#0066ff',
         msgSpacing: 'cozy',
         markdown: true,
         speechLang: 'en-US',
     },
+    serverSettings: null,
 
-    get() {
+    getLocal() {
         try {
             return { ...this.defaults, ...JSON.parse(localStorage.getItem('zenith_settings') || '{}') };
         } catch {
@@ -18,15 +16,35 @@ const Settings = {
         }
     },
 
-    save(settings) {
+    saveLocal(settings) {
         localStorage.setItem('zenith_settings', JSON.stringify(settings));
     },
 
-    open() {
-        const s = this.get();
-        $('model-select').value = s.model;
-        $('max-tokens').value = s.maxTokens;
-        $('temperature').value = s.temperature;
+    async loadServer() {
+        try {
+            const data = await api('/api/settings');
+            this.serverSettings = data.settings;
+            this.presets = data.presets;
+            this.modelList = data.models;
+            return data;
+        } catch (e) {
+            console.error('Failed to load settings:', e);
+            return null;
+        }
+    },
+
+    async open() {
+        const s = this.getLocal();
+        const serverData = await this.loadServer();
+        if (serverData) {
+            const srv = serverData.settings;
+            $('model-select').value = srv.model;
+            $('max-tokens').value = srv.max_tokens;
+            $('temperature').value = srv.temperature;
+            $('system-prompt').value = srv.system_prompt;
+            $('personality-select').value = srv.personality;
+            $('memory-enabled').value = String(srv.memory_enabled);
+        }
         $('theme-select').value = s.theme;
         $('accent-select').value = s.accent;
         $('msg-spacing').value = s.msgSpacing;
@@ -40,7 +58,7 @@ const Settings = {
     },
 
     apply() {
-        const s = this.get();
+        const s = this.getLocal();
         document.body.classList.toggle('light-theme', s.theme === 'light');
         document.documentElement.style.setProperty('--accent-solid', s.accent);
         document.documentElement.style.setProperty('--accent-hover', s.accent);
@@ -59,18 +77,28 @@ const Settings = {
         }
     },
 
-    saveFromForm() {
-        const s = {
-            model: $('model-select').value,
-            maxTokens: parseInt($('max-tokens').value),
-            temperature: parseFloat($('temperature').value),
+    async saveFromForm() {
+        const localSettings = {
             theme: $('theme-select').value,
             accent: $('accent-select').value,
             msgSpacing: $('msg-spacing').value,
             markdown: $('markdown-toggle').value === 'true',
             speechLang: $('speech-lang').value,
         };
-        this.save(s);
+        this.saveLocal(localSettings);
+
+        await api('/api/settings', {
+            method: 'PATCH',
+            body: JSON.stringify({
+                model: $('model-select').value,
+                max_tokens: parseInt($('max-tokens').value),
+                temperature: parseFloat($('temperature').value),
+                system_prompt: $('system-prompt').value,
+                personality: $('personality-select').value,
+                memory_enabled: $('memory-enabled').value === 'true',
+            }),
+        });
+
         this.apply();
         this.close();
         showToast('Settings saved!', 'success');

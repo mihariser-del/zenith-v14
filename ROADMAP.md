@@ -1,12 +1,12 @@
 # Zenith v14+ — Feature Roadmap
 
 ## Phase 1 — Smart Core (highest impact)
-- [ ] Long-term memory (per-user, persisted in DB)
-- [ ] Memory editor + search
-- [ ] Cross-chat memory
-- [ ] System prompt editor (Developer Mode)
-- [ ] Custom AI personalities
-- [ ] Multiple AI models + smart model routing
+- [x] Long-term memory (per-user, persisted in DB)
+- [x] Memory editor + search
+- [x] Cross-chat memory
+- [x] System prompt editor (Developer Mode)
+- [x] Custom AI personalities
+- [x] Multiple AI models + smart model routing
 - [ ] Live web search (via Perplexity/OpenRouter)
 
 ## Phase 2 — Knowledge & Research

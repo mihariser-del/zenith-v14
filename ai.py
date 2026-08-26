@@ -4,7 +4,7 @@ import httpx
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Message, Chat, Memory, settings, async_session
+from database import Message, Chat, Memory, UserSettings, settings, async_session
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -25,12 +25,26 @@ def strip_citations(text: str) -> str:
 async def build_system_prompt(user_id: int, think: bool) -> str:
     async with async_session() as db:
         from sqlalchemy import select
+
         result = await db.execute(
+            select(UserSettings).where(UserSettings.user_id == user_id)
+        )
+        user_settings = result.scalar_one_or_none()
+
+        memory_result = await db.execute(
             select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(30)
         )
-        memories = result.scalars().all()
+        memories = memory_result.scalars().all()
 
-    base = DEFAULT_THINK_PROMPT if think else DEFAULT_SYSTEM_PROMPT
+    if user_settings and user_settings.system_prompt:
+        base = user_settings.system_prompt
+    elif think:
+        base = DEFAULT_THINK_PROMPT
+    else:
+        base = DEFAULT_SYSTEM_PROMPT
+
+    if think and "think step-by-step" not in base.lower():
+        base += "\nThink step-by-step before answering. Show your reasoning process clearly, then provide your final answer."
 
     if memories:
         memory_text = "\n".join(f"- {m.content}" for m in memories)
@@ -42,6 +56,9 @@ async def build_system_prompt(user_id: int, think: bool) -> str:
 async def stream_chat(chat_id: int, think: bool, images: list = None):
     user_id = None
     messages = []
+    user_model = "openai/gpt-4o-mini"
+    user_max_tokens = 2048
+    user_temperature = 0.7
 
     async with async_session() as db:
         from sqlalchemy import select
@@ -58,6 +75,15 @@ async def stream_chat(chat_id: int, think: bool, images: list = None):
         user_id = chat.user_id
         for msg in chat.messages:
             messages.append({"role": msg.role, "content": msg.content})
+
+        settings_result = await db.execute(
+            select(UserSettings).where(UserSettings.user_id == user_id)
+        )
+        user_settings_obj = settings_result.scalar_one_or_none()
+        if user_settings_obj:
+            user_model = user_settings_obj.model
+            user_max_tokens = user_settings_obj.max_tokens
+            user_temperature = user_settings_obj.temperature
 
     system_prompt = await build_system_prompt(user_id, think)
     messages.insert(0, {"role": "system", "content": system_prompt})
@@ -87,10 +113,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None):
                         "Content-Type": "application/json",
                     },
                     json={
-                        "model": "openai/gpt-4o-mini",
+                        "model": user_model,
                         "messages": messages,
-                        "max_tokens": 2048,
-                        "temperature": 0.7,
+                        "max_tokens": user_max_tokens,
+                        "temperature": user_temperature,
                         "stream": True,
                     },
                 ) as resp:

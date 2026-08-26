@@ -9,8 +9,8 @@ router = APIRouter(prefix="/api/image", tags=["image"])
 
 class ImageRequest(BaseModel):
     prompt: str
-    width: int = 512
-    height: int = 512
+    width: int = 1024
+    height: int = 1024
 
 @router.post("/generate")
 async def generate_image(req: ImageRequest, request: Request, db: AsyncSession = Depends(get_db)):
@@ -21,7 +21,8 @@ async def generate_image(req: ImageRequest, request: Request, db: AsyncSession =
     if len(prompt) > 500:
         raise HTTPException(status_code=400, detail="Prompt too long (max 500 chars)")
     encoded = urllib.parse.quote(prompt)
-    w = max(256, min(req.width, 1024))
-    h = max(256, min(req.height, 1024))
-    url = f"https://image.pollinations.ai/p/{encoded}?width={w}&height={h}&nologo=true&seed={hash(prompt) % 1000000}"
+    w = max(512, min(req.width, 1536))
+    h = max(512, min(req.height, 1536))
+    seed = abs(hash(prompt)) % 1000000
+    url = f"https://image.pollinations.ai/p/{encoded}?width={w}&height={h}&model=flux&nologo=true&enhance=true&seed={seed}"
     return {"url": url, "prompt": prompt}

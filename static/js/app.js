@@ -24,6 +24,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
     }
+    setInterval(async () => {
+        try { const r = await api('/api/auth/me'); if (r.user.is_banned) throw new Error('banned'); } catch (e) {
+            if (e.message.includes('banned') || e.message.includes('Not authenticated') || e.message.includes('User not found')) {
+                showToast('Account no longer available. Logging out...', 'error');
+                setTimeout(() => window.location.href = '/', 2000);
+            }
+        }
+    }, 30000);
 
     Settings.apply();
     Voice.init();
@@ -133,13 +141,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!prompt || !prompt.trim()) return;
         showToast('Generating image...', '');
         try {
-            const { url } = await api('/api/image/generate', { method: 'POST', body: JSON.stringify({ prompt: prompt.trim() }) });
-            Chat.appendMessage('assistant', `![Generated Image](${url})\n\n**Prompt:** ${prompt}`);
+            const { url } = await api('/api/image/generate', { method: 'POST', body: JSON.stringify({ prompt: prompt.trim(), width: 1024, height: 1024 }) });
+            Chat.appendMessage('assistant', `**Prompt:** ${prompt}`);
             const container = $('chat-container');
             const lastWrapper = container.querySelector('.msg-wrapper.assistant:last-of-type');
             if (lastWrapper) {
                 const img = document.createElement('img');
-                img.src = url; img.alt = prompt; img.className = 'msg-image'; img.style.maxWidth = '320px';
+                img.src = url; img.alt = prompt; img.className = 'msg-image'; img.style.maxWidth = '360px';
+                img.onload = () => { container.scrollTop = container.scrollHeight; };
+                img.onerror = () => { showToast('Image failed to load, try again', 'error'); img.remove(); };
                 lastWrapper.querySelector('.msg-bubble').before(img);
             }
             showToast('Image generated!', 'success');

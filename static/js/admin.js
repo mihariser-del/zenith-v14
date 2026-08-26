@@ -42,21 +42,29 @@ const AdminPanel = {
                     ${u.is_banned ? `<button style="padding:4px 8px; background:#00ff88; border:none; color:#000; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="unban" data-id="${u.id}">Unban</button>` : `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="ban" data-id="${u.id}">Ban</button>`}
                     <button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="delete" data-id="${u.id}">Delete</button>
                 </div>`;
-            div.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-                const ok = await showConfirm('Delete user?', `Delete ${u.username}? All their data will be lost.`, true);
-                if (!ok) return;
-                await api(`/api/auth/admin/users/${u.id}`, { method: 'DELETE' });
-                showToast('User deleted', 'success');
-                AdminPanel.load();
-            });
-            const banBtn = div.querySelector('[data-action="ban"]');
-            if (banBtn) banBtn.addEventListener('click', async () => {
-                const ok = await showConfirm('Ban user?', `Ban ${u.username}? They will not be able to login.`, true);
-                if (!ok) return;
-                await api(`/api/auth/admin/users/${u.id}/ban`, { method: 'POST' });
-                showToast('User banned', 'success');
-                AdminPanel.load();
-            });
+            const isTargetAdmin = u.is_admin;
+            if (!isTargetAdmin) {
+                div.querySelector('[data-action="delete"]')?.addEventListener('click', async () => {
+                    const ok = await showConfirm('Delete user?', `Delete ${u.username}? All their data will be lost.`, true);
+                    if (!ok) return;
+                    await api(`/api/auth/admin/users/${u.id}`, { method: 'DELETE' });
+                    showToast('User deleted', 'success');
+                    AdminPanel.load();
+                });
+                const banBtn = div.querySelector('[data-action="ban"]');
+                if (banBtn) banBtn.addEventListener('click', async () => {
+                    const ok = await showConfirm('Ban user?', `Ban ${u.username}? They will not be able to login.`, true);
+                    if (!ok) return;
+                    await api(`/api/auth/admin/users/${u.id}/ban`, { method: 'POST' });
+                    showToast('User banned', 'success');
+                    AdminPanel.load();
+                });
+            } else {
+                const delBtn = div.querySelector('[data-action="delete"]');
+                const banBtn2 = div.querySelector('[data-action="ban"]');
+                if (delBtn) { delBtn.style.display = 'none'; delBtn.disabled = true; }
+                if (banBtn2) { banBtn2.style.display = 'none'; banBtn2.disabled = true; }
+            }
             const unbanBtn = div.querySelector('[data-action="unban"]');
             if (unbanBtn) unbanBtn.addEventListener('click', async () => {
                 await api(`/api/auth/admin/users/${u.id}/unban`, { method: 'POST' });
@@ -73,13 +81,30 @@ const AdminPanel = {
                 try {
                     const { chats } = await api(`/api/auth/admin/users/${u.id}/chats`);
                     if (chats.length === 0) { showToast('No chats for this user', ''); return; }
-                    let msg = `Recent chats for ${u.username}:\n\n`;
-                    chats.slice(0, 5).forEach(c => { msg += `- ${c.title} (${c.message_count} msgs, ${c.updated_at.slice(0, 16)})\n`; if (c.messages.length) msg += `  Last: ${c.messages[c.messages.length-1].content.slice(0, 80)}\n`; });
-                    alert(msg);
+                    AdminPanel.showChats(u.username, chats);
                 } catch (e) { showToast(e.message, 'error'); }
             });
             list.appendChild(div);
         });
+    },
+    showChats(username, chats) {
+        let html = `<h3 style="text-align:center; margin-bottom:12px; color:var(--accent-solid);">Chats for ${AdminPanel.escapeHtml(username)}</h3><div style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">`;
+        chats.slice(0, 10).forEach(c => {
+            html += `<div style="padding:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:left;">
+                <div style="font-weight:600; font-size:13px;">${AdminPanel.escapeHtml(c.title)} <span style="color:#888; font-weight:400; font-size:11px;">(${c.message_count} msgs)</span></div>
+                <div style="font-size:11px; color:#666; margin:4px 0;">${c.updated_at.slice(0, 16)}</div>`;
+            c.messages.forEach(m => {
+                html += `<div style="margin-top:6px; padding:6px 8px; background:var(--bg); border-radius:6px; font-size:12px; border-left:3px solid ${m.role==='user'?'var(--accent-solid)':'#888'};"><strong>${m.role}:</strong> ${AdminPanel.escapeHtml(m.content.slice(0, 150))}${m.content.length>150?'...':''}</div>`;
+            });
+            html += `</div>`;
+        });
+        html += `</div>`;
+        const modal = document.createElement('div');
+        modal.className = 'modal'; modal.style.display = 'flex';
+        modal.innerHTML = `<div class="modal-content" style="max-width:600px;">${html}<div class="modal-actions" style="margin-top:15px;"><button class="btn" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button></div></div>`;
+        modal.querySelector('button').addEventListener('click', () => modal.remove());
+        modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+        document.body.appendChild(modal);
     },
     filter(q) { this.render(q); },
     escapeHtml(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }

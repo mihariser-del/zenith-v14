@@ -55,6 +55,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('kb-file-btn').addEventListener('click', () => $('kb-file-input').click());
     $('kb-file-input').addEventListener('change', () => { if ($('kb-file-input').files.length) Knowledge.addFile($('kb-items-modal').dataset.kbId); });
 
+    $('files-btn').addEventListener('click', () => { Files.open(); closeSidebar(); });
+    $('close-files').addEventListener('click', () => Files.close());
+
     $('think-btn').addEventListener('click', () => {
         $('think-btn').classList.toggle('active');
     });
@@ -161,5 +164,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('kb-items-modal').addEventListener('click', e => {
         if (e.target === $('kb-items-modal')) Knowledge.closeItems();
+    });
+    $('files-modal').addEventListener('click', e => {
+        if (e.target === $('files-modal')) Files.close();
     });
 });

@@ -44,6 +44,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             Knowledge
         </button>
+        <button class="btn info" id="files-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+            Files
+        </button>
         <button class="btn" id="settings-btn">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             Settings
@@ -301,6 +305,16 @@
     </div>
 </div>
 
+<div id="files-modal" class="modal">
+    <div class="modal-content" style="max-width: 550px;">
+        <h3 style="text-align:center; margin-bottom: 15px; color: var(--accent-solid);">Uploaded Files</h3>
+        <div id="files-list" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-files" style="border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: transparent; color: var(--text);">Close</button>
+        </div>
+    </div>
+</div>
+
 <div id="about-modal" class="modal">
     <div class="modal-content" style="text-align: center;">
         <div class="z-logo" style="margin: 0 auto 10px; width: 64px; height: 64px; font-size: 40px;">Z</div>
@@ -316,6 +330,7 @@
 <script src="/static/js/settings.js"></script>
 <script src="/static/js/memory.js"></script>
 <script src="/static/js/knowledge.js"></script>
+<script src="/static/js/files.js"></script>
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/app.js"></script>
 </body>

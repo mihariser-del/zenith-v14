@@ -36,6 +36,7 @@ class User(Base):
     memories = relationship("Memory", back_populates="user", cascade="all, delete-orphan")
     settings = relationship("UserSettings", back_populates="user", uselist=False, cascade="all, delete-orphan")
     knowledge_bases = relationship("KnowledgeBase", back_populates="user", cascade="all, delete-orphan")
+    files = relationship("UploadedFile", back_populates="user", cascade="all, delete-orphan")
 
 
 class Chat(Base):
@@ -49,6 +50,7 @@ class Chat(Base):
 
     user = relationship("User", back_populates="chats")
     messages = relationship("Message", back_populates="chat", cascade="all, delete-orphan", order_by="Message.id")
+    files = relationship("UploadedFile", back_populates="chat")
 
 
 class Message(Base):

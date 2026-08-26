@@ -208,6 +208,13 @@ const Chat = {
         this.appendMessage('user', text || '(image)');
         input.value = '';
         input.style.height = 'auto';
+
+        const uploadedFiles = [];
+        for (const att of this.attachments) {
+            const uploaded = await this.uploadToServer(att);
+            if (uploaded) uploadedFiles.push(uploaded);
+        }
+
         this.attachments = [];
         this.renderAtts();
 
@@ -346,23 +353,35 @@ const Chat = {
         }
     },
 
-    handleFiles(files) {
+    async handleFiles(files) {
         Array.from(files).forEach(file => {
             const reader = new FileReader();
             if (file.type.startsWith('image/')) {
                 reader.onload = e => {
-                    this.attachments.push({ name: file.name, type: 'image', data: e.target.result });
+                    this.attachments.push({ name: file.name, type: 'image', data: e.target.result, file });
                     this.renderAtts();
                 };
                 reader.readAsDataURL(file);
             } else {
                 reader.onload = e => {
-                    this.attachments.push({ name: file.name, type: 'text', data: e.target.result });
+                    this.attachments.push({ name: file.name, type: 'text', data: e.target.result, file });
                     this.renderAtts();
                 };
                 reader.readAsText(file);
             }
         });
+    },
+
+    async uploadToServer(att) {
+        if (!att.file) return null;
+        const form = new FormData();
+        form.append('file', att.file);
+        if (this.activeId) form.append('chat_id', this.activeId);
+        try {
+            const res = await fetch('/api/files/upload', { method: 'POST', credentials: 'same-origin', body: form });
+            const data = await res.json();
+            return data.file || null;
+        } catch { return null; }
     },
 
     renderAtts() {

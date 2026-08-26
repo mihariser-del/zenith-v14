@@ -174,14 +174,39 @@ async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = 
     return {"user": UserResponse.model_validate(user), "admin": True}
 
 
+@router.get("/admin/dashboard")
+async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func
+    from database import Chat, Message, Memory, KnowledgeBase
+    from datetime import timedelta
+    admin = await get_current_user_from_cookie(request, db)
+    if not admin.is_admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    total_users = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
+    total_chats = (await db.execute(select(func.count()).select_from(Chat))).scalar() or 0
+    total_messages = (await db.execute(select(func.count()).select_from(Message))).scalar() or 0
+    since = datetime.now(timezone.utc) - timedelta(hours=24)
+    active_users = (await db.execute(select(func.count(func.distinct(Chat.user_id))).where(Chat.updated_at >= since))).scalar() or 0
+    guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%")))).scalar() or 0
+    return {"total_users": total_users, "active_users": active_users, "total_chats": total_chats, "total_messages": total_messages, "guest_count": guest_count}
+
+
 @router.get("/admin/users")
 async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import func
+    from database import Chat, Message
     user = await get_current_user_from_cookie(request, db)
     if not user.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
-    return {"users": [UserResponse.model_validate(u) for u in users]}
+    enriched = []
+    for u in users:
+        chat_count = (await db.execute(select(func.count()).select_from(Chat).where(Chat.user_id == u.id))).scalar() or 0
+        msg_count = (await db.execute(select(func.count()).select_from(Message).join(Chat, Message.chat_id == Chat.id).where(Chat.user_id == u.id))).scalar() or 0
+        last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
+        enriched.append({**UserResponse.model_validate(u).model_dump(), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else ""})
+    return {"users": enriched}
 
 
 @router.delete("/admin/users/{user_id}")

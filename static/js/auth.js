@@ -15,6 +15,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    $('forgot-link').addEventListener('click', () => { $('forgot-modal').style.display = 'flex'; $('forgot-msg').textContent = ''; });
+    $('forgot-cancel').addEventListener('click', () => { $('forgot-modal').style.display = 'none'; });
+    $('forgot-modal').addEventListener('click', e => { if (e.target === $('forgot-modal')) $('forgot-modal').style.display = 'none'; });
+    $('forgot-submit').addEventListener('click', async () => {
+        const username = $('forgot-username').value.trim();
+        const email = $('forgot-email').value.trim();
+        const new_password = $('forgot-newpw').value;
+        if (!username || !email || !new_password) { $('forgot-msg').textContent = 'Fill all fields'; $('forgot-msg').className = 'auth-msg error'; return; }
+        $('forgot-submit').disabled = true;
+        try {
+            const res = await api('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username, email, new_password }) });
+            $('forgot-msg').textContent = res.message; $('forgot-msg').className = 'auth-msg success';
+            setTimeout(() => { $('forgot-modal').style.display = 'none'; document.querySelector('.auth-tab[data-tab="login"]').click(); }, 1500);
+        } catch (e) { $('forgot-msg').textContent = e.message; $('forgot-msg').className = 'auth-msg error'; }
+        finally { $('forgot-submit').disabled = false; }
+    });
+
     $('admin-crown').addEventListener('click', () => { $('admin-modal').style.display = 'flex'; });
     $('admin-cancel').addEventListener('click', () => { $('admin-modal').style.display = 'none'; });
     $('admin-modal').addEventListener('click', e => { if (e.target === $('admin-modal')) $('admin-modal').style.display = 'none'; });

@@ -128,6 +128,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    $('image-gen-btn').addEventListener('click', async () => {
+        const prompt = await showPrompt('Describe the image you want to generate');
+        if (!prompt || !prompt.trim()) return;
+        showToast('Generating image...', '');
+        try {
+            const { url } = await api('/api/image/generate', { method: 'POST', body: JSON.stringify({ prompt: prompt.trim() }) });
+            Chat.appendMessage('assistant', `![Generated Image](${url})\n\n**Prompt:** ${prompt}`);
+            const container = $('chat-container');
+            const lastWrapper = container.querySelector('.msg-wrapper.assistant:last-of-type');
+            if (lastWrapper) {
+                const img = document.createElement('img');
+                img.src = url; img.alt = prompt; img.className = 'msg-image'; img.style.maxWidth = '320px';
+                lastWrapper.querySelector('.msg-bubble').before(img);
+            }
+            showToast('Image generated!', 'success');
+        } catch (e) { showToast('Image gen failed: ' + e.message, 'error'); }
+    });
     $('search-toggle-btn').addEventListener('click', () => {
         const panel = $('search-results');
         panel.style.display = panel.style.display === 'none' ? 'block' : 'none';

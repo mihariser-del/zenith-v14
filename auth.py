@@ -33,13 +33,24 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class ForgotRequest(BaseModel):
+    username: str
+    email: str
+    new_password: str
+
+
 class UserResponse(BaseModel):
     id: int
     username: str
     email: str
     is_admin: bool
+    is_banned: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class AdminResetRequest(BaseModel):
+    new_password: str
 
 
 def create_token(user_id: int, username: str, is_admin: bool) -> str:
@@ -107,6 +118,9 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
             await db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    if getattr(user, 'is_banned', False):
+        raise HTTPException(status_code=403, detail="Account banned. Contact admin.")
+
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()
 
@@ -119,6 +133,19 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         max_age=TOKEN_EXPIRY_HOURS * 3600,
     )
     return {"user": UserResponse.model_validate(user)}
+
+
+@router.post("/forgot-password")
+async def forgot_password(req: ForgotRequest, db: AsyncSession = Depends(get_db)):
+    if len(req.new_password) < 6:
+        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    result = await db.execute(select(User).where(User.username == req.username, User.email == req.email))
+    user = result.scalar_one_or_none()
+    if not user:
+        raise HTTPException(status_code=404, detail="No account found with that username and email")
+    user.password_hash = hash_password(req.new_password)
+    await db.commit()
+    return {"message": "Password reset successful. Please login with your new password."}
 
 
 @router.post("/logout")
@@ -207,6 +234,59 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
         last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
         enriched.append({**UserResponse.model_validate(u).model_dump(), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else ""})
     return {"users": enriched}
+
+
+@router.post("/admin/users/{user_id}/ban")
+async def admin_ban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target: raise HTTPException(status_code=404, detail="User not found")
+    if target.is_admin: raise HTTPException(status_code=400, detail="Cannot ban an admin")
+    target.is_banned = True
+    await db.commit()
+    return {"message": f"{target.username} banned"}
+
+
+@router.post("/admin/users/{user_id}/unban")
+async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target: raise HTTPException(status_code=404, detail="User not found")
+    target.is_banned = False
+    await db.commit()
+    return {"message": f"{target.username} unbanned"}
+
+
+@router.post("/admin/users/{user_id}/reset-password")
+async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if len(req.new_password) < 6: raise HTTPException(status_code=400, detail="Password min 6 chars")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target: raise HTTPException(status_code=404, detail="User not found")
+    target.password_hash = hash_password(req.new_password)
+    await db.commit()
+    return {"message": f"Password reset for {target.username}"}
+
+
+@router.get("/admin/users/{user_id}/chats")
+async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from database import Chat
+    from sqlalchemy.orm import selectinload
+    admin = await get_current_user_from_cookie(request, db)
+    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(20))
+    chats = result.scalars().all()
+    out = []
+    for c in chats:
+        msgs = [{"role": m.role, "content": m.content[:200], "created_at": str(m.created_at)} for m in c.messages[-5:]]
+        out.append({"id": c.id, "title": c.title, "message_count": len(c.messages), "updated_at": str(c.updated_at), "messages": msgs})
+    return {"chats": out}
 
 
 @router.delete("/admin/users/{user_id}")

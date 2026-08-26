@@ -9,6 +9,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     $('user-name-display').textContent = user.username;
     $('user-avatar').textContent = user.username[0].toUpperCase();
+    const isGuest = user.username.startsWith('guest_');
+    const isAdmin = user.is_admin;
+    if (isGuest) {
+        showToast('Guest mode — some features limited', '');
+        ['memory-btn','kb-btn','files-btn','security-btn'].forEach(id => { const el=$(id); if(el) el.style.opacity='0.5'; el.title='Not available for guests'; });
+    }
+    if (isAdmin) {
+        $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px;">ADMIN</span>';
+        let adminBtn = document.createElement('button');
+        adminBtn.className = 'btn info'; adminBtn.id = 'admin-panel-btn';
+        adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> Admin Panel';
+        adminBtn.style.color = '#FFD700';
+        document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
+        adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
+    }
 
     Settings.apply();
     Voice.init();
@@ -33,12 +48,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('sidebar-tools').classList.toggle('open');
         $('tools-toggle').classList.toggle('open');
     });
+    const composerBox = document.querySelector('.composer-box');
+    const toolsExpandBtn = $('tools-expand-btn');
+    if (toolsExpandBtn && composerBox) {
+        toolsExpandBtn.addEventListener('click', () => composerBox.classList.toggle('tools-expanded'));
+    }
 
     $('new-chat-btn').addEventListener('click', async () => {
         await Chat.create();
         closeSidebar();
     });
     $('send-btn').addEventListener('click', () => Chat.send());
+    $('stop-btn').addEventListener('click', () => Chat.stop());
     $('settings-btn').addEventListener('click', () => { Settings.open(); closeSidebar(); });
     $('close-settings').addEventListener('click', () => Settings.close());
     $('save-settings').addEventListener('click', () => Settings.saveFromForm());
@@ -201,4 +222,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('security-modal').addEventListener('click', e => {
         if (e.target === $('security-modal')) Security.close();
     });
+    $('admin-panel-modal').addEventListener('click', e => { if (e.target === $('admin-panel-modal')) AdminPanel.close(); });
+    $('close-admin-panel').addEventListener('click', () => AdminPanel.close());
+    $('admin-refresh').addEventListener('click', () => AdminPanel.load());
+    $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 });

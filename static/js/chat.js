@@ -3,6 +3,20 @@ const Chat = {
     activeId: null,
     isStreaming: false,
     attachments: [],
+    abortController: null,
+
+    stop() {
+        if (this.abortController) { this.abortController.abort(); this.abortController = null; }
+        this.isStreaming = false;
+        const btn = $('send-btn');
+        if (btn) { btn.style.display = 'flex'; btn.disabled = false; }
+        const stopBtn = $('stop-btn');
+        if (stopBtn) stopBtn.style.display = 'none';
+        const bubble = document.querySelector('.msg-bubble.streaming-cursor');
+        if (bubble) bubble.classList.remove('streaming-cursor');
+        const thinking = document.querySelector('.thinking-text');
+        if (thinking) thinking.textContent = 'Stopped.';
+    },
 
     async init() {
         const { chats } = await api('/api/chats');
@@ -233,6 +247,8 @@ const Chat = {
         });
 
         const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
+        const regenBtn = $('regen-btn');
+        if (regenBtn) regenBtn.style.display = 'none';
         this.appendMessage('user', text || '(image)', false, sendImages);
         input.value = '';
         input.style.height = 'auto';
@@ -247,7 +263,9 @@ const Chat = {
         this.renderAtts();
 
         this.isStreaming = true;
-        $('send-btn').disabled = true;
+        $('send-btn').style.display = 'none';
+        $('stop-btn').style.display = 'flex';
+        this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
         let fullResponse = '';
@@ -258,6 +276,7 @@ const Chat = {
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch, research, factcheck }),
+                signal: this.abortController.signal,
             });
 
             const reader = res.body.getReader();
@@ -310,14 +329,37 @@ const Chat = {
                 bubble.parentElement.appendChild(actions);
             }
         } catch (err) {
-            showToast('Error: ' + err.message, 'error');
-            bubble.textContent = 'Error: ' + err.message;
-            bubble.classList.remove('streaming-cursor');
+            if (err.name === 'AbortError') {
+                bubble.querySelector('.thinking-text')?.remove();
+                if (!fullResponse) bubble.textContent = 'Stopped.';
+                bubble.classList.remove('streaming-cursor');
+            } else {
+                showToast('Error: ' + err.message, 'error');
+                bubble.textContent = 'Error: ' + err.message;
+                bubble.classList.remove('streaming-cursor');
+            }
         } finally {
             this.isStreaming = false;
-            $('send-btn').disabled = false;
+            this.abortController = null;
+            $('send-btn').style.display = 'flex';
+            $('stop-btn').style.display = 'none';
             input.focus();
+            this.showRegenerate();
         }
+    },
+
+    showRegenerate() {
+        const container = $('chat-container');
+        let btn = $('regen-btn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'regen-btn';
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg> Regenerate';
+            btn.style.cssText = 'display:flex; align-items:center; gap:6px; margin:8px auto; padding:6px 14px; background:var(--input-bg); border:1px solid var(--border); border-radius:20px; color:#888; cursor:pointer; font-size:12px;';
+            btn.addEventListener('click', () => this.regenerate());
+            container.appendChild(btn);
+        }
+        btn.style.display = 'flex';
     },
 
     async regenerate() {
@@ -328,13 +370,16 @@ const Chat = {
         const lastUserMsg = messages.filter(m => m.role === 'user').pop();
         if (!lastUserMsg) return;
 
-        // Remove last assistant message from display
         const container = $('chat-container');
         const lastAssistant = container.querySelector('.msg-wrapper.assistant:last-of-type');
         if (lastAssistant) lastAssistant.remove();
+        const existingRegen = $('regen-btn');
+        if (existingRegen) existingRegen.style.display = 'none';
 
         this.isStreaming = true;
-        $('send-btn').disabled = true;
+        $('send-btn').style.display = 'none';
+        $('stop-btn').style.display = 'flex';
+        this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
         let fullResponse = '';
@@ -345,6 +390,7 @@ const Chat = {
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
+                signal: this.abortController.signal,
             });
 
             const reader = res.body.getReader();
@@ -376,11 +422,15 @@ const Chat = {
             }
 
             bubble.classList.remove('streaming-cursor');
+            if (fullResponse) this.showRegenerate();
         } catch (err) {
-            showToast('Error: ' + err.message, 'error');
+            if (err.name !== 'AbortError') showToast('Error: ' + err.message, 'error');
+            else bubble.textContent = 'Stopped.';
         } finally {
             this.isStreaming = false;
-            $('send-btn').disabled = false;
+            this.abortController = null;
+            $('send-btn').style.display = 'flex';
+            $('stop-btn').style.display = 'none';
         }
     },
 

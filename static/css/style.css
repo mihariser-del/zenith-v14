@@ -176,32 +176,58 @@ summary svg { width: 16px; height: 16px; }
 /* ========== MOBILE ========== */
 @media (max-width: 768px) {
     .hamburger { display: flex; }
+    .hamburger.hidden { display: none !important; }
 
     .sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); box-shadow: none; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }
 
     .main { width: 100%; }
-    #chat-container { padding: 15px; padding-top: 65px; }
-    .input-wrapper { padding: 10px; }
+    #chat-container { padding: 15px; padding-top: 65px; gap: 14px; }
+    .input-wrapper { padding: 10px; gap: 6px; }
 
-    .msg-wrapper { max-width: 92%; }
-    .msg-bubble { padding: 12px 16px; }
+    .msg-wrapper { max-width: 94%; }
+    .msg-bubble { padding: 12px 16px; font-size: 14px; }
+    .msg-image { max-width: 200px; }
+    .msg-actions { flex-wrap: wrap; }
 
-    .welcome-message { padding: 30px 15px; }
-    .welcome-z-logo { width: 60px; height: 60px; font-size: 36px; border-radius: 18px; }
-    .welcome-message h2 { font-size: 24px; }
-    .welcome-features { grid-template-columns: 1fr; }
-    .welcome-bubble { padding: 16px 20px; margin-top: 20px; }
+    .welcome-message { padding: 20px 15px; }
+    .welcome-z-logo { width: 56px; height: 56px; font-size: 28px; border-radius: 14px; }
+    .welcome-message h2 { font-size: 20px; }
+    .welcome-message .welcome-sub { font-size: 14px; margin-bottom: 16px; }
 
+    .composer-box { flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-radius: 16px; }
     .composer-icon span { display: none; }
-    .composer-icon { padding: 6px; }
+    .composer-icon { padding: 6px; font-size: 12px; }
+    .composer-box .composer-icon#think-btn,
+    .composer-box .composer-icon#web-btn,
+    .composer-box .composer-icon#research-btn,
+    .composer-box .composer-icon#factcheck-btn,
+    .composer-box .composer-icon#search-toggle-btn { display: none; }
+    .composer-box.tools-expanded .composer-icon#think-btn,
+    .composer-box.tools-expanded .composer-icon#web-btn,
+    .composer-box.tools-expanded .composer-icon#research-btn,
+    .composer-box.tools-expanded .composer-icon#factcheck-btn,
+    .composer-box.tools-expanded .composer-icon#search-toggle-btn { display: flex; }
+    .mobile-tools-toggle { display: flex !important; }
+    .composer-box.tools-expanded .mobile-tools-toggle { color: var(--accent-solid); background: rgba(0,102,255,0.15); }
 
-    .modal-content { width: 95%; padding: 20px; }
+    .input-col { min-width: 0; }
+    #user-input { font-size: 14px; }
 
-    .landing-title { font-size: 40px; letter-spacing: 4px; }
-    .landing-subtitle { font-size: 16px; }
-    .start-btn { padding: 14px 40px; font-size: 16px; }
+    .modal-content { width: 96%; padding: 16px; margin: 10px; max-height: 88vh; }
+    .modal-content h3 { font-size: 16px; }
+    details summary { font-size: 13px; padding: 10px 12px; }
+
+    .landing-title { font-size: 32px; letter-spacing: 3px; }
+    .landing-subtitle { font-size: 14px; }
+    .start-btn { padding: 14px 36px; font-size: 15px; }
+    .login-container { padding: 30px 20px; margin: 15px; }
+
+    #attach-btn span, #mic-btn span { display: none; }
+    .bottom-bar { padding: 8px 10px; }
+    .bottom-bar .btn { font-size: 12px; padding: 7px 8px; }
+    .user-profile-bar { padding: 10px; }
 }
 
 @media (max-width: 480px) {

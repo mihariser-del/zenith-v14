@@ -17,6 +17,7 @@
 </div>
 
 <div class="login-screen" id="login-screen">
+    <button id="admin-crown" title="Admin Access" style="position:absolute; top:18px; right:18px; background:rgba(0,0,0,0.3); border:1px solid rgba(255,215,0,0.5); color:#FFD700; width:44px; height:44px; border-radius:50%; cursor:pointer; font-size:20px; display:flex; align-items:center; justify-content:center; backdrop-filter:blur(4px);">&#9812;</button>
     <div class="login-container">
         <div class="login-header">
             <h1>ZENITH</h1>
@@ -60,6 +61,27 @@
             </form>
         </div>
         <a class="back-link" id="back-link">&larr; Back to Welcome</a>
+        <button id="guest-btn" style="width:100%; margin-top:12px; padding:12px; background:transparent; border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:rgba(255,255,255,0.7); cursor:pointer; font-size:13px; font-weight:600; letter-spacing:1px;">CONTINUE AS GUEST</button>
+        <p style="text-align:center; color:rgba(255,255,255,0.4); font-size:11px; margin-top:6px;">Guest chats are saved locally only</p>
+    </div>
+</div>
+
+<div id="admin-modal" class="modal">
+    <div class="modal-content" style="max-width:400px; text-align:center;">
+        <h3 style="color:#FFD700; margin-bottom:15px;">&#9812; Admin Access</h3>
+        <p style="color:#888; font-size:13px; margin-bottom:15px;">Enter admin credentials. The AI will remember admins for life.</p>
+        <input type="text" id="admin-username" placeholder="Admin username" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.3); border-radius:10px; color:#fff; outline:none;">
+        <div class="pw-wrap" style="margin-bottom:10px;">
+            <input type="password" id="admin-password" placeholder="Admin password" style="width:100%; padding:12px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.3); border-radius:10px; color:#fff; outline:none;">
+            <button type="button" class="pw-toggle" data-target="admin-password" style="color:rgba(255,215,0,0.5);">&#128065;</button>
+        </div>
+        <input type="text" id="admin-secret" placeholder="Admin secret key (for new admin)" style="width:100%; padding:12px; margin-bottom:15px; background:rgba(0,0,0,0.5); border:1px solid rgba(255,215,0,0.3); border-radius:10px; color:#fff; outline:none; font-size:12px;">
+        <p style="color:rgba(255,255,255,0.4); font-size:11px; margin-bottom:15px;">Leave secret empty to login. Fill it to create a new admin account.</p>
+        <div id="admin-msg" class="auth-msg"></div>
+        <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn" id="admin-cancel" style="border:1px solid var(--border); padding:10px 20px; border-radius:8px; background:transparent; color:var(--text);">Cancel</button>
+            <button class="btn primary" id="admin-submit" style="padding:10px 20px; border-radius:8px; background:linear-gradient(135deg,#FFD700,#FF8C00); color:#000; font-weight:700;">Enter</button>
+        </div>
     </div>
 </div>
 

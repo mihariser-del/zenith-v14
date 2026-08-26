@@ -56,32 +56,61 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         )
         user_settings = result.scalar_one_or_none()
 
-        memory_result = await db.execute(
-            select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(30)
-        )
-        memories = memory_result.scalars().all()
+        is_guest = False
+        try:
+            from database import User as U2
+            gres = await db.execute(select(U2.username).where(U2.id == user_id))
+            guname = gres.scalar_one_or_none()
+            if guname and guname.startswith("guest_"):
+                is_guest = True
+        except: pass
 
-        kb_context = ""
-        if last_user_msg:
-            kb_result = await db.execute(
-                select(KnowledgeBase.id).where(KnowledgeBase.user_id == user_id)
+        if is_guest:
+            memories = []
+            kb_context = ""
+        else:
+            memory_result = await db.execute(
+                select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(30)
             )
-            kb_ids = [row[0] for row in kb_result.all()]
-            if kb_ids:
-                query = f"%{last_user_msg[:100].lower()}%"
-                item_result = await db.execute(
-                    select(KnowledgeItem).where(
-                        KnowledgeItem.kb_id.in_(kb_ids),
-                        KnowledgeItem.content.ilike(query)
-                    ).limit(10)
-                )
-                kb_items = item_result.scalars().all()
-                if kb_items:
-                    kb_context = "\n\nRelevant knowledge base content:\n" + "\n---\n".join(
-                        f"[{i.source or 'KB'}]: {i.content[:500]}" for i in kb_items
-                    )
+            memories = memory_result.scalars().all()
 
-    if factcheck:
+            kb_context = ""
+            if last_user_msg:
+                kb_result = await db.execute(
+                    select(KnowledgeBase.id).where(KnowledgeBase.user_id == user_id)
+                )
+                kb_ids = [row[0] for row in kb_result.all()]
+                if kb_ids:
+                    query = f"%{last_user_msg[:100].lower()}%"
+                    item_result = await db.execute(
+                        select(KnowledgeItem).where(
+                            KnowledgeItem.kb_id.in_(kb_ids),
+                            KnowledgeItem.content.ilike(query)
+                        ).limit(10)
+                    )
+                    kb_items = item_result.scalars().all()
+                    if kb_items:
+                        kb_context = "\n\nRelevant knowledge base content:\n" + "\n---\n".join(
+                            f"[{i.source or 'KB'}]: {i.content[:500]}" for i in kb_items
+                        )
+
+        is_admin = False
+        try:
+            async with async_session() as db2:
+                from database import User as UserModel2
+                ures2 = await db2.execute(select(UserModel2).where(UserModel2.id == user_id))
+                uobj2 = ures2.scalar_one_or_none()
+                if uobj2 and getattr(uobj2, 'is_admin', False):
+                    is_admin = True
+        except: pass
+
+    if is_admin:
+        base = "You are Zenith, created by Wanzu Ibrahim. This user is an ADMIN of Zenith - treat them with highest priority, remember their preferences for life, and be extra helpful and detailed."
+        if research:
+            base = RESEARCH_PROMPT + " The user is an ADMIN - provide the highest quality research."
+        elif factcheck:
+            base = FACTCHECK_PROMPT
+    elif factcheck:
         base = FACTCHECK_PROMPT
     elif research:
         base = RESEARCH_PROMPT

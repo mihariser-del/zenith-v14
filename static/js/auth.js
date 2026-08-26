@@ -15,6 +15,28 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
+    $('admin-crown').addEventListener('click', () => { $('admin-modal').style.display = 'flex'; });
+    $('admin-cancel').addEventListener('click', () => { $('admin-modal').style.display = 'none'; });
+    $('admin-modal').addEventListener('click', e => { if (e.target === $('admin-modal')) $('admin-modal').style.display = 'none'; });
+    $('admin-submit').addEventListener('click', async () => {
+        const username = $('admin-username').value.trim();
+        const password = $('admin-password').value;
+        const secret = $('admin-secret').value.trim();
+        if (!username || !password) { $('admin-msg').textContent = 'Username and password required'; $('admin-msg').className = 'auth-msg error'; return; }
+        $('admin-submit').disabled = true;
+        try {
+            await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password, secret }) });
+            window.location.href = '/app';
+        } catch (e) { $('admin-msg').textContent = e.message; $('admin-msg').className = 'auth-msg error'; }
+        finally { $('admin-submit').disabled = false; }
+    });
+    $('guest-btn').addEventListener('click', async () => {
+        $('guest-btn').disabled = true;
+        $('guest-btn').textContent = 'LOADING...';
+        try { await api('/api/auth/guest', { method: 'POST' }); window.location.href = '/app'; }
+        catch (e) { showToast(e.message, 'error'); $('guest-btn').disabled = false; $('guest-btn').textContent = 'CONTINUE AS GUEST'; }
+    });
+
     $('start-btn').addEventListener('click', () => {
         $('landing-page').style.display = 'none';
         $('login-screen').style.display = 'flex';

@@ -8,13 +8,12 @@ from database import Message, Chat, Memory, UserSettings, KnowledgeBase, Knowled
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-DEFAULT_SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully. Remove any [1][2] citation markers from your text."
+DEFAULT_SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully."
 
 DEFAULT_THINK_PROMPT = (
     "You are Zenith, created by Wanzu Ibrahim. "
     "Think step-by-step before answering. "
-    "Show your reasoning process clearly, then provide your final answer. "
-    "Remove any [1][2] citation markers from your text."
+    "Show your reasoning process clearly, then provide your final answer."
 )
 
 RESEARCH_PROMPT = (
@@ -36,16 +35,13 @@ FACTCHECK_PROMPT = (
 
 
 def strip_citations(text: str) -> str:
-    text = re.sub(r"\[\d+(?:,\s*\d+)*\]", " ", text)
-    text = re.sub(r" {2,}", " ", text)
-    return text.strip()
+    return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
 
 
 def process_response(text: str, research: bool) -> str:
-    if research:
-        return text
-    else:
-        return strip_citations(text)
+    # Keep citations in stream so they can be converted to links later.
+    # Stripping is done only at the end as fallback if no citation URLs.
+    return text
 
 
 def convert_citations_to_links(text: str, urls: list) -> str:
@@ -299,6 +295,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         if full_response:
             if captured_citations:
                 full_response = convert_citations_to_links(full_response, captured_citations)
+            else:
+                # No citation URLs obtained -> fallback to plain text (remove [1][2])
+                full_response = strip_citations(full_response)
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)

@@ -213,6 +213,9 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }
     .main { width: 100%; min-height: 100dvh; }
+    .composer-icon span { display: none; }
+    .composer-icon { padding: 6px; font-size: 12px; }
+    #attach-btn span, #mic-btn span { display: none; }
 }
 /* ========== MOBILE ========== */
 @media (max-width: 768px) {

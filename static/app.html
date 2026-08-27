@@ -106,8 +106,9 @@
     </div>
 
     <div class="input-wrapper">
-        <div class="attachments-area" id="att-bar"></div>
-        <div class="composer-box" style="position:relative;">
+        <div class="composer-box" style="position:relative; flex-direction: column; align-items: stretch; gap: 0;">
+            <div class="attachments-area" id="att-bar"></div>
+            <div class="composer-row" style="display:flex; align-items:center; gap:8px; width:100%; flex-wrap: wrap;">
             <button class="composer-icon" id="search-toggle-btn" title="Search everything">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <span>Search</span>
@@ -153,6 +154,7 @@
             <button id="stop-btn" title="Stop generating" style="display:none; color:white; background:var(--error); border-radius:50%; width:35px; height:35px; align-items:center; justify-content:center; border:none; cursor:pointer; flex-shrink:0;">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><rect x="6" y="6" width="12" height="12" rx="1"/></svg>
             </button>
+            </div>
         </div>
     </div>
 </main>

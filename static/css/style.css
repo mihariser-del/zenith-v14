@@ -206,10 +206,29 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
 .streaming-cursor::after { content: ''; display: inline-block; width: 2px; height: 1em; background: var(--accent-solid); margin-left: 2px; animation: blink 0.8s infinite; vertical-align: text-bottom; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
+@media (max-width: 1100px) and (min-width: 901px) {
+    .sidebar { width: 60px; min-width: 60px; }
+    .brand { justify-content: center; padding: 15px 5px; }
+    .brand h2 { display: none; }
+    .sidebar-actions { padding: 10px 5px; align-items: center; }
+    .sidebar-actions .btn, .bottom-bar .btn { font-size: 0; gap: 0; justify-content: center; padding: 10px; width: 44px; height: 44px; border-radius: 10px; }
+    .sidebar-actions .btn svg, .bottom-bar .btn svg { width: 20px; height: 20px; }
+    .chat-list { padding: 0 5px; }
+    .chat-item { justify-content: center; padding: 10px 5px; }
+    .chat-item .title, .chat-item .actions { display: none; }
+    .bottom-bar { padding: 10px 5px; align-items: center; }
+    .sidebar-tools-toggle { justify-content: center; font-size: 0; gap: 0; width: 44px; height: 44px; padding: 0; }
+    .sidebar-tools-toggle span, .sidebar-tools .btn { font-size: 0; }
+    .user-profile-bar { justify-content: center; padding: 10px 5px; }
+    .user-profile-bar .user-meta, .user-profile-bar .logout-btn { display: none; }
+    .composer-icon span { display: none; }
+    .composer-icon { padding: 6px; }
+    #attach-btn span, #mic-btn span { display: none; }
+}
 @media (max-width: 900px) {
     .hamburger { display: flex; }
     .hamburger.hidden { display: none !important; }
-    .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; }
+    .sidebar { position: fixed; top: 0; left: 0; width: 280px; min-width: 280px; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }
     .main { width: 100%; min-height: 100dvh; }

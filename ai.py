@@ -254,7 +254,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                     )
                     if r.status_code != 200:
                         err = r.text[:300]
-                        yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err}'})}\n\n"
+                        if r.status_code == 402 or "in_flight_budget" in err or "available credits" in err:
+                            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err}'})}\n\n"
                         return
                     obj = r.json()
                     content = obj.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -298,7 +301,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                         error_body = ""
                         async for chunk in resp.aiter_text():
                             error_body += chunk
-                        yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
+                        if resp.status_code == 402 or "in_flight_budget" in error_body or "available credits" in error_body:
+                            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                        else:
+                            yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
                         return
                     async for line in resp.aiter_lines():
                         if not line.startswith("data: "):

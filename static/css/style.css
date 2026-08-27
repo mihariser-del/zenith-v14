@@ -249,9 +249,9 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
     .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }
-    .chat-list { flex: none; max-height: 40vh; overflow-y: auto; }
-    .bottom-bar { flex-shrink: 0; overflow-y: auto; max-height: 45vh; }
-    .user-profile-bar { flex-shrink: 0; position: sticky; bottom: 0; background: var(--input-bg); }
+    .chat-list { flex: 1; min-height: 0; max-height: none; overflow-y: auto; }
+    .bottom-bar { flex-shrink: 0; }
+    .user-profile-bar { flex-shrink: 0; margin-top: auto; background: var(--input-bg); }
 
     .main { width: 100%; min-height: 100dvh; }
     #chat-container { padding: 15px; padding-top: 65px; gap: 14px; flex: 1; overflow-y: auto; }

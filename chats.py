@@ -117,12 +117,17 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    display_content = content or "(image)"
+    if content:
+        display_content = content
+    elif images:
+        display_content = f"[Image x{len(images)}]"
+    else:
+        display_content = "(image)"
     user_msg = Message(chat_id=chat.id, role="user", content=display_content)
     db.add(user_msg)
 
     if chat.title == "New Chat":
-        chat.title = (content or "Image chat")[:80]
+        chat.title = (content or (f"Image x{len(images)}" if images else "New Chat"))[:80]
 
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()

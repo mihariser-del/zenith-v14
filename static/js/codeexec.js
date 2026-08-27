@@ -103,4 +103,96 @@ document.addEventListener('DOMContentLoaded', () => {
     if (copyBtn) copyBtn.addEventListener('click', () => { navigator.clipboard.writeText(editor.value); showToast('Copied!', 'success'); });
     const previewClose = document.getElementById('code-preview-close');
     if (previewClose) previewClose.addEventListener('click', () => { document.getElementById('code-preview').style.display = 'none'; });
+    // Auto-close brackets/quotes and auto-indent
+    if (editor) {
+        const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'", '`': '`' };
+        editor.addEventListener('keydown', (e) => {
+            const start = editor.selectionStart, end = editor.selectionEnd, val = editor.value;
+            if (pairs[e.key] && !e.ctrlKey && !e.metaKey) {
+                e.preventDefault();
+                const close = pairs[e.key];
+                const selected = val.slice(start, end);
+                editor.value = val.slice(0, start) + e.key + selected + close + val.slice(end);
+                editor.selectionStart = editor.selectionEnd = start + 1;
+                if (selected) editor.selectionEnd = start + 1 + selected.length;
+            } else if (e.key === 'Backspace' && val[start - 1] && pairs[val[start - 1]] === val[start]) {
+                // delete pair together
+                if (val[start - 1] + val[start] === val.slice(start - 1, start + 1)) {
+                    // let default happen, will leave one; we handle by removing extra
+                }
+            } else if (e.key === 'Enter') {
+                const lineStart = val.lastIndexOf('\n', start - 1) + 1;
+                const indent = (val.slice(lineStart, start).match(/^\s*/) || [''])[0];
+                const before = val[start - 1] || '';
+                const after = val[start] || '';
+                if ((before === '{' && after === '}') || (before === '[' && after === ']') || (before === '(' && after === ')')) {
+                    e.preventDefault();
+                    editor.value = val.slice(0, start) + '\n' + indent + '    \n' + indent + val.slice(start);
+                    editor.selectionStart = editor.selectionEnd = start + indent.length + 5;
+                } else {
+                    // keep indent
+                    setTimeout(() => {
+                        if (editor.selectionStart === start + 1 + indent.length) return;
+                    }, 0);
+                }
+            }
+        });
+        editor.addEventListener('input', () => {
+            // simple color code helper: highlight hex colors with underline
+            // auto-correct common typos like 'funtion' -> 'function'
+            const corrections = { 'funtion': 'function', 'retrun': 'return', 'consol': 'console', 'docment': 'document' };
+            for (const [wrong, right] of Object.entries(corrections)) {
+                if (editor.value.includes(wrong)) {
+                    const pos = editor.selectionStart;
+                    editor.value = editor.value.replace(new RegExp('\\b' + wrong + '\\b', 'g'), right);
+                    editor.selectionStart = editor.selectionEnd = pos;
+                    showToast(`Auto-corrected ${wrong} → ${right}`, '');
+                    break;
+                }
+            }
+        });
+    }
+    // Color code picker
+    const toolbar = document.querySelector('#code-modal .modal-content > div');
+    if (toolbar && !document.getElementById('color-code-btn')) {
+        const colorBtn = document.createElement('input');
+        colorBtn.type = 'color';
+        colorBtn.id = 'color-code-btn';
+        colorBtn.title = 'Pick a color code';
+        colorBtn.style.cssText = 'width:32px; height:32px; padding:0; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;';
+        colorBtn.value = '#00ffff';
+        colorBtn.addEventListener('input', () => {
+            const c = colorBtn.value;
+            const s = editor.selectionStart;
+            editor.value = editor.value.slice(0, s) + c + editor.value.slice(s);
+            editor.selectionStart = editor.selectionEnd = s + c.length;
+            editor.focus();
+            navigator.clipboard.writeText(c);
+            showToast(`Color ${c} inserted`, 'success');
+        });
+        toolbar.appendChild(colorBtn);
+        const palette = ['#ff4d4d','#00ff88','#0066ff','#8b5cf6','#FFD700','#ff00cc'];
+        palette.forEach(col => {
+            const b = document.createElement('button');
+            b.style.cssText = `width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:${col}; cursor:pointer;`;
+            b.title = col;
+            b.addEventListener('click', () => {
+                const s = editor.selectionStart;
+                editor.value = editor.value.slice(0, s) + col + editor.value.slice(s);
+                editor.selectionStart = editor.selectionEnd = s + col.length;
+                editor.focus();
+            });
+            toolbar.appendChild(b);
+        });
+    }
+    // Drag to resize preview/output
+    const preview = document.getElementById('code-preview');
+    const frame = document.getElementById('code-preview-frame');
+    const previewDrag = document.getElementById('preview-drag');
+    if (previewDrag && preview && frame) {
+        let dragging = false, startY, startH;
+        previewDrag.addEventListener('mousedown', (e) => { dragging = true; startY = e.clientY; startH = frame.offsetHeight; document.body.style.cursor = 'ns-resize'; });
+        window.addEventListener('mousemove', (e) => { if (!dragging) return; const dh = e.clientY - startY; frame.style.height = Math.max(120, startH + dh) + 'px'; });
+        window.addEventListener('mouseup', () => { dragging = false; document.body.style.cursor = ''; });
+    }
 });

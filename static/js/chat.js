@@ -247,18 +247,29 @@ const Chat = {
             else if (att.type === 'image') images.push(att.data);
         });
 
-        const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
-        const regenBtn = $('regen-btn');
-        if (regenBtn) regenBtn.style.display = 'none';
-        this.appendMessage('user', text || '(image)', false, sendImages);
-        input.value = '';
-        input.style.height = 'auto';
-
         const uploadedFiles = [];
         for (const att of this.attachments) {
             const uploaded = await this.uploadToServer(att);
             if (uploaded) uploadedFiles.push(uploaded);
         }
+        const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
+        const imageUrls = uploadedFiles.filter(f => f.is_image).map(f => `/uploads/${f.stored_name}`);
+        const regenBtn = $('regen-btn');
+        if (regenBtn) regenBtn.style.display = 'none';
+        let displayText = text;
+        if (!displayText && this.attachments.length > 0) {
+            const names = this.attachments.map(a => a.name).join(', ');
+            const hasImage = this.attachments.some(a => a.type === 'image');
+            const hasText = this.attachments.some(a => a.type === 'text');
+            if (hasImage && !hasText) displayText = `[Image: ${names}]`;
+            else if (hasText && !hasImage) displayText = `[File: ${names}]`;
+            else displayText = `[${names}]`;
+        }
+        // Use uploaded URLs for reload persistence, fallback to data URLs for immediate display
+        const displayImages = imageUrls.length > 0 ? imageUrls : sendImages;
+        this.appendMessage('user', displayText || '(image)', false, displayImages);
+        input.value = '';
+        input.style.height = 'auto';
 
         this.attachments = [];
         this.renderAtts();

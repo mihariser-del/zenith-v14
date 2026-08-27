@@ -392,14 +392,14 @@
                 Run (Ctrl+Enter)
             </button>
         </div>
-        <textarea id="code-editor" rows="12" style="width:100%; padding:12px; background:#1e1e1e; color:#d4d4d4; border:1px solid var(--border); border-radius:8px; font-family:'Fira Code','Consolas',monospace; font-size:13px; resize:vertical; outline:none; tab-size:4;" placeholder="# Write your code here...&#10;# Ctrl+Enter to run"></textarea>
-        <div id="code-preview" style="display:none; margin-top:10px; border:1px solid var(--border); border-radius:8px; overflow:hidden;">
-            <div style="padding:6px 12px; background:var(--input-bg); font-size:11px; color:#888; display:flex; justify-content:space-between;"><span>Preview</span><button id="code-preview-close" style="background:none; border:none; color:#888; cursor:pointer; font-size:12px;">X</button></div>
-            <iframe id="code-preview-frame" style="width:100%; height:200px; border:none; background:white;"></iframe>
+        <textarea id="code-editor" rows="12" style="width:100%; padding:12px; background:#1e1e1e; color:#d4d4d4; border:1px solid var(--border); border-radius:8px; font-family:'Fira Code','Consolas',monospace; font-size:13px; resize:vertical; overflow:auto; outline:none; tab-size:4;" placeholder="# Write your code here...&#10;# Ctrl+Enter to run"></textarea>
+        <div id="code-preview" style="display:none; margin-top:10px; border:1px solid var(--border); border-radius:8px; overflow:hidden; resize:vertical; min-height:120px; max-height:600px;">
+            <div style="padding:6px 12px; background:var(--input-bg); font-size:11px; color:#888; display:flex; justify-content:space-between; cursor:ns-resize;" id="preview-drag"><span>Preview — drag to resize</span><button id="code-preview-close" style="background:none; border:none; color:#888; cursor:pointer; font-size:12px;">X</button></div>
+            <iframe id="code-preview-frame" style="width:100%; height:320px; min-height:180px; border:none; background:white; resize:vertical; overflow:auto;"></iframe>
         </div>
-        <div style="margin-top:10px;">
-            <div style="font-size:12px; color:#888; margin-bottom:4px; display:flex; justify-content:space-between;"><span>Output</span><span style="font-size:10px; color:#666;">Timeout 15s</span></div>
-            <pre id="code-output" style="width:100%; min-height:80px; max-height:250px; overflow:auto; padding:12px; background:#0d0d0d; color:#00ff88; border:1px solid var(--border); border-radius:8px; font-family:'Fira Code','Consolas',monospace; font-size:12px; white-space:pre-wrap; word-break:break-all;">Click Run to execute...</pre>
+        <div style="margin-top:10px; resize:vertical; overflow:auto; min-height:100px; max-height:500px; border:1px solid var(--border); border-radius:8px; background:#0d0d0d; display:flex; flex-direction:column;">
+            <div style="font-size:12px; color:#888; padding:6px 12px; display:flex; justify-content:space-between; background:var(--input-bg); border-bottom:1px solid var(--border); cursor:ns-resize;"><span>Output — drag to resize</span><span style="font-size:10px; color:#666;">Timeout 15s</span></div>
+            <pre id="code-output" style="flex:1; min-height:80px; max-height:none; overflow:auto; padding:12px; background:transparent; color:#00ff88; border:none; border-radius:0; margin:0; font-family:'Fira Code','Consolas',monospace; font-size:12px; white-space:pre-wrap; word-break:break-all;">Click Run to execute...</pre>
         </div>
         <div class="modal-actions" style="margin-top:15px;">
             <button class="btn" id="close-code" style="border: 1px solid var(--border); padding: 10px; border-radius: 8px; background: transparent; color: var(--text);">Close</button>

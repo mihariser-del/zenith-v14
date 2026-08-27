@@ -13,18 +13,33 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env"}
 
 
+def _can_write(path: str) -> bool:
+    import os
+    try:
+        test = os.path.join(path, ".zenith_write_test")
+        with open(test, "w") as f: f.write("ok")
+        os.remove(test)
+        return True
+    except Exception:
+        return False
+
+
 def _resolve_db_url(env_url: str = "") -> str:
     import os
-    # If a persistent volume is mounted at /data, ALWAYS prefer it so accounts
-    # survive redeploys (unless an explicit postgres/remote DB is configured).
-    if os.path.isdir("/data") and not env_url.startswith("postgres"):
-        return "sqlite+aiosqlite:////data/zenith.db"
+    # Prefer /data volume ONLY if it exists AND is writable. Otherwise
+    # the app runs as non-root and the volume is root-owned -> crash loop.
+    # Docs fix: set RAILWAY_RUN_UID=0 env var. Code fix: fallback gracefully.
+    if os.path.isdir("/data"):
+        if not env_url.startswith("postgres") and _can_write("/data"):
+            return "sqlite+aiosqlite:////data/zenith.db"
+        if not _can_write("/data"):
+            print("WARNING: /data exists but not writable (set RAILWAY_RUN_UID=0). Falling back to ephemeral DB.")
     if env_url:
         url = env_url
         if url.startswith("postgres"):
             return url.replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
         return url
-    if os.path.isdir("/data"):
+    if os.path.isdir("/data") and _can_write("/data"):
         return "sqlite+aiosqlite:////data/zenith.db"
     return "sqlite+aiosqlite:///zenith.db"
 

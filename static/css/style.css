@@ -138,12 +138,12 @@ body.auth-page { display: block; }
 .composer-icon:hover { color: var(--accent-solid); background: var(--hover-bg); }
 .composer-icon.active { color: var(--accent-solid); background: rgba(0, 102, 255, 0.15); }
 .composer-icon svg { width: 16px; height: 16px; }
-.attachments-area { display: none; gap: 8px; flex-wrap: wrap; padding: 8px 0 0; }
+.attachments-area { display: none; gap: 10px; flex-wrap: wrap; padding: 0 0 10px; }
 .attachments-area.has-items { display: flex; }
-.att-preview { position: relative; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); background: var(--sidebar); display: flex; align-items: center; }
-.att-preview img { width: 80px; height: 80px; object-fit: cover; display: block; border-radius: 10px; }
-.att-preview .file-chip { background: var(--hover-bg); font-size: 12px; padding: 8px 12px; border-radius: 10px; display: flex; align-items: center; gap: 6px; }
-.remove-att { position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.7); color: white; border: none; font-size: 10px; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.att-preview { position: relative; border-radius: 12px; overflow: visible; background: transparent; display: flex; align-items: center; }
+.att-preview img { width: 64px; height: 64px; object-fit: cover; display: block; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 2px 10px rgba(0,0,0,0.4); }
+.att-preview .file-chip { background: var(--input-bg); font-size: 11px; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--border); display: flex; align-items: center; gap: 6px; }
+.remove-att { position: absolute; top: -6px; right: -6px; background: #000; color: white; border: 1px solid rgba(255,255,255,0.2); font-size: 12px; width: 22px; height: 22px; border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(0,0,0,0.5); }
 .msg-image { max-width: 280px; border-radius: 12px; margin-bottom: 8px; display: block; border: 1px solid var(--border); }
 .input-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 #user-input { background: transparent; border: none; color: var(--text); font-size: 15px; resize: none; outline: none; max-height: 150px; font-family: inherit; }

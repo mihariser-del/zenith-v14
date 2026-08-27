@@ -11,7 +11,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('user-avatar').textContent = user.username[0].toUpperCase();
     const isGuest = user.username.startsWith('guest_');
     const isAdmin = user.is_admin;
-    if (isAdmin) document.body.classList.add('admin-gold');
+    if (isAdmin) {
+        document.body.classList.add('admin-gold');
+        const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#FFD700';
+    }
     if (isGuest) {
         showToast('Guest mode — some features limited', '');
         ['memory-btn','kb-btn','files-btn','security-btn'].forEach(id => { const el=$(id); if(el) el.style.opacity='0.5'; el.title='Not available for guests'; });

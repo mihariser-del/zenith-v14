@@ -22,7 +22,10 @@ from image import router as image_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    await init_db()
+    try:
+        await init_db()
+    except Exception as e:
+        print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
     yield
 
 

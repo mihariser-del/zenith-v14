@@ -184,13 +184,14 @@ class LoginHistory(Base):
 
 
 async def init_db():
+    print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         for col, ddl in [("is_banned", "BOOLEAN DEFAULT 0"), ("ban_reason", "VARCHAR(500) DEFAULT ''")]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"migration {col}: {e}")
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt

@@ -35,13 +35,15 @@ FACTCHECK_PROMPT = (
 
 
 def strip_citations(text: str) -> str:
-    return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
+    text = re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
+    text = re.sub(r" {2,}", " ", text)
+    return text
 
 
 def process_response(text: str, research: bool) -> str:
-    # Keep citations in stream so they can be converted to links later.
-    # Stripping is done only at the end as fallback if no citation URLs.
-    return text
+    # Always strip [1][2] during streaming -> plain text fallback.
+    # Link path tries after stream; if URLs found, saved message is relinked.
+    return strip_citations(text)
 
 
 def convert_citations_to_links(text: str, urls: list) -> str:

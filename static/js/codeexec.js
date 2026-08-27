@@ -152,39 +152,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    // Color code picker
-    const toolbar = document.querySelector('#code-modal .modal-content > div');
-    if (toolbar && !document.getElementById('color-code-btn')) {
-        const colorBtn = document.createElement('input');
-        colorBtn.type = 'color';
-        colorBtn.id = 'color-code-btn';
-        colorBtn.title = 'Pick a color code';
-        colorBtn.style.cssText = 'width:32px; height:32px; padding:0; border:1px solid var(--border); border-radius:6px; cursor:pointer; background:transparent;';
-        colorBtn.value = '#00ffff';
-        colorBtn.addEventListener('input', () => {
-            const c = colorBtn.value;
-            const s = editor.selectionStart;
-            editor.value = editor.value.slice(0, s) + c + editor.value.slice(s);
-            editor.selectionStart = editor.selectionEnd = s + c.length;
-            editor.focus();
-            navigator.clipboard.writeText(c);
-            showToast(`Color ${c} inserted`, 'success');
-        });
-        toolbar.appendChild(colorBtn);
-        const palette = ['#ff4d4d','#00ff88','#0066ff','#8b5cf6','#FFD700','#ff00cc'];
-        palette.forEach(col => {
-            const b = document.createElement('button');
-            b.style.cssText = `width:18px; height:18px; border-radius:4px; border:1px solid var(--border); background:${col}; cursor:pointer;`;
-            b.title = col;
-            b.addEventListener('click', () => {
-                const s = editor.selectionStart;
-                editor.value = editor.value.slice(0, s) + col + editor.value.slice(s);
-                editor.selectionStart = editor.selectionEnd = s + col.length;
-                editor.focus();
-            });
-            toolbar.appendChild(b);
-        });
-    }
+    // Live syntax highlight preview (colored code)
+    const highlightWrap = document.createElement('div');
+    highlightWrap.id = 'code-highlight-wrap';
+    highlightWrap.style.cssText = 'display:none; margin-top:8px; border:1px solid var(--border); border-radius:8px; background:#1e1e1e; padding:0; overflow:hidden;';
+    highlightWrap.innerHTML = '<div style="padding:6px 12px; background:var(--input-bg); font-size:11px; color:#888; border-bottom:1px solid var(--border);">Preview (colored)</div><pre style="margin:0; padding:12px; overflow:auto; max-height:200px;"><code id="code-highlight" style="font-family:Fira Code, Consolas, monospace; font-size:13px;"></code></pre>';
+    editor.parentElement.insertBefore(highlightWrap, editor.nextSibling);
+    const highlightEl = document.getElementById('code-highlight');
+    const updateHighlight = () => {
+        const lang = document.getElementById('code-lang')?.value || 'plaintext';
+        const map = { python: 'python', javascript: 'javascript', html: 'html', json: 'json', markdown: 'markdown', sql: 'sql', shell: 'bash' };
+        const hlLang = map[lang] || 'plaintext';
+        highlightEl.textContent = editor.value || '// code will appear colored here';
+        highlightEl.className = `language-${hlLang}`;
+        if (window.hljs) hljs.highlightElement(highlightEl);
+        highlightWrap.style.display = editor.value ? 'block' : 'none';
+    };
+    editor.addEventListener('input', updateHighlight);
+    document.getElementById('code-lang')?.addEventListener('change', updateHighlight);
+    updateHighlight();
     // Drag to resize preview/output
     const preview = document.getElementById('code-preview');
     const frame = document.getElementById('code-preview-frame');

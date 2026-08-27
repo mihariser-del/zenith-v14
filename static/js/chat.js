@@ -152,6 +152,7 @@ const Chat = {
         } else if (role === 'assistant') {
             bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
             bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+            Chat.enhanceCodeBlocks(bubble);
         } else {
             if (images && images.length > 0) {
                 images.forEach(src => {
@@ -163,7 +164,13 @@ const Chat = {
                 });
             }
             if (content && content !== '(image)') {
-                bubble.textContent = content;
+                if (content.includes('```') || content.includes('<') && content.includes('>')) {
+                    bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
+                    bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                    Chat.enhanceCodeBlocks(bubble);
+                } else {
+                    bubble.textContent = content;
+                }
             } else if (!images || images.length === 0) {
                 bubble.textContent = content;
             } else {
@@ -226,8 +233,27 @@ const Chat = {
         if (thinking) thinking.remove();
         bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
         bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+        Chat.enhanceCodeBlocks(bubble);
         const container = $('chat-container');
         container.scrollTop = container.scrollHeight;
+    },
+    enhanceCodeBlocks(bubble) {
+        bubble.querySelectorAll('pre').forEach(pre => {
+            if (pre.querySelector('.code-header')) return;
+            const code = pre.querySelector('code');
+            const lang = code ? (code.className.match(/language-(\w+)/) || [,''])[1] : '';
+            const header = document.createElement('div');
+            header.className = 'code-header';
+            header.innerHTML = `<span>${lang || 'code'}</span><button class="code-copy-btn" title="Copy code"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>`;
+            header.querySelector('button').addEventListener('click', () => {
+                navigator.clipboard.writeText(code ? code.textContent : pre.textContent);
+                const btn = header.querySelector('button');
+                btn.textContent = 'Copied!';
+                setTimeout(() => btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy', 1500);
+            });
+            pre.style.position = 'relative';
+            pre.insertBefore(header, pre.firstChild);
+        });
     },
 
     async send() {
@@ -511,7 +537,9 @@ const Chat = {
             if (att.type === 'image') {
                 div.innerHTML = `<img src="${att.data}" alt="${att.name}"><button class="remove-att" data-i="${i}">\u2715</button>`;
             } else {
-                div.innerHTML = `<div class="file-chip">\uD83D\uDCC4 ${this.escapeHtml(att.name)}<button class="remove-att" data-i="${i}" style="position:static; background:transparent; color:#888; font-size:14px; width:auto; height:auto; margin-left:6px;">\u2715</button></div>`;
+                const isHtml = att.name.toLowerCase().endsWith('.html');
+                const icon = isHtml ? '\uD83C\uDF10' : '\uD83D\uDCC4';
+                div.innerHTML = `<div class="file-chip" style="display:flex; align-items:center; gap:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px;"><div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.escapeHtml(att.name)}</div><div style="font-size:11px; color:#888;">File</div></div><button class="remove-att" data-i="${i}" style="position:static; background:transparent; color:#888; border:none; font-size:16px; cursor:pointer; flex-shrink:0;">\u2715</button></div>`;
             }
             div.querySelector('.remove-att').addEventListener('click', () => {
                 this.attachments.splice(i, 1);

@@ -31,13 +31,18 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const r = await api('/api/auth/me');
             if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided'));
+            if (r.user && r.user.is_deleted) throw new Error('__DELETED__');
         } catch (e) {
+            if (e.message && e.message.includes('__DELETED__')) {
+                showDeletedScreen();
+                return;
+            }
             if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned'))) {
                 const reason = e.message.includes('__BANNED__') ? e.message.split('__BANNED__')[1] : (e.message.includes('is_banned') ? 'Unspecified' : '');
                 showBannedScreen(reason);
                 return;
             }
-            if (e.message.includes('Not authenticated') || e.message.includes('User not found')) {
+            if (e.message.includes('Not authenticated') || e.message.includes('User not found') || e.message.includes('Account deleted')) {
                 showToast('Account no longer exists. Logging out...', 'error');
                 setTimeout(() => window.location.href = '/', 2000);
             }
@@ -287,4 +292,22 @@ function showBannedScreen(reason) {
     const style = document.createElement('style');
     style.textContent = '@keyframes faceIn { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }';
     document.head.appendChild(style);
+}
+function showDeletedScreen() {
+    if (document.getElementById('banned-screen')) return;
+    const div = document.createElement('div');
+    div.id = 'banned-screen';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    div.innerHTML = `
+        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a1a1a,#2d2d2d); border:2px solid #888; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(136,136,136,0.15); border:2px solid #888; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#888; font-size:40px;">&#128465;</div>
+            <h2 style="color:#888; font-size:24px; margin-bottom:8px; letter-spacing:1px;">ACCOUNT DELETED</h2>
+            <p style="color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px;">Your account has been deleted by an administrator. You can no longer access Zenith.</p>
+            <button id="deleted-ok" style="width:100%; padding:14px; background:#333; color:#fff; border:1px solid #555; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">OK — LOG OUT</button>
+        </div>`;
+    div.querySelector('#deleted-ok').addEventListener('click', async () => {
+        try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        window.location.replace('/');
+    });
+    document.body.appendChild(div);
 }

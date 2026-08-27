@@ -46,6 +46,7 @@ class UserResponse(BaseModel):
     is_admin: bool
     is_banned: bool = False
     ban_reason: str = ""
+    is_deleted: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -123,6 +124,8 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
             await db.commit()
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
+    if getattr(user, 'is_deleted', False):
+        raise HTTPException(status_code=404, detail="Account deleted.")
     if getattr(user, 'is_banned', False):
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {user.ban_reason or 'No reason provided'}")
 
@@ -214,13 +217,15 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
     if not admin.is_admin:
         raise HTTPException(status_code=403, detail="Admin only")
-    total_users = (await db.execute(select(func.count()).select_from(User))).scalar() or 0
+    total_users = (await db.execute(select(func.count()).select_from(User).where(User.is_deleted == False))).scalar() or 0
     total_chats = (await db.execute(select(func.count()).select_from(Chat))).scalar() or 0
     total_messages = (await db.execute(select(func.count()).select_from(Message))).scalar() or 0
     since = datetime.now(timezone.utc) - timedelta(hours=24)
     active_users = (await db.execute(select(func.count(func.distinct(Chat.user_id))).where(Chat.updated_at >= since))).scalar() or 0
-    guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%")))).scalar() or 0
-    return {"total_users": total_users, "active_users": active_users, "total_chats": total_chats, "total_messages": total_messages, "guest_count": guest_count}
+    guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%"), User.is_deleted == False))).scalar() or 0
+    banned_count = (await db.execute(select(func.count()).select_from(User).where(User.is_banned == True, User.is_deleted == False))).scalar() or 0
+    deleted_count = (await db.execute(select(func.count()).select_from(User).where(User.is_deleted == True))).scalar() or 0
+    return {"total_users": total_users, "active_users": active_users, "total_chats": total_chats, "total_messages": total_messages, "guest_count": guest_count, "banned_count": banned_count, "deleted_count": deleted_count}
 
 
 @router.get("/admin/users")
@@ -309,9 +314,11 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     target = result.scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    await db.delete(target)
+    if target.is_admin:
+        raise HTTPException(status_code=400, detail="Cannot delete an admin")
+    target.is_deleted = True
     await db.commit()
-    return {"message": "User deleted"}
+    return {"message": "User deleted (soft)"}
 
 
 @router.get("/me")

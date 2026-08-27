@@ -50,21 +50,33 @@ def convert_citations_to_links(text: str, urls: list) -> str:
     """Convert [1][2] citation numbers to clickable [1](url) links. Fallback to plain text on error."""
     if not urls:
         return strip_citations(text)
+    # Normalize urls to strings (OpenRouter may return dicts)
+    norm = []
+    for u in urls:
+        if isinstance(u, str): norm.append(u)
+        elif isinstance(u, dict): norm.append(u.get("url") or u.get("link") or "")
+        else: norm.append(str(u))
+    urls = norm
     def replace_citation(match):
         nums = re.findall(r"\d+", match.group(0))
         parts = []
         for n in nums:
             idx = int(n) - 1
-            if 0 <= idx < len(urls) and urls[idx]:
+            if 0 <= idx < len(urls) and urls[idx] and urls[idx].startswith("http"):
+                # Use domain as link text but keep number for clarity: [1](url)
                 parts.append(f"[{n}]({urls[idx]})")
             else:
-                parts.append(f"[{n}]")
-        return " ".join(parts)
+                parts.append("")
+        # Join with space, then collapse -> if no valid urls, returns "" which will be stripped
+        joined = " ".join(p for p in parts if p)
+        return joined if joined else ""
     try:
         result = re.sub(r"\[\d+(?:,\s*\d+)*\]", replace_citation, text)
-        if "[" not in result or "http" in result:
-            return result
-        return strip_citations(text)
+        result = re.sub(r" {2,}", " ", result)
+        # If still has [N] (no valid url), strip them (plain fallback - no fake numbers)
+        if re.search(r"\[\d+\]", result):
+            return strip_citations(result)
+        return result
     except Exception:
         return strip_citations(text)
 
@@ -229,23 +241,58 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
     async def generate():
         full_response = ""
-        captured_citations = []
+
+        # True links path for web/research/factcheck (perplexity) - non-stream to get real citation URLs
+        is_perplexity = user_model == "perplexity/sonar"
+        if is_perplexity:
+            try:
+                async with httpx.AsyncClient(timeout=120) as client:
+                    r = await client.post(
+                        OPENROUTER_URL,
+                        headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"},
+                        json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature},
+                    )
+                    if r.status_code != 200:
+                        err = r.text[:300]
+                        yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err}'})}\n\n"
+                        return
+                    obj = r.json()
+                    content = obj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                    citations = obj.get("citations", [])
+                    # Perplexity may also return citations inside choices[0].message
+                    if not citations:
+                        citations = obj.get("choices", [{}])[0].get("message", {}).get("citations", [])
+                    if citations:
+                        full_response = convert_citations_to_links(content, citations)
+                    else:
+                        full_response = strip_citations(content) if content else ""
+                    # Stream the final linked/plain content in chunks for UI effect
+                    chunk_size = 20
+                    for i in range(0, len(full_response), chunk_size):
+                        chunk = full_response[i:i+chunk_size]
+                        yield f"data: {json.dumps({'token': chunk})}\n\n"
+                        # tiny delay to look like streaming
+                        import asyncio as _aio
+                        await _aio.sleep(0.02)
+                    if full_response:
+                        async with async_session() as db:
+                            ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
+                            db.add(ai_msg)
+                            await db.commit()
+                    yield "data: [DONE]\n\n"
+                    return
+            except Exception as e:
+                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                return
+
+        # Normal streaming path (no web or has images)
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream(
                     "POST",
                     OPENROUTER_URL,
-                    headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "model": user_model,
-                        "messages": messages,
-                        "max_tokens": user_max_tokens,
-                        "temperature": user_temperature,
-                        "stream": True,
-                    },
+                    headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"},
+                    json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature, "stream": True},
                 ) as resp:
                     if resp.status_code != 200:
                         error_body = ""
@@ -253,15 +300,8 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                             error_body += chunk
                         yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
                         return
-
                     async for line in resp.aiter_lines():
                         if not line.startswith("data: "):
-                            if line.strip().startswith('"citations"'):
-                                try:
-                                    parsed = json.loads("{" + line.strip().rstrip(",") + "}")
-                                    if "citations" in parsed:
-                                        captured_citations = parsed["citations"]
-                                except: pass
                             continue
                         data = line[6:]
                         if data.strip() == "[DONE]":
@@ -273,40 +313,19 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                 token = process_response(delta["content"], _research)
                                 full_response += token
                                 yield f"data: {json.dumps({'token': token})}\n\n"
-                            if not captured_citations and "citations" in obj:
-                                captured_citations = obj["citations"]
                         except json.JSONDecodeError:
                             continue
-
-            if not captured_citations and full_response and re.search(r"\[\d+\]", full_response):
-                try:
-                    non_stream_msgs = [{"role": "system", "content": system_prompt}]
-                    non_stream_msgs.extend(messages[1:])
-                    async with httpx.AsyncClient(timeout=60) as client:
-                        r = await client.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"}, json={"model": user_model, "messages": non_stream_msgs, "max_tokens": 256, "temperature": 0.1})
-                        if r.status_code == 200:
-                            resp_obj = r.json()
-                            captured_citations = resp_obj.get("citations", [])
-                except: pass
-
         except httpx.TimeoutException:
             yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
         if full_response:
-            if captured_citations:
-                full_response = convert_citations_to_links(full_response, captured_citations)
-            else:
-                # No citation URLs obtained -> fallback to plain text (remove [1][2])
-                full_response = strip_citations(full_response)
+            full_response = strip_citations(full_response)
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)
                 await db.commit()
-
-        if captured_citations:
-            yield f"data: {json.dumps({'citations': captured_citations})}\n\n"
 
         yield "data: [DONE]\n\n"
 

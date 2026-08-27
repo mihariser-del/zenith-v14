@@ -161,6 +161,21 @@ summary svg { width: 16px; height: 16px; }
 .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 10px; margin-bottom: 15px; background: var(--input-bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; outline: none; font-size: 14px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
 
+/* ADMIN GOLD THEME */
+#admin-panel-modal .modal-content {
+    background: linear-gradient(145deg, #1a1a0a, #2d2416);
+    border: 2px solid #FFD700;
+    box-shadow: 0 20px 60px rgba(255,215,0,0.15);
+}
+#admin-panel-modal .modal-content h3 { color: #FFD700 !important; text-shadow: 0 0 10px rgba(255,215,0,0.3); }
+#admin-panel-modal .modal-content input { background: rgba(0,0,0,0.5) !important; border-color: rgba(255,215,0,0.3) !important; color: #FFD700 !important; }
+#admin-panel-modal .modal-content input::placeholder { color: rgba(255,215,0,0.4) !important; }
+#admin-panel-modal .modal-content input:focus { border-color: #FFD700 !important; box-shadow: 0 0 15px rgba(255,215,0,0.15) !important; }
+#admin-panel-modal .btn { color: #FFD700 !important; border-color: rgba(255,215,0,0.3) !important; }
+#admin-panel-modal .btn:hover { background: rgba(255,215,0,0.1) !important; }
+#close-admin-panel { color: rgba(255,215,0,0.6) !important; border-color: rgba(255,215,0,0.3) !important; }
+#close-admin-panel:hover { color: #FFD700 !important; }
+
 /* TOAST */
 .toast { position: fixed; top: 20px; right: 20px; background: var(--sidebar); border: 1px solid var(--border); border-left: 4px solid var(--accent-solid); padding: 12px 24px; border-radius: 8px; color: var(--text); z-index: 300; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.3s ease; }
 .toast.show { transform: translateX(0); }

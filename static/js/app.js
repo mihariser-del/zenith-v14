@@ -16,11 +16,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['memory-btn','kb-btn','files-btn','security-btn'].forEach(id => { const el=$(id); if(el) el.style.opacity='0.5'; el.title='Not available for guests'; });
     }
     if (isAdmin) {
-        $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px;">ADMIN</span>';
+        $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
         let adminBtn = document.createElement('button');
         adminBtn.className = 'btn info'; adminBtn.id = 'admin-panel-btn';
-        adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> Admin Panel';
-        adminBtn.style.color = '#FFD700';
+        adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> Admin Vault';
+        adminBtn.style.cssText = 'color:#FFD700; border:1px solid rgba(255,215,0,0.3); background:linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,140,0,0.05));';
+        adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = '#FFD700'; });
+        adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,140,0,0.05))'; adminBtn.style.borderColor = 'rgba(255,215,0,0.3)'; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
     }

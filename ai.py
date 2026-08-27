@@ -36,15 +36,39 @@ FACTCHECK_PROMPT = (
 
 
 def strip_citations(text: str) -> str:
-    return re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
+    text = re.sub(r"\[\d+(?:,\s*\d+)*\]", " ", text)
+    text = re.sub(r" {2,}", " ", text)
+    return text.strip()
 
 
 def process_response(text: str, research: bool) -> str:
     if research:
-        text = re.sub(r"\[\d+\]", lambda m: m.group(0), text)
+        return text
     else:
-        text = strip_citations(text)
-    return text
+        return strip_citations(text)
+
+
+def convert_citations_to_links(text: str, urls: list) -> str:
+    """Convert [1][2] citation numbers to clickable [1](url) links. Fallback to plain text on error."""
+    if not urls:
+        return strip_citations(text)
+    def replace_citation(match):
+        nums = re.findall(r"\d+", match.group(0))
+        parts = []
+        for n in nums:
+            idx = int(n) - 1
+            if 0 <= idx < len(urls) and urls[idx]:
+                parts.append(f"[{n}]({urls[idx]})")
+            else:
+                parts.append(f"[{n}]")
+        return " ".join(parts)
+    try:
+        result = re.sub(r"\[\d+(?:,\s*\d+)*\]", replace_citation, text)
+        if "[" not in result or "http" in result:
+            return result
+        return strip_citations(text)
+    except Exception:
+        return strip_citations(text)
 
 
 async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False, factcheck: bool = False) -> str:
@@ -207,6 +231,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
     async def generate():
         full_response = ""
+        captured_citations = []
         try:
             async with httpx.AsyncClient(timeout=120) as client:
                 async with client.stream(
@@ -233,6 +258,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
                     async for line in resp.aiter_lines():
                         if not line.startswith("data: "):
+                            if line.strip().startswith('"citations"'):
+                                try:
+                                    parsed = json.loads("{" + line.strip().rstrip(",") + "}")
+                                    if "citations" in parsed:
+                                        captured_citations = parsed["citations"]
+                                except: pass
                             continue
                         data = line[6:]
                         if data.strip() == "[DONE]":
@@ -244,8 +275,21 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                 token = process_response(delta["content"], _research)
                                 full_response += token
                                 yield f"data: {json.dumps({'token': token})}\n\n"
+                            if not captured_citations and "citations" in obj:
+                                captured_citations = obj["citations"]
                         except json.JSONDecodeError:
                             continue
+
+            if not captured_citations and full_response and re.search(r"\[\d+\]", full_response):
+                try:
+                    non_stream_msgs = [{"role": "system", "content": system_prompt}]
+                    non_stream_msgs.extend(messages[1:])
+                    async with httpx.AsyncClient(timeout=60) as client:
+                        r = await client.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"}, json={"model": user_model, "messages": non_stream_msgs, "max_tokens": 256, "temperature": 0.1})
+                        if r.status_code == 200:
+                            resp_obj = r.json()
+                            captured_citations = resp_obj.get("citations", [])
+                except: pass
 
         except httpx.TimeoutException:
             yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
@@ -253,10 +297,15 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
         if full_response:
+            if captured_citations:
+                full_response = convert_citations_to_links(full_response, captured_citations)
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)
                 await db.commit()
+
+        if captured_citations:
+            yield f"data: {json.dumps({'citations': captured_citations})}\n\n"
 
         yield "data: [DONE]\n\n"
 

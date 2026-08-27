@@ -11,7 +11,7 @@ from database import User, LoginHistory, get_db, settings
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 ALGORITHM = "HS256"
-TOKEN_EXPIRY_HOURS = 72
+TOKEN_EXPIRY_HOURS = 720  # 30 days
 
 
 def hash_password(password: str) -> str:

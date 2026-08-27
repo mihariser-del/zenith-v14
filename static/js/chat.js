@@ -300,6 +300,29 @@ const Chat = {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
+                        if (parsed.citations) {
+                            try {
+                                let linked = fullResponse;
+                                let idx = 0;
+                                linked = linked.replace(/\[(\d+(?:,\s*\d+)*)\]/g, (mm, nums) => {
+                                    return nums.split(',').map(n => {
+                                        n = n.trim();
+                                        const ci = parseInt(n, 10) - 1;
+                                        const u = parsed.citations[ci];
+                                        if (u && typeof u === 'string' && u.startsWith('http')) {
+                                            const label = /^(?:https?:\/\/)?(?:www\.)?([^/]+)/.exec(u);
+                                            return `[${label ? label[1] : n}](${u})`;
+                                        }
+                                        return `[${n}]`;
+                                    }).join(' ');
+                                });
+                                fullResponse = linked;
+                                this.updateStreamingBubble(bubble, fullResponse);
+                            } catch (e) {
+                                fullResponse = fullResponse.replace(/\s*\[\d+(?:,\s*\d+)*\]\s*/g, ' ').trim();
+                                this.updateStreamingBubble(bubble, fullResponse);
+                            }
+                        }
                         if (parsed.error) {
                             showToast(parsed.error, 'error');
                             bubble.textContent = 'Error: ' + parsed.error;
@@ -317,7 +340,7 @@ const Chat = {
                 actions.className = 'msg-actions';
                 actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button><button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>`;
                 actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
-                    navigator.clipboard.writeText(fullResponse);
+                    navigator.clipboard.writeText(fullResponse.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 [$2]'));
                     showToast('Copied!', 'success');
                 });
                 actions.querySelector('[data-action="speak"]').addEventListener('click', () => {

@@ -13,10 +13,14 @@ class Settings(BaseSettings):
     model_config = {"env_file": ".env"}
 
 
-def _resolve_db_url() -> str:
+def _resolve_db_url(env_url: str = "") -> str:
     import os
-    if os.getenv("DATABASE_URL"):
-        url = os.getenv("DATABASE_URL")
+    # If a persistent volume is mounted at /data, ALWAYS prefer it so accounts
+    # survive redeploys (unless an explicit postgres/remote DB is configured).
+    if os.path.isdir("/data") and not env_url.startswith("postgres"):
+        return "sqlite+aiosqlite:////data/zenith.db"
+    if env_url:
+        url = env_url
         if url.startswith("postgres"):
             return url.replace("postgres://", "postgresql+asyncpg://").replace("postgresql://", "postgresql+asyncpg://")
         return url
@@ -25,8 +29,7 @@ def _resolve_db_url() -> str:
     return "sqlite+aiosqlite:///zenith.db"
 
 settings = Settings()
-if not settings.database_url:
-    settings.database_url = _resolve_db_url()
+settings.database_url = _resolve_db_url(settings.database_url or os.getenv("DATABASE_URL", ""))
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -44,6 +47,7 @@ class User(Base):
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
     is_banned = Column(Boolean, default=False)
+    ban_reason = Column(String(500), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -167,10 +171,11 @@ class LoginHistory(Base):
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        try:
-            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN is_banned BOOLEAN DEFAULT 0")
-        except Exception:
-            pass
+        for col, ddl in [("is_banned", "BOOLEAN DEFAULT 0"), ("ban_reason", "VARCHAR(500) DEFAULT ''")]:
+            try:
+                await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
+            except Exception:
+                pass
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt

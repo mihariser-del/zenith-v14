@@ -55,9 +55,10 @@ const AdminPanel = {
                 });
                 const banBtn = div.querySelector('[data-action="ban"]');
                 if (banBtn) banBtn.addEventListener('click', async () => {
-                    const ok = await showConfirm('Ban user?', `Ban ${u.username}? They will not be able to login.`, true);
-                    if (!ok) return;
-                    await api(`/api/auth/admin/users/${u.id}/ban`, { method: 'POST' });
+                    const reason = await showPrompt(`Ban ${u.username}?`, 'Enter a reason for the ban (shown to the user)');
+                    if (reason === null) return;
+                    if (!reason.trim()) { showToast('A ban reason is required', 'error'); return; }
+                    await api(`/api/auth/admin/users/${u.id}/ban`, { method: 'POST', body: JSON.stringify({ reason: reason.trim() }) });
                     showToast('User banned', 'success');
                     AdminPanel.load();
                 });
@@ -90,21 +91,36 @@ const AdminPanel = {
         });
     },
     showChats(username, chats) {
-        let html = `<h3 style="text-align:center; margin-bottom:12px; color:var(--accent-solid);">Chats for ${AdminPanel.escapeHtml(username)}</h3><div style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:8px;">`;
-        chats.slice(0, 10).forEach(c => {
-            html += `<div style="padding:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:left;">
-                <div style="font-weight:600; font-size:13px;">${AdminPanel.escapeHtml(c.title)} <span style="color:#888; font-weight:400; font-size:11px;">(${c.message_count} msgs)</span></div>
-                <div style="font-size:11px; color:#666; margin:4px 0;">${c.updated_at.slice(0, 16)}</div>`;
+        const modal = document.createElement('div');
+        modal.className = 'modal'; modal.style.display = 'flex';
+        modal.style.zIndex = '400';
+        modal.style.alignItems = 'flex-start';
+        modal.style.overflowY = 'auto';
+        modal.style.padding = '20px 10px';
+        let html = `<div style="max-width:700px; width:100%; margin:0 auto; background:linear-gradient(145deg,#1a1a0a,#2d2416); border:2px solid #FFD700; border-radius:16px; padding:20px;">`;
+        html += `<div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;"><h3 style="color:#FFD700; text-shadow:0 0 10px rgba(255,215,0,0.3); margin:0;">Chats for ${AdminPanel.escapeHtml(username)}</h3><span style="color:#FFD700; font-size:12px;">&larr; scroll to read all</span></div>`;
+        html += `<div style="max-height:65vh; overflow-y:auto; display:flex; flex-direction:column; gap:14px; padding-right:4px;">`;
+        chats.forEach((c, i) => {
+            html += `<div style="padding:14px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,215,0,0.15); border-radius:10px; text-align:left;">
+                <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:6px;">
+                    <div style="font-weight:700; font-size:14px; color:#FFD700;">${i+1}. ${AdminPanel.escapeHtml(c.title)}</div>
+                    <div style="font-size:11px; color:rgba(255,215,0,0.5);">${c.message_count} msgs &middot; ${c.updated_at.slice(0, 16)}</div>
+                </div>`;
+            if (!c.messages.length) {
+                html += `<div style="margin-top:8px; font-size:12px; color:rgba(255,215,0,0.4);">No messages.</div>`;
+            }
             c.messages.forEach(m => {
-                html += `<div style="margin-top:6px; padding:6px 8px; background:var(--bg); border-radius:6px; font-size:12px; border-left:3px solid ${m.role==='user'?'var(--accent-solid)':'#888'};"><strong>${m.role}:</strong> ${AdminPanel.escapeHtml(m.content.slice(0, 150))}${m.content.length>150?'...':''}</div>`;
+                const isUser = m.role === 'user';
+                const color = isUser ? '#00ff88' : 'rgba(255,215,0,0.8)';
+                html += `<div style="margin-top:8px; padding:10px 12px; background:rgba(255,215,0,0.05); border-radius:8px; font-size:13px; line-height:1.6; border-left:3px solid ${color}; white-space:pre-wrap; word-wrap:break-word;"><strong style="color:${color}; text-transform:capitalize;">${m.role}:</strong><br>${AdminPanel.escapeHtml(m.content)}</div>`;
             });
             html += `</div>`;
         });
         html += `</div>`;
-        const modal = document.createElement('div');
-        modal.className = 'modal'; modal.style.display = 'flex';
-        modal.innerHTML = `<div class="modal-content" style="max-width:600px;">${html}<div class="modal-actions" style="margin-top:15px;"><button class="btn" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button></div></div>`;
-        modal.querySelector('button').addEventListener('click', () => modal.remove());
+        html += `<div style="margin-top:15px; text-align:right;"><button class="btn gold-close" style="border:1px solid rgba(255,215,0,0.4); padding:10px 20px; border-radius:8px; background:transparent; color:#FFD700; cursor:pointer;">Close</button></div>`;
+        html += `</div>`;
+        modal.innerHTML = html;
+        modal.querySelector('.gold-close').addEventListener('click', () => modal.remove());
         modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
         document.body.appendChild(modal);
     },

@@ -45,12 +45,17 @@ class UserResponse(BaseModel):
     email: str
     is_admin: bool
     is_banned: bool = False
+    ban_reason: str = ""
 
     model_config = {"from_attributes": True}
 
 
 class AdminResetRequest(BaseModel):
     new_password: str
+
+
+class AdminBanRequest(BaseModel):
+    reason: str = ""
 
 
 def create_token(user_id: int, username: str, is_admin: bool) -> str:
@@ -119,7 +124,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     if getattr(user, 'is_banned', False):
-        raise HTTPException(status_code=403, detail="Account banned. Contact admin.")
+        raise HTTPException(status_code=403, detail=f"Account banned. Reason: {user.ban_reason or 'No reason provided'}")
 
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()
@@ -237,14 +242,17 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/admin/users/{user_id}/ban")
-async def admin_ban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
     if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if not req.reason or not req.reason.strip():
+        raise HTTPException(status_code=400, detail="Ban reason is required")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
     if target.is_admin: raise HTTPException(status_code=400, detail="Cannot ban an admin")
     target.is_banned = True
+    target.ban_reason = req.reason.strip()[:500]
     await db.commit()
     return {"message": f"{target.username} banned"}
 
@@ -257,6 +265,7 @@ async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = De
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
     target.is_banned = False
+    target.ban_reason = ""
     await db.commit()
     return {"message": f"{target.username} unbanned"}
 
@@ -280,11 +289,11 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
     if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.execute(select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(20))
+    result = await db.execute(select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(50))
     chats = result.scalars().all()
     out = []
     for c in chats:
-        msgs = [{"role": m.role, "content": m.content[:200], "created_at": str(m.created_at)} for m in c.messages[-5:]]
+        msgs = [{"role": m.role, "content": m.content, "created_at": str(m.created_at)} for m in c.messages[-100:]]
         out.append({"id": c.id, "title": c.title, "message_count": len(c.messages), "updated_at": str(c.updated_at), "messages": msgs})
     return {"chats": out}
 

@@ -11,6 +11,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('user-avatar').textContent = user.username[0].toUpperCase();
     const isGuest = user.username.startsWith('guest_');
     const isAdmin = user.is_admin;
+    if (isAdmin) document.body.classList.add('admin-gold');
     if (isGuest) {
         showToast('Guest mode — some features limited', '');
         ['memory-btn','kb-btn','files-btn','security-btn'].forEach(id => { const el=$(id); if(el) el.style.opacity='0.5'; el.title='Not available for guests'; });
@@ -27,13 +28,21 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
     }
     setInterval(async () => {
-        try { const r = await api('/api/auth/me'); if (r.user.is_banned) throw new Error('banned'); } catch (e) {
-            if (e.message.includes('banned') || e.message.includes('Not authenticated') || e.message.includes('User not found')) {
-                showToast('Account no longer available. Logging out...', 'error');
+        try {
+            const r = await api('/api/auth/me');
+            if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided'));
+        } catch (e) {
+            if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned'))) {
+                const reason = e.message.includes('__BANNED__') ? e.message.split('__BANNED__')[1] : (e.message.includes('is_banned') ? 'Unspecified' : '');
+                showBannedScreen(reason);
+                return;
+            }
+            if (e.message.includes('Not authenticated') || e.message.includes('User not found')) {
+                showToast('Account no longer exists. Logging out...', 'error');
                 setTimeout(() => window.location.href = '/', 2000);
             }
         }
-    }, 30000);
+    }, 10000);
 
     Settings.apply();
     Voice.init();
@@ -256,3 +265,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-refresh').addEventListener('click', () => AdminPanel.load());
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 });
+
+function showBannedScreen(reason) {
+    if (document.getElementById('banned-screen')) return;
+    const div = document.createElement('div');
+    div.id = 'banned-screen';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    div.innerHTML = `
+        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(255,77,77,0.25); animation:faceIn 0.4s ease;">
+            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(255,77,77,0.15); border:2px solid #ff4d4d; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff4d4d; font-size:40px;">&#9888;</div>
+            <h2 style="color:#ff4d4d; font-size:24px; margin-bottom:8px; letter-spacing:1px;">ACCOUNT BANNED</h2>
+            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">Your account has been suspended by an administrator.</p>
+            <div style="background:rgba(255,77,77,0.1); border:1px solid rgba(255,77,77,0.3); border-radius:10px; padding:14px; margin-bottom:20px; font-size:15px; color:#fff; line-height:1.5; word-wrap:break-word; white-space:pre-wrap;">"${reason || 'No reason provided'}"</div>
+            <button id="banned-ok" style="width:100%; padding:14px; background:linear-gradient(135deg,#ff4d4d,#cc0000); color:#fff; border:none; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">I UNDERSTAND &mdash; LOG OUT</button>
+        </div>`;
+    div.querySelector('#banned-ok').addEventListener('click', async () => {
+        try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        window.location.replace('/');
+    });
+    document.body.appendChild(div);
+    const style = document.createElement('style');
+    style.textContent = '@keyframes faceIn { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }';
+    document.head.appendChild(style);
+}

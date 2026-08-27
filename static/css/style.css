@@ -162,6 +162,23 @@ summary svg { width: 16px; height: 16px; }
 .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 10px; }
 
 /* ADMIN GOLD THEME */
+body.admin-gold { --accent: linear-gradient(135deg, #FFD700, #FF8C00); --accent-solid: #FFD700; --accent-hover: #e6c200; --user-msg: linear-gradient(135deg, #FFD700, #FF8C00); }
+body.admin-gold .z-logo { background: linear-gradient(135deg, #FFD700, #FF8C00); }
+body.admin-gold .welcome-z-logo { background: linear-gradient(135deg, #FFD700, #FF8C00); box-shadow: 0 8px 32px rgba(255,215,0,0.3); }
+body.admin-gold .welcome-message h2 span { background: linear-gradient(135deg, #FFD700, #FF8C00); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+body.admin-gold .msg-actions button:hover { color: #FFD700; border-color: #FFD700; }
+body.admin-gold .btn.info { color: #FFD700; }
+body.admin-gold #send-btn { background: linear-gradient(135deg, #FFD700, #FF8C00); }
+body.admin-gold #send-btn:hover { box-shadow: 0 0 15px rgba(255,215,0,0.5); }
+body.admin-gold .composer-icon.active { color: #FFD700; background: rgba(255,215,0,0.15); }
+body.admin-gold .composer-icon:hover { color: #FFD700; }
+body.admin-gold .user-profile-bar .user-avatar { background: linear-gradient(135deg, #FFD700, #FF8C00); }
+body.admin-gold .thinking-text { color: #FFD700; }
+body.admin-gold .streaming-cursor::after { background: #FFD700; }
+body.admin-gold .chat-item .actions button:hover { color: #FFD700; }
+body.admin-gold #settings-modal h3, body.admin-gold #memory-modal h3, body.admin-gold #kb-modal h3, body.admin-gold #files-modal h3, body.admin-gold #security-modal h3, body.admin-gold #code-modal h3, body.admin-gold #kb-items-modal h3, body.admin-gold #kb-items-title { color: #FFD700 !important; }
+body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
+
 #admin-panel-modal .modal-content {
     background: linear-gradient(145deg, #1a1a0a, #2d2416);
     border: 2px solid #FFD700;

@@ -30,6 +30,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
     }
+    // Avatar click shows logout when in collapsed rail (901-1100px)
+    const avatarEl = $('user-avatar');
+    if (avatarEl) {
+        avatarEl.addEventListener('click', () => {
+            if (window.innerWidth > 900 && window.innerWidth <= 1100) {
+                let popup = $('avatar-popup');
+                if (popup) { popup.remove(); return; }
+                popup = document.createElement('div');
+                popup.id = 'avatar-popup';
+                popup.style.cssText = 'position:fixed; bottom:20px; left:70px; background:var(--sidebar); border:1px solid var(--border); border-radius:10px; padding:12px; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.3); min-width:140px;';
+                popup.innerHTML = `<div style="font-size:13px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username}</div><button class="btn danger" id="popup-logout" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;">Logout</button>`;
+                popup.querySelector('#popup-logout').addEventListener('click', () => { popup.remove(); $('logout-btn').click(); });
+                document.body.appendChild(popup);
+                const close = (e) => { if (!popup.contains(e.target) && e.target !== avatarEl) { popup.remove(); document.removeEventListener('click', close); } };
+                setTimeout(() => document.addEventListener('click', close), 100);
+            }
+        });
+    }
     setInterval(async () => {
         try {
             const r = await api('/api/auth/me');

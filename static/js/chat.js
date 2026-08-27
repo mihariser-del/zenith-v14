@@ -82,6 +82,7 @@ const Chat = {
         sorted.forEach(chat => {
             const div = document.createElement('div');
             div.className = `chat-item ${chat.id === this.activeId ? 'active' : ''}`;
+            div.title = chat.title;
             div.innerHTML = `
                 <span class="title">${this.escapeHtml(chat.title)}</span>
                 <div class="actions">

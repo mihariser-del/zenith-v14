@@ -206,8 +206,16 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
 .streaming-cursor::after { content: ''; display: inline-block; width: 2px; height: 1em; background: var(--accent-solid); margin-left: 2px; animation: blink 0.8s infinite; vertical-align: text-bottom; }
 @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
 
-/* ========== MOBILE ========== */
 @media (max-width: 900px) {
+    .hamburger { display: flex; }
+    .hamburger.hidden { display: none !important; }
+    .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; }
+    .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
+    .sidebar-overlay.active { display: block; }
+    .main { width: 100%; min-height: 100dvh; }
+}
+/* ========== MOBILE ========== */
+@media (max-width: 768px) {
     .hamburger { display: flex; }
     .hamburger.hidden { display: none !important; }
 

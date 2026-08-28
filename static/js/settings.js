@@ -76,8 +76,8 @@ const Settings = {
                         document.documentElement.style.setProperty('--accent-hover', s.accent);
                         document.body.style.setProperty('--accent-solid', s.accent);
                         document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
-                            el.style.background = s.accent;
-                            el.style.backgroundImage = 'none';
+                            el.style.background = `linear-gradient(135deg, #FFD700, ${s.accent})`;
+                            el.style.backgroundImage = '';
                         });
                     } else {
                         document.body.style.removeProperty('--accent-solid');

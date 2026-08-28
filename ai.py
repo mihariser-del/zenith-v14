@@ -287,6 +287,26 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                 if _is_exhausted(r.status_code, err) and idx < len(keys) - 1:
                                     continue
                                 if _is_exhausted(r.status_code, err):
+                                    # Try free fallback before giving up
+                                    try:
+                                        async with httpx.AsyncClient(timeout=60) as fb:
+                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "meta-llama/llama-3.1-8b-instruct:free", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
+                                            if fr.status_code == 200:
+                                                fobj = fr.json()
+                                                fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                                if fcontent:
+                                                    full_response = strip_citations(fcontent) + "\n\n*— Answered via free fallback due to high traffic —*"
+                                                    for i in range(0, len(full_response), 20):
+                                                        yield f"data: {json.dumps({'token': full_response[i:i+20]})}\n\n"
+                                                        import asyncio as _aio2
+                                                        await _aio2.sleep(0.02)
+                                                    async with async_session() as db2:
+                                                        ai_msg2 = Message(chat_id=chat_id, role="assistant", content=full_response)
+                                                        db2.add(ai_msg2)
+                                                        await db2.commit()
+                                                    yield "data: [DONE]\n\n"
+                                                    return
+                                    except: pass
                                     yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                                 else:
                                     yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err[:300]}'})}\n\n"
@@ -368,6 +388,27 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                 if _is_exhausted(resp.status_code, error_body) and idx < len(keys) - 1:
                                     continue
                                 if _is_exhausted(resp.status_code, error_body):
+                                    # Free fallback
+                                    try:
+                                        async with httpx.AsyncClient(timeout=60) as fb:
+                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "meta-llama/llama-3.1-8b-instruct:free", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
+                                            if fr.status_code == 200:
+                                                fobj = fr.json()
+                                                fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                                if fcontent:
+                                                    fcontent = strip_citations(fcontent) + "\n\n*— Answered via free fallback due to high traffic —*"
+                                                    for i in range(0, len(fcontent), 20):
+                                                        yield f"data: {json.dumps({'token': fcontent[i:i+20]})}\n\n"
+                                                        import asyncio as _aio3
+                                                        await _aio3.sleep(0.02)
+                                                    full_response = fcontent
+                                                    async with async_session() as db3:
+                                                        am = Message(chat_id=chat_id, role="assistant", content=full_response)
+                                                        db3.add(am)
+                                                        await db3.commit()
+                                                    yield "data: [DONE]\n\n"
+                                                    return
+                                    except: pass
                                     yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                                 else:
                                     yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"

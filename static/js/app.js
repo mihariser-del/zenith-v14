@@ -335,11 +335,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const { feedbacks } = await api('/api/feedback');
             const replied = feedbacks.filter(f => f.response).length;
-            if (replied > 0) { feedbackBadge.textContent = replied; feedbackBadge.style.display = 'block'; }
+            const seen = parseInt(localStorage.getItem('zenith_feedback_seen') || '0', 10);
+            const unseen = replied - seen;
+            if (unseen > 0) { feedbackBadge.textContent = unseen; feedbackBadge.style.display = 'block'; }
+            else feedbackBadge.style.display = 'none';
         } catch (e) {}
     }
-    if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 30000); }
-    else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 30000); }
+    if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
+    else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
 
     function renderFeedbackThread(listEl, feedbacks, isAdminView) {
         listEl.innerHTML = '';
@@ -377,7 +380,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('feedback-modal').style.display='flex';
         const list = $('feedback-list');
         list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">Loading...</p>';
-        try { const {feedbacks}=await api('/api/feedback'); renderFeedbackThread(list, feedbacks, false); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
+        try {
+            const {feedbacks}=await api('/api/feedback');
+            renderFeedbackThread(list, feedbacks, false);
+            const replied = feedbacks.filter(f => f.response).length;
+            localStorage.setItem('zenith_feedback_seen', String(replied));
+            feedbackBadge.style.display = 'none';
+        } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
     }
     async function openAdminFeedback() {
         $('feedback-admin-modal').style.display='flex';

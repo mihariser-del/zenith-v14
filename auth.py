@@ -221,7 +221,7 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     total_chats = (await db.execute(select(func.count()).select_from(Chat))).scalar() or 0
     total_messages = (await db.execute(select(func.count()).select_from(Message))).scalar() or 0
     since = datetime.now(timezone.utc) - timedelta(hours=24)
-    active_users = (await db.execute(select(func.count(func.distinct(Chat.user_id))).where(Chat.updated_at >= since))).scalar() or 0
+    active_users = (await db.execute(select(func.count(func.distinct(Chat.user_id))).select_from(Chat).join(User, Chat.user_id == User.id).where(Chat.updated_at >= since, User.is_deleted == False))).scalar() or 0
     guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%"), User.is_deleted == False))).scalar() or 0
     banned_count = (await db.execute(select(func.count()).select_from(User).where(User.is_banned == True, User.is_deleted == False))).scalar() or 0
     deleted_count = (await db.execute(select(func.count()).select_from(User).where(User.is_deleted == True))).scalar() or 0

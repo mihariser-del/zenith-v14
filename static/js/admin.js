@@ -62,7 +62,8 @@ const AdminPanel = {
         const list = $('admin-users-list');
         list.innerHTML = '';
         let filtered = this.users;
-        if (this.currentFilter === 'banned') filtered = filtered.filter(u => u.is_banned && !u.is_deleted);
+        if (this.currentFilter === 'all') filtered = filtered.filter(u => !u.is_deleted);
+        else if (this.currentFilter === 'banned') filtered = filtered.filter(u => u.is_banned && !u.is_deleted);
         else if (this.currentFilter === 'deleted') filtered = filtered.filter(u => u.is_deleted);
         else if (this.currentFilter === 'live') filtered = filtered.filter(u => !u.is_banned && !u.is_deleted);
         const q = this.searchQuery;

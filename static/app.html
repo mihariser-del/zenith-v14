@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zenith</title>
+    <title>Zenith AI</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16.png">
@@ -53,6 +53,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
             Knowledge
         </button>
+        <button class="btn info" id="feedback-btn" title="Feedback" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Feedback
+            <span id="feedback-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ff4d4d; color:white; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
+        </button>
         <button class="btn" id="settings-btn" title="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             Settings
@@ -96,6 +101,7 @@
 
 <main class="main" id="main">
     <div id="chat-container"></div>
+    <button id="scroll-down-btn" aria-label="Scroll to bottom" style="display:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg></button>
 
     <div id="search-results" style="display:none; position:absolute; top:0; left:0; right:0; bottom:0; background:var(--bg); z-index:50; padding:20px; overflow-y:auto;">
         <div style="display:flex; align-items:center; gap:10px; margin-bottom:20px;">
@@ -117,7 +123,7 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                 <span>Attach</span>
             </button>
-            <input type="file" id="file-input" multiple accept="image/*, .txt, .md, .json, .csv, .js, .py, .html, .css" style="display: none;">
+            <input type="file" id="file-input" multiple accept="*/*" style="display: none;">
             <div class="input-col">
                 <textarea id="user-input" rows="1" placeholder="Ask anything..."></textarea>
             </div>
@@ -252,10 +258,10 @@
         <details>
             <summary>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/></svg>
-                Voice
+                Accent
             </summary>
             <div class="details-content">
-                <label>Speech Language</label>
+                <label>Accent Language</label>
                 <select id="speech-lang">
                     <option value="en-US">English (US)</option>
                     <option value="en-GB">English (UK)</option>
@@ -441,6 +447,41 @@
             <button class="btn" id="prompt-cancel" style="border: 1px solid var(--border); padding: 10px 20px; border-radius: 8px; background: transparent; color: var(--text);">Cancel</button>
             <button class="btn primary" id="prompt-ok" style="padding: 10px 20px; border-radius: 8px;">OK</button>
         </div>
+    </div>
+</div>
+
+<div id="feedback-modal" class="modal">
+    <div class="modal-content" style="max-width:550px;">
+        <h3 style="text-align:center; margin-bottom:15px; color:var(--accent-solid);">Feedback</h3>
+        <p style="text-align:center; color:#888; font-size:13px; margin-bottom:15px;">Share your thoughts — admin will reply here.</p>
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <textarea id="feedback-input" rows="3" placeholder="Your feedback..." style="flex:1; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; outline:none; font-size:14px; resize:vertical;"></textarea>
+        </div>
+        <button class="btn primary" id="feedback-submit" style="width:100%; justify-content:center; margin-bottom:15px;">Send Feedback</button>
+        <div id="feedback-list" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-feedback" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="feedback-admin-modal" class="modal">
+    <div class="modal-content" style="max-width:650px; background:linear-gradient(145deg, #1a1a0a, #2d2416); border:2px solid #FFD700;">
+        <h3 style="text-align:center; margin-bottom:15px; color:#FFD700;">&#9812; Feedback Inbox</h3>
+        <div id="feedback-admin-list" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-feedback-admin" style="border:1px solid rgba(255,215,0,0.3); padding:10px; border-radius:8px; background:transparent; color:#FFD700;">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="changelog-modal" class="modal">
+    <div class="modal-content" style="max-width:480px; text-align:center;">
+        <div class="z-logo" style="margin:0 auto 12px; width:56px; height:56px; font-size:32px; border-radius:14px;">Z</div>
+        <h3 id="changelog-title" style="color:var(--accent-solid); margin-bottom:10px;">What's New</h3>
+        <p id="changelog-version" style="color:#888; font-size:12px; margin-bottom:12px;"></p>
+        <ul id="changelog-list" style="text-align:left; color:var(--text); font-size:13px; line-height:1.6; margin-bottom:15px; padding-left:20px;"></ul>
+        <button class="btn primary" id="close-changelog" style="width:100%; justify-content:center;">Got it</button>
     </div>
 </div>
 

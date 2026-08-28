@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import httpx
 from fastapi.responses import StreamingResponse
@@ -7,6 +8,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+
+def _get_openrouter_keys() -> list[str]:
+    """Return list of OpenRouter keys with rotation support."""
+    # Uses Settings.get_openrouter_keys() which checks OPENROUTER_API_KEYS env (comma-separated) then fallback to singular key
+    try:
+        return settings.get_openrouter_keys()
+    except Exception:
+        raw = os.getenv("OPENROUTER_API_KEYS") or getattr(settings, "openrouter_api_keys", "") or getattr(settings, "openrouter_api_key", "") or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
+
+
+def _is_exhausted(status_code: int, body: str) -> bool:
+    if status_code in (402, 429):
+        return True
+    low = body.lower()
+    return "in_flight_budget" in low or "available credits" in low or "rate limit" in low
 
 DEFAULT_SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully."
 
@@ -29,7 +47,8 @@ FACTCHECK_PROMPT = (
     "When given a claim to verify, analyze it thoroughly. For each claim: "
     "1) State whether it is TRUE, FALSE, PARTIALLY TRUE, or UNVERIFIED. "
     "2) Provide evidence and reasoning. "
-    "3) Cite sources where available. "
+    "3) Cite sources where available with clickable markdown links. "
+    "Always include source URLs as markdown links [1](url) and list Sources at the end with clickable links. "
     "Be precise, neutral, and transparent about the limits of your knowledge."
 )
 
@@ -246,85 +265,148 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         is_perplexity = user_model == "perplexity/sonar"
         if is_perplexity:
             try:
-                async with httpx.AsyncClient(timeout=120) as client:
-                    r = await client.post(
-                        OPENROUTER_URL,
-                        headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"},
-                        json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature},
-                    )
-                    if r.status_code != 200:
-                        err = r.text[:300]
-                        if r.status_code == 402 or "in_flight_budget" in err or "available credits" in err:
-                            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
-                        else:
-                            yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err}'})}\n\n"
-                        return
-                    obj = r.json()
-                    content = obj.get("choices", [{}])[0].get("message", {}).get("content", "")
-                    citations = obj.get("citations", [])
-                    # Perplexity may also return citations inside choices[0].message
-                    if not citations:
-                        citations = obj.get("choices", [{}])[0].get("message", {}).get("citations", [])
-                    if citations:
-                        full_response = convert_citations_to_links(content, citations)
+                keys = _get_openrouter_keys()
+                if not keys:
+                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                    return
+                last_err = ""
+                last_status = 0
+                success = False
+                for idx, _key in enumerate(keys):
+                    try:
+                        async with httpx.AsyncClient(timeout=120) as client:
+                            r = await client.post(
+                                OPENROUTER_URL,
+                                headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"},
+                                json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature},
+                            )
+                            if r.status_code != 200:
+                                err = r.text[:500]
+                                last_err = err
+                                last_status = r.status_code
+                                if _is_exhausted(r.status_code, err) and idx < len(keys) - 1:
+                                    continue
+                                if _is_exhausted(r.status_code, err):
+                                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                                else:
+                                    yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err[:300]}'})}\n\n"
+                                return
+                            obj = r.json()
+                            content = obj.get("choices", [{}])[0].get("message", {}).get("content", "")
+                            citations = obj.get("citations", [])
+                            if not citations:
+                                citations = obj.get("choices", [{}])[0].get("message", {}).get("citations", [])
+                            if citations:
+                                full_response = convert_citations_to_links(content, citations)
+                                # Ensure source links footer for web/research/factcheck (fact button links)
+                                try:
+                                    norm_urls = []
+                                    for u in citations:
+                                        if isinstance(u, str): norm_urls.append(u)
+                                        elif isinstance(u, dict): norm_urls.append(u.get("url") or u.get("link") or "")
+                                        else: norm_urls.append(str(u))
+                                    if full_response and norm_urls and "Sources" not in full_response:
+                                        src = "\n\n**Sources:**\n" + "\n".join(f"- [{i+1}]({url})" for i, url in enumerate(norm_urls) if url.startswith("http"))
+                                        if src.strip() != "**Sources:**":
+                                            full_response += src
+                                except: pass
+                            else:
+                                full_response = strip_citations(content) if content else ""
+                            chunk_size = 20
+                            for i in range(0, len(full_response), chunk_size):
+                                chunk = full_response[i:i+chunk_size]
+                                yield f"data: {json.dumps({'token': chunk})}\n\n"
+                                import asyncio as _aio
+                                await _aio.sleep(0.02)
+                            if full_response:
+                                async with async_session() as db:
+                                    ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
+                                    db.add(ai_msg)
+                                    await db.commit()
+                            yield "data: [DONE]\n\n"
+                            success = True
+                            return
+                    except Exception as inner_e:
+                        last_err = str(inner_e)
+                        if idx < len(keys) - 1 and ("402" in last_err or "429" in last_err or "in_flight_budget" in last_err.lower() or "rate limit" in last_err.lower()):
+                            continue
+                        raise
+                if not success and last_err:
+                    if _is_exhausted(last_status, last_err):
+                        yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                     else:
-                        full_response = strip_citations(content) if content else ""
-                    # Stream the final linked/plain content in chunks for UI effect
-                    chunk_size = 20
-                    for i in range(0, len(full_response), chunk_size):
-                        chunk = full_response[i:i+chunk_size]
-                        yield f"data: {json.dumps({'token': chunk})}\n\n"
-                        # tiny delay to look like streaming
-                        import asyncio as _aio
-                        await _aio.sleep(0.02)
-                    if full_response:
-                        async with async_session() as db:
-                            ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
-                            db.add(ai_msg)
-                            await db.commit()
-                    yield "data: [DONE]\n\n"
+                        yield f"data: {json.dumps({'error': f'API error {last_status}: {last_err[:300]}'})}\n\n"
                     return
             except Exception as e:
                 yield f"data: {json.dumps({'error': str(e)})}\n\n"
                 return
 
-        # Normal streaming path (no web or has images)
-        try:
-            async with httpx.AsyncClient(timeout=120) as client:
-                async with client.stream(
-                    "POST",
-                    OPENROUTER_URL,
-                    headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"},
-                    json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature, "stream": True},
-                ) as resp:
-                    if resp.status_code != 200:
-                        error_body = ""
-                        async for chunk in resp.aiter_text():
-                            error_body += chunk
-                        if resp.status_code == 402 or "in_flight_budget" in error_body or "available credits" in error_body:
-                            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
-                        else:
-                            yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
-                        return
-                    async for line in resp.aiter_lines():
-                        if not line.startswith("data: "):
-                            continue
-                        data = line[6:]
-                        if data.strip() == "[DONE]":
-                            break
-                        try:
-                            obj = json.loads(data)
-                            delta = obj.get("choices", [{}])[0].get("delta", {})
-                            if "content" in delta and delta["content"]:
-                                token = process_response(delta["content"], _research)
-                                full_response += token
-                                yield f"data: {json.dumps({'token': token})}\n\n"
-                        except json.JSONDecodeError:
-                            continue
-        except httpx.TimeoutException:
-            yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
-        except Exception as e:
-            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        # Normal streaming path (no web or has images) - with key rotation on 402/429
+        keys = _get_openrouter_keys()
+        if not keys:
+            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+            return
+        else:
+            last_error_body = ""
+            last_status = 0
+            streamed = False
+            for idx, _key in enumerate(keys):
+                try:
+                    async with httpx.AsyncClient(timeout=120) as client:
+                        async with client.stream(
+                            "POST",
+                            OPENROUTER_URL,
+                            headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"},
+                            json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature, "stream": True},
+                        ) as resp:
+                            if resp.status_code != 200:
+                                error_body = ""
+                                async for chunk in resp.aiter_text():
+                                    error_body += chunk
+                                last_error_body = error_body
+                                last_status = resp.status_code
+                                if _is_exhausted(resp.status_code, error_body) and idx < len(keys) - 1:
+                                    continue
+                                if _is_exhausted(resp.status_code, error_body):
+                                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                                else:
+                                    yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
+                                return
+                            # success - stream tokens
+                            streamed = True
+                            async for line in resp.aiter_lines():
+                                if not line.startswith("data: "):
+                                    continue
+                                data = line[6:]
+                                if data.strip() == "[DONE]":
+                                    break
+                                try:
+                                    obj = json.loads(data)
+                                    delta = obj.get("choices", [{}])[0].get("delta", {})
+                                    if "content" in delta and delta["content"]:
+                                        token = process_response(delta["content"], _research)
+                                        full_response += token
+                                        yield f"data: {json.dumps({'token': token})}\n\n"
+                                except json.JSONDecodeError:
+                                    continue
+                            break  # streamed successfully, exit key loop
+                except httpx.TimeoutException:
+                    yield f"data: {json.dumps({'error': 'Request timed out'})}\n\n"
+                    return
+                except Exception as e:
+                    last_error_body = str(e)
+                    if idx < len(keys) - 1 and _is_exhausted(0, last_error_body):
+                        continue
+                    yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                    return
+            else:
+                # loop exhausted without break (no key succeeded) but not returned above - fallback
+                if not streamed and last_error_body:
+                    if _is_exhausted(last_status, last_error_body):
+                        yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                    else:
+                        yield f"data: {json.dumps({'error': f'API error {last_status}: {last_error_body[:300]}'})}\n\n"
+                    return
 
         if full_response:
             full_response = strip_citations(full_response)

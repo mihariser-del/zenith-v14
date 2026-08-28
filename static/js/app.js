@@ -17,8 +17,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (isGuest) {
         showToast('Guest mode — some features limited', '');
-        ['memory-btn','kb-btn','files-btn','security-btn'].forEach(id => { const el=$(id); if(el) el.style.opacity='0.5'; el.title='Not available for guests'; });
+        ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
     }
+    function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     if (isAdmin) {
         $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
         let adminBtn = document.createElement('button');
@@ -105,21 +106,27 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('send-btn').addEventListener('click', () => Chat.send());
     $('stop-btn').addEventListener('click', () => Chat.stop());
-    $('settings-btn').addEventListener('click', () => { Settings.open(); closeSidebar(); });
+    $('settings-btn').addEventListener('click', () => { if (!requireLogin()) return; Settings.open(); closeSidebar(); });
     $('close-settings').addEventListener('click', () => Settings.close());
-    $('save-settings').addEventListener('click', () => Settings.saveFromForm());
+    $('save-settings').addEventListener('click', () => { if (!requireLogin()) return; Settings.saveFromForm(); });
+    // Guest guard for Settings appearance/model sections
+    document.querySelectorAll('#settings-modal details summary').forEach(s => {
+        if (s.textContent.includes('Model') || s.textContent.includes('Appearance')) {
+            s.addEventListener('click', (e) => { if (!requireLogin()) { e.preventDefault(); e.stopImmediatePropagation(); const d = s.closest('details'); if (d) d.open = false; } });
+        }
+    });
     $('info-btn').addEventListener('click', () => { $('about-modal').style.display = 'flex'; closeSidebar(); });
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
 
-    $('memory-btn').addEventListener('click', () => { Memory.open(); closeSidebar(); });
+    $('memory-btn').addEventListener('click', () => { if (!requireLogin()) return; Memory.open(); closeSidebar(); });
     $('close-memory').addEventListener('click', () => Memory.close());
     $('memory-add-btn').addEventListener('click', () => Memory.add());
     $('memory-extract-btn').addEventListener('click', () => Memory.autoExtract());
     $('memory-search').addEventListener('input', (e) => Memory.search(e.target.value));
     $('memory-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') Memory.add(); });
 
-    $('kb-btn').addEventListener('click', () => { Knowledge.open(); closeSidebar(); });
+    $('kb-btn').addEventListener('click', () => { if (!requireLogin()) return; Knowledge.open(); closeSidebar(); });
     $('close-kb').addEventListener('click', () => Knowledge.close());
     $('kb-create-btn').addEventListener('click', () => Knowledge.create());
     $('close-kb-items').addEventListener('click', () => Knowledge.closeItems());
@@ -128,13 +135,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('kb-file-btn').addEventListener('click', () => $('kb-file-input').click());
     $('kb-file-input').addEventListener('change', () => { if ($('kb-file-input').files.length) Knowledge.addFile($('kb-items-modal').dataset.kbId); });
 
-    $('files-btn').addEventListener('click', () => { Files.open(); closeSidebar(); });
+    $('files-btn').addEventListener('click', () => { if (!requireLogin()) return; Files.open(); closeSidebar(); });
     $('close-files').addEventListener('click', () => Files.close());
 
-    $('security-btn').addEventListener('click', () => { Security.open(); closeSidebar(); });
+    $('security-btn').addEventListener('click', () => { if (!requireLogin()) return; Security.open(); closeSidebar(); });
     $('close-security').addEventListener('click', () => Security.close());
 
-    $('code-btn').addEventListener('click', () => { CodeExec.open(); closeSidebar(); });
+    $('code-btn').addEventListener('click', () => { if (!requireLogin()) return; CodeExec.open(); closeSidebar(); });
     $('close-code').addEventListener('click', () => CodeExec.close());
     $('run-code-btn').addEventListener('click', () => CodeExec.run());
     $('code-modal').addEventListener('click', e => { if (e.target === $('code-modal')) CodeExec.close(); });
@@ -290,6 +297,110 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('close-admin-panel').addEventListener('click', () => AdminPanel.close());
     $('admin-refresh').addEventListener('click', () => AdminPanel.load());
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
+
+    // --- Changelog popup ---
+    (async () => {
+        try {
+            const data = await api('/api/changelog');
+            const seen = localStorage.getItem('zenith_version');
+            if (seen !== data.version) {
+                $('changelog-title').textContent = `What's New — v${data.version}`;
+                $('changelog-version').textContent = `Version ${data.version}`;
+                $('changelog-list').innerHTML = data.changes.map(c => `<li>${c}</li>`).join('');
+                $('changelog-modal').style.display = 'flex';
+                $('close-changelog').onclick = () => { localStorage.setItem('zenith_version', data.version); $('changelog-modal').style.display = 'none'; };
+                $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) { localStorage.setItem('zenith_version', data.version); $('changelog-modal').style.display = 'none'; } });
+            }
+        } catch (e) {}
+    })();
+
+    // --- Feedback system ---
+    const feedbackBadge = $('feedback-badge');
+    let lastFeedbackCount = 0;
+    async function refreshFeedbackBadge() {
+        if (!isAdmin) return;
+        try {
+            const { feedbacks } = await api('/api/feedback/admin');
+            const unanswered = feedbacks.filter(f => !f.response).length;
+            if (unanswered > 0) {
+                feedbackBadge.textContent = unanswered;
+                feedbackBadge.style.display = 'block';
+                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) showToast(`New feedback: ${unanswered} unanswered`, '');
+            } else feedbackBadge.style.display = 'none';
+            lastFeedbackCount = unanswered;
+        } catch (e) {}
+    }
+    async function refreshUserBadge() {
+        if (isAdmin || isGuest) return;
+        try {
+            const { feedbacks } = await api('/api/feedback');
+            const replied = feedbacks.filter(f => f.response).length;
+            if (replied > 0) { feedbackBadge.textContent = replied; feedbackBadge.style.display = 'block'; }
+        } catch (e) {}
+    }
+    if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 30000); }
+    else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 30000); }
+
+    function renderFeedbackThread(listEl, feedbacks, isAdminView) {
+        listEl.innerHTML = '';
+        if (feedbacks.length === 0) { listEl.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No feedback yet.</p>'; return; }
+        feedbacks.forEach(f => {
+            const div = document.createElement('div');
+            div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
+            const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="font-size:11px; color:#888;">${f.created_at}</span></div>`;
+            html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
+            if (f.response) {
+                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">Admin reply ${f.responded_at ? '· '+f.responded_at : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
+            } else if (isAdminView) {
+                html += `<div style="margin-top:8px; display:flex; gap:6px;"><input type="text" placeholder="Write a reply..." data-reply="${f.id}" style="flex:1; padding:8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none;"><button data-send="${f.id}" style="padding:8px 12px; background:#FFD700; color:#000; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">Reply</button></div>`;
+            } else {
+                html += `<div style="margin-top:6px; font-size:11px; color:#888; font-style:italic;">Awaiting admin reply...</div>`;
+            }
+            div.innerHTML = html;
+            listEl.appendChild(div);
+        });
+        if (isAdminView) {
+            listEl.querySelectorAll('[data-send]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-send');
+                    const inp = listEl.querySelector(`[data-reply=\"${id}\"]`);
+                    const txt = inp.value.trim();
+                    if (!txt) { showToast('Reply cannot be empty','error'); return; }
+                    try { await api(`/api/feedback/${id}/respond`, {method:'POST', body:JSON.stringify({response:txt})}); showToast('Reply sent','success'); openAdminFeedback(); refreshFeedbackBadge(); } catch(e){ showToast(e.message,'error'); }
+                });
+            });
+        }
+    }
+    async function openUserFeedback() {
+        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
+        $('feedback-modal').style.display='flex';
+        const list = $('feedback-list');
+        list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">Loading...</p>';
+        try { const {feedbacks}=await api('/api/feedback'); renderFeedbackThread(list, feedbacks, false); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
+    }
+    async function openAdminFeedback() {
+        $('feedback-admin-modal').style.display='flex';
+        const list = $('feedback-admin-list');
+        list.innerHTML = '<p style="color:#FFD700; text-align:center; padding:20px;">Loading...</p>';
+        try { const {feedbacks}=await api('/api/feedback/admin'); renderFeedbackThread(list, feedbacks, true); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
+    }
+    $('feedback-btn').addEventListener('click', () => {
+        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
+        if (isAdmin) { openAdminFeedback(); } else { openUserFeedback(); }
+        closeSidebar();
+    });
+    $('close-feedback').addEventListener('click', () => $('feedback-modal').style.display='none');
+    $('feedback-modal').addEventListener('click', e => { if (e.target === $('feedback-modal')) $('feedback-modal').style.display='none'; });
+    $('close-feedback-admin').addEventListener('click', () => $('feedback-admin-modal').style.display='none');
+    $('feedback-admin-modal').addEventListener('click', e => { if (e.target === $('feedback-admin-modal')) $('feedback-admin-modal').style.display='none'; });
+    $('feedback-submit').addEventListener('click', async () => {
+        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
+        const inp = $('feedback-input');
+        const txt = inp.value.trim();
+        if (!txt) { showToast('Please write feedback','error'); return; }
+        try { await api('/api/feedback', {method:'POST', body:JSON.stringify({content:txt})}); inp.value=''; showToast('Feedback sent','success'); openUserFeedback(); refreshUserBadge(); } catch(e){ showToast(e.message,'error'); }
+    });
 });
 
 function showBannedScreen(reason) {

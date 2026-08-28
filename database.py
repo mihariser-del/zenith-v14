@@ -8,10 +8,18 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     openrouter_api_key: str = ""
+    openrouter_api_keys: str = ""
     secret_key: str = "change-me"
     database_url: str = ""
 
-    model_config = {"env_file": ".env"}
+    model_config = {"env_file": ".env", "extra": "allow"}
+
+    def get_openrouter_keys(self) -> list[str]:
+        """Return list of OpenRouter API keys, supporting rotation.
+        Priority: OPENROUTER_API_KEYS env (comma-separated) > openrouter_api_keys field > openrouter_api_key fallback.
+        """
+        raw = os.getenv("OPENROUTER_API_KEYS") or self.openrouter_api_keys or self.openrouter_api_key or ""
+        return [k.strip() for k in raw.split(",") if k.strip()]
 
 
 def _can_write(path: str) -> bool:
@@ -183,6 +191,20 @@ class LoginHistory(Base):
     success = Column(Boolean, default=True)
 
     user = relationship("User", back_populates="login_history")
+
+
+class Feedback(Base):
+    __tablename__ = "feedbacks"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    username = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)
+    response = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    responded_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
 
 
 async def init_db():

@@ -62,8 +62,17 @@ const Voice = {
             .replace(/`[^`]+`/g, match => match.slice(1, -1))
             .replace(/[#*_~\[\]]/g, '');
         const utterance = new SpeechSynthesisUtterance(clean);
-        utterance.lang = Settings.getLocal().speechLang || 'en-US';
+        const accent = Settings.getLocal().speechLang || 'en-US';
+        utterance.lang = accent;
         utterance.rate = 1;
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length) {
+            const matched = voices.find(v => v.lang === accent) || voices.find(v => v.lang.startsWith(accent)) || voices.find(v => v.lang.startsWith(accent.split('-')[0]));
+            if (matched) {
+                utterance.voice = matched;
+                utterance.lang = matched.lang;
+            }
+        }
         utterance.onend = () => {
             const btns = document.querySelectorAll('[data-action="speak"]');
             btns.forEach(b => b.classList.remove('active'));

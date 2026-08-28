@@ -18,6 +18,15 @@ from generate import router as generate_router
 from security import router as security_router
 from codeexec import router as codeexec_router
 from image import router as image_router
+from feedback import router as feedback_router
+
+VERSION = "14.5"
+CHANGELOG = [
+    "New Feedback system — send feedback to admins and view replies as a comment thread",
+    "Changelog popup — see what's new once per version",
+    "Favicon updated — rounded design with gradient glow",
+    "Document title updated to Zenith AI",
+]
 
 
 @asynccontextmanager
@@ -29,7 +38,7 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="Zenith", version="14.0", lifespan=lifespan)
+app = FastAPI(title="Zenith AI", version=VERSION, lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(chats_router)
@@ -42,8 +51,14 @@ app.include_router(generate_router)
 app.include_router(security_router)
 app.include_router(codeexec_router)
 app.include_router(image_router)
+app.include_router(feedback_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+@app.get("/api/changelog")
+async def get_changelog():
+    return {"version": VERSION, "changes": CHANGELOG}
 
 
 @app.get("/", response_class=HTMLResponse)

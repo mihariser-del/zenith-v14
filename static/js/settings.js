@@ -57,11 +57,38 @@ const Settings = {
         $('settings-modal').style.display = 'none';
     },
 
-    apply() {
+    async apply() {
         const s = this.getLocal();
         document.body.classList.toggle('light-theme', s.theme === 'light');
         document.documentElement.style.setProperty('--accent-solid', s.accent);
         document.documentElement.style.setProperty('--accent-hover', s.accent);
+        // Admin gold: keep gold default but allow accent to override logo color
+        try {
+            const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
+            if (r.ok) {
+                const d = await r.json();
+                if (d.user && d.user.is_admin) {
+                    document.body.classList.add('admin-gold');
+                    const accent = (s.accent || '').toLowerCase();
+                    const isGold = accent === '#ffd700' || accent === '#ff8c00';
+                    if (!isGold && s.accent) {
+                        document.documentElement.style.setProperty('--accent-solid', s.accent);
+                        document.documentElement.style.setProperty('--accent-hover', s.accent);
+                        document.body.style.setProperty('--accent-solid', s.accent);
+                        document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                            el.style.background = s.accent;
+                            el.style.backgroundImage = 'none';
+                        });
+                    } else {
+                        document.body.style.removeProperty('--accent-solid');
+                        document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                            el.style.background = '';
+                            el.style.backgroundImage = '';
+                        });
+                    }
+                }
+            }
+        } catch {}
         const container = $('chat-container');
         if (container) {
             container.style.gap = s.msgSpacing === 'compact' ? '10px' : s.msgSpacing === 'spacious' ? '30px' : '20px';

@@ -18,7 +18,32 @@ const Chat = {
         if (thinking) thinking.textContent = 'Stopped.';
     },
 
+    initScrollButton() {
+        const container = document.getElementById('chat-container');
+        if (!container) return;
+        let btn = document.getElementById('scroll-down-btn');
+        if (!btn) {
+            btn = document.createElement('button');
+            btn.id = 'scroll-down-btn';
+            btn.setAttribute('aria-label', 'Scroll to bottom');
+            btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>';
+            const main = document.getElementById('main');
+            (main || container.parentElement).appendChild(btn);
+        }
+        const toggle = () => {
+            if (container.scrollTop + container.clientHeight < container.scrollHeight - 100) {
+                btn.style.display = 'flex';
+            } else {
+                btn.style.display = 'none';
+            }
+        };
+        container.addEventListener('scroll', toggle);
+        btn.addEventListener('click', () => { container.scrollTop = container.scrollHeight; });
+        toggle();
+    },
+
     async init() {
+        this.initScrollButton();
         const { chats } = await api('/api/chats');
         this.chats = {};
         chats.forEach(c => this.chats[c.id] = c);
@@ -139,7 +164,7 @@ const Chat = {
         container.scrollTop = container.scrollHeight;
     },
 
-    appendMessage(role, content, streaming = false, images = []) {
+    appendMessage(role, content, streaming = false, images = [], files = []) {
         const container = $('chat-container');
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
@@ -163,17 +188,49 @@ const Chat = {
                     wrapper.appendChild(img);
                 });
             }
-            if (content && content !== '(image)') {
-                if (content.includes('```') || content.includes('<') && content.includes('>')) {
-                    bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
-                    bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-                    Chat.enhanceCodeBlocks(bubble);
+            // Parse historical [File: name] markers when no files array (reload)
+            let contentForDisplay = content;
+            let fileNamesFromContent = [];
+            if ((!files || files.length === 0) && content && content.includes('[File:')) {
+                const matches = [...content.matchAll(/\[File:\s*([^\]]+)\]/g)];
+                fileNamesFromContent = matches.map(m => m[1].trim());
+                const idx = content.indexOf('[File:');
+                if (idx > 0) contentForDisplay = content.slice(0, idx).trim();
+                else if (fileNamesFromContent.length) contentForDisplay = '';
+            }
+            const allFiles = (files && files.length > 0) ? files : fileNamesFromContent.map(name => ({ name }));
+            if (allFiles.length > 0) {
+                allFiles.forEach(f => {
+                    const pill = document.createElement('div');
+                    const lower = f.name.toLowerCase();
+                    let icon = '\uD83D\uDCC4';
+                    if (lower.endsWith('.pdf')) icon = '\uD83D\uDCD5';
+                    else if (lower.endsWith('.docx') || lower.endsWith('.doc')) icon = '\uD83D\uDCC3';
+                    else if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv')) icon = '\uD83D\uDCCA';
+                    else if (lower.endsWith('.zip') || lower.endsWith('.rar') || lower.endsWith('.7z')) icon = '\uD83D\uDCE6';
+                    else if (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.avi')) icon = '\uD83C\uDFAC';
+                    else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg')) icon = '\uD83C\uDFB5';
+                    else if (lower.endsWith('.html') || lower.endsWith('.htm')) icon = '\uD83C\uDF10';
+                    else if (lower.endsWith('.json')) icon = '{ }';
+                    else if (lower.endsWith('.js') || lower.endsWith('.py') || lower.endsWith('.ts')) icon = '\uD83D\uDCBB';
+                    pill.style.cssText = 'display:flex; align-items:center; gap:10px; background:#2a2a2a; border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px; margin-bottom:8px;';
+                    pill.innerHTML = `<div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text);">${this.escapeHtml(f.name)}</div><div style="font-size:11px; color:#888;">File</div></div>`;
+                    bubble.appendChild(pill);
+                });
+            }
+            if (contentForDisplay && contentForDisplay !== '(image)' && contentForDisplay.trim() !== '') {
+                const textNode = document.createElement('div');
+                if (contentForDisplay.includes('```') || contentForDisplay.includes('<') && contentForDisplay.includes('>')) {
+                    textNode.innerHTML = DOMPurify.sanitize(marked.parse(contentForDisplay));
+                    textNode.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
+                    Chat.enhanceCodeBlocks(textNode);
                 } else {
-                    bubble.textContent = content;
+                    textNode.textContent = contentForDisplay;
                 }
-            } else if (!images || images.length === 0) {
-                bubble.textContent = content;
-            } else {
+                bubble.appendChild(textNode);
+            } else if (allFiles.length === 0 && (!images || images.length === 0)) {
+                bubble.textContent = contentForDisplay;
+            } else if (allFiles.length === 0 && bubble.childNodes.length === 0) {
                 bubble.style.display = 'none';
             }
         }
@@ -270,6 +327,7 @@ const Chat = {
         const images = [];
         this.attachments.forEach(att => {
             if (att.type === 'text') fullContent += `\n\n[File: ${att.name}]\n${att.data}`;
+            else if (att.type === 'file') fullContent += `\n\n[File: ${att.name}]\n${att.data}`;
             else if (att.type === 'image') images.push(att.data);
         });
 
@@ -283,17 +341,9 @@ const Chat = {
         const regenBtn = $('regen-btn');
         if (regenBtn) regenBtn.style.display = 'none';
         let displayText = text;
-        if (!displayText && this.attachments.length > 0) {
-            const names = this.attachments.map(a => a.name).join(', ');
-            const hasImage = this.attachments.some(a => a.type === 'image');
-            const hasText = this.attachments.some(a => a.type === 'text');
-            if (hasImage && !hasText) displayText = `[Image: ${names}]`;
-            else if (hasText && !hasImage) displayText = `[File: ${names}]`;
-            else displayText = `[${names}]`;
-        }
-        // Use uploaded URLs for reload persistence, fallback to data URLs for immediate display
+        const displayFiles = this.attachments.filter(a => a.type !== 'image');
         const displayImages = imageUrls.length > 0 ? imageUrls : sendImages;
-        this.appendMessage('user', displayText || '(image)', false, displayImages);
+        this.appendMessage('user', displayText || (displayFiles.length ? '' : '(image)'), false, displayImages, displayFiles);
         input.value = '';
         input.style.height = 'auto';
 
@@ -498,18 +548,26 @@ const Chat = {
     async handleFiles(files) {
         Array.from(files).forEach(file => {
             const reader = new FileReader();
-            if (file.type.startsWith('image/')) {
+            const lower = file.name.toLowerCase();
+            const isImage = file.type.startsWith('image/');
+            const textExts = ['.txt','.md','.json','.csv','.js','.py','.html','.css','.xml','.yaml','.yml','.ts','.jsx','.tsx','.c','.cpp','.java','.go','.rs','.php','.rb','.sh','.sql','.log','.ini','.conf','.toml'];
+            const isText = !isImage && (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/javascript' || file.type === 'application/xml' || textExts.some(ext => lower.endsWith(ext)));
+            if (isImage) {
                 reader.onload = e => {
                     this.attachments.push({ name: file.name, type: 'image', data: e.target.result, file });
                     this.renderAtts();
                 };
                 reader.readAsDataURL(file);
-            } else {
+            } else if (isText) {
                 reader.onload = e => {
                     this.attachments.push({ name: file.name, type: 'text', data: e.target.result, file });
                     this.renderAtts();
                 };
                 reader.readAsText(file);
+            } else {
+                const sizeKB = (file.size / 1024).toFixed(1);
+                this.attachments.push({ name: file.name, type: 'file', data: `File: ${file.name} (${sizeKB} KB)`, file });
+                this.renderAtts();
             }
         });
     },

@@ -152,25 +152,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    // Live syntax highlight preview (colored code)
+    // Live syntax highlight preview (colored code) + editor overlay
     const highlightWrap = document.createElement('div');
     highlightWrap.id = 'code-highlight-wrap';
-    highlightWrap.style.cssText = 'display:none; margin-top:8px; border:1px solid var(--border); border-radius:8px; background:#1e1e1e; padding:0; overflow:hidden;';
-    highlightWrap.innerHTML = '<div style="padding:6px 12px; background:var(--input-bg); font-size:11px; color:#888; border-bottom:1px solid var(--border);">Preview (colored)</div><pre style="margin:0; padding:12px; overflow:auto; max-height:200px;"><code id="code-highlight" style="font-family:Fira Code, Consolas, monospace; font-size:13px;"></code></pre>';
+    highlightWrap.style.cssText = 'margin-top:8px; border:1px solid var(--border); border-radius:8px; background:#1e1e1e; padding:0; overflow:hidden;';
+    highlightWrap.innerHTML = '<div style="padding:6px 12px; background:var(--input-bg); font-size:11px; color:#888; border-bottom:1px solid var(--border); display:flex; justify-content:space-between;"><span>Live Preview (colored)</span><span style="font-size:10px; color:#666;">Auto-correct on</span></div><pre style="margin:0; padding:12px; overflow:auto; max-height:200px; background:#1e1e1e;"><code id="code-highlight" style="font-family:Fira Code, Consolas, monospace; font-size:13px; white-space:pre-wrap; word-break:break-word;"></code></pre>';
     editor.parentElement.insertBefore(highlightWrap, editor.nextSibling);
     const highlightEl = document.getElementById('code-highlight');
     const updateHighlight = () => {
         const lang = document.getElementById('code-lang')?.value || 'plaintext';
-        const map = { python: 'python', javascript: 'javascript', html: 'html', json: 'json', markdown: 'markdown', sql: 'sql', shell: 'bash' };
+        const map = { python: 'python', javascript: 'javascript', html: 'xml', json: 'json', markdown: 'markdown', sql: 'sql', shell: 'bash' };
         const hlLang = map[lang] || 'plaintext';
-        highlightEl.textContent = editor.value || '// code will appear colored here';
+        highlightEl.textContent = editor.value || '// start typing — your code will appear colored here';
         highlightEl.className = `language-${hlLang}`;
         if (window.hljs) hljs.highlightElement(highlightEl);
-        highlightWrap.style.display = editor.value ? 'block' : 'none';
     };
     editor.addEventListener('input', updateHighlight);
     document.getElementById('code-lang')?.addEventListener('change', updateHighlight);
     updateHighlight();
+    // Enhanced auto-correct with more words and visual feedback
+    const corrections = { 'funtion': 'function', 'retrun': 'return', 'consol': 'console', 'docment': 'document', 'lenght': 'length', 'widht': 'width', 'heigth': 'height', 'backgroud': 'background', 'calss': 'class', 'improt': 'import', 'exprot': 'export', 'awiat': 'await', 'asyc': 'async', 'yeild': 'yield', 'addeventlistener': 'addEventListener' };
+    let lastCorrected = '';
+    editor.addEventListener('input', () => {
+        for (const [wrong, right] of Object.entries(corrections)) {
+            const re = new RegExp('\\b' + wrong + '\\b', 'i');
+            if (re.test(editor.value) && lastCorrected !== wrong) {
+                const pos = editor.selectionStart;
+                editor.value = editor.value.replace(re, right);
+                editor.selectionStart = editor.selectionEnd = pos + (right.length - wrong.length);
+                updateHighlight();
+                showToast(`Auto-corrected ${wrong} → ${right}`, 'success');
+                lastCorrected = wrong;
+                setTimeout(() => lastCorrected = '', 2000);
+                break;
+            }
+        }
+    });
     // Drag to resize preview/output
     const preview = document.getElementById('code-preview');
     const frame = document.getElementById('code-preview-frame');

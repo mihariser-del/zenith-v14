@@ -85,6 +85,10 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    if getattr(user, "is_banned", False):
+        raise HTTPException(status_code=403, detail=f"Account banned. Reason: {getattr(user, 'ban_reason', '') or 'No reason provided'}")
+    if getattr(user, "is_deleted", False):
+        raise HTTPException(status_code=404, detail="Account deleted")
     return user
 
 

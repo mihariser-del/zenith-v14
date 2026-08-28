@@ -229,6 +229,14 @@ async def init_db():
         elif not existing_admin.is_admin:
             existing_admin.is_admin = True
             await session.commit()
+        # Reset any free models back to OpenAI
+        try:
+            await session.execute(
+                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%:free' OR model LIKE '%free%'")
+            )
+            await session.commit()
+        except Exception as e:
+            print(f"reset to openai: {e}")
 
 
 async def get_db():

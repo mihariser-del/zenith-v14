@@ -287,10 +287,37 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                 if _is_exhausted(r.status_code, err) and idx < len(keys) - 1:
                                     continue
                                 if _is_exhausted(r.status_code, err):
+                                    # Single retry after 1s before fallback (non-disruptive queue)
+                                    try:
+                                        import asyncio as _aio_retry
+                                        await _aio_retry.sleep(1.0)
+                                        async with httpx.AsyncClient(timeout=60) as fb_retry:
+                                            fr_retry = await fb_retry.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"}, json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature})
+                                            if fr_retry.status_code == 200:
+                                                fobj_retry = fr_retry.json()
+                                                fcontent_retry = fobj_retry.get("choices", [{}])[0].get("message", {}).get("content", "")
+                                                if fcontent_retry:
+                                                    citations_retry = fobj_retry.get("citations", []) or fobj_retry.get("choices", [{}])[0].get("message", {}).get("citations", [])
+                                                    if citations_retry:
+                                                        full_response = convert_citations_to_links(fcontent_retry, citations_retry)
+                                                    else:
+                                                        full_response = strip_citations(fcontent_retry) if fcontent_retry else ""
+                                                    for i in range(0, len(full_response), 20):
+                                                        yield f"data: {json.dumps({'token': full_response[i:i+20]})}\n\n"
+                                                        import asyncio as _aio_retry2
+                                                        await _aio_retry2.sleep(0.02)
+                                                    if full_response:
+                                                        async with async_session() as db2_retry:
+                                                            ai_msg2_retry = Message(chat_id=chat_id, role="assistant", content=full_response)
+                                                            db2_retry.add(ai_msg2_retry)
+                                                            await db2_retry.commit()
+                                                    yield "data: [DONE]\n\n"
+                                                    return
+                                    except: pass
                                     # Try free fallback before giving up
                                     try:
                                         async with httpx.AsyncClient(timeout=60) as fb:
-                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"},                     json={"model": "openai/gpt-4o-mini", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
+                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "openai/gpt-4o-mini", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
                                             if fr.status_code == 200:
                                                 fobj = fr.json()
                                                 fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")

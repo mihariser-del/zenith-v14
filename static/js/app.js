@@ -55,16 +55,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided'));
             if (r.user && r.user.is_deleted) throw new Error('__DELETED__');
         } catch (e) {
-            if (e.message && e.message.includes('__DELETED__')) {
+            if (e.message && (e.message.includes('__DELETED__') || e.message.includes('Account deleted'))) {
                 showDeletedScreen();
                 return;
             }
-            if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned'))) {
-                const reason = e.message.includes('__BANNED__') ? e.message.split('__BANNED__')[1] : (e.message.includes('is_banned') ? 'Unspecified' : '');
+            if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned') || e.message.includes('Account banned'))) {
+                let reason = 'No reason provided';
+                if (e.message.includes('__BANNED__')) reason = e.message.split('__BANNED__')[1];
+                else if (e.message.includes('Reason:')) reason = e.message.split('Reason:')[1].trim();
+                else if (e.message.includes('is_banned')) reason = 'Unspecified';
+                else if (e.message.includes('Account banned')) {
+                    const m = e.message.match(/Reason:\s*(.*)/);
+                    if (m) reason = m[1].trim();
+                }
                 showBannedScreen(reason);
                 return;
             }
-            if (e.message.includes('Not authenticated') || e.message.includes('User not found') || e.message.includes('Account deleted')) {
+            if (e.message.includes('Not authenticated') || e.message.includes('User not found')) {
                 showToast('Account no longer exists. Logging out...', 'error');
                 setTimeout(() => window.location.href = '/', 2000);
             }

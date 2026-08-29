@@ -19,13 +19,20 @@ from security import router as security_router
 from codeexec import router as codeexec_router
 from image import router as image_router
 from feedback import router as feedback_router
+from staff import router as staff_router
 
-VERSION = "14.5"
+VERSION = "15.0"
 CHANGELOG = [
-    "New Feedback system — send feedback to admins and view replies as a comment thread",
-    "Changelog popup — see what's new once per version",
-    "Favicon updated — rounded design with gradient glow",
-    "Document title updated to Zenith AI",
+    "New supreme OWNER role — WANZU-IBRAHIM, zero restrictions, can manage everything",
+    "Admins can no longer act on fellow admins — roles stay protected",
+    "Owner can ban, delete & reset any admin — total control",
+    "Custom owner messages — 'Banned by The Owner' in an authoritative style",
+    "Live chat section between admins and the owner",
+    "Delete feedback option in the admin inbox",
+    "Attention tab for staff notifications",
+    "Free-fallback footer removed (cleaner answers)",
+    "Mobile-optimized admin & owner panels",
+    "Fixed date joined / last seen display in admin panel",
 ]
 
 
@@ -52,6 +59,7 @@ app.include_router(security_router)
 app.include_router(codeexec_router)
 app.include_router(image_router)
 app.include_router(feedback_router)
+app.include_router(staff_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

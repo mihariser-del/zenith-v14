@@ -11,7 +11,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('user-avatar').textContent = user.username[0].toUpperCase();
     const isGuest = user.username.startsWith('guest_');
     const isAdmin = user.is_admin;
-    if (isAdmin) {
+    const isOwner = user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
+    AdminPanel.currentRole = isOwner ? 'owner' : (isAdmin ? 'admin' : 'user');
+    if (isOwner) {
+        document.body.classList.add('admin-gold', 'admin-owner');
+        const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#00ffff';
+    } else if (isAdmin) {
         document.body.classList.add('admin-gold');
         const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#FFD700';
     }
@@ -21,15 +26,43 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     if (isAdmin) {
-        $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
+        if (isOwner) {
+            $('user-name-display').innerHTML = user.username + ' <span style="color:#7fd8f7; font-size:10px; background:rgba(127,216,247,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(127,216,247,0.45);">OWNER</span>';
+        } else {
+            $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
+        }
+        const goldBorder = isOwner ? 'rgba(127,216,247,0.4)' : 'rgba(255,215,0,0.4)';
+        const goldColor = isOwner ? '#7fd8f7' : '#FFD700';
+        const adminAccentA = isOwner ? 'rgba(127,216,247,0.07)' : 'rgba(255,215,0,0.08)';
+        const adminAccentB = isOwner ? 'rgba(90,169,204,0.07)' : 'rgba(255,140,0,0.08)';
         let adminBtn = document.createElement('button');
         adminBtn.className = 'btn info'; adminBtn.id = 'admin-panel-btn';
-        adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#FFD700" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> Admin Vault';
-        adminBtn.style.cssText = 'color:#FFD700; border:1px solid rgba(255,215,0,0.3); background:linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,140,0,0.05));';
-        adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = '#FFD700'; });
-        adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, rgba(255,215,0,0.05), rgba(255,140,0,0.05))'; adminBtn.style.borderColor = 'rgba(255,215,0,0.3)'; });
+        adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + goldColor + '" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> ' + (isOwner ? 'Owner Vault' : 'Admin Vault');
+        adminBtn.style.cssText = 'color:' + goldColor + '; border:1px solid ' + goldBorder + '; background:linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ');';
+        adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = isOwner ? 'rgba(127,216,247,0.12)' : 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = goldColor; });
+        adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ')'; adminBtn.style.borderColor = goldBorder; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
+        // Staff-only: Live Chat + Attention buttons
+        const toolsBox = $('sidebar-tools');
+        if (toolsBox) {
+            if (!$('staff-chat-btn')) {
+                const chatBtn = document.createElement('button');
+                chatBtn.className = 'btn info'; chatBtn.id = 'staff-chat-btn';
+                chatBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Live Chat';
+                chatBtn.style.cssText = 'color:#00ffff; border:1px solid rgba(0,255,255,0.3); background:rgba(0,255,255,0.05);';
+                chatBtn.addEventListener('click', () => { Staff.openChat(); closeSidebar(); });
+                toolsBox.insertBefore(chatBtn, $('code-btn'));
+            }
+            if (!$('attention-btn')) {
+                const attBtn = document.createElement('button');
+                attBtn.className = 'btn info'; attBtn.id = 'attention-btn';
+                attBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Attention<span id="attention-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ffaa00; color:#000; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>';
+                attBtn.style.cssText = 'color:#ffaa00; border:1px solid rgba(255,170,0,0.3); background:rgba(255,170,0,0.05); position:relative;';
+                attBtn.addEventListener('click', () => { Staff.openAttention(); closeSidebar(); });
+                toolsBox.appendChild(attBtn);
+            }
+        }
     }
     // Avatar click shows logout when in collapsed rail (901-1100px)
     const avatarEl = $('user-avatar');
@@ -63,7 +96,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     setInterval(async () => {
         try {
             const r = await api('/api/auth/me');
-            if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided'));
+            if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided') + '__BY__' + (r.user.banned_by || ''));
             if (r.user && r.user.is_deleted) throw new Error('__DELETED__');
         } catch (e) {
             if (e.message && (e.message.includes('__DELETED__') || e.message.includes('Account deleted'))) {
@@ -72,14 +105,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
             if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned') || e.message.includes('Account banned'))) {
                 let reason = 'No reason provided';
-                if (e.message.includes('__BANNED__')) reason = e.message.split('__BANNED__')[1];
+                let bannedBy = '';
+                if (e.message.includes('__BANNED__')) {
+                    const parts = e.message.split('__BY__');
+                    reason = parts[0].split('__BANNED__')[1] || 'No reason provided';
+                    bannedBy = parts.length > 1 ? parts[1] : '';
+                }
                 else if (e.message.includes('Reason:')) reason = e.message.split('Reason:')[1].trim();
                 else if (e.message.includes('is_banned')) reason = 'Unspecified';
                 else if (e.message.includes('Account banned')) {
                     const m = e.message.match(/Reason:\s*(.*)/);
                     if (m) reason = m[1].trim();
                 }
-                showBannedScreen(reason);
+                showBannedScreen(reason, bannedBy);
                 return;
             }
             if (e.message.includes('Not authenticated') || e.message.includes('User not found') || e.message.includes('Session expired')) {
@@ -93,6 +131,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     Settings.apply();
     Voice.init();
     await Chat.init();
+    if (isAdmin) {
+        Staff.init();
+        const sb = $('staff-chat-btn'); if (sb) sb.addEventListener('click', () => { Staff.openChat(); closeSidebar(); });
+        const ab = $('attention-btn'); if (ab) ab.addEventListener('click', () => { Staff.openAttention(); closeSidebar(); });
+    } else {
+        const sb = $('staff-chat-btn'); if (sb) sb.style.display = 'none';
+        const ab = $('attention-btn'); if (ab) ab.style.display = 'none';
+    }
 
     function closeSidebar() {
         $('sidebar').classList.remove('open');
@@ -391,6 +437,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
     else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
+    async function refreshAttentionBadge() {
+        if (!isAdmin) return;
+        try {
+            const d = await api('/api/staff/attention');
+            const attBadge = $('attention-badge');
+            if (attBadge) {
+                const total = d.unanswered_feedback + (d.banned_users ? Math.min(d.banned_users.length, 3) : 0);
+                if (total > 0) { attBadge.textContent = total; attBadge.style.display = 'block'; }
+                else attBadge.style.display = 'none';
+            }
+        } catch (e) {}
+    }
+    if (isAdmin) { refreshAttentionBadge(); setInterval(refreshAttentionBadge, 10000); }
 
     function renderFeedbackThread(listEl, feedbacks, isAdminView) {
         listEl.innerHTML = '';
@@ -399,10 +458,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const div = document.createElement('div');
             div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
             const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="font-size:11px; color:#888;">${f.created_at}</span></div>`;
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${f.created_at}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
             html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
             if (f.response) {
-                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">Admin reply ${f.responded_at ? '· '+f.responded_at : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
+                const replyBy = f.response_by === 'owner'
+                    ? '<span style="color:#7fd8f7;">The Owner</span> replied'
+                    : 'Admin reply';
+                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">${replyBy} ${f.responded_at ? '· '+f.responded_at : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
             } else if (isAdminView) {
                 html += `<div style="margin-top:8px; display:flex; gap:6px;"><input type="text" placeholder="Write a reply..." data-reply="${f.id}" style="flex:1; padding:8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none;"><button data-send="${f.id}" style="padding:8px 12px; background:#FFD700; color:#000; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">Reply</button></div>`;
             } else {
@@ -419,6 +481,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const txt = inp.value.trim();
                     if (!txt) { showToast('Reply cannot be empty','error'); return; }
                     try { await api(`/api/feedback/${id}/respond`, {method:'POST', body:JSON.stringify({response:txt})}); showToast('Reply sent','success'); openAdminFeedback(); refreshFeedbackBadge(); } catch(e){ showToast(e.message,'error'); }
+                });
+            });
+            listEl.querySelectorAll('[data-fbdel]').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.getAttribute('data-fbdel');
+                    const ok = await showConfirm('Delete feedback?', 'This feedback and its reply will be removed permanently.', true);
+                    if (!ok) return;
+                    try { await api(`/api/feedback/${id}`, { method: 'DELETE' }); showToast('Feedback deleted','success'); openAdminFeedback(); refreshFeedbackBadge(); } catch(e){ showToast(e.message,'error'); }
                 });
             });
         }
@@ -460,16 +530,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 });
 
-function showBannedScreen(reason) {
+function showBannedScreen(reason, bannedBy) {
     if (document.getElementById('banned-screen')) return;
     const div = document.createElement('div');
     div.id = 'banned-screen';
     div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    const isOwnerBan = bannedBy === 'owner';
+    const banTitle = isOwnerBan ? 'BANNED BY THE OWNER' : 'ACCOUNT BANNED';
+    const banIntensity = isOwnerBan ? '0 0 60px rgba(255,77,77,0.45)' : '0 20px 60px rgba(255,77,77,0.25)';
+    const banLine = isOwnerBan
+        ? 'By the decree of <strong style="color:#00ffff;">The Owner</strong> — WANZU-IBRAHIM. Your access to Zenith has been revoked, effective immediately.'
+        : 'Your account has been suspended by an administrator.';
     div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(255,77,77,0.25); animation:faceIn 0.4s ease;">
+        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:${banIntensity}; animation:faceIn 0.4s ease;">
             <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(255,77,77,0.15); border:2px solid #ff4d4d; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff4d4d; font-size:40px;">&#9888;</div>
-            <h2 style="color:#ff4d4d; font-size:24px; margin-bottom:8px; letter-spacing:1px;">ACCOUNT BANNED</h2>
-            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">Your account has been suspended by an administrator.</p>
+            <h2 style="color:#ff4d4d; font-size:24px; margin-bottom:8px; letter-spacing:1px;">${banTitle}</h2>
+            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:16px;">${banLine}</p>
             <div style="background:rgba(255,77,77,0.1); border:1px solid rgba(255,77,77,0.3); border-radius:10px; padding:14px; margin-bottom:20px; font-size:15px; color:#fff; line-height:1.5; word-wrap:break-word; white-space:pre-wrap;">"${reason || 'No reason provided'}"</div>
             <button id="banned-ok" style="width:100%; padding:14px; background:linear-gradient(135deg,#ff4d4d,#cc0000); color:#fff; border:none; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">I UNDERSTAND &mdash; LOG OUT</button>
         </div>`;

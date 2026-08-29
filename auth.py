@@ -47,6 +47,8 @@ class UserResponse(BaseModel):
     is_banned: bool = False
     ban_reason: str = ""
     is_deleted: bool = False
+    role: str = "user"
+    banned_by: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -59,10 +61,10 @@ class AdminBanRequest(BaseModel):
     reason: str = ""
 
 
-def create_token(user_id: int, username: str, is_admin: bool, token_version: int = 0) -> str:
+def create_token(user_id: int, username: str, is_admin: bool, token_version: int = 0, role: str = "") -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRY_HOURS)
     return jwt.encode(
-        {"sub": str(user_id), "username": username, "is_admin": is_admin, "ver": token_version, "exp": expire},
+        {"sub": str(user_id), "username": username, "is_admin": is_admin, "role": role, "ver": token_version, "exp": expire},
         settings.secret_key,
         algorithm=ALGORITHM,
     )
@@ -73,6 +75,31 @@ def decode_token(token: str) -> dict:
         return jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
     except JWTError:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def get_role(user) -> str:
+    """Return the effective role of a user. Owner is supreme."""
+    owned = getattr(user, "role", "") or ""
+    if owned == "owner":
+        return "owner"
+    # if is_admin and role set to user (legacy), treat as admin
+    if owned == "admin" or (user.is_admin and owned in ("user", "")):
+        return "admin"
+    return "user"
+
+
+def is_owner(user) -> bool:
+    return get_role(user) == "owner"
+
+
+def is_staff(user) -> bool:
+    """admin or owner"""
+    return user.is_admin or is_owner(user)
+
+
+def _role_label(role: str) -> str:
+    if role == "owner": return "The Owner"
+    return "an administrator"
 
 
 async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> User:
@@ -141,7 +168,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()
 
-    token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0)
+    token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
     response.set_cookie(
         key="zenith_token",
         value=token,
@@ -180,7 +207,7 @@ async def logout_all(request: Request, response: Response, db: AsyncSession = De
     user.token_version = ver + 1
     await db.commit()
     # issue new token for current session so it stays valid
-    new_token = create_token(user.id, user.username, user.is_admin, user.token_version)
+    new_token = create_token(user.id, user.username, user.is_admin, user.token_version, get_role(user))
     response.set_cookie(key="zenith_token", value=new_token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"message": "Logged out of all other devices"}
 
@@ -225,7 +252,7 @@ async def guest_login(response: Response, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    token = create_token(user.id, user.username, False, getattr(user, "token_version", 0) or 0)
+    token = create_token(user.id, user.username, False, getattr(user, "token_version", 0) or 0, "user")
     response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"user": UserResponse.model_validate(user), "guest": True}
 
@@ -244,14 +271,14 @@ async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = 
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0)
+        token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
         response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
         return {"user": UserResponse.model_validate(user), "admin": True}
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
-    token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0)
+    token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
     response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"user": UserResponse.model_validate(user), "admin": True}
 
@@ -262,7 +289,7 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     from database import Chat, Message, Memory, KnowledgeBase
     from datetime import timedelta
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin:
+    if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     total_users = (await db.execute(select(func.count()).select_from(User).where(User.is_deleted == False))).scalar() or 0
     total_chats = (await db.execute(select(func.count()).select_from(Chat))).scalar() or 0
@@ -272,7 +299,9 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
     guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%"), User.is_deleted == False))).scalar() or 0
     banned_count = (await db.execute(select(func.count()).select_from(User).where(User.is_banned == True, User.is_deleted == False))).scalar() or 0
     deleted_count = (await db.execute(select(func.count()).select_from(User).where(User.is_deleted == True))).scalar() or 0
-    return {"total_users": total_users, "active_users": active_users, "total_chats": total_chats, "total_messages": total_messages, "guest_count": guest_count, "banned_count": banned_count, "deleted_count": deleted_count}
+    admin_count = (await db.execute(select(func.count()).select_from(User).where(User.role == "admin", User.is_deleted == False))).scalar() or 0
+    owner_count = (await db.execute(select(func.count()).select_from(User).where(User.role == "owner", User.is_deleted == False))).scalar() or 0
+    return {"total_users": total_users, "active_users": active_users, "total_chats": total_chats, "total_messages": total_messages, "guest_count": guest_count, "banned_count": banned_count, "deleted_count": deleted_count, "admin_count": admin_count, "owner_count": owner_count}
 
 
 @router.get("/admin/users")
@@ -280,7 +309,7 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy import func
     from database import Chat, Message
     user = await get_current_user_from_cookie(request, db)
-    if not user.is_admin:
+    if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
@@ -289,35 +318,46 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
         chat_count = (await db.execute(select(func.count()).select_from(Chat).where(Chat.user_id == u.id))).scalar() or 0
         msg_count = (await db.execute(select(func.count()).select_from(Message).join(Chat, Message.chat_id == Chat.id).where(Chat.user_id == u.id))).scalar() or 0
         last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
-        enriched.append({**UserResponse.model_validate(u).model_dump(), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else ""})
+        enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else ""})
     return {"users": enriched}
 
 
 @router.post("/admin/users/{user_id}/ban")
 async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if not req.reason or not req.reason.strip():
         raise HTTPException(status_code=400, detail="Ban reason is required")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
-    if target.is_admin: raise HTTPException(status_code=400, detail="Cannot ban an admin")
+    target_role = get_role(target)
+    if target_role == "owner":
+        raise HTTPException(status_code=400, detail="The Owner cannot be banned")
+    if target_role == "admin" and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot take action on fellow admins")
     target.is_banned = True
     target.ban_reason = req.reason.strip()[:500]
+    target.banned_by = get_role(admin)
     await db.commit()
-    return {"message": f"{target.username} banned"}
+    return {"message": f"{target.username} banned by {_role_label(get_role(admin))}"}
 
 
 @router.post("/admin/users/{user_id}/unban")
 async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
+    target_role = get_role(target)
+    if target_role == "owner":
+        raise HTTPException(status_code=400, detail="The Owner cannot be unbanned")
+    if target_role == "admin" and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot take action on fellow admins")
     target.is_banned = False
     target.ban_reason = ""
+    target.banned_by = ""
     await db.commit()
     return {"message": f"{target.username} unbanned"}
 
@@ -325,11 +365,16 @@ async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = De
 @router.post("/admin/users/{user_id}/reset-password")
 async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if len(req.new_password) < 6: raise HTTPException(status_code=400, detail="Password min 6 chars")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
+    target_role = get_role(target)
+    if target_role == "owner":
+        raise HTTPException(status_code=400, detail="The Owner's password cannot be reset")
+    if target_role == "admin" and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Reset option is disabled for fellow admins")
     target.password_hash = hash_password(req.new_password)
     target.pending_password = req.new_password
     await db.commit()
@@ -341,7 +386,12 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
     from database import Chat
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin: raise HTTPException(status_code=403, detail="Admin only")
+    if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    target_role = get_role(target) if target else "user"
+    if target_role in ("admin", "owner") and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot view fellow staff chats")
     result = await db.execute(select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(50))
     chats = result.scalars().all()
     out = []
@@ -354,7 +404,7 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
 @router.delete("/admin/users/{user_id}")
 async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     admin = await get_current_user_from_cookie(request, db)
-    if not admin.is_admin:
+    if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     if admin.id == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
@@ -362,8 +412,11 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     target = result.scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=404, detail="User not found")
-    if target.is_admin:
-        raise HTTPException(status_code=400, detail="Cannot delete an admin")
+    target_role = get_role(target)
+    if target_role == "owner":
+        raise HTTPException(status_code=400, detail="The Owner cannot be deleted")
+    if target_role == "admin" and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot delete fellow admins")
     target.is_deleted = True
     await db.commit()
     return {"message": "User deleted (soft)"}

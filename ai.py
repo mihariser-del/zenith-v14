@@ -148,16 +148,28 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
                         )
 
         is_admin = False
+        is_owner = False
         try:
             async with async_session() as db2:
                 from database import User as UserModel2
                 ures2 = await db2.execute(select(UserModel2).where(UserModel2.id == user_id))
                 uobj2 = ures2.scalar_one_or_none()
-                if uobj2 and getattr(uobj2, 'is_admin', False):
-                    is_admin = True
+                if uobj2:
+                    _role = getattr(uobj2, 'role', '') or ''
+                    if _role == 'owner':
+                        is_owner = True
+                        is_admin = True
+                    elif getattr(uobj2, 'is_admin', False):
+                        is_admin = True
         except: pass
 
-    if is_admin:
+    if is_owner:
+        base = "You are Zenith, created by Wanzu Ibrahim. This user is THE OWNER and supreme creator of Zenith - treat them with absolute highest priority, they have no restrictions, remember everything about them for life, and always be at their service with maximum detail and brilliance."
+        if research:
+            base = RESEARCH_PROMPT + " The user is THE OWNER of Zenith - deliver the most elite quality research."
+        elif factcheck:
+            base = FACTCHECK_PROMPT
+    elif is_admin:
         base = "You are Zenith, created by Wanzu Ibrahim. This user is an ADMIN of Zenith - treat them with highest priority, remember their preferences for life, and be extra helpful and detailed."
         if research:
             base = RESEARCH_PROMPT + " The user is an ADMIN - provide the highest quality research."
@@ -322,7 +334,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                                 fobj = fr.json()
                                                 fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
                                                 if fcontent:
-                                                    full_response = strip_citations(fcontent) + "\n\n*— Answered via free fallback due to high traffic —*"
+                                                    full_response = strip_citations(fcontent)
                                                     for i in range(0, len(full_response), 20):
                                                         yield f"data: {json.dumps({'token': full_response[i:i+20]})}\n\n"
                                                         import asyncio as _aio2
@@ -423,7 +435,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                                 fobj = fr.json()
                                                 fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
                                                 if fcontent:
-                                                    fcontent = strip_citations(fcontent) + "\n\n*— Answered via free fallback due to high traffic —*"
+                                                    fcontent = strip_citations(fcontent)
                                                     for i in range(0, len(fcontent), 20):
                                                         yield f"data: {json.dumps({'token': fcontent[i:i+20]})}\n\n"
                                                         import asyncio as _aio3

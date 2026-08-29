@@ -70,6 +70,8 @@ class User(Base):
     email = Column(String(120), unique=True, nullable=False)
     password_hash = Column(String(255), nullable=False)
     is_admin = Column(Boolean, default=False)
+    role = Column(String(20), default="user")  # user | admin | owner
+    banned_by = Column(String(50), default="")  # actor role: admin | owner
     is_banned = Column(Boolean, default=False)
     ban_reason = Column(String(500), default="")
     is_deleted = Column(Boolean, default=False)
@@ -203,8 +205,22 @@ class Feedback(Base):
     username = Column(String(50), nullable=False)
     content = Column(Text, nullable=False)
     response = Column(Text, default="")
+    response_by = Column(String(20), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     responded_at = Column(DateTime, nullable=True)
+
+    user = relationship("User")
+
+
+class StaffMessage(Base):
+    __tablename__ = "staff_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    username = Column(String(50), nullable=False)
+    role = Column(String(20), default="admin")  # admin | owner
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
 
@@ -213,11 +229,23 @@ async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        for col, ddl in [("is_banned", "BOOLEAN DEFAULT 0"), ("ban_reason", "VARCHAR(500) DEFAULT ''"), ("is_deleted", "BOOLEAN DEFAULT 0"), ("token_version", "INTEGER DEFAULT 0"), ("pending_password", "TEXT DEFAULT ''")]:
+        for col, ddl in [
+            ("is_banned", "BOOLEAN DEFAULT 0"),
+            ("ban_reason", "VARCHAR(500) DEFAULT ''"),
+            ("is_deleted", "BOOLEAN DEFAULT 0"),
+            ("token_version", "INTEGER DEFAULT 0"),
+            ("pending_password", "TEXT DEFAULT ''"),
+            ("role", "VARCHAR(20) DEFAULT 'user'"),
+            ("banned_by", "VARCHAR(50) DEFAULT ''"),
+        ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
             except Exception as e:
                 print(f"migration {col}: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE feedbacks ADD COLUMN response_by VARCHAR(20) DEFAULT ''")
+        except Exception as e:
+            print(f"migration response_by: {e}")
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt
@@ -231,6 +259,25 @@ async def init_db():
         elif not existing_admin.is_admin:
             existing_admin.is_admin = True
             await session.commit()
+        # Ensure the OWNER account exists (supreme role)
+        owner_result = await session.execute(select(User).where(User.username == "WANZU-IBRAHIM"))
+        owner = owner_result.scalar_one_or_none()
+        if not owner:
+            owner_hash = bcrypt.hashpw("W.A.N.Z.U.".encode(), bcrypt.gensalt()).decode()
+            owner = User(username="WANZU-IBRAHIM", email="owner@zenith.local", password_hash=owner_hash, is_admin=True, role="owner")
+            session.add(owner)
+            await session.commit()
+        else:
+            owner.is_admin = True
+            owner.role = "owner"
+            await session.commit()
+        # Sync role for admins (they are is_admin but role might still be 'user' from migration)
+        from sqlalchemy import update
+        try:
+            await session.execute(update(User).where(User.is_admin == True, User.role.in_(["user", ""])).values(role="admin"))
+            await session.commit()
+        except Exception as e:
+            print(f"sync admin role: {e}")
         try:
             await session.execute(
                 __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%:free' OR model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct' OR model='google/gemma-2-9b-it:free'")

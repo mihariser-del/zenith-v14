@@ -2,6 +2,7 @@ const AdminPanel = {
     users: [],
     currentFilter: 'all',
     searchQuery: '',
+    currentRole: 'user', // set by app.js from /me
     open() { $('admin-panel-modal').style.display = 'flex'; this.load(); },
     close() { $('admin-panel-modal').style.display = 'none'; },
     async load() {
@@ -20,7 +21,8 @@ const AdminPanel = {
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#00ff88;">${dash.active_users}</div><div style="font-size:11px; color:#888;">Active (24h)</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:var(--accent-solid);">${dash.total_chats}</div><div style="font-size:11px; color:#888;">Chats</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#a78bfa;">${dash.total_messages}</div><div style="font-size:11px; color:#888;">Messages</div></div>
-                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#FFD700;">${users.filter(u=>u.is_admin && !u.is_deleted).length}</div><div style="font-size:11px; color:#888;">Admins</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#FFD700;">${dash.owner_count || 0}</div><div style="font-size:11px; color:#888;">Owners</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#fff;">${dash.admin_count || 0}</div><div style="font-size:11px; color:#888;">Admins</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#888;">${dash.guest_count}</div><div style="font-size:11px; color:#888;">Guests</div></div>`;
             this.ensureFilterUI();
             this.render();
@@ -69,34 +71,44 @@ const AdminPanel = {
         const q = this.searchQuery;
         if (q) filtered = filtered.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()));
         if (filtered.length === 0) { list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">No users for this filter</p>'; return; }
+        const meIsOwner = this.currentRole === 'owner';
         filtered.forEach(u => {
+            const targetRole = u.role || (u.is_admin ? 'admin' : 'user');
             const div = document.createElement('div');
             div.style.cssText = 'display:flex; align-items:center; gap:6px; padding:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; flex-wrap:wrap;';
             const bannedBadge = u.is_banned && !u.is_deleted ? '<span style="background:var(--error); color:white; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:4px;">BANNED</span>' : '';
             const deletedBadge = u.is_deleted ? '<span style="background:#666; color:white; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:4px;">DELETED</span>' : '';
+            const roleBadge = targetRole === 'owner'
+                ? '<span style="color:#00ffff; font-size:10px; background:rgba(0,255,255,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(0,255,255,0.4);">OWNER</span>'
+                : (targetRole === 'admin' ? '<span style="color:#FFD700; font-size:10px;">ADMIN</span>' : '');
+            const joinedDate = (u.created_at || '').split(' ')[0];
+            const lastSeen = u.last_active && u.last_active !== 'Never' ? u.last_active : 'Online';
+            // --- Permission: can the current user act on this target? ---
+            const canAct = (() => {
+                if (u.is_deleted) return false;
+                if (targetRole === 'owner') return false;
+                if (targetRole === 'admin') return meIsOwner; // only owner manages admins
+                return true; // users & guests managed by admin or owner
+            })();
             div.innerHTML = `
                 <div style="width:28px; height:28px; border-radius:50%; background:var(--accent); display:flex; align-items:center; justify-content:center; color:white; font-weight:700; font-size:12px; flex-shrink:0;">${u.username[0].toUpperCase()}</div>
                 <div style="flex:1; overflow:hidden; min-width:120px;">
-                    <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${AdminPanel.escapeHtml(u.username)} ${u.is_admin?'<span style=\'color:#FFD700; font-size:10px;\'>ADMIN</span>':''}${bannedBadge}${deletedBadge}</div>
+                    <div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${AdminPanel.escapeHtml(u.username)} ${roleBadge}${bannedBadge}${deletedBadge}</div>
                     <div style="font-size:11px; color:#888;">${AdminPanel.escapeHtml(u.email)}</div>
-                    <div style="font-size:10px; color:#666; margin-top:2px;">${u.chat_count} chats &middot; ${u.message_count} msgs &middot; Joined ${u.created_at} &middot; Last: ${u.last_active}</div>
+                    <div style="font-size:10px; color:#666; margin-top:2px;">${u.chat_count} chats &middot; ${u.message_count} msgs &middot; Joined ${joinedDate} &middot; Last seen ${AdminPanel.escapeHtml(lastSeen)}</div>
                 </div>
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
                     <button style="padding:4px 8px; background:none; border:1px solid var(--border); color:#888; border-radius:6px; cursor:pointer; font-size:10px;" data-action="chats" data-id="${u.id}">Chats</button>
-                    <button style="padding:4px 8px; background:none; border:1px solid #ffaa00; color:#ffaa00; border-radius:6px; cursor:pointer; font-size:10px;" data-action="reset" data-id="${u.id}">Reset PW</button>
-                    ${u.is_banned ? `<button style="padding:4px 8px; background:#00ff88; border:none; color:#000; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="unban" data-id="${u.id}">Unban</button>` : `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="ban" data-id="${u.id}">Ban</button>`}
-                    <button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="delete" data-id="${u.id}">Delete</button>
+                    ${canAct && targetRole !== 'admin' ? `<button style="padding:4px 8px; background:none; border:1px solid #ffaa00; color:#ffaa00; border-radius:6px; cursor:pointer; font-size:10px;" data-action="reset" data-id="${u.id}">Reset PW</button>` : ''}
+                    ${canAct ? (u.is_banned ? `<button style="padding:4px 8px; background:#00ff88; border:none; color:#000; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="unban" data-id="${u.id}">Unban</button>` : `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="ban" data-id="${u.id}">Ban</button>`) : ''}
+                    ${canAct ? `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="delete" data-id="${u.id}">Delete</button>` : ''}
                 </div>`;
-            const isTargetAdmin = u.is_admin;
-            if (u.is_deleted) {
-                const delBtn = div.querySelector('[data-action="delete"]');
-                const banBtn = div.querySelector('[data-action="ban"]');
-                const unbanBtnX = div.querySelector('[data-action="unban"]');
-                if (delBtn) delBtn.style.display = 'none';
-                if (banBtn) banBtn.style.display = 'none';
-                if (unbanBtnX) unbanBtnX.style.display = 'none';
-                div.style.opacity = '0.6';
-            } else if (!isTargetAdmin) {
+            if (!canAct && !u.is_deleted && targetRole !== 'owner') {
+                div.style.opacity = '0.8';
+                div.title = 'Protected role — only the Owner can manage admins';
+            }
+            if (u.is_deleted) div.style.opacity = '0.6';
+            if (canAct) {
                 div.querySelector('[data-action="delete"]')?.addEventListener('click', async () => {
                     const ok = await showConfirm('Delete user?', `Delete ${u.username}? All their data will be lost.`, true);
                     if (!ok) return;
@@ -113,24 +125,19 @@ const AdminPanel = {
                     showToast('User banned', 'success');
                     AdminPanel.load();
                 });
-            } else {
-                const delBtn = div.querySelector('[data-action="delete"]');
-                const banBtn2 = div.querySelector('[data-action="ban"]');
-                if (delBtn) { delBtn.style.display = 'none'; delBtn.disabled = true; }
-                if (banBtn2) { banBtn2.style.display = 'none'; banBtn2.disabled = true; }
+                const unbanBtn = div.querySelector('[data-action="unban"]');
+                if (unbanBtn) unbanBtn.addEventListener('click', async () => {
+                    await api(`/api/auth/admin/users/${u.id}/unban`, { method: 'POST' });
+                    showToast('User unbanned', 'success');
+                    AdminPanel.load();
+                });
+                div.querySelector('[data-action="reset"]')?.addEventListener('click', async () => {
+                    const newPw = await showPrompt(`Reset password for ${u.username}`, '');
+                    if (!newPw || newPw.length < 6) { if (newPw !== null) showToast('Password must be at least 6 chars', 'error'); return; }
+                    await api(`/api/auth/admin/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ new_password: newPw }) });
+                    showToast(`Password reset for ${u.username}`, 'success');
+                });
             }
-            const unbanBtn = div.querySelector('[data-action="unban"]');
-            if (unbanBtn) unbanBtn.addEventListener('click', async () => {
-                await api(`/api/auth/admin/users/${u.id}/unban`, { method: 'POST' });
-                showToast('User unbanned', 'success');
-                AdminPanel.load();
-            });
-            div.querySelector('[data-action="reset"]').addEventListener('click', async () => {
-                const newPw = await showPrompt(`Reset password for ${u.username}`, '');
-                if (!newPw || newPw.length < 6) { if (newPw !== null) showToast('Password must be at least 6 chars', 'error'); return; }
-                await api(`/api/auth/admin/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ new_password: newPw }) });
-                showToast(`Password reset for ${u.username}`, 'success');
-            });
             div.querySelector('[data-action="chats"]').addEventListener('click', async () => {
                 try {
                     const { chats } = await api(`/api/auth/admin/users/${u.id}/chats`);

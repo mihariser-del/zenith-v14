@@ -257,6 +257,9 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
     .hamburger { display: flex; }
     .hamburger.hidden { display: none !important; }
 
+    .login-screen { overflow-y: auto; align-items: center; }
+    .login-container { margin: 20px auto; }
+
     .sidebar { position: fixed; top: 0; left: 0; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; display: flex; flex-direction: column; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }

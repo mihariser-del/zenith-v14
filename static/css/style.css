@@ -60,7 +60,7 @@ body.auth-page { display: block; }
 .sidebar { width: 280px; flex-shrink: 0; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: transform 0.3s ease; z-index: 100; }
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 20px 15px; }
-.z-logo { width: 42px; height: 42px; min-width: 42px; min-height: 42px; flex-shrink: 0; aspect-ratio: 1; background: linear-gradient(135deg, #0066ff, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 26px; border-radius: 12px; }
+.z-logo { width: 42px; height: 42px; min-width: 42px; min-height: 42px; flex-shrink: 0; aspect-ratio: 1; background: linear-gradient(135deg, #0066ff, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-family: 'Algerian', 'Cambria', serif; font-weight: 400; font-size: 28px; border-radius: 12px; }
 .brand h2 { font-size: 20px; font-weight: 700; letter-spacing: 1px; }
 .sidebar-actions { padding: 10px 15px; display: flex; flex-direction: column; gap: 8px; }
 .btn { padding: 12px; background: transparent; border: none; border-radius: 8px; color: var(--text); cursor: pointer; font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
@@ -127,7 +127,7 @@ body.auth-page { display: block; }
 
 /* WELCOME */
 .welcome-message { text-align: center; margin: auto; display: flex; flex-direction: column; justify-content: center; align-items: center; animation: fadeInUp 0.6s ease; padding: 40px 20px; }
-.welcome-z-logo { width: 72px; height: 72px; background: linear-gradient(135deg, #0066ff, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 36px; border-radius: 16px; margin: 0 auto 20px; box-shadow: 0 8px 32px rgba(0, 102, 255, 0.3); }
+.welcome-z-logo { width: 72px; height: 72px; background: linear-gradient(135deg, #0066ff, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-family: 'Algerian', 'Cambria', serif; font-weight: 400; font-size: 38px; border-radius: 16px; margin: 0 auto 20px; box-shadow: 0 8px 32px rgba(0, 102, 255, 0.3); }
 .welcome-message h2 { font-size: 28px; margin-bottom: 6px; color: var(--text); font-weight: 700; }
 .welcome-message h2 span { background: var(--accent); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
 .welcome-message .welcome-sub { color: #888; margin: 6px 0 30px; font-size: 15px; }

@@ -319,3 +319,58 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
     .welcome-message h2 { font-size: 20px; }
     .welcome-bubble h3 { font-size: 14px; }
 }
+
+/* Security dashboard responsive */
+#security-modal .modal-content {
+    max-height: 85vh;
+    overflow: auto;
+    width: 480px;
+    max-width: 92%;
+}
+#security-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    overflow: auto;
+    max-height: 40vh;
+    padding-right: 4px;
+}
+#security-history {
+    max-height: 50vh;
+    overflow-y: auto;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-right: 4px;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+#security-history > div {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    box-sizing: border-box;
+}
+@media (max-width: 768px) {
+    #security-modal .modal-content {
+        width: 92%;
+        max-width: 92%;
+        max-height: 85vh;
+        overflow: auto;
+    }
+    #security-stats {
+        grid-template-columns: 1fr 1fr;
+        max-height: 35vh;
+    }
+    #security-history {
+        max-height: 45vh;
+    }
+}
+@media (max-width: 480px) {
+    #security-stats {
+        grid-template-columns: 1fr;
+    }
+}

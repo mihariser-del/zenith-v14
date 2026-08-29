@@ -59,10 +59,10 @@ class AdminBanRequest(BaseModel):
     reason: str = ""
 
 
-def create_token(user_id: int, username: str, is_admin: bool) -> str:
+def create_token(user_id: int, username: str, is_admin: bool, token_version: int = 0) -> str:
     expire = datetime.now(timezone.utc) + timedelta(hours=TOKEN_EXPIRY_HOURS)
     return jwt.encode(
-        {"sub": str(user_id), "username": username, "is_admin": is_admin, "exp": expire},
+        {"sub": str(user_id), "username": username, "is_admin": is_admin, "ver": token_version, "exp": expire},
         settings.secret_key,
         algorithm=ALGORITHM,
     )
@@ -89,6 +89,11 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {getattr(user, 'ban_reason', '') or 'No reason provided'}")
     if getattr(user, "is_deleted", False):
         raise HTTPException(status_code=404, detail="Account deleted")
+    # token version check (logout-all)
+    token_ver = payload.get("ver", 0)
+    user_ver = getattr(user, "token_version", 0) or 0
+    if token_ver != user_ver:
+        raise HTTPException(status_code=401, detail="Session expired. Please login again.")
     return user
 
 
@@ -136,7 +141,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()
 
-    token = create_token(user.id, user.username, user.is_admin)
+    token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0)
     response.set_cookie(
         key="zenith_token",
         value=token,
@@ -166,6 +171,44 @@ async def logout(response: Response):
     return {"message": "Logged out"}
 
 
+@router.post("/logout-all")
+async def logout_all(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot use this")
+    ver = getattr(user, "token_version", 0) or 0
+    user.token_version = ver + 1
+    await db.commit()
+    # issue new token for current session so it stays valid
+    new_token = create_token(user.id, user.username, user.is_admin, user.token_version)
+    response.set_cookie(key="zenith_token", value=new_token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
+    return {"message": "Logged out of all other devices"}
+
+
+@router.get("/password-changed")
+async def password_changed_status(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    pending = getattr(user, "pending_password", "") or ""
+    return {"changed": bool(pending)}
+
+
+@router.get("/password-changed/view")
+async def password_changed_view(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    pending = getattr(user, "pending_password", "") or ""
+    if not pending:
+        raise HTTPException(status_code=404, detail="No pending password")
+    return {"password": pending}
+
+
+@router.post("/password-changed/dismiss")
+async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    user.pending_password = ""
+    await db.commit()
+    return {"message": "dismissed"}
+
+
 ADMIN_SECRET = "zenith-admin-2026"
 
 class AdminRequest(BaseModel):
@@ -182,7 +225,7 @@ async def guest_login(response: Response, db: AsyncSession = Depends(get_db)):
     db.add(user)
     await db.commit()
     await db.refresh(user)
-    token = create_token(user.id, user.username, False)
+    token = create_token(user.id, user.username, False, getattr(user, "token_version", 0) or 0)
     response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"user": UserResponse.model_validate(user), "guest": True}
 
@@ -201,14 +244,14 @@ async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = 
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        token = create_token(user.id, user.username, True)
+        token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0)
         response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
         return {"user": UserResponse.model_validate(user), "admin": True}
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(req.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
-    token = create_token(user.id, user.username, True)
+    token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0)
     response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"user": UserResponse.model_validate(user), "admin": True}
 
@@ -288,6 +331,7 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
     target.password_hash = hash_password(req.new_password)
+    target.pending_password = req.new_password
     await db.commit()
     return {"message": f"Password reset for {target.username}"}
 

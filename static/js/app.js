@@ -49,6 +49,17 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         });
     }
+    // poll banned/deleted + password-changed (orange screen)
+    async function checkPasswordChanged() {
+        if (isGuest) return;
+        if (document.getElementById('pwd-changed-screen') || document.getElementById('pending-pwd-btn')) return;
+        try {
+            const r = await api('/api/auth/password-changed');
+            if (r.changed) showPasswordChangedScreen();
+        } catch (e) {}
+    }
+    // initial check after 2s, then via interval
+    setTimeout(checkPasswordChanged, 2000);
     setInterval(async () => {
         try {
             const r = await api('/api/auth/me');
@@ -71,11 +82,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 showBannedScreen(reason);
                 return;
             }
-            if (e.message.includes('Not authenticated') || e.message.includes('User not found')) {
-                showToast('Account no longer exists. Logging out...', 'error');
+            if (e.message.includes('Not authenticated') || e.message.includes('User not found') || e.message.includes('Session expired')) {
+                showToast('Session expired. Logging out...', 'error');
                 setTimeout(() => window.location.href = '/', 2000);
             }
         }
+        checkPasswordChanged();
     }, 10000);
 
     Settings.apply();
@@ -266,6 +278,35 @@ document.addEventListener('DOMContentLoaded', async () => {
         await api('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
     });
+    // right-click on logout => logout all other devices
+    $('logout-btn').addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        if (isGuest) { showToast('Guests cannot use this', 'error'); return; }
+        let popup = document.getElementById('logout-all-popup');
+        if (popup) { popup.remove(); return; }
+        popup = document.createElement('div');
+        popup.id = 'logout-all-popup';
+        popup.style.cssText = 'position:fixed; background:var(--sidebar); border:1px solid var(--border); border-radius:8px; padding:6px; z-index:300; box-shadow:0 10px 30px rgba(0,0,0,0.3); min-width:200px;';
+        const rect = e.target.getBoundingClientRect();
+        popup.style.left = Math.min(rect.left, window.innerWidth - 210) + 'px';
+        popup.style.top = (rect.top - 50) + 'px';
+        popup.innerHTML = `<button id="logout-all-btn" style="width:100%; padding:8px 12px; background:none; border:none; color:var(--text); cursor:pointer; font-size:13px; text-align:left; border-radius:6px;">Logout of all other devices</button>`;
+        popup.querySelector('#logout-all-btn').addEventListener('mouseenter', function(){ this.style.background='var(--hover-bg)'; });
+        popup.querySelector('#logout-all-btn').addEventListener('mouseleave', function(){ this.style.background='none'; });
+        popup.querySelector('#logout-all-btn').addEventListener('click', async () => {
+            popup.remove();
+            if (isGuest) { showToast('Guests cannot use this', 'error'); return; }
+            try {
+                await api('/api/auth/logout-all', { method: 'POST' });
+                showToast('Logged out of all other devices', 'success');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        });
+        document.body.appendChild(popup);
+        const close = (ev) => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('click', close); } };
+        setTimeout(() => document.addEventListener('click', close), 100);
+    });
 
     const input = $('user-input');
     input.addEventListener('input', () => {
@@ -447,7 +488,7 @@ function showDeletedScreen() {
     div.id = 'banned-screen';
     div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
     div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a1a1a,#2d2d2d); border:2px solid #888; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a1a1a,#2d2d2d); border:2px solid #888; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(136,136,136,0.25), 0 0 40px rgba(136,136,136,0.15);">
             <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(136,136,136,0.15); border:2px solid #888; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#888; font-size:40px;">&#128465;</div>
             <h2 style="color:#888; font-size:24px; margin-bottom:8px; letter-spacing:1px;">ACCOUNT DELETED</h2>
             <p style="color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px;">Your account has been deleted by an administrator. You can no longer access Zenith.</p>
@@ -458,4 +499,77 @@ function showDeletedScreen() {
         window.location.replace('/');
     });
     document.body.appendChild(div);
+}
+function showPasswordChangedScreen() {
+    if (document.getElementById('pwd-changed-screen') || document.getElementById('banned-screen')) return;
+    const div = document.createElement('div');
+    div.id = 'pwd-changed-screen';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    div.innerHTML = `
+        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#2d1a00,#4a2c00); border:2px solid #ff8c00; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(255,140,0,0.25); animation:faceIn 0.4s ease;">
+            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(255,140,0,0.15); border:2px solid #ff8c00; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff8c00; font-size:40px;">&#9888;</div>
+            <h2 style="color:#ff8c00; font-size:22px; margin-bottom:8px; letter-spacing:1px;">PASSWORD CHANGED</h2>
+            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">Your password was changed by an admin, do you want to view it now?</p>
+            <div style="display:flex; gap:10px;">
+                <button id="pwd-yes" style="flex:1; padding:14px; background:linear-gradient(135deg,#ff8c00,#ff6a00); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Yes, view it</button>
+                <button id="pwd-no" style="flex:1; padding:14px; background:transparent; color:#ff8c00; border:1px solid #ff8c00; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">No</button>
+            </div>
+        </div>`;
+    document.body.appendChild(div);
+    div.querySelector('#pwd-yes').addEventListener('click', async () => {
+        div.remove();
+        try {
+            const { password } = await api('/api/auth/password-changed/view');
+            showPasswordModal(password);
+        } catch (e) { showToast(e.message, 'error'); }
+    });
+    div.querySelector('#pwd-no').addEventListener('click', () => {
+        div.remove();
+        createPendingPwdButton();
+    });
+}
+function showPasswordModal(password) {
+    const overlay = document.createElement('div');
+    overlay.id = 'pwd-modal';
+    overlay.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);';
+    const safe = (s) => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+    overlay.innerHTML = `
+        <div style="width:100%; max-width:420px; background:var(--sidebar); border:1px solid var(--border); border-radius:16px; padding:24px; text-align:center;">
+            <h3 style="color:#ff8c00; margin-bottom:12px;">Your new password</h3>
+            <div style="background:var(--input-bg); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; font-family:monospace; font-size:16px; word-break:break-all; display:flex; align-items:center; gap:8px; justify-content:center;">
+                <span id="pwd-value">${safe(password)}</span>
+                <button id="pwd-copy" title="Copy" style="padding:4px 8px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--text); cursor:pointer;">Copy</button>
+            </div>
+            <p style="font-size:12px; color:#888; margin-bottom:16px;">Keep it safe. This will not be shown again.</p>
+            <button id="pwd-close" style="width:100%; padding:12px; background:linear-gradient(135deg,#ff8c00,#ff6a00); color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer;">Got it</button>
+        </div>`;
+    document.body.appendChild(overlay);
+    const dismiss = async () => {
+        try { await api('/api/auth/password-changed/dismiss', { method: 'POST' }); } catch (e) {}
+        overlay.remove();
+        const btn = document.getElementById('pending-pwd-btn');
+        if (btn) btn.remove();
+    };
+    overlay.querySelector('#pwd-copy').addEventListener('click', () => { navigator.clipboard.writeText(password).then(()=>showToast('Copied','success')).catch(()=>showToast('Copy failed','error')); });
+    overlay.querySelector('#pwd-close').addEventListener('click', dismiss);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+}
+function createPendingPwdButton() {
+    if (document.getElementById('pending-pwd-btn')) return;
+    const btn = document.createElement('button');
+    btn.id = 'pending-pwd-btn';
+    btn.className = 'btn info';
+    btn.title = 'View new password';
+    btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="#ff8c00" stroke-width="2" style="width:18px;height:18px;"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg> New Password';
+    btn.style.cssText = 'color:#ff8c00; border:1px solid rgba(255,140,0,0.3); background:rgba(255,140,0,0.08);';
+    btn.addEventListener('click', async () => {
+        try {
+            const { password } = await api('/api/auth/password-changed/view');
+            showPasswordModal(password);
+        } catch (e) { showToast(e.message,'error'); const b=document.getElementById('pending-pwd-btn'); if(b) b.remove(); }
+    });
+    const settingsBtn = document.getElementById('settings-btn');
+    const container = document.querySelector('.bottom-bar');
+    if (settingsBtn && container) container.insertBefore(btn, settingsBtn);
+    else if (container) container.appendChild(btn);
 }

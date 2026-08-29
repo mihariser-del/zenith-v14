@@ -84,6 +84,40 @@ async def delete_chat(chat_id: int, request: Request, db: AsyncSession = Depends
     return {"message": "Deleted"}
 
 
+@router.patch("/{chat_id}/messages/{message_id}")
+async def edit_message(chat_id: int, message_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from ai import stream_chat
+
+    user = await get_current_user_from_cookie(request, db)
+    body = await request.json()
+    content = body.get("content", "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="Message content required")
+    result = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    result = await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id))
+    msg = result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.role != "user":
+        raise HTTPException(status_code=403, detail="Only user messages can be edited")
+    msg.content = content
+    # delete all following assistant messages
+    result = await db.execute(select(Message).where(Message.chat_id == chat_id, Message.id > message_id, Message.role == "assistant"))
+    for m in result.scalars().all():
+        await db.delete(m)
+    chat.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    think = body.get("think", False)
+    web_search = body.get("web_search", False)
+    research = body.get("research", False)
+    factcheck = body.get("factcheck", False)
+    images = body.get("images", [])
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)
+
+
 @router.get("/{chat_id}/messages")
 async def get_messages(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy.orm import selectinload

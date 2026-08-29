@@ -73,6 +73,8 @@ class User(Base):
     is_banned = Column(Boolean, default=False)
     ban_reason = Column(String(500), default="")
     is_deleted = Column(Boolean, default=False)
+    token_version = Column(Integer, default=0)
+    pending_password = Column(Text, default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -211,7 +213,7 @@ async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-        for col, ddl in [("is_banned", "BOOLEAN DEFAULT 0"), ("ban_reason", "VARCHAR(500) DEFAULT ''"), ("is_deleted", "BOOLEAN DEFAULT 0")]:
+        for col, ddl in [("is_banned", "BOOLEAN DEFAULT 0"), ("ban_reason", "VARCHAR(500) DEFAULT ''"), ("is_deleted", "BOOLEAN DEFAULT 0"), ("token_version", "INTEGER DEFAULT 0"), ("pending_password", "TEXT DEFAULT ''")]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
             except Exception as e:

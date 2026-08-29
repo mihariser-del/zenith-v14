@@ -160,11 +160,11 @@ const Chat = {
             return;
         }
 
-        messages.forEach(msg => this.appendMessage(msg.role, msg.content));
+        messages.forEach(msg => this.appendMessage(msg.role, msg.content, false, [], [], msg.id));
         container.scrollTop = container.scrollHeight;
     },
 
-    appendMessage(role, content, streaming = false, images = [], files = []) {
+    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null) {
         const container = $('chat-container');
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
@@ -261,9 +261,143 @@ const Chat = {
             wrapper.appendChild(actions);
         }
 
+        if (role === 'user' && !streaming) {
+            const actions = document.createElement('div');
+            actions.className = 'msg-actions';
+            actions.innerHTML = `
+                <button data-action="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
+                <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
+                <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>`;
+            actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
+                navigator.clipboard.writeText(content);
+                showToast('Copied!', 'success');
+            });
+            actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
+                Voice.speak(content);
+            });
+            actions.querySelector('[data-action="edit"]').addEventListener('click', () => {
+                Chat.editMessage(messageId, content, wrapper);
+            });
+            wrapper.appendChild(actions);
+        }
+
         container.appendChild(wrapper);
         container.scrollTop = container.scrollHeight;
         return bubble;
+    },
+
+    async editMessage(messageId, oldContent, wrapper) {
+        if (this.isStreaming) { showToast('Please wait for current response', 'error'); return; }
+        if (!messageId) {
+            // fallback: fetch id by content from server messages
+            try {
+                const { messages } = await api(`/api/chats/${this.activeId}/messages`);
+                const found = [...messages].reverse().find(m => m.role === 'user' && m.content === oldContent);
+                if (found) messageId = found.id;
+            } catch (e) {}
+            if (!messageId) { showToast('Cannot edit: message not yet saved, please reload', 'error'); return; }
+        }
+        const newContent = await showPrompt('Edit message', oldContent);
+        if (newContent === null || !newContent.trim() || newContent.trim() === oldContent) return;
+        const trimmed = newContent.trim();
+        // remove following assistant messages from DOM
+        let next = wrapper.nextElementSibling;
+        while (next) {
+            const cur = next;
+            next = next.nextElementSibling;
+            if (cur.classList.contains('assistant')) cur.remove();
+        }
+        const regenBtn = $('regen-btn');
+        if (regenBtn) regenBtn.style.display = 'none';
+        // optimistic update user bubble text
+        const bubble = wrapper.querySelector('.msg-bubble');
+        if (bubble) {
+            const textDiv = bubble.querySelector('div');
+            if (textDiv && bubble.childElementCount === 1) textDiv.textContent = trimmed;
+            else if (!bubble.querySelector('.file-chip') && !bubble.querySelector('img')) bubble.textContent = trimmed;
+        }
+        this.isStreaming = true;
+        const sendBtn = $('send-btn');
+        const stopBtn = $('stop-btn');
+        if (sendBtn) sendBtn.style.display = 'none';
+        if (stopBtn) stopBtn.style.display = 'flex';
+        this.abortController = new AbortController();
+        const assistantBubble = this.appendMessage('assistant', '', true);
+        let fullResponse = '';
+        try {
+            const res = await fetch(`/api/chats/${this.activeId}/messages/${messageId}`, {
+                method: 'PATCH',
+                credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content: trimmed }),
+                signal: this.abortController.signal
+            });
+            if (!res.ok) {
+                const txt = await res.text();
+                let msg = txt;
+                try { msg = JSON.parse(txt).detail || txt; } catch {}
+                throw new Error(msg.slice(0, 300));
+            }
+            const reader = res.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') break;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.token) {
+                            fullResponse += parsed.token;
+                            this.updateStreamingBubble(assistantBubble, fullResponse);
+                        }
+                        if (parsed.error) {
+                            showToast(parsed.error, 'error');
+                            assistantBubble.textContent = 'Error: ' + parsed.error;
+                            assistantBubble.classList.remove('streaming-cursor');
+                        }
+                    } catch (e) {}
+                }
+            }
+            assistantBubble.classList.remove('streaming-cursor');
+            if (fullResponse) {
+                this.updateStreamingBubble(assistantBubble, fullResponse);
+                const actions = document.createElement('div');
+                actions.className = 'msg-actions';
+                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button><button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>`;
+                actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
+                    navigator.clipboard.writeText(fullResponse.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 [$2]'));
+                    showToast('Copied!', 'success');
+                });
+                actions.querySelector('[data-action="speak"]').addEventListener('click', () => { Voice.speak(fullResponse); });
+                actions.querySelector('[data-action="download-md"]').addEventListener('click', () => { Chat.downloadAs(fullResponse, 'response', 'md'); });
+                assistantBubble.parentElement.appendChild(actions);
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                assistantBubble.querySelector('.thinking-text')?.remove();
+                if (!fullResponse) assistantBubble.textContent = 'Stopped.';
+                assistantBubble.classList.remove('streaming-cursor');
+            } else {
+                showToast('Error: ' + err.message, 'error');
+                assistantBubble.textContent = 'Error: ' + err.message;
+                assistantBubble.classList.remove('streaming-cursor');
+            }
+        } finally {
+            this.isStreaming = false;
+            this.abortController = null;
+            if (sendBtn) sendBtn.style.display = 'flex';
+            if (stopBtn) stopBtn.style.display = 'none';
+            const input = $('user-input');
+            if (input) input.focus();
+            this.showRegenerate();
+        }
     },
 
     async downloadAs(content, filename, format) {

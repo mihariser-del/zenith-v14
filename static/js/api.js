@@ -16,10 +16,9 @@ async function api(path, opts = {}) {
         headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
         ...opts,
     });
-    if (res.status === 401) throw new Error('Not authenticated');
     let data;
     const text = await res.text();
-    try { data = JSON.parse(text); } catch { throw new Error(text.slice(0, 300) || 'Request failed'); }
-    if (!res.ok) throw new Error(data.detail || 'Request failed');
+    try { data = JSON.parse(text); } catch { if (res.status === 401) throw new Error('Not authenticated'); throw new Error(text.slice(0, 300) || 'Request failed'); }
+    if (!res.ok) throw new Error(data.detail || (res.status === 401 ? 'Not authenticated' : 'Request failed'));
     return data;
 }

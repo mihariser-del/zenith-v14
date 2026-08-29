@@ -23,7 +23,7 @@ const Staff = {
             if (!messages.length) { list.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No messages yet. Start the conversation.</p>'; return; }
             messages.forEach(m => {
                 const isOwner = m.role === 'owner';
-                const color = isOwner ? '#7fd8f7' : '#FFD700';
+                const color = isOwner ? '#C0C7D1' : '#FFD700';
                 const tag = isOwner ? 'OWNER' : 'ADMIN';
                 const div = document.createElement('div');
                 div.style.cssText = 'padding:8px 10px; background:rgba(0,0,0,0.4); border-radius:8px; border-left:3px solid ' + color + ';';

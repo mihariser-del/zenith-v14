@@ -225,6 +225,19 @@ class StaffMessage(Base):
     user = relationship("User")
 
 
+class Announcement(Base):
+    __tablename__ = "announcements"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    username = Column(String(50), nullable=False)
+    role = Column(String(20), default="admin")  # admin | owner
+    content = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+
+
 async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:

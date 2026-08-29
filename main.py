@@ -20,19 +20,21 @@ from codeexec import router as codeexec_router
 from image import router as image_router
 from feedback import router as feedback_router
 from staff import router as staff_router
+from announcements import router as announcements_router
 
-VERSION = "15.0"
+VERSION = "15.5"
 CHANGELOG = [
-    "New supreme OWNER role — WANZU-IBRAHIM, zero restrictions, can manage everything",
-    "Admins can no longer act on fellow admins — roles stay protected",
-    "Owner can ban, delete & reset any admin — total control",
-    "Custom owner messages — 'Banned by The Owner' in an authoritative style",
-    "Live chat section between admins and the owner",
-    "Delete feedback option in the admin inbox",
-    "Attention tab for staff notifications",
-    "Free-fallback footer removed (cleaner answers)",
-    "Mobile-optimized admin & owner panels",
-    "Fixed date joined / last seen display in admin panel",
+    "Attention tab is now LIVE ANNOUNCEMENTS — staff post, users get a popup",
+    "Popup screens now say 'by The Owner' when the owner bans someone",
+    "Admins can no longer view the owner's chats",
+    "Live chat auto-checks new messages & notifies admins every 2s",
+    "Only The Owner can clear the staff live chat",
+    "Owner vault now uses the Frost Titanium theme (dark gray + silver + icy cyan)",
+    "Fixed mobile website UI — username & logout visible, More Tools scrollable",
+    "Login page & more tools panels are now scrollable",
+    "AI provider keys refreshed (AI back online)",
+    "Z centered in the logo for the PWA app on mobile",
+    "Mobile-responsive premium control-center look",
 ]
 
 
@@ -60,6 +62,7 @@ app.include_router(codeexec_router)
 app.include_router(image_router)
 app.include_router(feedback_router)
 app.include_router(staff_router)
+app.include_router(announcements_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

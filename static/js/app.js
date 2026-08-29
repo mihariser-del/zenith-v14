@@ -27,19 +27,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     if (isAdmin) {
         if (isOwner) {
-            $('user-name-display').innerHTML = user.username + ' <span style="color:#7fd8f7; font-size:10px; background:rgba(127,216,247,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(127,216,247,0.45);">OWNER</span>';
+            $('user-name-display').innerHTML = user.username + ' <span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4);">OWNER</span>';
         } else {
             $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
         }
-        const goldBorder = isOwner ? 'rgba(127,216,247,0.4)' : 'rgba(255,215,0,0.4)';
-        const goldColor = isOwner ? '#7fd8f7' : '#FFD700';
-        const adminAccentA = isOwner ? 'rgba(127,216,247,0.07)' : 'rgba(255,215,0,0.08)';
-        const adminAccentB = isOwner ? 'rgba(90,169,204,0.07)' : 'rgba(255,140,0,0.08)';
+        const goldBorder = isOwner ? 'rgba(221,228,238,0.35)' : 'rgba(255,215,0,0.4)';
+        const goldColor = isOwner ? '#C0C7D1' : '#FFD700';
+        const adminAccentA = isOwner ? 'rgba(221,228,238,0.06)' : 'rgba(255,215,0,0.08)';
+        const adminAccentB = isOwner ? 'rgba(139,148,158,0.06)' : 'rgba(255,140,0,0.08)';
         let adminBtn = document.createElement('button');
         adminBtn.className = 'btn info'; adminBtn.id = 'admin-panel-btn';
         adminBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="' + goldColor + '" stroke-width="2" style="width:18px;height:18px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg> ' + (isOwner ? 'Owner Vault' : 'Admin Vault');
         adminBtn.style.cssText = 'color:' + goldColor + '; border:1px solid ' + goldBorder + '; background:linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ');';
-        adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = isOwner ? 'rgba(127,216,247,0.12)' : 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = goldColor; });
+        adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = isOwner ? 'rgba(221,228,238,0.1)' : 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = goldColor; });
         adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ')'; adminBtn.style.borderColor = goldBorder; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
@@ -462,7 +462,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
             if (f.response) {
                 const replyBy = f.response_by === 'owner'
-                    ? '<span style="color:#7fd8f7;">The Owner</span> replied'
+                    ? '<span style="color:#C0C7D1;">The Owner</span> replied'
                     : 'Admin reply';
                 html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">${replyBy} ${f.responded_at ? '· '+f.responded_at : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
             } else if (isAdminView) {
@@ -539,7 +539,7 @@ function showBannedScreen(reason, bannedBy) {
     const banTitle = isOwnerBan ? 'BANNED BY THE OWNER' : 'ACCOUNT BANNED';
     const banIntensity = isOwnerBan ? '0 0 60px rgba(255,77,77,0.45)' : '0 20px 60px rgba(255,77,77,0.25)';
     const banLine = isOwnerBan
-        ? 'By the decree of <strong style="color:#00ffff;">The Owner</strong> — WANZU-IBRAHIM. Your access to Zenith has been revoked, effective immediately.'
+        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your access to Zenith has been revoked, effective immediately.'
         : 'Your account has been suspended by an administrator.';
     div.innerHTML = `
         <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:${banIntensity}; animation:faceIn 0.4s ease;">

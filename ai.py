@@ -14,10 +14,12 @@ def _get_openrouter_keys() -> list[str]:
     """Return list of OpenRouter keys with rotation support."""
     # Uses Settings.get_openrouter_keys() which checks OPENROUTER_API_KEYS env (comma-separated) then fallback to singular key
     try:
-        return settings.get_openrouter_keys()
+        keys = settings.get_openrouter_keys()
     except Exception:
         raw = os.getenv("OPENROUTER_API_KEYS") or getattr(settings, "openrouter_api_keys", "") or getattr(settings, "openrouter_api_key", "") or ""
-        return [k.strip() for k in raw.split(",") if k.strip()]
+        keys = [k.strip() for k in raw.split(",") if k.strip()]
+    # Keys come from OPENROUTER_API_KEYS env / settings only (never hardcoded in the repo)
+    return keys
 
 
 def _is_exhausted(status_code: int, body: str) -> bool:

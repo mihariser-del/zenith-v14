@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from database import StaffMessage, Feedback, User, get_db
-from auth import get_current_user_from_cookie, is_staff, get_role
+from auth import get_current_user_from_cookie, is_staff, get_role, is_owner
 
 router = APIRouter(prefix="/api/staff", tags=["staff"])
 
@@ -48,6 +48,17 @@ async def post_staff_chat(req: StaffMessageRequest, request: Request, db: AsyncS
     await db.commit()
     await db.refresh(msg)
     return {"id": msg.id, "message": "Sent"}
+
+
+@router.delete("/chat")
+async def clear_staff_chat(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Only The Owner can clear the staff chat")
+    from sqlalchemy import delete
+    await db.execute(delete(StaffMessage))
+    await db.commit()
+    return {"message": "Staff chat cleared"}
 
 
 @router.get("/attention")

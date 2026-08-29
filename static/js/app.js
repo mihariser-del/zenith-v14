@@ -482,6 +482,23 @@ function showBannedScreen(reason) {
     style.textContent = '@keyframes faceIn { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }';
     document.head.appendChild(style);
 }
+function showOfflineScreen() {
+    if (document.getElementById('offline-screen')) return;
+    const div = document.createElement('div');
+    div.id = 'offline-screen';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px);';
+    div.innerHTML = `
+        <div style="width:100%; max-width:420px; text-align:center; background:linear-gradient(145deg,#0a1a2a,#1a2a3a); border:2px solid #00aaff; border-radius:18px; padding:32px 24px; box-shadow:0 20px 60px rgba(0,170,255,0.3);">
+            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(0,170,255,0.15); border:2px solid #00aaff; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#00aaff; font-size:32px;">&#128246;</div>
+            <h2 style="color:#00aaff; font-size:20px; margin-bottom:8px;">YOU ARE OFFLINE</h2>
+            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:16px;">Check your connection. Chat will resume when back online.</p>
+            <button id="offline-retry" style="padding:10px 18px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Retry</button>
+        </div>`;
+    div.querySelector('#offline-retry').addEventListener('click', () => { if (navigator.onLine) div.remove(); else showToast('Still offline', 'error'); });
+    document.body.appendChild(div);
+}
+window.addEventListener('offline', showOfflineScreen);
+window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); showToast('Back online','success'); });
 function showDeletedScreen() {
     if (document.getElementById('banned-screen')) return;
     const div = document.createElement('div');

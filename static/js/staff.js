@@ -71,6 +71,7 @@ const Staff = {
             const isStaff = me.user && (me.user.is_admin || me.user.role === 'owner');
             if (form) form.style.display = isStaff ? 'flex' : 'none';
         } catch { if (form) form.style.display = 'none'; }
+        if (!list) return;
         list.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">Loading broadcasts...</p>';
         try {
             const d = await api('/api/announcements/feed');

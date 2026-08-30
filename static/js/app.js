@@ -136,8 +136,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!$('attention-btn')) {
                 const attBtn = document.createElement('button');
                 attBtn.className = 'btn info'; attBtn.id = 'attention-btn';
-                attBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Broadcast<span id="attention-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#C0C7D1; color:#111315; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>';
-                attBtn.style.cssText = 'color:#C0C7D1; border:1px solid rgba(221,228,238,0.25); background:rgba(221,228,238,0.06); position:relative;';
+                attBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Broadcast';
+                attBtn.style.cssText = 'color:#C0C7D1; border:1px solid rgba(221,228,238,0.25); background:rgba(221,228,238,0.06);';
                 attBtn.addEventListener('click', () => { Staff.openAttention(); closeSidebar(); });
                 toolsBox.appendChild(attBtn);
             }

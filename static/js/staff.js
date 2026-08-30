@@ -10,10 +10,25 @@ const Staff = {
         if (attSend) attSend.addEventListener('click', () => Staff.sendBroadcast());
         const attInput = $('attention-input');
         if (attInput) attInput.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) Staff.sendBroadcast(); });
+        const clearBtn = $('clear-staff-chat');
+        if (clearBtn) clearBtn.addEventListener('click', () => Staff.clearChat());
     },
     openChat() {
         $('staff-chat-modal').style.display = 'flex';
+        // Show clear button only for Owner
+        const clearBtn = $('clear-staff-chat');
+        if (clearBtn) {
+            api('/api/auth/me').then(r => {
+                if (r.user && r.user.role === 'owner') clearBtn.style.display = 'block';
+                else clearBtn.style.display = 'none';
+            }).catch(()=>{ if(clearBtn) clearBtn.style.display='none'; });
+        }
         Staff.reloadChat();
+    },
+    async clearChat() {
+        const ok = await showConfirm('Clear live chat?', 'Delete all staff live chat messages? Only the Owner can do this.', true);
+        if (!ok) return;
+        try { await api('/api/staff/chat', { method: 'DELETE' }); showToast('Live chat cleared', 'success'); await Staff.reloadChat(); } catch(e){ showToast(e.message,'error'); }
     },
     openAttention() {
         $('attention-modal').style.display = 'flex';

@@ -75,8 +75,10 @@ class User(Base):
     is_banned = Column(Boolean, default=False)
     ban_reason = Column(String(500), default="")
     is_deleted = Column(Boolean, default=False)
+    deleted_by = Column(String(50), default="")  # admin | owner
     token_version = Column(Integer, default=0)
     pending_password = Column(Text, default="")
+    pending_password_by = Column(String(50), default="")  # admin | owner
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -246,8 +248,10 @@ async def init_db():
             ("is_banned", "BOOLEAN DEFAULT 0"),
             ("ban_reason", "VARCHAR(500) DEFAULT ''"),
             ("is_deleted", "BOOLEAN DEFAULT 0"),
+            ("deleted_by", "VARCHAR(50) DEFAULT ''"),
             ("token_version", "INTEGER DEFAULT 0"),
             ("pending_password", "TEXT DEFAULT ''"),
+            ("pending_password_by", "VARCHAR(50) DEFAULT ''"),
             ("role", "VARCHAR(20) DEFAULT 'user'"),
             ("banned_by", "VARCHAR(50) DEFAULT ''"),
         ]:

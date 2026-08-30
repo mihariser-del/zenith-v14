@@ -49,6 +49,8 @@ class UserResponse(BaseModel):
     is_deleted: bool = False
     role: str = "user"
     banned_by: str = ""
+    deleted_by: str = ""
+    pending_password_by: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -116,7 +118,8 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
         banned_by = getattr(user, "banned_by", "") or ""
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {getattr(user, 'ban_reason', '') or 'No reason provided'} Banned by: {banned_by or 'admin'}")
     if getattr(user, "is_deleted", False):
-        raise HTTPException(status_code=404, detail="Account deleted")
+        deleted_by = getattr(user, "deleted_by", "") or ""
+        raise HTTPException(status_code=404, detail=f"Account deleted. Deleted by: {deleted_by or 'admin'}")
     # token version check (logout-all)
     token_ver = payload.get("ver", 0)
     user_ver = getattr(user, "token_version", 0) or 0
@@ -217,7 +220,8 @@ async def logout_all(request: Request, response: Response, db: AsyncSession = De
 async def password_changed_status(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     pending = getattr(user, "pending_password", "") or ""
-    return {"changed": bool(pending)}
+    pending_by = getattr(user, "pending_password_by", "") or ""
+    return {"changed": bool(pending), "changed_by": pending_by}
 
 
 @router.get("/password-changed/view")
@@ -233,6 +237,7 @@ async def password_changed_view(request: Request, db: AsyncSession = Depends(get
 async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     user.pending_password = ""
+    user.pending_password_by = ""
     await db.commit()
     return {"message": "dismissed"}
 
@@ -378,6 +383,7 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
         raise HTTPException(status_code=403, detail="Reset option is disabled for fellow admins")
     target.password_hash = hash_password(req.new_password)
     target.pending_password = req.new_password
+    target.pending_password_by = get_role(admin)
     await db.commit()
     return {"message": f"Password reset for {target.username}"}
 
@@ -419,6 +425,7 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     if target_role == "admin" and get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Admins cannot delete fellow admins")
     target.is_deleted = True
+    target.deleted_by = get_role(admin)
     await db.commit()
     return {"message": "User deleted (soft)"}
 

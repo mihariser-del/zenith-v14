@@ -13,15 +13,18 @@ const AdminPanel = {
             const { users } = await api('/api/auth/admin/users');
             this.users = users;
             const normalCount = users.filter(u=>!u.is_admin && !u.username.startsWith('guest_') && !u.is_deleted).length;
+            const _isOwnerStats = this.currentRole === 'owner';
+            const _gold = _isOwnerStats ? '#C0C7D1' : '#FFD700';
+            const _accent = _isOwnerStats ? '#C0C7D1' : 'var(--accent-solid)';
             stats.innerHTML = `
-                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#FFD700;">${dash.total_users}</div><div style="font-size:11px; color:#888;">Total Accounts</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:${_gold};">${dash.total_users}</div><div style="font-size:11px; color:#888;">Total Accounts</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#00ff88;">${normalCount}</div><div style="font-size:11px; color:#888;">Normal Users</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#ff4d4d;">${dash.banned_count || 0}</div><div style="font-size:11px; color:#888;">Banned</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#888;">${dash.deleted_count || 0}</div><div style="font-size:11px; color:#888;">Deleted</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#00ff88;">${dash.active_users}</div><div style="font-size:11px; color:#888;">Active (24h)</div></div>
-                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:var(--accent-solid);">${dash.total_chats}</div><div style="font-size:11px; color:#888;">Chats</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:${_accent};">${dash.total_chats}</div><div style="font-size:11px; color:#888;">Chats</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#a78bfa;">${dash.total_messages}</div><div style="font-size:11px; color:#888;">Messages</div></div>
-                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#FFD700;">${dash.owner_count || 0}</div><div style="font-size:11px; color:#888;">Owners</div></div>
+                <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:${_gold};">${dash.owner_count || 0}</div><div style="font-size:11px; color:#888;">Owners</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#fff;">${dash.admin_count || 0}</div><div style="font-size:11px; color:#888;">Admins</div></div>
                 <div style="padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#888;">${dash.guest_count}</div><div style="font-size:11px; color:#888;">Guests</div></div>`;
             this.ensureFilterUI();
@@ -40,18 +43,21 @@ const AdminPanel = {
             {key:'banned', label:'Banned'},
             {key:'deleted', label:'Deleted'}
         ];
+        const _isOwnerFilter = this.currentRole === 'owner';
+        const _activeCol = _isOwnerFilter ? '#C0C7D1' : '#FFD700';
+        const _activeBg = _isOwnerFilter ? 'rgba(221,228,238,0.15)' : 'rgba(255,215,0,0.15)';
         filters.forEach(f => {
             const btn = document.createElement('button');
             btn.textContent = f.label;
             btn.dataset.filter = f.key;
-            btn.style.cssText = `padding:6px 12px; border-radius:20px; font-size:11px; cursor:pointer; border:1px solid ${f.key==='all' ? '#FFD700' : 'var(--border)'}; background:${f.key==='all' ? 'rgba(255,215,0,0.15)' : 'transparent'}; color:${f.key==='all' ? '#FFD700' : '#888'}; font-weight:600;`;
+            btn.style.cssText = `padding:6px 12px; border-radius:20px; font-size:11px; cursor:pointer; border:1px solid ${f.key==='all' ? _activeCol : 'var(--border)'}; background:${f.key==='all' ? _activeBg : 'transparent'}; color:${f.key==='all' ? _activeCol : '#888'}; font-weight:600;`;
             btn.addEventListener('click', () => {
                 AdminPanel.currentFilter = f.key;
                 filterDiv.querySelectorAll('button').forEach(b => {
                     const active = b.dataset.filter === f.key;
-                    b.style.borderColor = active ? '#FFD700' : 'var(--border)';
-                    b.style.background = active ? 'rgba(255,215,0,0.15)' : 'transparent';
-                    b.style.color = active ? '#FFD700' : '#888';
+                    b.style.borderColor = active ? _activeCol : 'var(--border)';
+                    b.style.background = active ? _activeBg : 'transparent';
+                    b.style.color = active ? _activeCol : '#888';
                 });
                 AdminPanel.render();
             });

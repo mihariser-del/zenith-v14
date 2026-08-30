@@ -19,7 +19,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const isOwner = user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
     AdminPanel.currentRole = isOwner ? 'owner' : (isAdmin ? 'admin' : 'user');
     if (isOwner) {
-        document.body.classList.add('admin-gold', 'admin-owner');
+        document.body.classList.add('admin-owner');
+        document.body.classList.remove('admin-gold');
         const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#111315';
     } else if (isAdmin) {
         document.body.classList.add('admin-gold');
@@ -30,6 +31,24 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
+    // --- Device-integrated push to all devices (browser/OS) ---
+    async function devicePush(title, body, tag) {
+        try {
+            if (!('Notification' in window)) return;
+            if (Notification.permission === 'default') { try { await Notification.requestPermission(); } catch {} }
+            if (Notification.permission !== 'granted') return;
+            const opts = { body: body.slice(0, 180), icon: '/static/icons/favicon-32.png', badge: '/static/icons/favicon-32.png', tag: tag || title, requireInteraction: true };
+            if ('serviceWorker' in navigator) {
+                const reg = await navigator.serviceWorker.ready;
+                if (reg && reg.showNotification) { reg.showNotification(title, opts); return; }
+            }
+            new Notification(title, opts);
+        } catch {}
+    }
+    // Ask permission once for push (all notifications wait offline until dismissed, then show)
+    if (!isGuest && 'Notification' in window && Notification.permission === 'default') {
+        setTimeout(() => Notification.requestPermission().catch(()=>{}), 2000);
+    }
     if (isAdmin) {
         const badgeHtml = isOwner
             ? '<span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4); white-space:nowrap; flex-shrink:0;">OWNER</span>'
@@ -119,7 +138,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (document.getElementById('pwd-changed-screen') || document.getElementById('pending-pwd-btn')) return;
         try {
             const r = await api('/api/auth/password-changed');
-            if (r.changed) showPasswordChangedScreen();
+            if (r.changed) { showPasswordChangedScreen(r.changed_by || ''); devicePush('Password Changed', r.changed_by === 'owner' ? 'By The Owner — check your new password' : 'By an administrator — check your new password', 'pwd-changed'); }
         } catch (e) {}
     }
     // initial check after 2s, then via interval
@@ -128,10 +147,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const r = await api('/api/auth/me');
             if (r.user && r.user.is_banned) throw new Error('__BANNED__' + (r.user.ban_reason || 'No reason provided') + '__BY__' + (r.user.banned_by || ''));
-            if (r.user && r.user.is_deleted) throw new Error('__DELETED__');
+            if (r.user && r.user.is_deleted) throw new Error('__DELETED__BY__' + (r.user.deleted_by || ''));
         } catch (e) {
             if (e.message && (e.message.includes('__DELETED__') || e.message.includes('Account deleted'))) {
-                showDeletedScreen();
+                let deletedBy = '';
+                if (e.message.includes('__DELETED__BY__')) deletedBy = e.message.split('__DELETED__BY__')[1].trim().toLowerCase();
+                else {
+                    const m = e.message.match(/Deleted by:\s*(\w+)/i);
+                    if (m) deletedBy = m[1].trim().toLowerCase();
+                }
+                showDeletedScreen(deletedBy);
+                devicePush('Account Deleted', deletedBy === 'owner' ? 'By The Owner — you have been removed' : 'By an administrator — you have been removed', 'deleted');
                 return;
             }
             if (e.message && (e.message.includes('__BANNED__') || e.message.includes('is_banned') || e.message.includes('Account banned'))) {
@@ -162,6 +188,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     if (m) reason = m[1].trim();
                 }
                 showBannedScreen(reason, bannedBy);
+                devicePush(bannedBy === 'owner' ? 'Banned by The Owner' : 'Account Banned', reason, 'banned');
                 return;
             }
             if (e.message.includes('Not authenticated') || e.message.includes('User not found') || e.message.includes('Session expired')) {
@@ -463,7 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unanswered > 0) {
                 feedbackBadge.textContent = unanswered;
                 feedbackBadge.style.display = 'block';
-                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) showToast(`New feedback: ${unanswered} unanswered`, '');
+                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zenith Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); }
             } else feedbackBadge.style.display = 'none';
             lastFeedbackCount = unanswered;
         } catch (e) {}
@@ -475,7 +502,26 @@ document.addEventListener('DOMContentLoaded', async () => {
             const replied = feedbacks.filter(f => f.response).length;
             const seen = parseInt(localStorage.getItem('zenith_feedback_seen') || '0', 10);
             const unseen = replied - seen;
-            if (unseen > 0) { feedbackBadge.textContent = unseen; feedbackBadge.style.display = 'block'; }
+            if (unseen > 0) {
+                feedbackBadge.textContent = unseen; feedbackBadge.style.display = 'block';
+                if (unseen > 0 && replied > seen) {
+                    // show popup for latest reply (wait offline until dismissed)
+                    const latest = feedbacks.filter(f=>f.response).slice(-1)[0];
+                    if (latest && !document.getElementById('feedback-reply-popup')) {
+                        const fbPopup = document.createElement('div');
+                        fbPopup.id = 'feedback-reply-popup';
+                        fbPopup.style.cssText = 'position:fixed; inset:0; z-index:9996; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px);';
+                        const safe = s=>{const d=document.createElement('div'); d.textContent=s; return d.innerHTML;};
+                        const byOwner = latest.response_by === 'owner';
+                        const col = byOwner ? '#C0C7D1' : '#FFD700';
+                        const who = byOwner ? 'The Owner' : 'Admin';
+                        fbPopup.innerHTML = `<div style="width:100%; max-width:520px; background:linear-gradient(160deg,#1A1D21,#22262B); border:1px solid ${col}44; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;"><span style="font-weight:700; color:${col};">Feedback Reply</span><span style="font-size:10px; background:${col}22; color:${col}; padding:2px 6px; border-radius:4px;">${who}</span></div><div style="font-size:13px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px; border-left:3px solid ${col}; white-space:pre-wrap;">${safe(latest.response)}</div><button id="fb-reply-dismiss" style="margin-top:14px; width:100%; padding:12px; background:${byOwner?'linear-gradient(135deg,#8B949E,#5d666f)':'#FFD700'}; color:${byOwner?'#f4f6f8':'#000'}; border:none; border-radius:10px; font-weight:700; cursor:pointer;">DISMISS</button></div>`;
+                        fbPopup.querySelector('#fb-reply-dismiss').addEventListener('click', ()=>{ fbPopup.remove(); localStorage.setItem('zenith_feedback_seen', String(replied)); feedbackBadge.style.display='none'; });
+                        document.body.appendChild(fbPopup);
+                        devicePush('Zenith Feedback Reply — ' + who, latest.response, 'feedback-reply');
+                    }
+                }
+            }
             else feedbackBadge.style.display = 'none';
         } catch (e) {}
     }
@@ -492,10 +538,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const anns = d.announcements || [];
             if (anns.length) {
                 const maxId = Math.max(...anns.map(a => a.id));
-                // Show new ones as popup (only if not first load)
+                // Show new ones as popup (only if not first load) — wait offline until dismissed, device push to all devices
                 const newAnns = anns.filter(a => a.id > _lastAnnId);
                 if (newAnns.length && _lastAnnId !== 0) {
-                    newAnns.forEach(a => showBroadcastPopup(a));
+                    newAnns.forEach(a => { showBroadcastPopup(a); devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); });
+                } else if (newAnns.length && _lastAnnId === 0 && anns.length) {
+                    // First load after offline — show latest pending if not yet dismissed
+                    const latest = anns[anns.length - 1];
+                    const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
+                    if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); }
                 }
                 // For UI badge (staff)
                 if (isAdmin) {
@@ -554,6 +605,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         await pollAnnouncements();
     }
     if (isAdmin) { refreshAttentionBadge(); setInterval(refreshAttentionBadge, 10000); }
+    // Live Chat polling for staff — wait offline until dismissed, device push to all devices
+    let _lastStaffId = parseInt(localStorage.getItem('zenith_last_staff_id') || '0', 10);
+    async function pollLiveChat() {
+        if (!isAdmin) return;
+        try {
+            const { messages } = await api('/api/staff/chat');
+            if (!messages || !messages.length) return;
+            const maxId = Math.max(...messages.map(m=>m.id));
+            const newMsgs = messages.filter(m=>m.id > _lastStaffId);
+            if (newMsgs.length && _lastStaffId !== 0) {
+                newMsgs.forEach(m=>{
+                    if (m.username === user.username) return; // don't notify self
+                    devicePush('Staff Live Chat — ' + m.username, m.content.slice(0,120), 'livechat-'+m.id);
+                    showToast(`Live chat: ${m.username}: ${m.content.slice(0,40)}`, '');
+                });
+            }
+            if (maxId > _lastStaffId) { _lastStaffId = maxId; localStorage.setItem('zenith_last_staff_id', String(maxId)); }
+        } catch {}
+    }
+    if (isAdmin) { pollLiveChat(); setInterval(pollLiveChat, 5000); }
 
     function fmtTimeLocal(s) { if (!s || s === 'Never' || s === 'Online') return s; try { // server stores UTC as "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"
                 let iso = s.trim();
@@ -687,17 +758,26 @@ function showOfflineScreen() {
 }
 window.addEventListener('offline', showOfflineScreen);
 window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); showToast('Back online','success'); });
-function showDeletedScreen() {
+function showDeletedScreen(deletedBy) {
     if (document.getElementById('banned-screen')) return;
     const div = document.createElement('div');
     div.id = 'banned-screen';
     div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    const isOwner = deletedBy === 'owner';
+    const title = isOwner ? 'DELETED BY THE OWNER' : 'ACCOUNT DELETED';
+    const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#1a1a1a,#2d2d2d)';
+    const border = isOwner ? '#C0C7D1' : '#888';
+    const accent = isOwner ? '#C0C7D1' : '#888';
+    const glow = isOwner ? '0 20px 60px rgba(221,228,238,0.18)' : '0 20px 60px rgba(136,136,136,0.25)';
+    const line = isOwner
+        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your account has been permanently deleted.'
+        : 'Your account has been deleted by an administrator. You can no longer access Zenith.';
     div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a1a1a,#2d2d2d); border:2px solid #888; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(136,136,136,0.25), 0 0 40px rgba(136,136,136,0.15);">
-            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(136,136,136,0.15); border:2px solid #888; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#888; font-size:40px;">&#128465;</div>
-            <h2 style="color:#888; font-size:24px; margin-bottom:8px; letter-spacing:1px;">ACCOUNT DELETED</h2>
-            <p style="color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px;">Your account has been deleted by an administrator. You can no longer access Zenith.</p>
-            <button id="deleted-ok" style="width:100%; padding:14px; background:#333; color:#fff; border:1px solid #555; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">OK — LOG OUT</button>
+        <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:40px 24px; box-shadow:${glow};">
+            <div style="width:72px; height:72px; margin:0 auto 16px; background:${accent}22; border:2px solid ${accent}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:40px;">&#128465;</div>
+            <h2 style="color:${accent}; font-size:24px; margin-bottom:8px; letter-spacing:1px;">${title}</h2>
+            <p style="color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px;">${line}</p>
+            <button id="deleted-ok" style="width:100%; padding:14px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : '#333'}; color:#fff; border:1px solid ${accent}; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">OK — LOG OUT</button>
         </div>`;
     div.querySelector('#deleted-ok').addEventListener('click', async () => {
         try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
@@ -705,19 +785,27 @@ function showDeletedScreen() {
     });
     document.body.appendChild(div);
 }
-function showPasswordChangedScreen() {
+function showPasswordChangedScreen(changedBy) {
     if (document.getElementById('pwd-changed-screen') || document.getElementById('banned-screen')) return;
     const div = document.createElement('div');
     div.id = 'pwd-changed-screen';
     div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
+    const isOwner = changedBy === 'owner';
+    const border = isOwner ? '#C0C7D1' : '#ff8c00';
+    const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#2d1a00,#4a2c00)';
+    const accent = isOwner ? '#C0C7D1' : '#ff8c00';
+    const glow = isOwner ? '0 20px 60px rgba(221,228,238,0.18)' : '0 20px 60px rgba(255,140,0,0.25)';
+    const line = isOwner
+        ? 'Your password was changed by <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Do you want to view it now?'
+        : 'Your password was changed by an administrator. Do you want to view it now?';
     div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#2d1a00,#4a2c00); border:2px solid #ff8c00; border-radius:18px; padding:40px 24px; box-shadow:0 20px 60px rgba(255,140,0,0.25); animation:faceIn 0.4s ease;">
-            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(255,140,0,0.15); border:2px solid #ff8c00; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff8c00; font-size:40px;">&#9888;</div>
-            <h2 style="color:#ff8c00; font-size:22px; margin-bottom:8px; letter-spacing:1px;">PASSWORD CHANGED</h2>
-            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">Your password was changed by an admin, do you want to view it now?</p>
+        <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:40px 24px; box-shadow:${glow}; animation:faceIn 0.4s ease;">
+            <div style="width:72px; height:72px; margin:0 auto 16px; background:${accent}22; border:2px solid ${border}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:40px;">&#9888;</div>
+            <h2 style="color:${accent}; font-size:22px; margin-bottom:8px; letter-spacing:1px;">PASSWORD CHANGED</h2>
+            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">${line}</p>
             <div style="display:flex; gap:10px;">
-                <button id="pwd-yes" style="flex:1; padding:14px; background:linear-gradient(135deg,#ff8c00,#ff6a00); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Yes, view it</button>
-                <button id="pwd-no" style="flex:1; padding:14px; background:transparent; color:#ff8c00; border:1px solid #ff8c00; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">No</button>
+                <button id="pwd-yes" style="flex:1; padding:14px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : 'linear-gradient(135deg,#ff8c00,#ff6a00)'}; color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Yes, view it</button>
+                <button id="pwd-no" style="flex:1; padding:14px; background:transparent; color:${accent}; border:1px solid ${accent}; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">No</button>
             </div>
         </div>`;
     document.body.appendChild(div);

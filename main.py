@@ -22,19 +22,18 @@ from feedback import router as feedback_router
 from staff import router as staff_router
 from announcements import router as announcements_router
 
-VERSION = "15.5"
+VERSION = "16.0"
 CHANGELOG = [
-    "Attention tab is now LIVE ANNOUNCEMENTS — staff post, users get a popup",
-    "Popup screens now say 'by The Owner' when the owner bans someone",
-    "Admins can no longer view the owner's chats",
-    "Live chat auto-checks new messages & notifies admins every 2s",
-    "Only The Owner can clear the staff live chat",
-    "Owner vault now uses the Frost Titanium theme (dark gray + silver + icy cyan)",
-    "Fixed mobile website UI — username & logout visible, More Tools scrollable",
-    "Login page & more tools panels are now scrollable",
-    "AI provider keys refreshed (AI back online)",
-    "Z centered in the logo for the PWA app on mobile",
-    "Mobile-responsive premium control-center look",
+    "Owner is now pure Titanium Core — zero gold, full brushed titanium control center",
+    "Broadcasts are now screen-lock popups (like banned) — queued until you are online & dismiss",
+    "All notifications (banned / deleted / password-changed / broadcast / live chat / feedback) wait offline until dismissed",
+    "Deleted & password-changed screens now separated: Owner vs Administrator styling",
+    "Live staff chat can be cleared by the Owner (clear button in Live Chat)",
+    "Device-integrated push notifications to all devices (browser + OS-level, via Service Worker)",
+    "PC sidebar now scrollable (was clipped)",
+    "Owner tag no longer cut off (WANZU-IBRAHIM + OWNER badge)",
+    "Attention is now Broadcast — staff posts, all users get popup + push",
+    "AI provider keys fixed (v16) — Zenith back online",
 ]
 
 

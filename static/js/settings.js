@@ -68,23 +68,31 @@ const Settings = {
             if (r.ok) {
                 const d = await r.json();
                 if (d.user && d.user.is_admin) {
-                    document.body.classList.add('admin-gold');
-                    const accent = (s.accent || '').toLowerCase();
-                    const isGold = accent === '#ffd700' || accent === '#ff8c00';
-                    if (!isGold && s.accent) {
-                        document.documentElement.style.setProperty('--accent-solid', s.accent);
-                        document.documentElement.style.setProperty('--accent-hover', s.accent);
-                        document.body.style.setProperty('--accent-solid', s.accent);
-                        document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
-                            el.style.background = `linear-gradient(135deg, #FFD700, ${s.accent})`;
-                            el.style.backgroundImage = '';
-                        });
+                    const isOwner = d.user.role === 'owner' || d.user.username === 'WANZU-IBRAHIM';
+                    if (isOwner) {
+                        document.body.classList.remove('admin-gold');
+                        document.body.classList.add('admin-owner');
                     } else {
-                        document.body.style.removeProperty('--accent-solid');
-                        document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
-                            el.style.background = '';
-                            el.style.backgroundImage = '';
-                        });
+                        document.body.classList.add('admin-gold');
+                    }
+                    if (!isOwner) {
+                        const accent = (s.accent || '').toLowerCase();
+                        const isGold = accent === '#ffd700' || accent === '#ff8c00';
+                        if (!isGold && s.accent) {
+                            document.documentElement.style.setProperty('--accent-solid', s.accent);
+                            document.documentElement.style.setProperty('--accent-hover', s.accent);
+                            document.body.style.setProperty('--accent-solid', s.accent);
+                            document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                                el.style.background = `linear-gradient(135deg, #FFD700, ${s.accent})`;
+                                el.style.backgroundImage = '';
+                            });
+                        } else {
+                            document.body.style.removeProperty('--accent-solid');
+                            document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                                el.style.background = '';
+                                el.style.backgroundImage = '';
+                            });
+                        }
                     }
                 }
             }

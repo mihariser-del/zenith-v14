@@ -137,10 +137,15 @@ Recent conversations:
 Return ONLY a JSON array of strings. No other text."""
 
     try:
+        from database import settings as _s
+        _keys = _s.get_openrouter_keys()
+        _key = _keys[0] if _keys else ""
+        if not _key:
+            return {"memories": [], "error": "No API key configured"}
         async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
-                headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"},
+                headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"},
                 json={"model": "openai/gpt-4o-mini", "messages": [{"role": "user", "content": extract_prompt}], "max_tokens": 500, "temperature": 0.3}
             )
             if resp.status_code != 200:

@@ -14,7 +14,7 @@ const URLS = [
 ];
 self.addEventListener('push', e => {
   const data = e.data ? e.data.json() : { title: 'Zenith', body: 'New notification' };
-  e.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png', tag: data.tag || 'zenith' }));
+  e.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png', tag: data.tag || 'zenith', requireInteraction: true, renotify: true, silent: false }));
 });
 self.addEventListener('notificationclick', e => {
   e.notification.close();

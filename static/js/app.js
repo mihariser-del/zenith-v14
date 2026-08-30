@@ -37,7 +37,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!('Notification' in window)) return;
             if (Notification.permission === 'default') { try { await Notification.requestPermission(); } catch {} }
             if (Notification.permission !== 'granted') return;
-            const opts = { body: body.slice(0, 180), icon: '/static/icons/favicon-32.png', badge: '/static/icons/favicon-32.png', tag: tag || title, requireInteraction: true };
+            const opts = { body: body.slice(0, 180), icon: '/static/icons/favicon-32.png', badge: '/static/icons/favicon-32.png', tag: tag || title, requireInteraction: true, renotify: true, silent: false, vibrate: [200,100,200] };
             if ('serviceWorker' in navigator) {
                 const reg = await navigator.serviceWorker.ready;
                 if (reg && reg.showNotification) { reg.showNotification(title, opts); return; }
@@ -510,7 +510,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Feedback system ---
     const feedbackBadge = $('feedback-badge');
-    let lastFeedbackCount = 0;
+    let lastFeedbackCount = parseInt(localStorage.getItem('zenith_last_feedback_unanswered') || '0', 10);
     async function refreshFeedbackBadge() {
         if (!isAdmin) return;
         try {
@@ -519,9 +519,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unanswered > 0) {
                 feedbackBadge.textContent = unanswered;
                 feedbackBadge.style.display = 'block';
-                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zenith Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Zenith', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
+                if (unanswered > lastFeedbackCount) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zenith Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Zenith', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
             } else feedbackBadge.style.display = 'none';
             lastFeedbackCount = unanswered;
+            localStorage.setItem('zenith_last_feedback_unanswered', String(unanswered));
         } catch (e) {}
     }
     async function refreshUserBadge() {

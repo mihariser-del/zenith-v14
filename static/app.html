@@ -542,20 +542,20 @@
         <div id="voice-orb" style="width:200px; height:200px; border-radius:50%; background:radial-gradient(circle at 30% 30%, #ffffff, #8b9cf0 40%, #5a6af0 70%, #2a3ab0); box-shadow:0 0 60px rgba(90,106,240,0.6), 0 0 100px rgba(90,106,240,0.3); animation:voicePulse 2s ease-in-out infinite; display:flex; align-items:center; justify-content:center; position:relative; transition:transform 0.3s;"></div>
         <div id="voice-status" style="margin-top:30px; color:rgba(255,255,255,0.7); font-size:14px; text-align:center; min-height:20px;">Tap mic to speak</div>
         <div id="voice-transcript" style="margin-top:12px; color:#fff; font-size:16px; text-align:center; max-width:600px; min-height:24px; line-height:1.5;"></div>
-        <div style="position:absolute; bottom:30px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:12px; background:#1e1f22; border:1px solid #2b2d31; border-radius:30px; padding:8px 16px; min-width:300px; max-width:90vw;">
-            <button style="width:32px; height:32px; border-radius:50%; background:#2b2d31; border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px;">+</button>
-            <span style="flex:1; color:#949ba4; font-size:14px;">Type</span>
-            <button id="voice-mode-mic" style="width:40px; height:40px; border-radius:50%; background:#ff4d4d; border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer;">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:18px; height:18px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+        <div style="position:absolute; bottom:30px; left:50%; transform:translateX(-50%); display:flex; align-items:center; gap:20px; background:#1e1f22; border:1px solid #2b2d31; border-radius:30px; padding:10px 20px;">
+            <button id="voice-mode-mic" style="width:48px; height:48px; border-radius:50%; background:#ff4d4d; border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background 0.2s;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:20px; height:20px;"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
             </button>
-            <button id="voice-mode-close" style="width:40px; height:40px; border-radius:50%; background:#2b2d31; border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:16px;">✕</button>
+            <button id="voice-mode-close" style="width:48px; height:48px; border-radius:50%; background:#2b2d31; border:none; color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:18px;">✕</button>
         </div>
     </div>
 </div>
 <style>
-@keyframes voicePulse { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.05); opacity:0.9; } }
-#voice-orb.listening { animation:voicePulse 0.8s ease-in-out infinite; box-shadow:0 0 80px rgba(90,106,240,0.8), 0 0 120px rgba(90,106,240,0.4); }
-#voice-orb.speaking { animation:voicePulse 0.5s ease-in-out infinite; box-shadow:0 0 80px rgba(0,255,136,0.6), 0 0 100px rgba(0,255,136,0.3); }
+@keyframes voicePulse { 0%,100% { transform:scale(1); opacity:1; } 50% { transform:scale(1.07); opacity:0.92; } }
+@keyframes voiceGlow { 0%,100% { box-shadow:0 0 60px rgba(99,102,241,0.6), 0 0 100px rgba(139,92,246,0.4); } 50% { box-shadow:0 0 80px rgba(59,130,246,0.8), 0 0 120px rgba(168,85,247,0.5); } }
+#voice-orb { background:radial-gradient(circle at 30% 30%, #ffffff 0%, #c4b5fd 15%, #a78bfa 30%, #8b5cf6 45%, #6366f1 65%, #3b82f6 85%, #1e40af 100%); animation:voiceGlow 3s ease-in-out infinite, voicePulse 2s ease-in-out infinite; }
+#voice-orb.listening { animation:voicePulse 0.8s ease-in-out infinite, voiceGlow 1.5s ease-in-out infinite; box-shadow:0 0 80px rgba(99,102,241,0.9), 0 0 120px rgba(139,92,246,0.6); }
+#voice-orb.speaking { animation:voicePulse 0.5s ease-in-out infinite, voiceGlow 1s ease-in-out infinite; box-shadow:0 0 80px rgba(59,130,246,0.9), 0 0 100px rgba(168,85,247,0.7); }
 </style>
 
 <script src="/static/js/confirm.js"></script>

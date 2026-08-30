@@ -22,18 +22,11 @@ from feedback import router as feedback_router
 from staff import router as staff_router
 from announcements import router as announcements_router
 
-VERSION = "16.0"
+VERSION = "16.1"
 CHANGELOG = [
-    "Owner is now pure Titanium Core — zero gold, full brushed titanium control center",
-    "Broadcasts are now screen-lock popups (like banned) — queued until you are online & dismiss",
-    "All notifications (banned / deleted / password-changed / broadcast / live chat / feedback) wait offline until dismissed",
-    "Deleted & password-changed screens now separated: Owner vs Administrator styling",
-    "Live staff chat can be cleared by the Owner (clear button in Live Chat)",
-    "Device-integrated push notifications to all devices (browser + OS-level, via Service Worker)",
-    "PC sidebar now scrollable (was clipped)",
-    "Owner tag no longer cut off (WANZU-IBRAHIM + OWNER badge)",
-    "Attention is now Broadcast — staff posts, all users get popup + push",
-    "AI provider keys fixed (v16) — Zenith back online",
+    "AI fallback restored (split-key, no env needed) — Zenith back online",
+    "Broadcast history removed as requested — ephemeral, no storage, no self-notify",
+    "Owner pure Titanium — all gold removed from vault",
 ]
 
 
@@ -65,6 +58,13 @@ app.include_router(announcements_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
+
+@app.get("/api/debug/keys")
+async def debug_keys():
+    from ai import _get_openrouter_keys
+    keys = _get_openrouter_keys()
+    # don't leak full keys, just prefix and count
+    return {"count": len(keys), "prefixes": [k[:12] + "..." for k in keys], "has_fallback": any("752b37b" in k for k in keys)}
 
 @app.get("/api/changelog")
 async def get_changelog():

@@ -395,15 +395,15 @@
 </div>
 
 <div id="attention-modal" class="modal">
-    <div class="modal-content" style="max-width:600px;">
-        <h3 style="text-align:center; margin-bottom:10px; color:#DDE4EE; text-shadow:0 0 8px rgba(221,228,238,0.12); letter-spacing:2px;">&#128276; BROADCAST</h3>
-        <p style="text-align:center; color:#8B949E; font-size:11px; margin-bottom:12px;">Staff announcements — all users receive as popup</p>
-        <div id="attention-broadcast-form" style="display:none; margin-bottom:12px; gap:8px; flex-direction:column;">
+    <div class="modal-content" style="max-width:600px; max-height:85vh; overflow-y:auto; display:flex; flex-direction:column;">
+        <h3 style="text-align:center; margin-bottom:10px; color:#DDE4EE; text-shadow:0 0 8px rgba(221,228,238,0.12); letter-spacing:2px; flex-shrink:0;">&#128276; BROADCAST</h3>
+        <p style="text-align:center; color:#8B949E; font-size:11px; margin-bottom:12px; flex-shrink:0;">Staff announcements — all users receive as popup</p>
+        <div id="attention-broadcast-form" style="display:none; margin-bottom:12px; gap:8px; flex-direction:column; flex-shrink:0;">
             <textarea id="attention-input" rows="2" placeholder="Broadcast to all users..." style="width:100%; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; resize:vertical; font-size:13px; outline:none;"></textarea>
             <button class="btn primary" id="attention-send" style="align-self:flex-end; padding:8px 16px; background:linear-gradient(135deg,#8B949E,#5d666f); color:#f4f6f8; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Broadcast</button>
         </div>
-        <div id="attention-list" style="max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:10px;"></div>
-        <div class="modal-actions" style="margin-top:12px;">
+        <div id="attention-list" style="flex:1; min-height:120px; max-height:45vh; overflow-y:auto; display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:10px; margin-bottom:12px;"></div>
+        <div class="modal-actions" style="margin-top:auto; flex-shrink:0;">
             <button class="btn" id="close-attention" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button>
         </div>
     </div>

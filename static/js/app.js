@@ -569,15 +569,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             const anns = d.announcements || [];
             if (anns.length) {
                 const maxId = Math.max(...anns.map(a => a.id));
-                // Show new ones as popup (only if not first load) — wait offline until dismissed, device push to all devices
-                const newAnns = anns.filter(a => a.id > _lastAnnId);
+                // Show new ones as popup — not to broadcaster, wait offline until dismissed, device push to all devices
+                const newAnnsAll = anns.filter(a => a.id > _lastAnnId);
+                const newAnns = newAnnsAll.filter(a => a.username !== user.username && a.user_id !== user.id);
                 if (newAnns.length && _lastAnnId !== 0) {
                     newAnns.forEach(a => { showBroadcastPopup(a); devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0,80), a.username); });
-                } else if (newAnns.length && _lastAnnId === 0 && anns.length) {
-                    // First load after offline — show latest pending if not yet dismissed
+                } else if (newAnnsAll.length && _lastAnnId === 0 && anns.length) {
+                    // First load after offline — show latest pending if not yet dismissed and not own
                     const latest = anns[anns.length - 1];
-                    const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
-                    if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); showDiscordToast('Zenith', latest.username + ' — Broadcast', latest.content.slice(0,80), latest.username); }
+                    if (latest.username === user.username || latest.user_id === user.id) { /* own broadcast, don't popup */ }
+                    else {
+                        const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
+                        if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); showDiscordToast('Zenith', latest.username + ' — Broadcast', latest.content.slice(0,80), latest.username); }
+                    }
                 }
                 // For UI badge (staff)
                 if (isAdmin) {

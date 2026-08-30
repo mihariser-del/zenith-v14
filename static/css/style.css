@@ -437,6 +437,22 @@ body.admin-owner #admin-stats > div {
     background: #22262B;
     border: 1px solid #2c3238;
 }
+/* Owner — kill all gold, force Titanium */
+body.admin-owner #admin-panel-modal .modal-content h3 { color: #DDE4EE !important; text-shadow: none !important; }
+body.admin-owner #admin-panel-modal .modal-content { background: linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20) !important; border: 1px solid rgba(221,228,238,0.18) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 14px rgba(221,228,238,0.12) !important; }
+body.admin-owner #admin-panel-modal .modal-content input { background: rgba(0,0,0,0.35) !important; border-color: rgba(221,228,238,0.25) !important; color: #DDE4EE !important; }
+body.admin-owner #admin-panel-modal .modal-content input::placeholder { color: rgba(221,228,238,0.45) !important; }
+body.admin-owner #admin-panel-modal .modal-content input:focus { border-color: #C0C7D1 !important; box-shadow: 0 0 12px rgba(221,228,238,0.12) !important; }
+body.admin-owner #admin-panel-modal .btn,
+body.admin-owner #admin-panel-modal #admin-refresh,
+body.admin-owner #admin-panel-modal #close-admin-panel { color: #C0C7D1 !important; border-color: rgba(221,228,238,0.3) !important; }
+body.admin-owner #admin-panel-modal .btn:hover { background: rgba(221,228,238,0.08) !important; }
+body.admin-owner #admin-filter-buttons button { border-color: rgba(221,228,238,0.25) !important; color: #8B949E !important; }
+body.admin-owner #admin-filter-buttons button[style*="border-color: rgb(255, 215, 0)"],
+body.admin-owner #admin-filter-buttons button[style*="#FFD700"] { border-color: #C0C7D1 !important; color: #DDE4EE !important; background: rgba(221,228,238,0.15) !important; }
+body.admin-owner #admin-users-list [data-action="reset"] { border-color: rgba(221,228,238,0.4) !important; color: #C0C7D1 !important; }
+body.admin-owner #admin-users-list [data-action="ban"] { border-color: rgba(255,77,77,0.35) !important; }
+body.admin-owner .sidebar .btn.info { color: #C0C7D1 !important; border-color: rgba(221,228,238,0.15) !important; }
 
 /* ---- Generic modal mobile responsiveness ---- */
 .modal-content {

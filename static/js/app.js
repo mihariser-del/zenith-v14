@@ -45,6 +45,34 @@ document.addEventListener('DOMContentLoaded', async () => {
             new Notification(title, opts);
         } catch {}
     }
+    // Discord-style in-app toast (mimics native OS notification: icon + avatar + name + message)
+    function showDiscordToast(appName, title, body, avatarText) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed; bottom:20px; right:20px; z-index:9998; display:flex; gap:12px; align-items:flex-start; width:360px; max-width:92vw; background:#1e1f22; border:1px solid #2b2d31; border-radius:12px; padding:12px; box-shadow:0 8px 24px rgba(0,0,0,0.5); animation:slideIn 0.3s ease; color:#f2f3f5;';
+        const avBg = '#5865f2';
+        wrap.innerHTML = `
+            <img src="/static/icons/icon-192.png" style="width:20px; height:20px; border-radius:4px; flex-shrink:0; margin-top:2px;" onerror="this.style.display='none'">
+            <div style="flex:1; min-width:0;">
+                <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                    <span style="font-size:12px; font-weight:700; color:#fff;">${appName}</span>
+                    <span style="font-size:11px; color:#949ba4;">now</span>
+                    <button style="margin-left:auto; background:none; border:none; color:#949ba4; cursor:pointer; font-size:14px; line-height:1;">×</button>
+                </div>
+                <div style="display:flex; gap:10px; align-items:flex-start;">
+                    <div style="width:40px; height:40px; border-radius:50%; background:${avBg}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:16px; flex-shrink:0;">${(avatarText||title||'?').charAt(0).toUpperCase()}</div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:14px; font-weight:600; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${title}</div>
+                        <div style="font-size:13px; color:#dbdee1; line-height:1.4; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word;">${body}</div>
+                    </div>
+                </div>
+            </div>`;
+        wrap.querySelector('button').addEventListener('click', () => wrap.remove());
+        document.body.appendChild(wrap);
+        setTimeout(() => { wrap.style.transition='opacity 0.3s, transform 0.3s'; wrap.style.opacity='0'; wrap.style.transform='translateX(20px)'; setTimeout(()=>wrap.remove(),300); }, 4500);
+        const style = document.createElement('style');
+        style.textContent = '@keyframes slideIn{from{opacity:0; transform:translateX(20px)} to{opacity:1; transform:translateX(0)}}';
+        if (!document.getElementById('discord-toast-style')) { style.id='discord-toast-style'; document.head.appendChild(style); }
+    }
     // Ask permission once for push (all notifications wait offline until dismissed, then show)
     if (!isGuest && 'Notification' in window && Notification.permission === 'default') {
         setTimeout(() => Notification.requestPermission().catch(()=>{}), 2000);
@@ -100,15 +128,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const chatBtn = document.createElement('button');
                 chatBtn.className = 'btn info'; chatBtn.id = 'staff-chat-btn';
                 chatBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg> Live Chat';
-                chatBtn.style.cssText = 'color:#00ffff; border:1px solid rgba(0,255,255,0.3); background:rgba(0,255,255,0.05);';
+                const chatCol = isOwner ? '#C0C7D1' : '#C0C7D1';
+                chatBtn.style.cssText = `color:${chatCol}; border:1px solid rgba(221,228,238,0.25); background:rgba(221,228,238,0.06);`;
                 chatBtn.addEventListener('click', () => { Staff.openChat(); closeSidebar(); });
                 toolsBox.insertBefore(chatBtn, $('code-btn'));
             }
             if (!$('attention-btn')) {
                 const attBtn = document.createElement('button');
                 attBtn.className = 'btn info'; attBtn.id = 'attention-btn';
-                attBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Attention<span id="attention-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ffaa00; color:#000; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>';
-                attBtn.style.cssText = 'color:#ffaa00; border:1px solid rgba(255,170,0,0.3); background:rgba(255,170,0,0.05); position:relative;';
+                attBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> Broadcast<span id="attention-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#C0C7D1; color:#111315; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>';
+                attBtn.style.cssText = 'color:#C0C7D1; border:1px solid rgba(221,228,238,0.25); background:rgba(221,228,238,0.06); position:relative;';
                 attBtn.addEventListener('click', () => { Staff.openAttention(); closeSidebar(); });
                 toolsBox.appendChild(attBtn);
             }
@@ -490,7 +519,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unanswered > 0) {
                 feedbackBadge.textContent = unanswered;
                 feedbackBadge.style.display = 'block';
-                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zenith Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); }
+                if (unanswered > lastFeedbackCount && lastFeedbackCount !== 0) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zenith Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Zenith', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
             } else feedbackBadge.style.display = 'none';
             lastFeedbackCount = unanswered;
         } catch (e) {}
@@ -519,6 +548,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         fbPopup.querySelector('#fb-reply-dismiss').addEventListener('click', ()=>{ fbPopup.remove(); localStorage.setItem('zenith_feedback_seen', String(replied)); feedbackBadge.style.display='none'; });
                         document.body.appendChild(fbPopup);
                         devicePush('Zenith Feedback Reply — ' + who, latest.response, 'feedback-reply');
+                        showDiscordToast('Zenith', who, latest.response.slice(0,80), who.charAt(0));
                     }
                 }
             }
@@ -541,12 +571,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 // Show new ones as popup (only if not first load) — wait offline until dismissed, device push to all devices
                 const newAnns = anns.filter(a => a.id > _lastAnnId);
                 if (newAnns.length && _lastAnnId !== 0) {
-                    newAnns.forEach(a => { showBroadcastPopup(a); devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); });
+                    newAnns.forEach(a => { showBroadcastPopup(a); devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0,80), a.username); });
                 } else if (newAnns.length && _lastAnnId === 0 && anns.length) {
                     // First load after offline — show latest pending if not yet dismissed
                     const latest = anns[anns.length - 1];
                     const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
-                    if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); }
+                    if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); showDiscordToast('Zenith', latest.username + ' — Broadcast', latest.content.slice(0,80), latest.username); }
                 }
                 // For UI badge (staff)
                 if (isAdmin) {
@@ -568,34 +598,37 @@ document.addEventListener('DOMContentLoaded', async () => {
     function showBroadcastPopup(a) {
         if (document.getElementById('broadcast-popup-' + a.id)) return;
         const isOwner = a.role === 'owner';
-        const color = isOwner ? '#C0C7D1' : '#8B949E';
-        const tag = isOwner ? 'OWNER' : 'STAFF';
+        const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+        // Same visual language as BANNED BY THE OWNER screen — exclamation, who broadcasted, message box
+        const accent = isOwner ? '#C0C7D1' : '#FFD700';
+        const border = isOwner ? '#C0C7D1' : '#FFD700';
+        const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#1a1a0a,#2d2416)';
+        const glow = isOwner ? '0 0 60px rgba(221,228,238,0.22), 0 20px 60px rgba(0,0,0,0.5)' : '0 0 40px rgba(255,215,0,0.25), 0 20px 60px rgba(0,0,0,0.5)';
+        const title = isOwner ? 'BROADCAST FROM THE OWNER' : 'BROADCAST FROM STAFF';
+        const byLine = isOwner
+            ? `A broadcast from <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM`
+            : `A broadcast from <strong style="color:#FFD700;">${safe(a.username)}</strong> — staff`;
         const wrap = document.createElement('div');
         wrap.id = 'broadcast-popup-' + a.id;
-        wrap.style.cssText = 'position:fixed; inset:0; z-index:9997; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px);';
-        const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-        let when = a.created_at;
-        try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString(); } catch {}
+        wrap.style.cssText = 'position:fixed; inset:0; z-index:9997; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px);';
+        let when = '';
+        try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString([], {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'}); } catch {}
         wrap.innerHTML = `
-            <div style="width:100%; max-width:520px; background:linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20); border:1px solid rgba(221,228,238,0.2); border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 20px rgba(221,228,238,0.12); animation:faceIn 0.35s ease;">
-                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-                    <span style="font-size:18px;">&#128276;</span>
-                    <span style="font-size:12px; font-weight:700; letter-spacing:2px; color:${color};">BROADCAST</span>
-                    <span style="font-size:9px; padding:2px 6px; border-radius:4px; background:${color}22; color:${color}; font-weight:700;">${tag}</span>
-                    <span style="margin-left:auto; font-size:11px; color:#666;">${safe(when)}</span>
-                </div>
-                <div style="font-size:14px; line-height:1.6; color:#e5e5e5; white-space:pre-wrap; word-wrap:break-word; padding:12px; background:rgba(0,0,0,0.25); border:1px solid rgba(221,228,238,0.08); border-radius:10px; border-left:3px solid ${color};"><strong style="color:${color};">${safe(a.username)}</strong><br>${safe(a.content)}</div>
-                <button id="bc-close-${a.id}" style="margin-top:16px; width:100%; padding:12px; background:linear-gradient(135deg,#8B949E,#5d666f); color:#f4f6f8; border:none; border-radius:10px; font-weight:700; cursor:pointer; letter-spacing:1px;">DISMISS</button>
+            <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:36px 24px; box-shadow:${glow}; animation:faceIn 0.35s ease;">
+                <div style="width:64px; height:64px; margin:0 auto 14px; background:${accent}18; border:2px solid ${border}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:32px; line-height:1;">&#9888;</div>
+                <h2 style="color:${accent}; font-size:18px; margin-bottom:6px; letter-spacing:2px; font-weight:800;">${title}</h2>
+                <p style="color:rgba(255,255,255,0.75); font-size:12px; line-height:1.6; margin-bottom:14px;">${byLine}${when ? ` · <span style="color:#888;">${safe(when)}</span>` : ''}</p>
+                <div style="background:rgba(0,0,0,0.35); border:1px solid ${accent}33; border-radius:12px; padding:14px 16px; margin-bottom:18px; font-size:14px; color:#e5e5e5; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; text-align:left; border-left:3px solid ${accent};">${safe(a.content)}</div>
+                <button id="bc-close-${a.id}" style="width:100%; padding:13px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'}; color:${isOwner ? '#f4f6f8' : '#000'}; border:none; border-radius:10px; font-weight:800; cursor:pointer; letter-spacing:1px; font-size:14px;">DISMISS</button>
             </div>`;
         wrap.querySelector('#bc-close-' + a.id).addEventListener('click', () => {
             wrap.remove();
             localStorage.setItem('zenith_last_ann_seen', String(a.id));
-            const attBadge = $('attention-badge');
+            const attBadge = $('attention-badge') || $('broadcast-badge');
             if (attBadge) attBadge.style.display = 'none';
         });
         wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); localStorage.setItem('zenith_last_ann_seen', String(a.id)); } });
         document.body.appendChild(wrap);
-        // auto store as seen after 30s
         setTimeout(() => { localStorage.setItem('zenith_last_ann_seen', String(Math.max(parseInt(localStorage.getItem('zenith_last_ann_seen')||'0',10), a.id))); }, 1000);
     }
     // Poll for broadcasts every 5s for all logged-in users (not guests)
@@ -618,8 +651,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                 newMsgs.forEach(m=>{
                     if (m.username === user.username) return; // don't notify self
                     devicePush('Staff Live Chat — ' + m.username, m.content.slice(0,120), 'livechat-'+m.id);
-                    showToast(`Live chat: ${m.username}: ${m.content.slice(0,40)}`, '');
+                    showDiscordToast('Zenith', m.username, m.content.slice(0,80), m.username);
                 });
+            } else if (newMsgs.length && _lastStaffId === 0 && messages.length) {
+                // offline queue — show latest if not yet dismissed
+                const latest = messages[messages.length - 1];
+                if (latest.username !== user.username) { showDiscordToast('Zenith', latest.username, latest.content.slice(0,80), latest.username); devicePush('Staff Live Chat — ' + latest.username, latest.content.slice(0,120), 'livechat-'+latest.id); }
             }
             if (maxId > _lastStaffId) { _lastStaffId = maxId; localStorage.setItem('zenith_last_staff_id', String(maxId)); }
         } catch {}

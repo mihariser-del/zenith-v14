@@ -4,7 +4,7 @@ const Settings = {
         accent: '#0066ff',
         msgSpacing: 'cozy',
         markdown: true,
-        speechLang: 'en-US',
+        speechLang: 'en-GB',
     },
     serverSettings: null,
 

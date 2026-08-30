@@ -634,39 +634,55 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
         wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); localStorage.setItem('zenith_last_ann_seen', String(a.id)); } });
         document.body.appendChild(wrap);
-        setTimeout(() => { localStorage.setItem('zenith_last_ann_seen', String(Math.max(parseInt(localStorage.getItem('zenith_last_ann_seen')||'0',10), a.id))); }, 1000);
     }
-    // Poll for broadcasts every 5s for all logged-in users (not guests)
-    if (!isGuest) { pollAnnouncements(); setInterval(pollAnnouncements, 5000); }
+    // Poll for broadcasts every 5s for all users including guests and new accounts — persistent until dismissed
+    pollAnnouncements(); setInterval(pollAnnouncements, 5000);
     // Keep refreshAttention for staff fallback (old) but now poll handles it
     async function refreshAttentionBadge() {
         await pollAnnouncements();
     }
     if (isAdmin) { refreshAttentionBadge(); setInterval(refreshAttentionBadge, 10000); }
-    // Live Chat polling for staff — wait offline until dismissed, device push to all devices
+    // Live Chat polling for staff — wait offline until dismissed, device push to all devices + badge
     let _lastStaffId = parseInt(localStorage.getItem('zenith_last_staff_id') || '0', 10);
     async function pollLiveChat() {
         if (!isAdmin) return;
         try {
             const { messages } = await api('/api/staff/chat');
-            if (!messages || !messages.length) return;
+            if (!messages || !messages.length) { const b=$('live-chat-badge'); if(b) b.style.display='none'; return; }
             const maxId = Math.max(...messages.map(m=>m.id));
             const newMsgs = messages.filter(m=>m.id > _lastStaffId);
+            // Update badge count (unseen since last open)
+            const lastSeenStaff = parseInt(localStorage.getItem('zenith_last_staff_seen') || String(_lastStaffId), 10);
+            const unreadStaff = messages.filter(m=>m.id > lastSeenStaff && m.username !== user.username).length;
+            const badge = $('live-chat-badge');
+            if (badge) {
+                if (unreadStaff > 0) { badge.textContent = unreadStaff > 9 ? '9+' : String(unreadStaff); badge.style.display = 'block'; }
+                else badge.style.display = 'none';
+            }
             if (newMsgs.length && _lastStaffId !== 0) {
                 newMsgs.forEach(m=>{
                     if (m.username === user.username) return; // don't notify self
                     devicePush('Staff Live Chat — ' + m.username, m.content.slice(0,120), 'livechat-'+m.id);
                     showDiscordToast('Zenith', m.username, m.content.slice(0,80), m.username);
+                    // WhatsApp-style sound
+                    try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
                 });
             } else if (newMsgs.length && _lastStaffId === 0 && messages.length) {
                 // offline queue — show latest if not yet dismissed
                 const latest = messages[messages.length - 1];
-                if (latest.username !== user.username) { showDiscordToast('Zenith', latest.username, latest.content.slice(0,80), latest.username); devicePush('Staff Live Chat — ' + latest.username, latest.content.slice(0,120), 'livechat-'+latest.id); }
+                if (latest.username !== user.username) { showDiscordToast('Zenith', latest.username, latest.content.slice(0,80), latest.username); devicePush('Staff Live Chat — ' + latest.username, latest.content.slice(0,120), 'livechat-'+latest.id); try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {} }
             }
             if (maxId > _lastStaffId) { _lastStaffId = maxId; localStorage.setItem('zenith_last_staff_id', String(maxId)); }
         } catch {}
     }
     if (isAdmin) { pollLiveChat(); setInterval(pollLiveChat, 5000); }
+    // Mark staff chat as seen when opening
+    const _origOpenChat = Staff.openChat.bind(Staff);
+    Staff.openChat = function() {
+        localStorage.setItem('zenith_last_staff_seen', String(_lastStaffId));
+        const b=$('live-chat-badge'); if(b) b.style.display='none';
+        return _origOpenChat();
+    };
 
     function fmtTimeLocal(s) { if (!s || s === 'Never' || s === 'Online') return s; try { // server stores UTC as "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"
                 let iso = s.trim();

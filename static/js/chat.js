@@ -557,6 +557,23 @@ const Chat = {
             bubble.classList.remove('streaming-cursor');
             if (fullResponse) {
                 this.updateStreamingBubble(bubble, fullResponse);
+                // Voice-to-voice auto speak if enabled
+                if (Voice.voiceToVoice) {
+                    Voice.speak(fullResponse, true);
+                }
+                // Notify if app was minimized/background when response done (WhatsApp-style)
+                if (document.hidden || !document.hasFocus()) {
+                    try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
+                    if (typeof devicePush === 'function') devicePush('Zenith — reply ready', fullResponse.slice(0,120), 'ai-reply');
+                    if (typeof showDiscordToast === 'function') showDiscordToast('Zenith', 'New reply', fullResponse.slice(0,80), 'Z');
+                    // Also try native notification directly
+                    try {
+                        if ('Notification' in window && Notification.permission === 'granted') {
+                            const n = new Notification('Zenith — reply ready', { body: fullResponse.slice(0,120), icon: '/static/icons/icon-192.png', tag: 'ai-reply', requireInteraction: true });
+                            n.onclick = () => { window.focus(); n.close(); };
+                        }
+                    } catch {}
+                }
                 // Add action buttons
                 const actions = document.createElement('div');
                 actions.className = 'msg-actions';

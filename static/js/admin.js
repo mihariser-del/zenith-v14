@@ -79,10 +79,12 @@ const AdminPanel = {
             const bannedBadge = u.is_banned && !u.is_deleted ? '<span style="background:var(--error); color:white; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:4px;">BANNED</span>' : '';
             const deletedBadge = u.is_deleted ? '<span style="background:#666; color:white; font-size:9px; padding:1px 5px; border-radius:4px; margin-left:4px;">DELETED</span>' : '';
             const roleBadge = targetRole === 'owner'
-                ? '<span style="color:#00ffff; font-size:10px; background:rgba(0,255,255,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(0,255,255,0.4);">OWNER</span>'
-                : (targetRole === 'admin' ? '<span style="color:#FFD700; font-size:10px;">ADMIN</span>' : '');
-            const joinedDate = (u.created_at || '').split(' ')[0];
-            const lastSeen = u.last_active && u.last_active !== 'Never' ? u.last_active : 'Online';
+                ? '<span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4); white-space:nowrap;">OWNER</span>'
+                : (targetRole === 'admin' ? '<span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.3); white-space:nowrap;">ADMIN</span>' : '');
+            const _fmtLocal = s => { if (!s || s==='Never'||s==='Online') return s; try { let iso=s.trim(); if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(iso)) iso=iso.replace(' ','T')+'Z'; const d=new Date(iso); if(isNaN(d)) return s; return d.toLocaleString([], {year:'numeric',month:'short',day:'2-digit',hour:'2-digit',minute:'2-digit'}); } catch {return s;} };
+            const joinedDate = u.created_at ? _fmtLocal(u.created_at).split(',')[0] : '';
+            const lastSeenRaw = u.last_active && u.last_active !== 'Never' ? u.last_active : 'Online';
+            const lastSeen = _fmtLocal(lastSeenRaw);
             // --- Permission: can the current user act on this target? ---
             const canAct = (() => {
                 if (u.is_deleted) return false;

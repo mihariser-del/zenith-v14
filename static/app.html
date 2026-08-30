@@ -101,8 +101,9 @@
 
     <div class="user-profile-bar">
         <div class="user-avatar" id="user-avatar" title="Profile - click for logout" style="cursor:pointer;">U</div>
-        <div class="user-meta">
-            <div class="uname" id="user-name-display">User</div>
+        <div class="user-meta" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; overflow:hidden;">
+            <span id="user-name-text" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600;">User</span>
+            <span id="user-role-badge" style="flex-shrink:0; display:flex; align-items:center;"></span>
         </div>
         <button class="logout-btn" id="logout-btn">Logout</button>
     </div>
@@ -394,14 +395,15 @@
 
 <div id="attention-modal" class="modal">
     <div class="modal-content" style="max-width:600px;">
-        <h3 style="text-align:center; margin-bottom:15px; color:#ffaa00; text-shadow:0 0 10px rgba(255,170,0,0.3);">&#128276; ATTENTION</h3>
-        <div id="attention-stats" style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:15px;"></div>
-        <h4 style="color:#ffaa00; font-size:13px; margin-bottom:8px;">Recent Bans</h4>
-        <div id="attention-bans" style="max-height:120px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:15px;"></div>
-        <h4 style="color:#ffaa00; font-size:13px; margin-bottom:8px;">Pending Feedback</h4>
-        <div id="attention-feedback" style="max-height:140px; overflow-y:auto; display:flex; flex-direction:column; gap:6px; margin-bottom:10px;"></div>
-        <div class="modal-actions" style="margin-top:10px;">
-            <button class="btn" id="close-attention" style="border:1px solid rgba(255,170,0,0.3); padding:10px; border-radius:8px; background:transparent; color:#ffaa00;">Close</button>
+        <h3 style="text-align:center; margin-bottom:10px; color:#DDE4EE; text-shadow:0 0 8px rgba(221,228,238,0.12); letter-spacing:2px;">&#128276; BROADCAST</h3>
+        <p style="text-align:center; color:#8B949E; font-size:11px; margin-bottom:12px;">Staff announcements — all users receive as popup</p>
+        <div id="attention-broadcast-form" style="display:none; margin-bottom:12px; gap:8px; flex-direction:column;">
+            <textarea id="attention-input" rows="2" placeholder="Broadcast to all users..." style="width:100%; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; resize:vertical; font-size:13px; outline:none;"></textarea>
+            <button class="btn primary" id="attention-send" style="align-self:flex-end; padding:8px 16px; background:linear-gradient(135deg,#8B949E,#5d666f); color:#f4f6f8; border:none; border-radius:8px; cursor:pointer; font-weight:600;">Broadcast</button>
+        </div>
+        <div id="attention-list" style="max-height:320px; overflow-y:auto; display:flex; flex-direction:column; gap:8px; background:rgba(0,0,0,0.2); border:1px solid var(--border); border-radius:10px; padding:10px;"></div>
+        <div class="modal-actions" style="margin-top:12px;">
+            <button class="btn" id="close-attention" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button>
         </div>
     </div>
 </div>
@@ -452,8 +454,8 @@
 </div>
 
 <div id="admin-panel-modal" class="modal">
-    <div class="modal-content" style="max-width:600px; background:linear-gradient(145deg, #1a1a0a, #2d2416); border:2px solid #FFD700; box-shadow:0 20px 60px rgba(255,215,0,0.15);">
-        <h3 style="text-align:center; margin-bottom:15px; color:#FFD700; text-shadow:0 0 10px rgba(255,215,0,0.3); font-size:20px; letter-spacing:2px;">&#9812; ADMIN VAULT</h3>
+    <div class="modal-content" id="admin-panel-content" style="max-width:600px; background:linear-gradient(145deg, #1a1a0a, #2d2416); border:2px solid #FFD700; box-shadow:0 20px 60px rgba(255,215,0,0.15);">
+        <h3 id="admin-panel-title" style="text-align:center; margin-bottom:15px; color:#FFD700; text-shadow:0 0 10px rgba(255,215,0,0.3); font-size:20px; letter-spacing:2px;">&#9812; ADMIN VAULT</h3>
         <div id="admin-stats" style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; margin-bottom:15px;"></div>
         <div style="display:flex; gap:8px; margin-bottom:12px;">
             <input type="text" id="admin-user-search" placeholder="Search users..." style="flex:1; padding:8px 12px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; font-size:13px; outline:none;">

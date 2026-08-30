@@ -6,6 +6,10 @@ const Staff = {
         $('attention-modal').addEventListener('click', e => { if (e.target === $('attention-modal')) $('attention-modal').style.display = 'none'; });
         $('staff-chat-send').addEventListener('click', () => Staff.sendChat());
         $('staff-chat-input').addEventListener('keydown', e => { if (e.key === 'Enter') Staff.sendChat(); });
+        const attSend = $('attention-send');
+        if (attSend) attSend.addEventListener('click', () => Staff.sendBroadcast());
+        const attInput = $('attention-input');
+        if (attInput) attInput.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) Staff.sendBroadcast(); });
     },
     openChat() {
         $('staff-chat-modal').style.display = 'flex';
@@ -44,33 +48,45 @@ const Staff = {
         } catch (e) { showToast(e.message, 'error'); }
     },
     async loadAttention() {
-        const stats = $('attention-stats');
-        const bans = $('attention-bans');
-        const feeds = $('attention-feedback');
-        stats.innerHTML = '<p style="color:#888; grid-column:1/-1; text-align:center;">Loading...</p>';
+        const list = $('attention-list');
+        const form = $('attention-broadcast-form');
+        // Show broadcast form only to staff (owner/admin)
         try {
-            const d = await api('/api/staff/attention');
-            stats.innerHTML = `
-                <div style="padding:10px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,170,0,0.2); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#ffaa00;">${d.unanswered_feedback}</div><div style="font-size:10px; color:#888;">Unanswered Feedback</div></div>
-                <div style="padding:10px; background:rgba(0,0,0,0.4); border:1px solid rgba(255,170,0,0.2); border-radius:8px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#ff4d4d;">${d.banned_users.length}</div><div style="font-size:10px; color:#888;">Recent Bans</div></div>`;
-            bans.innerHTML = '';
-            if (!d.banned_users.length) bans.innerHTML = '<p style="color:#888; font-size:12px; text-align:center;">No recent bans.</p>';
-            d.banned_users.forEach(b => {
-                const byLabel = b.by === 'owner' ? 'The Owner' : 'an Admin';
+            const me = await api('/api/auth/me');
+            const isStaff = me.user && (me.user.is_admin || me.user.role === 'owner');
+            if (form) form.style.display = isStaff ? 'flex' : 'none';
+        } catch { if (form) form.style.display = 'none'; }
+        list.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">Loading broadcasts...</p>';
+        try {
+            const d = await api('/api/announcements/feed');
+            const anns = d.announcements || [];
+            list.innerHTML = '';
+            if (!anns.length) { list.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No broadcasts yet.</p>'; return; }
+            anns.slice().reverse().forEach(a => {
+                const isOwner = a.role === 'owner';
+                const color = isOwner ? '#C0C7D1' : '#8B949E';
+                const tag = isOwner ? 'OWNER' : 'STAFF';
                 const div = document.createElement('div');
-                div.style.cssText = 'font-size:12px; padding:6px 8px; background:rgba(255,77,77,0.08); border:1px solid rgba(255,77,77,0.2); border-radius:6px; color:#ccc;';
-                div.innerHTML = `<strong style="color:#ff4d4d;">${Staff.esc(b.username)}</strong> — <span style="color:#888;">banned by ${byLabel}</span><div style="font-size:11px; color:#aaa; margin-top:2px;">"${Staff.esc(b.reason)}"</div>`;
-                bans.appendChild(div);
+                div.style.cssText = 'padding:10px; background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:8px; border-left:3px solid ' + color + ';';
+                // Format time locally
+                let when = a.created_at;
+                try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString(); } catch {}
+                div.innerHTML = `<div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;"><span style="font-size:12px; font-weight:700; color:${color};">${Staff.esc(a.username)}</span><span style="font-size:9px; padding:1px 5px; border-radius:4px; background:${color}22; color:${color}; font-weight:600;">${tag}</span><span style="font-size:10px; color:#666; margin-left:auto;">${Staff.esc(when)}</span></div><div style="font-size:13px; color:#e5e5e5; white-space:pre-wrap; word-wrap:break-word;">${Staff.esc(a.content)}</div>`;
+                list.appendChild(div);
             });
-            feeds.innerHTML = '';
-            if (!d.pending_feedback.length) feeds.innerHTML = '<p style="color:#888; font-size:12px; text-align:center;">No pending feedback.</p>';
-            d.pending_feedback.forEach(f => {
-                const div = document.createElement('div');
-                div.style.cssText = 'font-size:12px; padding:6px 8px; background:rgba(255,170,0,0.06); border:1px solid rgba(255,170,0,0.15); border-radius:6px; color:#ccc; display:flex; justify-content:space-between; gap:8px;';
-                div.innerHTML = `<span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><strong style="color:#ffaa00;">${Staff.esc(f.username)}</strong>: ${Staff.esc(f.content)}</span><span style="color:#666; flex-shrink:0;">${f.created_at}</span>`;
-                feeds.appendChild(div);
-            });
-        } catch (e) { stats.innerHTML = '<p style="color:var(--error); grid-column:1/-1; text-align:center;">' + Staff.esc(e.message) + '</p>'; }
+            list.scrollTop = list.scrollHeight;
+        } catch (e) { list.innerHTML = '<p style="color:var(--error); text-align:center; padding:20px;">' + Staff.esc(e.message) + '</p>'; }
+    },
+    async sendBroadcast() {
+        const inp = $('attention-input');
+        const txt = inp.value.trim();
+        if (!txt) { showToast('Write a broadcast', 'error'); return; }
+        try {
+            await api('/api/announcements', { method: 'POST', body: JSON.stringify({ content: txt }) });
+            inp.value = '';
+            showToast('Broadcast sent to all users', 'success');
+            await Staff.loadAttention();
+        } catch (e) { showToast(e.message, 'error'); }
     },
     esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 };

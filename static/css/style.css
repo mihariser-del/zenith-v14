@@ -57,7 +57,7 @@ body.auth-page { display: block; }
 .auth-msg.success { color: #00ff88; }
 
 /* SIDEBAR */
-.sidebar { width: 280px; flex-shrink: 0; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: transform 0.3s ease; z-index: 100; }
+.sidebar { width: 280px; flex-shrink: 0; background: var(--sidebar); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; overflow-y: auto; overflow-x: hidden; transition: transform 0.3s ease; z-index: 100; scrollbar-width: thin; scrollbar-color: #2a2f36 #111315; }
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 20px 15px; }
 .z-logo { width: 42px; height: 42px; min-width: 42px; min-height: 42px; flex-shrink: 0; aspect-ratio: 1; background: linear-gradient(135deg, #0066ff, #8b5cf6); color: white; display: flex; align-items: center; justify-content: center; font-family: 'Algerian', 'Cambria', serif; font-weight: 400; font-size: 28px; border-radius: 12px; }

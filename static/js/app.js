@@ -7,7 +7,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    $('user-name-display').textContent = user.username;
+    const nameTextEl = $('user-name-text') || $('user-name-display');
+    const badgeEl = $('user-role-badge');
+    if (nameTextEl) nameTextEl.textContent = user.username;
+    if (badgeEl) badgeEl.innerHTML = '';
+    // legacy fallback if old structure
+    if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = user.username;
     $('user-avatar').textContent = user.username[0].toUpperCase();
     const isGuest = user.username.startsWith('guest_');
     const isAdmin = user.is_admin;
@@ -15,7 +20,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     AdminPanel.currentRole = isOwner ? 'owner' : (isAdmin ? 'admin' : 'user');
     if (isOwner) {
         document.body.classList.add('admin-gold', 'admin-owner');
-        const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#00ffff';
+        const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#111315';
     } else if (isAdmin) {
         document.body.classList.add('admin-gold');
         const m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = '#FFD700';
@@ -26,11 +31,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     if (isAdmin) {
-        if (isOwner) {
-            $('user-name-display').innerHTML = user.username + ' <span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:1px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4);">OWNER</span>';
-        } else {
-            $('user-name-display').innerHTML = user.username + ' <span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:1px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4);">ADMIN</span>';
-        }
+        const badgeHtml = isOwner
+            ? '<span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4); white-space:nowrap; flex-shrink:0;">OWNER</span>'
+            : '<span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4); white-space:nowrap; flex-shrink:0;">ADMIN</span>';
+        if (badgeEl) badgeEl.innerHTML = badgeHtml;
+        else if ($('user-name-display')) $('user-name-display').innerHTML = user.username + ' ' + badgeHtml;
+        if (nameTextEl && badgeEl) nameTextEl.textContent = user.username;
         const goldBorder = isOwner ? 'rgba(221,228,238,0.35)' : 'rgba(255,215,0,0.4)';
         const goldColor = isOwner ? '#C0C7D1' : '#FFD700';
         const adminAccentA = isOwner ? 'rgba(221,228,238,0.06)' : 'rgba(255,215,0,0.08)';
@@ -43,6 +49,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ')'; adminBtn.style.borderColor = goldBorder; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
+        if (isOwner) {
+            // Owner Vault titanium styling (override inline gold)
+            const pc = $('admin-panel-content');
+            if (pc) { pc.style.background = 'linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20)'; pc.style.border = '1px solid rgba(221,228,238,0.18)'; pc.style.boxShadow = '0 10px 40px rgba(0,0,0,0.5), 0 0 14px rgba(221,228,238,0.12)'; }
+            const pt = $('admin-panel-title');
+            if (pt) { pt.textContent = '\u2654 OWNER VAULT'; pt.style.color = '#DDE4EE'; pt.style.textShadow = 'none'; }
+            // Hide Accent Color for owner — only theme + message spacing remain
+            const _origOpen = Settings.open.bind(Settings);
+            Settings.open = async function() {
+                const r = await _origOpen();
+                try {
+                    const accentSel = $('accent-select');
+                    if (accentSel) {
+                        const label = accentSel.previousElementSibling; // label Accent Color
+                        if (label && label.tagName === 'LABEL' && label.textContent.includes('Accent')) label.style.display = 'none';
+                        accentSel.style.display = 'none';
+                        // also hide the next label? No, message spacing follows
+                    }
+                } catch {}
+                return r;
+            };
+            // Ensure all owner colors are titanium — override any lingering gold inline on feedback admin modal too
+            const fam = document.querySelector('#feedback-admin-modal .modal-content');
+            if (fam) { fam.style.background = 'linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20)'; fam.style.border = '1px solid rgba(221,228,238,0.18)'; }
+        }
         // Staff-only: Live Chat + Attention buttons
         const toolsBox = $('sidebar-tools');
         if (toolsBox) {
@@ -110,8 +141,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const parts = e.message.split('__BY__');
                     reason = parts[0].split('__BANNED__')[1] || 'No reason provided';
                     bannedBy = parts.length > 1 ? parts[1] : '';
-                }
-                else if (e.message.includes('Reason:')) reason = e.message.split('Reason:')[1].trim();
+                } else if (e.message.includes('Banned by:')) {
+                    const rm = e.message.match(/Reason:\s*(.*?)\s*Banned by:\s*(\w+)/i);
+                    if (rm) { reason = rm[1].trim(); bannedBy = rm[2].trim().toLowerCase(); }
+                    else {
+                        const m = e.message.match(/Banned by:\s*(\w+)/i);
+                        if (m) bannedBy = m[1].trim().toLowerCase();
+                        const mr = e.message.match(/Reason:\s*(.*)/);
+                        if (mr) {
+                            let r = mr[1].trim();
+                            // strip trailing Banned by part if present
+                            r = r.replace(/\s*Banned by:\s*\w+$/i, '').trim();
+                            reason = r || 'No reason provided';
+                        }
+                    }
+                } else if (e.message.includes('Reason:')) reason = e.message.split('Reason:')[1].trim();
                 else if (e.message.includes('is_banned')) reason = 'Unspecified';
                 else if (e.message.includes('Account banned')) {
                     const m = e.message.match(/Reason:\s*(.*)/);
@@ -437,20 +481,88 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
     else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
-    async function refreshAttentionBadge() {
-        if (!isAdmin) return;
+    // Broadcast polling — all users get popup when staff broadcasts
+    let _lastAnnId = parseInt(localStorage.getItem('zenith_last_ann_id') || '0', 10);
+    let _pollingAnn = false;
+    async function pollAnnouncements() {
+        if (_pollingAnn) return;
+        _pollingAnn = true;
         try {
-            const d = await api('/api/staff/attention');
-            const attBadge = $('attention-badge');
-            if (attBadge) {
-                const total = d.unanswered_feedback + (d.banned_users ? Math.min(d.banned_users.length, 3) : 0);
-                if (total > 0) { attBadge.textContent = total; attBadge.style.display = 'block'; }
-                else attBadge.style.display = 'none';
+            const d = await api('/api/announcements/feed');
+            const anns = d.announcements || [];
+            if (anns.length) {
+                const maxId = Math.max(...anns.map(a => a.id));
+                // Show new ones as popup (only if not first load)
+                const newAnns = anns.filter(a => a.id > _lastAnnId);
+                if (newAnns.length && _lastAnnId !== 0) {
+                    newAnns.forEach(a => showBroadcastPopup(a));
+                }
+                // For UI badge (staff)
+                if (isAdmin) {
+                    const attBadge = $('attention-badge');
+                    if (attBadge) {
+                        const unread = anns.filter(a => a.id > parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10)).length;
+                        if (unread > 0) { attBadge.textContent = unread; attBadge.style.display = 'block'; }
+                        else attBadge.style.display = 'none';
+                    }
+                }
+                if (maxId > _lastAnnId) {
+                    _lastAnnId = maxId;
+                    localStorage.setItem('zenith_last_ann_id', String(maxId));
+                }
             }
         } catch (e) {}
+        _pollingAnn = false;
+    }
+    function showBroadcastPopup(a) {
+        if (document.getElementById('broadcast-popup-' + a.id)) return;
+        const isOwner = a.role === 'owner';
+        const color = isOwner ? '#C0C7D1' : '#8B949E';
+        const tag = isOwner ? 'OWNER' : 'STAFF';
+        const wrap = document.createElement('div');
+        wrap.id = 'broadcast-popup-' + a.id;
+        wrap.style.cssText = 'position:fixed; inset:0; z-index:9997; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px);';
+        const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
+        let when = a.created_at;
+        try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString(); } catch {}
+        wrap.innerHTML = `
+            <div style="width:100%; max-width:520px; background:linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20); border:1px solid rgba(221,228,238,0.2); border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5), 0 0 20px rgba(221,228,238,0.12); animation:faceIn 0.35s ease;">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
+                    <span style="font-size:18px;">&#128276;</span>
+                    <span style="font-size:12px; font-weight:700; letter-spacing:2px; color:${color};">BROADCAST</span>
+                    <span style="font-size:9px; padding:2px 6px; border-radius:4px; background:${color}22; color:${color}; font-weight:700;">${tag}</span>
+                    <span style="margin-left:auto; font-size:11px; color:#666;">${safe(when)}</span>
+                </div>
+                <div style="font-size:14px; line-height:1.6; color:#e5e5e5; white-space:pre-wrap; word-wrap:break-word; padding:12px; background:rgba(0,0,0,0.25); border:1px solid rgba(221,228,238,0.08); border-radius:10px; border-left:3px solid ${color};"><strong style="color:${color};">${safe(a.username)}</strong><br>${safe(a.content)}</div>
+                <button id="bc-close-${a.id}" style="margin-top:16px; width:100%; padding:12px; background:linear-gradient(135deg,#8B949E,#5d666f); color:#f4f6f8; border:none; border-radius:10px; font-weight:700; cursor:pointer; letter-spacing:1px;">DISMISS</button>
+            </div>`;
+        wrap.querySelector('#bc-close-' + a.id).addEventListener('click', () => {
+            wrap.remove();
+            localStorage.setItem('zenith_last_ann_seen', String(a.id));
+            const attBadge = $('attention-badge');
+            if (attBadge) attBadge.style.display = 'none';
+        });
+        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); localStorage.setItem('zenith_last_ann_seen', String(a.id)); } });
+        document.body.appendChild(wrap);
+        // auto store as seen after 30s
+        setTimeout(() => { localStorage.setItem('zenith_last_ann_seen', String(Math.max(parseInt(localStorage.getItem('zenith_last_ann_seen')||'0',10), a.id))); }, 1000);
+    }
+    // Poll for broadcasts every 5s for all logged-in users (not guests)
+    if (!isGuest) { pollAnnouncements(); setInterval(pollAnnouncements, 5000); }
+    // Keep refreshAttention for staff fallback (old) but now poll handles it
+    async function refreshAttentionBadge() {
+        await pollAnnouncements();
     }
     if (isAdmin) { refreshAttentionBadge(); setInterval(refreshAttentionBadge, 10000); }
 
+    function fmtTimeLocal(s) { if (!s || s === 'Never' || s === 'Online') return s; try { // server stores UTC as "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"
+                let iso = s.trim();
+                if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?$/.test(iso)) iso = iso.replace(' ', 'T') + 'Z';
+                else if (/^\d{4}-\d{2}-\d{2}T/.test(iso) && !iso.endsWith('Z') && !iso.includes('+')) iso = iso + 'Z';
+                const d = new Date(iso);
+                if (isNaN(d)) return s;
+                return d.toLocaleString([], { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
+            } catch { return s; } }
     function renderFeedbackThread(listEl, feedbacks, isAdminView) {
         listEl.innerHTML = '';
         if (feedbacks.length === 0) { listEl.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No feedback yet.</p>'; return; }
@@ -458,13 +570,13 @@ document.addEventListener('DOMContentLoaded', async () => {
             const div = document.createElement('div');
             div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
             const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${f.created_at}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${safe(fmtTimeLocal(f.created_at))}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
             html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
             if (f.response) {
                 const replyBy = f.response_by === 'owner'
                     ? '<span style="color:#C0C7D1;">The Owner</span> replied'
                     : 'Admin reply';
-                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">${replyBy} ${f.responded_at ? '· '+f.responded_at : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
+                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">${replyBy} ${f.responded_at ? '· '+fmtTimeLocal(f.responded_at) : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
             } else if (isAdminView) {
                 html += `<div style="margin-top:8px; display:flex; gap:6px;"><input type="text" placeholder="Write a reply..." data-reply="${f.id}" style="flex:1; padding:8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none;"><button data-send="${f.id}" style="padding:8px 12px; background:#FFD700; color:#000; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">Reply</button></div>`;
             } else {

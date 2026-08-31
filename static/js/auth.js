@@ -125,3 +125,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+async function handleGoogleCredential(response) {
+    try {
+        const id_token = response.credential;
+        await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ id_token }) });
+        window.location.href = '/app';
+    } catch (e) {
+        if (typeof showToast === 'function') showToast('Google login failed: ' + e.message, 'error');
+        else alert('Google login failed: ' + e.message);
+    }
+}

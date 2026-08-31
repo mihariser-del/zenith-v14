@@ -59,16 +59,20 @@ const Billing = {
         modal.querySelectorAll('[data-plan]').forEach(btn=>{
             btn.addEventListener('click', async ()=>{
                 const planId = btn.dataset.plan;
-                if(planId==='pro_monthly' || planId==='pro_annual'){
-                    // Try trial first for pro
+                // Pro trial now requires card via Stripe checkout with 5-day trial
+                if(planId==='pro_monthly'){
                     try {
-                        const trial = await api('/api/billing/trial/start', {method:'POST'});
-                        showToast('Pro trial started! 5 days free.', 'success');
-                        modal.remove();
-                        return;
+                        const res = await api('/api/billing/trial/checkout', {method:'POST'});
+                        if(res.url){ window.location.href = res.url; modal.remove(); return; }
                     } catch(e){
-                        // If trial already used, go to checkout
-                        if(!e.message.includes('Already')) { showToast(e.message,'error'); return; }
+                        // If trial already used/eligible, fall through to normal checkout
+                        if(!e.message.includes('Already used') && !e.message.includes('Already subscribed') && !e.message.includes('Trial already')){
+                            // If Stripe not configured, show error and fall through
+                            if(e.message.includes('Stripe not configured')) {
+                                // Fallback to direct trial for dev
+                                try { await api('/api/billing/trial/start', {method:'POST'}); showToast('Pro trial started! 5 days free.', 'success'); modal.remove(); return; } catch(e2){ showToast(e2.message,'error'); return; }
+                            } else if(!e.message.includes('Already')) { showToast(e.message,'error'); return; }
+                        }
                     }
                 }
                 try {

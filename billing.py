@@ -103,18 +103,50 @@ async def start_trial(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Already subscribed")
     if user.trial_end and user.trial_end > datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Trial already active")
-    # Check if user already had trial (one-time)
-    # For now, allow only if never had trial (trial_end is None)
-    # If they had trial and it expired, don't allow again
     if user.trial_end is not None:
         raise HTTPException(status_code=400, detail="Trial already used")
-    # Start 5-day Pro trial
     trial_end = datetime.now(timezone.utc) + timedelta(days=5)
     user.trial_end = trial_end
-    user.is_pro = True  # grant pro during trial (soft)
+    user.is_pro = True
     user.pro_plan = "pro_trial"
     await db.commit()
     return {"message": "Pro trial started for 5 days", "trial_end": trial_end.isoformat(), "is_pro": True}
+
+@router.post("/trial/checkout")
+async def trial_checkout(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.is_pro or user.is_ultimate:
+        raise HTTPException(status_code=400, detail="Already subscribed")
+    if user.trial_end and user.trial_end > datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="Trial already active")
+    if user.trial_end is not None:
+        raise HTTPException(status_code=400, detail="Trial already used")
+    # Require Stripe for card trial
+    if not STRIPE_SECRET or not STRIPE_PRICE_IDS.get("pro_monthly"):
+        raise HTTPException(status_code=500, detail="Stripe not configured for trial checkout")
+    try:
+        import stripe
+        stripe.api_key = STRIPE_SECRET
+        price_id = STRIPE_PRICE_IDS["pro_monthly"]
+        customer_id = user.stripe_customer_id
+        if not customer_id:
+            customer = stripe.Customer.create(email=user.email, metadata={"user_id": str(user.id), "username": user.username})
+            customer_id = customer.id
+            user.stripe_customer_id = customer_id
+            await db.commit()
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            mode="subscription",
+            subscription_data={"trial_period_days": 5, "metadata": {"user_id": str(user.id), "plan_id": "pro_trial"}},
+            success_url="https://zenithai.up.railway.app/app?checkout=trial_success",
+            cancel_url="https://zenithai.up.railway.app/app?checkout=trial_cancel",
+            metadata={"user_id": str(user.id), "plan_id": "pro_trial"},
+        )
+        return {"url": session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Stripe trial error: {str(e)}")
 
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
@@ -160,16 +192,22 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 result = await db.execute(select(User).where(User.id == int(user_id)))
                 user = result.scalar_one_or_none()
                 if user:
-                    if plan_id in ("pro_monthly", "pro_annual", "pro_lifetime"):
+                    if plan_id in ("pro_monthly", "pro_annual", "pro_lifetime", "pro_trial"):
                         user.is_pro = True
                         user.is_ultimate = False
                         user.pro_plan = plan_id
+                        if plan_id == "pro_trial":
+                            # 5-day trial from now
+                            from datetime import timedelta
+                            user.trial_end = datetime.now(timezone.utc) + timedelta(days=5)
+                            user.stripe_subscription_id = subscription_id or user.stripe_subscription_id
                     elif plan_id in ("ultimate_monthly", "ultimate_annual", "ultimate_lifetime"):
                         user.is_pro = True
                         user.is_ultimate = True
                         user.pro_plan = plan_id
                     user.stripe_customer_id = customer_id or user.stripe_customer_id
-                    user.stripe_subscription_id = subscription_id or user.stripe_subscription_id
+                    if plan_id != "pro_trial":
+                        user.stripe_subscription_id = subscription_id or user.stripe_subscription_id
                     await db.commit()
         elif event["type"] == "customer.subscription.deleted":
             # Handle cancellation

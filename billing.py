@@ -10,12 +10,14 @@ from auth import get_current_user_from_cookie
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
-# Plans: Pro $5.99/mo, Pro annual $59.99 (~17% off), Ultimate $11.99/mo, Ultimate annual $119.99
+# Plans: Pro $5.99/mo, Pro annual $59.99, Ultimate $11.99/mo, Ultimate annual $119.99, Lifetime
 PLANS = {
     "pro_monthly": {"id": "pro_monthly", "name": "Pro", "price": 5.99, "interval": "month", "savings": None},
     "pro_annual": {"id": "pro_annual", "name": "Pro Annual", "price": 59.99, "interval": "year", "savings": "17% off"},
     "ultimate_monthly": {"id": "ultimate_monthly", "name": "Ultimate", "price": 11.99, "interval": "month", "savings": None},
     "ultimate_annual": {"id": "ultimate_annual", "name": "Ultimate Annual", "price": 119.99, "interval": "year", "savings": "17% off"},
+    "pro_lifetime": {"id": "pro_lifetime", "name": "Pro Lifetime", "price": 149.00, "interval": "lifetime", "savings": "One-time"},
+    "ultimate_lifetime": {"id": "ultimate_lifetime", "name": "Ultimate Lifetime", "price": 299.00, "interval": "lifetime", "savings": "One-time"},
 }
 
 STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY", "")
@@ -25,6 +27,8 @@ STRIPE_PRICE_IDS = {
     "pro_annual": os.getenv("STRIPE_PRICE_PRO_ANNUAL", ""),
     "ultimate_monthly": os.getenv("STRIPE_PRICE_ULTIMATE_MONTHLY", ""),
     "ultimate_annual": os.getenv("STRIPE_PRICE_ULTIMATE_ANNUAL", ""),
+    "pro_lifetime": os.getenv("STRIPE_PRICE_PRO_LIFETIME", ""),
+    "ultimate_lifetime": os.getenv("STRIPE_PRICE_ULTIMATE_LIFETIME", ""),
 }
 
 class CheckoutRequest(BaseModel):
@@ -78,11 +82,12 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
             customer_id = customer.id
             user.stripe_customer_id = customer_id
             await db.commit()
+        is_lifetime = req.plan_id in ("pro_lifetime", "ultimate_lifetime")
         session = stripe.checkout.Session.create(
             customer=customer_id,
             payment_method_types=["card"],
             line_items=[{"price": price_id, "quantity": 1}],
-            mode="subscription",
+            mode="payment" if is_lifetime else "subscription",
             success_url=req.success_url or "https://zenithai.up.railway.app/app?checkout=success",
             cancel_url=req.cancel_url or "https://zenithai.up.railway.app/app?checkout=cancel",
             metadata={"user_id": str(user.id), "plan_id": req.plan_id},
@@ -126,11 +131,11 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
             user = result.scalar_one_or_none()
             if not user:
                 return {"error": "user not found"}
-            if plan_id in ("pro_monthly", "pro_annual"):
+            if plan_id in ("pro_monthly", "pro_annual", "pro_lifetime"):
                 user.is_pro = True
                 user.is_ultimate = False
                 user.pro_plan = plan_id
-            elif plan_id in ("ultimate_monthly", "ultimate_annual"):
+            elif plan_id in ("ultimate_monthly", "ultimate_annual", "ultimate_lifetime"):
                 user.is_pro = True
                 user.is_ultimate = True
                 user.pro_plan = plan_id
@@ -155,11 +160,11 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 result = await db.execute(select(User).where(User.id == int(user_id)))
                 user = result.scalar_one_or_none()
                 if user:
-                    if plan_id in ("pro_monthly", "pro_annual"):
+                    if plan_id in ("pro_monthly", "pro_annual", "pro_lifetime"):
                         user.is_pro = True
                         user.is_ultimate = False
                         user.pro_plan = plan_id
-                    elif plan_id in ("ultimate_monthly", "ultimate_annual"):
+                    elif plan_id in ("ultimate_monthly", "ultimate_annual", "ultimate_lifetime"):
                         user.is_pro = True
                         user.is_ultimate = True
                         user.pro_plan = plan_id

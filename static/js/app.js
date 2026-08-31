@@ -95,7 +95,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminBtn.addEventListener('mouseenter', () => { adminBtn.style.background = isOwner ? 'rgba(221,228,238,0.1)' : 'rgba(255,215,0,0.1)'; adminBtn.style.borderColor = goldColor; });
         adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ')'; adminBtn.style.borderColor = goldBorder; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
-        adminBtn.addEventListener('click', () => { AdminPanel.open(); closeSidebar(); });
+        adminBtn.addEventListener('click', () => {
+            window.location.href = '/vault';
+        });
         if (isOwner) {
             // Owner Vault titanium styling (override inline gold)
             const pc = $('admin-panel-content');

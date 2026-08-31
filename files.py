@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import UploadedFile, Chat, get_db
 from auth import get_current_user_from_cookie
+from limits import check_limit
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
@@ -46,6 +47,7 @@ async def upload_file(
     db: AsyncSession = Depends(get_db),
 ):
     user = await get_current_user_from_cookie(request, db)
+    await check_limit(user, db, "file_upload")
 
     content = await file.read()
     if len(content) > MAX_SIZE:

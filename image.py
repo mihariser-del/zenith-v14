@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from auth import get_current_user_from_cookie
+from limits import check_limit
 
 router = APIRouter(prefix="/api/image", tags=["image"])
 
@@ -15,6 +16,7 @@ class ImageRequest(BaseModel):
 @router.post("/generate")
 async def generate_image(req: ImageRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    await check_limit(user, db, "image_gen")
     prompt = req.prompt.strip()
     if not prompt:
         raise HTTPException(status_code=400, detail="Prompt required")

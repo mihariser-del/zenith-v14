@@ -79,6 +79,15 @@ class User(Base):
     token_version = Column(Integer, default=0)
     pending_password = Column(Text, default="")
     pending_password_by = Column(String(50), default="")  # admin | owner
+    # Billing - Pro/Ultimate
+    is_pro = Column(Boolean, default=False)
+    is_ultimate = Column(Boolean, default=False)
+    pro_plan = Column(String(20), default="")  # pro_monthly, pro_annual, ultimate_monthly, ultimate_annual
+    trial_end = Column(DateTime, nullable=True)
+    stripe_customer_id = Column(String(100), default="")
+    stripe_subscription_id = Column(String(100), default="")
+    # Rate limit - guest pause after 40 msgs
+    last_pause_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -87,6 +96,18 @@ class User(Base):
     knowledge_bases = relationship("KnowledgeBase", back_populates="user", cascade="all, delete-orphan")
     files = relationship("UploadedFile", back_populates="user", cascade="all, delete-orphan")
     login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan")
+    usage_logs = relationship("UsageLog", back_populates="user", cascade="all, delete-orphan")
+
+
+class UsageLog(Base):
+    __tablename__ = "usage_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    action = Column(String(30), nullable=False)  # image_gen, file_upload, file_edit, message
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="usage_logs")
 
 
 class Chat(Base):
@@ -254,6 +275,13 @@ async def init_db():
             ("pending_password_by", "VARCHAR(50) DEFAULT ''"),
             ("role", "VARCHAR(20) DEFAULT 'user'"),
             ("banned_by", "VARCHAR(50) DEFAULT ''"),
+            ("is_pro", "BOOLEAN DEFAULT 0"),
+            ("is_ultimate", "BOOLEAN DEFAULT 0"),
+            ("pro_plan", "VARCHAR(20) DEFAULT ''"),
+            ("trial_end", "DATETIME"),
+            ("stripe_customer_id", "VARCHAR(100) DEFAULT ''"),
+            ("stripe_subscription_id", "VARCHAR(100) DEFAULT ''"),
+            ("last_pause_at", "DATETIME"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

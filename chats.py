@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import Chat, Message, get_db
 from auth import get_current_user_from_cookie
+from limits import check_limit, check_image_file_window
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
 
@@ -136,6 +137,9 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     from ai import stream_chat
 
     user = await get_current_user_from_cookie(request, db)
+    await check_limit(user, db, "message")
+    # Free/guest 20-msg window after image/file
+    await check_image_file_window(user, db, chat_id)
     body = await request.json()
     content = body.get("content", "").strip()
     images = body.get("images", [])

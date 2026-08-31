@@ -149,4 +149,89 @@ th {{ background: #f5f5f5; }}
                 headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
             )
 
+    elif fmt == "pptx":
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches
+            prs = Presentation()
+            prs.slide_width = Inches(13.33)
+            prs.slide_height = Inches(7.5)
+            # Title slide
+            slide = prs.slides.add_slide(prs.slide_layouts[6])  # blank
+            # Add title
+            title_box = slide.shapes.add_textbox(Inches(0.5), Inches(0.3), Inches(12.33), Inches(1))
+            title_frame = title_box.text_frame
+            title_frame.text = filename
+            title_frame.paragraphs[0].runs[0].font.size = Inches(0.3)
+            title_frame.paragraphs[0].runs[0].font.bold = True
+            # Content slides - split by headings
+            slides_content = []
+            current = []
+            for line in content.split("\n"):
+                if line.startswith("# ") and current:
+                    slides_content.append("\n".join(current))
+                    current = [line[2:]]
+                else:
+                    current.append(line)
+            if current:
+                slides_content.append("\n".join(current))
+            for chunk in slides_content[:20]:  # max 20 slides
+                if not chunk.strip():
+                    continue
+                s = prs.slides.add_slide(prs.slide_layouts[6])
+                txBox = s.shapes.add_textbox(Inches(0.5), Inches(0.5), Inches(12.33), Inches(6.5))
+                tf = txBox.text_frame
+                tf.word_wrap = True
+                for line in chunk.split("\n"):
+                    p = tf.add_paragraph()
+                    p.text = line.replace("#", "").strip()
+                    p.font.size = Inches(0.15)
+                    if line.startswith("# "):
+                        p.runs[0].font.bold = True
+                        p.runs[0].font.size = Inches(0.2)
+            buffer = io.BytesIO()
+            prs.save(buffer)
+            buffer.seek(0)
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.pptx"'}
+            )
+        except ImportError:
+            return StreamingResponse(
+                io.BytesIO(content.encode("utf-8")),
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
+            )
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"PPTX generation failed: {str(e)}")
+
+    elif fmt == "xlsx":
+        try:
+            import openpyxl
+            wb = openpyxl.Workbook()
+            ws = wb.active
+            ws.title = filename[:30]
+            for r, line in enumerate(content.split("\n"), 1):
+                if "|" in line:
+                    cells = [c.strip() for c in line.split("|") if c.strip()]
+                    for c, val in enumerate(cells, 1):
+                        ws.cell(row=r, column=c, value=val)
+                elif line.strip():
+                    ws.cell(row=r, column=1, value=line)
+            buffer = io.BytesIO()
+            wb.save(buffer)
+            buffer.seek(0)
+            return StreamingResponse(
+                buffer,
+                media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.xlsx"'}
+            )
+        except ImportError:
+            return StreamingResponse(
+                io.BytesIO(content.encode("utf-8")),
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
+            )
+
     raise HTTPException(status_code=400, detail=f"Format not supported: {fmt}")

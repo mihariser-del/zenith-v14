@@ -21,6 +21,8 @@ from image import router as image_router
 from feedback import router as feedback_router
 from staff import router as staff_router
 from announcements import router as announcements_router
+from billing import router as billing_router
+from google_auth import router as google_router
 
 VERSION = "16.1"
 CHANGELOG = [
@@ -55,6 +57,8 @@ app.include_router(image_router)
 app.include_router(feedback_router)
 app.include_router(staff_router)
 app.include_router(announcements_router)
+app.include_router(billing_router)
+app.include_router(google_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -84,6 +88,11 @@ async def chat_app():
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
     return FileResponse("static/admin.html")
+
+
+@app.get("/vault", response_class=HTMLResponse)
+async def vault_page():
+    return FileResponse("static/vault.html")
 
 
 if __name__ == "__main__":

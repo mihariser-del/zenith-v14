@@ -1,0 +1,24 @@
+.vault-page { display: flex; height: 100vh; background: #0a0a0f; color: #e5e5e5; overflow: hidden; }
+.vault-sidebar { width: 240px; background: #111315; border-right: 1px solid #1A1D21; display: flex; flex-direction: column; padding: 16px 12px; gap: 16px; overflow-y: auto; }
+.vault-brand { display: flex; gap: 10px; align-items: center; padding: 8px; }
+.vault-brand .z-logo { width: 36px; height: 36px; font-size: 20px; border-radius: 8px; background: linear-gradient(135deg, #DDE4EE, #8B949E); color: #111315; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.vault-user-card { display: flex; gap: 10px; align-items: center; background: #1A1D21; border: 1px solid #2a2f36; border-radius: 12px; padding: 10px; }
+.vault-avatar { width: 36px; height: 36px; border-radius: 50%; background: linear-gradient(135deg, #DDE4EE, #8B949E); display: flex; align-items: center; justify-content: center; font-weight: 700; color: #111315; }
+.vault-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.vault-nav a { padding: 10px 12px; border-radius: 8px; color: #8B949E; cursor: pointer; display: flex; gap: 10px; align-items: center; font-size: 13px; text-decoration: none; }
+.vault-nav a.active, .vault-nav a:hover { background: #1A1D21; color: #DDE4EE; border-left: 3px solid #8B949E; }
+.vault-owner-mode { background: #1A1D21; border: 1px solid #2a2f36; border-radius: 10px; padding: 10px; display: flex; gap: 8px; align-items: center; }
+.vault-main { flex: 1; display: flex; flex-direction: column; overflow-y: auto; background: #0a0a0f; }
+.vault-topbar { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #1A1D21; background: #0a0a0f; position: sticky; top: 0; z-index: 10; }
+.vault-stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; padding: 16px 20px; }
+.stat-card { background: #111315; border: 1px solid #1A1D21; border-radius: 12px; padding: 16px; text-align: center; }
+.stat-icon { font-size: 20px; margin-bottom: 6px; }
+.stat-label { font-size: 10px; color: #8B949E; letter-spacing: 1px; }
+.stat-value { font-size: 22px; font-weight: 700; color: #fff; margin: 4px 0; }
+.stat-sub { font-size: 11px; color: #4ADE80; }
+.vault-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 0 20px 16px; }
+.vault-card { background: #111315; border: 1px solid #1A1D21; border-radius: 12px; padding: 16px; }
+.card-header { display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 600; color: #8B949E; margin-bottom: 12px; }
+.view-all { background: #1A1D21; border: 1px solid #2a2f36; color: #8B949E; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+@media (max-width: 1100px) { .vault-stats { grid-template-columns: repeat(3, 1fr); } .vault-grid { grid-template-columns: 1fr; } .vault-sidebar { width: 200px; } }
+@media (max-width: 768px) { .vault-page { flex-direction: column; } .vault-sidebar { width: 100%; flex-direction: row; overflow-x: auto; } .vault-stats { grid-template-columns: repeat(2, 1fr); } }

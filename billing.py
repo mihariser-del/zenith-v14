@@ -16,8 +16,8 @@ PLANS = {
     "pro_annual": {"id": "pro_annual", "name": "Pro Annual", "price": 59.99, "interval": "year", "savings": "17% off"},
     "ultimate_monthly": {"id": "ultimate_monthly", "name": "Ultimate", "price": 11.99, "interval": "month", "savings": None},
     "ultimate_annual": {"id": "ultimate_annual", "name": "Ultimate Annual", "price": 119.99, "interval": "year", "savings": "17% off"},
-    "pro_lifetime": {"id": "pro_lifetime", "name": "Pro Lifetime", "price": 149.00, "interval": "lifetime", "savings": "One-time"},
-    "ultimate_lifetime": {"id": "ultimate_lifetime", "name": "Ultimate Lifetime", "price": 299.00, "interval": "lifetime", "savings": "One-time"},
+    "pro_lifetime": {"id": "pro_lifetime", "name": "Pro Lifetime", "price": 200.00, "interval": "lifetime", "savings": "One-time"},
+    "ultimate_lifetime": {"id": "ultimate_lifetime", "name": "Ultimate Lifetime", "price": 400.00, "interval": "lifetime", "savings": "One-time"},
 }
 
 STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY", "")

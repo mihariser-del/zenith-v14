@@ -18,10 +18,10 @@ const Billing = {
         const sub = isGuest ? 'Guests have limited access. Login for free unlimited chat.' : reason || 'You have reached your free limit.';
         const proMonthly = plans.find(p=>p.id==='pro_monthly') || {price:5.99};
         const proAnnual = plans.find(p=>p.id==='pro_annual') || {price:59.99};
-        const proLifetime = plans.find(p=>p.id==='pro_lifetime') || {price:149};
+        const proLifetime = plans.find(p=>p.id==='pro_lifetime') || {price:200};
         const ultMonthly = plans.find(p=>p.id==='ultimate_monthly') || {price:11.99};
         const ultAnnual = plans.find(p=>p.id==='ultimate_annual') || {price:119.99};
-        const ultLifetime = plans.find(p=>p.id==='ultimate_lifetime') || {price:299};
+        const ultLifetime = plans.find(p=>p.id==='ultimate_lifetime') || {price:400};
         let activeTab = 'monthly';
         const renderCards = () => {
             const isMonthly = activeTab === 'monthly';

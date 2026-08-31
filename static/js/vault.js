@@ -15,6 +15,15 @@ const Vault = {
         this.loadRecent();
         this.loadActivity();
         this.loadSecurity();
+        // Hamburger
+        const ham = document.getElementById('vault-hamburger');
+        const sidebar = document.getElementById('vault-sidebar');
+        if(ham && sidebar){
+            ham.addEventListener('click', ()=> sidebar.classList.toggle('open'));
+            document.addEventListener('click', (e)=>{
+                if(window.innerWidth<=768 && !sidebar.contains(e.target) && e.target!==ham) sidebar.classList.remove('open');
+            });
+        }
         document.querySelectorAll('.vault-nav a').forEach(a=>{
             a.addEventListener('click', ()=>{
                 document.querySelectorAll('.vault-nav a').forEach(x=>x.classList.remove('active'));
@@ -22,9 +31,17 @@ const Vault = {
                 const tab=a.dataset.tab;
                 if(tab==='users') this.loadUsers();
                 else if(tab==='dashboard') location.reload();
+                else if(tab==='bans') this.loadBans();
+                else if(tab==='deleted') this.loadDeleted();
+                else if(tab==='chats') this.loadChats();
+                else if(tab==='messages') this.loadMessages();
+                else if(tab==='security') this.loadSecurity();
                 else showToast('Coming soon: '+tab, '');
+                if(window.innerWidth<=768) sidebar.classList.remove('open');
             });
         });
+        // Refresh stats every 30s for live
+        setInterval(()=>this.loadStats(), 30000);
     },
     async loadStats() {
         try {
@@ -56,20 +73,58 @@ const Vault = {
             recent.forEach((u,i)=>{
                 const div=document.createElement('div');
                 div.style.cssText='display:flex; align-items:center; gap:10px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px;';
-                const statusColor=u.is_banned?'#EF4444':'#4ADE80';
-                const statusText=u.is_banned?'Banned':'Active';
-                div.innerHTML=`<div style="color:#8B949E; font-size:11px; width:20px;">0${i+1}</div><div style="flex:1;"><div style="color:#a78bfa; font-size:12px; font-weight:600;">${u.username}</div><div style="color:#666; font-size:11px;">${u.email.replace(/(?<=.{1}).(?=.*@)/g,'*')}</div></div><div style="color:${statusColor}; font-size:11px;">● ${statusText}</div><div style="display:flex; gap:4px;"><button style="background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; padding:4px 6px; border-radius:6px; font-size:10px;">💬</button><button style="background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; padding:4px 6px; border-radius:6px; font-size:10px;">🔑</button></div>`;
+                const statusColor=u.is_banned?'#EF4444':(u.is_deleted?'#666':'#4ADE80');
+                const statusText=u.is_banned?'Banned':(u.is_deleted?'Deleted':'Active');
+                div.innerHTML=`<div style="color:#8B949E; font-size:11px; width:20px;">0${i+1}</div><div style="flex:1; min-width:0;"><div style="color:#a78bfa; font-size:12px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.username}</div><div style="color:#666; font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.email.replace(/(?<=.{1}).(?=.*@)/g,'*')}</div></div><div style="color:${statusColor}; font-size:11px;">● ${statusText}</div><div style="display:flex; gap:4px; flex-wrap:wrap;">
+                    <button data-vault="chat" data-id="${u.id}" style="background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; padding:4px 6px; border-radius:6px; font-size:10px; cursor:pointer;">💬</button>
+                    <button data-vault="reset" data-id="${u.id}" style="background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; padding:4px 6px; border-radius:6px; font-size:10px; cursor:pointer;">🔑</button>
+                    <button data-vault="ban" data-id="${u.id}" style="background:${u.is_banned?'#4ADE8022':'#EF444422'}; border:1px solid ${u.is_banned?'#4ADE80':'#EF4444'}; color:${u.is_banned?'#4ADE80':'#EF4444'}; padding:4px 6px; border-radius:6px; font-size:10px; cursor:pointer;">${u.is_banned?'Unban':'Ban'}</button>
+                    <button data-vault="delete" data-id="${u.id}" style="background:#EF444422; border:1px solid #EF4444; color:#EF4444; padding:4px 6px; border-radius:6px; font-size:10px; cursor:pointer;">🗑️</button>
+                </div>`;
                 el.appendChild(div);
             });
+            // Attach handlers
+            el.querySelectorAll('[data-vault="chat"]').forEach(b=>b.addEventListener('click', async()=>{
+                const id=b.dataset.id;
+                try{ const {chats}=await api(`/api/auth/admin/users/${id}/chats`); if(!chats.length) showToast('No chats',''); else { let msg=`Chats: ${chats.length}\n`; chats.slice(0,2).forEach(c=>msg+=`• ${c.title} (${c.message_count} msgs)\n`); showToast(msg,''); } }catch(e){ showToast(e.message,'error'); }
+            }));
+            el.querySelectorAll('[data-vault="reset"]').forEach(b=>b.addEventListener('click', async()=>{
+                const id=b.dataset.id;
+                const pw=prompt('New password (min 6 chars):');
+                if(!pw || pw.length<6) return;
+                try{ await api(`/api/auth/admin/users/${id}/reset-password`, {method:'POST', body:JSON.stringify({new_password:pw})}); showToast('Password reset','success'); }catch(e){ showToast(e.message,'error'); }
+            }));
+            el.querySelectorAll('[data-vault="ban"]').forEach(b=>b.addEventListener('click', async()=>{
+                const id=b.dataset.id;
+                const isBanned=b.textContent==='Unban';
+                if(isBanned){ try{ await api(`/api/auth/admin/users/${id}/unban`, {method:'POST'}); showToast('Unbanned','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); } }
+                else { const reason=prompt('Ban reason:'); if(!reason) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason})}); showToast('Banned','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); } }
+            }));
+            el.querySelectorAll('[data-vault="delete"]').forEach(b=>b.addEventListener('click', async()=>{
+                const id=b.dataset.id;
+                if(!confirm('Delete this user? This cannot be undone.')) return;
+                try{ await api(`/api/auth/admin/users/${id}`, {method:'DELETE'}); showToast('Deleted','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); }
+            }));
         } catch(e){}
     },
     async loadActivity() {
         const el=document.getElementById('vault-activity-feed');
         if(!el) return;
-        el.innerHTML=`
-            <div style="display:flex; gap:10px; padding:8px; background:#0a0a0f; border-radius:8px;"><span style="color:#EF4444;">🚫</span><div><div style="color:#a78bfa; font-size:12px;">Banned user: mura.ki</div><div style="color:#666; font-size:11px;">Reason: Violation — 2 min ago</div></div></div>
-            <div style="display:flex; gap:10px; padding:8px; background:#0a0a0f; border-radius:8px;"><span style="color:#8B949E;">🔑</span><div><div style="color:#a78bfa; font-size:12px;">Reset password for: yugin_tarou</div><div style="color:#666; font-size:11px;">By: Owner — 15 min ago</div></div></div>
-        `;
+        try {
+            const { users } = await api('/api/auth/admin/users');
+            const banned = users.filter(u=>u.is_banned).slice(0,3);
+            const recent = users.slice(0,3);
+            let html='';
+            banned.forEach(u=>{
+                html+=`<div style="display:flex; gap:10px; padding:8px; background:#0a0a0f; border-radius:8px;"><span style="color:#EF4444;">🚫</span><div><div style="color:#a78bfa; font-size:12px;">Banned: ${u.username}</div><div style="color:#666; font-size:11px;">${u.ban_reason||'No reason'} — ${u.is_banned?'Active':''}</div></div></div>`;
+            });
+            recent.forEach(u=>{
+                html+=`<div style="display:flex; gap:10px; padding:8px; background:#0a0a0f; border-radius:8px;"><span style="color:#4ADE80;">👤</span><div><div style="color:#a78bfa; font-size:12px;">New account: ${u.username}</div><div style="color:#666; font-size:11px;">${u.email} — ${u.created_at||''}</div></div></div>`;
+            });
+            el.innerHTML = html || '<div style="color:#666; font-size:12px; text-align:center; padding:20px;">No recent activity</div>';
+        } catch {
+            el.innerHTML='<div style="color:#666; font-size:12px; text-align:center; padding:20px;">No activity</div>';
+        }
     },
     async loadSecurity() {
         const el=document.getElementById('vault-security-alerts');

@@ -273,6 +273,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
     $('send-btn').addEventListener('click', () => Chat.send());
     $('stop-btn').addEventListener('click', () => Chat.stop());
+    $('upgrade-btn').addEventListener('click', () => { Billing.showUpgrade(); closeSidebar(); });
     $('settings-btn').addEventListener('click', () => { if (!requireLogin()) return; Settings.open(); closeSidebar(); });
     $('close-settings').addEventListener('click', () => Settings.close());
     $('save-settings').addEventListener('click', () => { if (!requireLogin()) return; Settings.saveFromForm(); });

@@ -93,6 +93,8 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
             metadata={"user_id": str(user.id), "plan_id": req.plan_id},
         )
         return {"url": session.url, "mock": False}
+    except ImportError:
+        return {"url": req.success_url or "/app?checkout=mock", "mock": True, "message": "Stripe SDK not installed — pip install stripe or wait for redeploy."}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stripe error: {str(e)}")
 
@@ -145,6 +147,8 @@ async def trial_checkout(request: Request, db: AsyncSession = Depends(get_db)):
             metadata={"user_id": str(user.id), "plan_id": "pro_trial"},
         )
         return {"url": session.url}
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Stripe SDK not installed — pip install stripe or wait for redeploy.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stripe trial error: {str(e)}")
 

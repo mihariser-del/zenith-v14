@@ -8,6 +8,11 @@
 .vault-page.vault-owner .vault-brand .z-logo { background: linear-gradient(135deg, #DDE4EE, #8B949E) !important; }
 .vault-page.vault-admin .stat-card { border-color: #2d2416; }
 .vault-page.vault-owner .stat-card { border-color: #1A1D21; }
+.vault-page.vault-admin .vault-nav a.active, .vault-page.vault-admin .vault-nav a:hover { border-left-color: #FFD700 !important; color: #FFD700 !important; }
+.vault-page.vault-admin .vault-user-card { border-color: #2d2416 !important; }
+.vault-page.vault-admin .vault-avatar { background: linear-gradient(135deg, #FFD700, #FF8C00) !important; }
+.vault-page.vault-admin #vault-top-avatar { background: linear-gradient(135deg, #FFD700, #FF8C00) !important; }
+.vault-page.vault-owner .vault-avatar, .vault-page.vault-owner #vault-top-avatar { background: linear-gradient(135deg, #DDE4EE, #8B949E) !important; }
 @media (max-width: 768px) { .vault-hamburger { display: flex; } .vault-sidebar { position: fixed; top: 0; left: 0; height: 100vh; transform: translateX(-100%); z-index: 90; } .vault-sidebar.open { transform: translateX(0); } }
 .vault-brand { display: flex; gap: 10px; align-items: center; padding: 8px; }
 .vault-brand .z-logo { width: 36px; height: 36px; font-size: 20px; border-radius: 8px; background: linear-gradient(135deg, #DDE4EE, #8B949E); color: #111315; display: flex; align-items: center; justify-content: center; font-weight: 700; }

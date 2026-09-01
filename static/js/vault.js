@@ -142,12 +142,40 @@ const Vault = {
         }
     },
     async loadSecurity() {
+        // Handle both the dashboard widget and the full tab
+        const isTab = document.querySelector('.vault-nav a.active')?.dataset.tab === 'security';
+        if (isTab) {
+            const el=document.getElementById('vault-content');
+            el.innerHTML='<div style="padding:20px; color:#8B949E;">Loading security...</div>';
+            try {
+                const [dash, hist] = await Promise.all([api('/api/security/dashboard'), api('/api/security/login-history')]);
+                let html=`<div style="padding:20px;"><h3 style="color:#DDE4EE; margin-bottom:12px;">Security Dashboard</h3>
+                    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px;">
+                        <div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#EF4444;">${dash.failed_logins}</div><div style="font-size:11px; color:#8B949E;">Failed Logins</div></div>
+                        <div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#fff;">${dash.total_logins}</div><div style="font-size:11px; color:#8B949E;">Total Logins</div></div>
+                        <div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px; text-align:center;"><div style="font-size:20px; font-weight:700; color:#4ADE80;">${dash.unique_ips}</div><div style="font-size:11px; color:#8B949E;">Unique IPs</div></div>
+                    </div>
+                    <div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px; margin-bottom:12px;"><div style="font-size:12px; color:#8B949E; margin-bottom:8px;">Last Login: ${dash.last_login} @ ${dash.last_ip}</div></div>
+                    <h4 style="color:#DDE4EE; margin:12px 0 8px;">Login History (last 20)</h4><div style="display:flex; flex-direction:column; gap:6px; max-height:400px; overflow-y:auto;">`;
+                hist.history.slice(0,20).forEach(h=>{
+                    html+=`<div style="display:flex; gap:10px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; align-items:center;"><div style="color:${h.success?'#4ADE80':'#EF4444'};">●</div><div style="flex:1;"><div style="font-size:12px; color:#fff;">${h.success?'Success':'Failed'} — ${h.ip_address}</div><div style="font-size:11px; color:#666;">${h.login_at} — ${h.user_agent.slice(0,60)}</div></div></div>`;
+                });
+                html+='</div></div>';
+                el.innerHTML=html;
+            } catch(e){ document.getElementById('vault-content').innerHTML='<div style="padding:20px; color:#EF4444;">'+e.message+'</div>'; }
+            return;
+        }
         const el=document.getElementById('vault-security-alerts');
         if(!el) return;
-        el.innerHTML=`
-            <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border-radius:8px; border-left:3px solid #EF4444;"><div style="color:#EF4444;">●</div><div><div style="font-size:12px; color:#fff;">5 failed login attempts</div><div style="font-size:11px; color:#666;">IP: 202.58.67.23 — Just now</div></div></div>
-            <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border-radius:8px; border-left:3px solid #FACC15;"><div style="color:#FACC15;">●</div><div><div style="font-size:12px; color:#fff;">Unusual login detected</div><div style="font-size:11px; color:#666;">Location: Unknown — 10 min ago</div></div></div>
-        `;
+        try {
+            const dash=await api('/api/security/dashboard');
+            el.innerHTML=`
+                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border-radius:8px; border-left:3px solid ${dash.failed_logins>0?'#EF4444':'#4ADE80'};"><div style="color:${dash.failed_logins>0?'#EF4444':'#4ADE80'};">●</div><div><div style="font-size:12px; color:#fff;">${dash.failed_logins} failed login attempts</div><div style="font-size:11px; color:#666;">Total: ${dash.total_logins} — Last: ${dash.last_ip}</div></div></div>
+                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border-radius:8px; border-left:3px solid #4ADE80;"><div style="color:#4ADE80;">●</div><div><div style="font-size:12px; color:#fff;">Unique IPs: ${dash.unique_ips}</div><div style="font-size:11px; color:#666;">Last login: ${dash.last_login}</div></div></div>
+            `;
+        } catch {
+            el.innerHTML='<div style="color:#666; font-size:12px; text-align:center; padding:20px;">No security data</div>';
+        }
     },
     async loadUsers() {
         const el=document.getElementById('vault-content');

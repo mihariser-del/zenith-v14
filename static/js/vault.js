@@ -101,7 +101,28 @@ const Vault = {
             // Attach handlers
             el.querySelectorAll('[data-vault="chat"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;
-                try{ const {chats}=await api(`/api/auth/admin/users/${id}/chats`); if(!chats.length) showToast('No chats',''); else { let msg=`Chats: ${chats.length}\n`; chats.slice(0,2).forEach(c=>msg+=`• ${c.title} (${c.message_count} msgs)\n`); showToast(msg,''); } }catch(e){ showToast(e.message,'error'); }
+                const username=b.closest('div').querySelector('div div')?.textContent || 'User';
+                try{
+                    const {chats}=await api(`/api/auth/admin/users/${id}/chats`);
+                    if(!chats.length){ showToast('No chats for '+username,''); return; }
+                    const modal=document.createElement('div');
+                    modal.className='modal';
+                    modal.style.display='flex';
+                    modal.style.zIndex='600';
+                    let html=`<div style="max-width:700px; width:95%; max-height:85vh; overflow-y:auto; background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:20px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;"><h3 style="color:#DDE4EE;">Chats for ${username} (${chats.length})</h3><button onclick="this.closest('.modal').remove()" style="background:transparent; border:1px solid #2a2f36; color:#8B949E; padding:6px 12px; border-radius:6px; cursor:pointer;">Close</button></div>`;
+                    chats.slice(0,10).forEach((c,i)=>{
+                        html+=`<div style="margin-bottom:16px; padding:12px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px;"><div style="font-weight:600; color:#a78bfa; margin-bottom:6px;">${i+1}. ${c.title} — ${c.message_count} msgs</div>`;
+                        c.messages.slice(0,6).forEach(m=>{
+                            const isUser=m.role==='user';
+                            html+=`<div style="margin:6px 0; padding:8px; background:${isUser?'#1A1D21':'#111315'}; border-left:3px solid ${isUser?'#4ADE80':'#8B5CF6'}; border-radius:6px; font-size:12px; color:#e5e5e5;"><strong style="color:${isUser?'#4ADE80':'#8B5CF6'};">${m.role}:</strong> ${m.content.slice(0,300).replace(/</g,'&lt;')}</div>`;
+                        });
+                        html+=`</div>`;
+                    });
+                    html+='</div>';
+                    modal.innerHTML=html;
+                    modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+                    document.body.appendChild(modal);
+                }catch(e){ showToast(e.message,'error'); }
             }));
             el.querySelectorAll('[data-vault="reset"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;

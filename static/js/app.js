@@ -31,19 +31,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
-    // --- Device-integrated push to all devices (browser/OS) ---
+    // In-app notifications only (no website/browser push) — uses showDiscordToast
     async function devicePush(title, body, tag) {
-        try {
-            if (!('Notification' in window)) return;
-            if (Notification.permission === 'default') { try { await Notification.requestPermission(); } catch {} }
-            if (Notification.permission !== 'granted') return;
-            const opts = { body: body.slice(0, 180), icon: '/static/icons/favicon-32.png', badge: '/static/icons/favicon-32.png', tag: tag || title, requireInteraction: true, renotify: true, silent: false, vibrate: [200,100,200] };
-            if ('serviceWorker' in navigator) {
-                const reg = await navigator.serviceWorker.ready;
-                if (reg && reg.showNotification) { reg.showNotification(title, opts); return; }
-            }
-            new Notification(title, opts);
-        } catch {}
+        // Keep in-app only: Discord toast handles it, no browser Notification
+        try { showDiscordToast('Zenith', title.replace('Zenith','').replace('—','').trim() || title, body, title.charAt(0)); } catch {}
     }
     // Discord-style in-app toast (mimics native OS notification: icon + avatar + name + message)
     function showDiscordToast(appName, title, body, avatarText) {

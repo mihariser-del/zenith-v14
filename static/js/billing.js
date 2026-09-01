@@ -14,8 +14,9 @@ const Billing = {
         modal.style.display = 'flex';
         modal.style.zIndex = '500';
         const isGuest = reason && reason.includes('Guest');
-        const title = isGuest ? 'Login Required' : 'Upgrade to Continue';
-        const sub = isGuest ? 'Guests have limited access. Login for free unlimited chat.' : reason || 'You have reached your free limit.';
+        const isLimit = reason && (reason.includes('limit') || reason.includes('reached') || reason.includes('pause') || reason.includes('Free limit') || reason.includes('Guest limit'));
+        const title = isGuest ? 'Login Required' : (isLimit ? 'Upgrade to Continue' : 'Choose Your Plan');
+        const sub = isGuest ? 'Guests have limited access. Login for free unlimited chat.' : (isLimit ? reason : 'Unlock Pro and Ultimate for unlimited features.');
         const proMonthly = plans.find(p=>p.id==='pro_monthly') || {price:5.99};
         const proAnnual = plans.find(p=>p.id==='pro_annual') || {price:59.99};
         const proLifetime = plans.find(p=>p.id==='pro_lifetime') || {price:200};

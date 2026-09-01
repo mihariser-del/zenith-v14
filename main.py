@@ -24,11 +24,13 @@ from announcements import router as announcements_router
 from billing import router as billing_router
 from google_auth import router as google_router
 
-VERSION = "16.1"
+VERSION = "17.0"
 CHANGELOG = [
-    "AI fallback restored (split-key, no env needed) — Zenith back online",
-    "Broadcast history removed as requested — ephemeral, no storage, no self-notify",
-    "Owner pure Titanium — all gold removed from vault",
+    "Upgrade button + Monthly/Yearly/Lifetime tabs — Pro $5.99/$59.99, Ultimate $11.99/$119.99, Lifetime $200/$400",
+    "Billing: Stripe + 5-day Pro trial (card required), guest 40-msg pause, free 5 img/15 uploads",
+    "Vault fullscreen — hamburger, Ban/Delete, live stats, owner titanium vs admin gold",
+    "Mobile: billing, vault, voice orb (blue-purple), broadcast all responsive",
+    "Upgrade prompt only on limit — not on every click",
 ]
 
 

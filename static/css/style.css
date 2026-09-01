@@ -379,6 +379,13 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
     }
 }
 
+/* Mobile: billing, voice, broadcast */
+@media (max-width: 768px) {
+    #billing-cards { grid-template-columns: 1fr !important; }
+    #voice-mode-modal > div { padding: 20px 12px !important; }
+    #voice-transcript { font-size: 14px !important; max-width: 90vw !important; }
+    #attention-modal .modal-content { width: 95% !important; max-width: 95% !important; }
+}
 /* ---- OWNER THEME (Titanium Core) - brushed titanium, silver glows, frosted panels ---- */
 body.admin-owner {
     --bg: #111315;

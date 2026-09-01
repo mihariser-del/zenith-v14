@@ -67,16 +67,37 @@ const Vault = {
             document.getElementById('stat-chats').textContent = d.total_chats;
             document.getElementById('stat-messages').textContent = d.total_messages;
             document.getElementById('stat-admins').textContent = d.admin_count;
-            const chart = document.getElementById('vault-chart');
-            if(chart){
-                chart.innerHTML='';
-                for(let i=0;i<20;i++){
-                    const h=20+Math.random()*80;
-                    const div=document.createElement('div');
-                    div.style.cssText=`flex:1; height:${h}%; background:linear-gradient(180deg,#8B5CF6,#6366f1); border-radius:4px 4px 0 0; opacity:0.8;`;
-                    chart.appendChild(div);
+            // Real system stats + users over time
+            try {
+                const sys = await api('/api/system/stats');
+                // Update system status circles
+                const cards = document.querySelectorAll('.vault-card');
+                // Find system status card by header
+                document.querySelectorAll('.vault-card').forEach(card=>{
+                    const header = card.querySelector('.card-header');
+                    if(header && header.textContent.includes('SYSTEM STATUS')){
+                        const circles = card.querySelectorAll('div[style*="border-radius:50%"]');
+                        if(circles[0]) circles[0].innerHTML = `${sys.cpu}%<br><span style="font-size:10px; color:#8B949E;">CPU</span>`;
+                        if(circles[1]) circles[1].innerHTML = `${sys.ram}%<br><span style="font-size:10px; color:#8B949E;">RAM</span>`;
+                        if(circles[2]) circles[2].innerHTML = `${sys.storage}%<br><span style="font-size:10px; color:#8B949E;">STORAGE</span>`;
+                    }
+                });
+            } catch {}
+            try {
+                const uot = await api('/api/system/users-over-time');
+                const chart = document.getElementById('vault-chart');
+                if(chart && uot.days){
+                    chart.innerHTML='';
+                    const max = Math.max(...uot.days.map(d=>d.total), 1);
+                    uot.days.forEach(day=>{
+                        const h = (day.total / max) * 80 + 10;
+                        const div=document.createElement('div');
+                        div.title = `${day.date}: ${day.total}`;
+                        div.style.cssText=`flex:1; height:${h}%; background:linear-gradient(180deg,#8B5CF6,#6366f1); border-radius:4px 4px 0 0; opacity:0.8;`;
+                        chart.appendChild(div);
+                    });
                 }
-            }
+            } catch {}
         } catch(e){ console.error(e); }
     },
     async loadRecent() {
@@ -138,7 +159,9 @@ const Vault = {
             }));
             el.querySelectorAll('[data-vault="delete"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;
-                if(!confirm('Delete this user? This cannot be undone.')) return;
+                const username=b.closest('div').querySelector('div div')?.textContent || 'this user';
+                const ok = await showConfirm('Delete user?', `Delete ${username}? This cannot be undone.`, true);
+                if(!ok) return;
                 try{ await api(`/api/auth/admin/users/${id}`, {method:'DELETE'}); showToast('Deleted','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); }
             }));
         } catch(e){}
@@ -216,7 +239,8 @@ const Vault = {
         else { const r=prompt('Ban reason for '+username+':'); if(!r) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason:r})}); showToast('Banned '+username,'success'); this.loadUsers(); this.loadStats(); }catch(e){ showToast(e.message,'error'); } }
     },
     async deleteUser(id, username) {
-        if(!confirm('Delete '+username+'? This cannot be undone.')) return;
+        const ok = await showConfirm('Delete user?', `Delete ${username}? This cannot be undone.`, true);
+        if(!ok) return;
         try{ await api(`/api/auth/admin/users/${id}`, {method:'DELETE'}); showToast('Deleted '+username,'success'); this.loadUsers(); this.loadStats(); }catch(e){ showToast(e.message,'error'); }
     },
     async loadDashboard() {

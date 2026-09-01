@@ -3,12 +3,17 @@ const Vault = {
         try {
             const { user } = await api('/api/auth/me');
             const isOwner = user.role === 'owner';
+            document.body.classList.add(isOwner ? 'vault-owner' : 'vault-admin');
             document.getElementById('vault-username').textContent = user.username;
             document.getElementById('vault-avatar').textContent = user.username[0].toUpperCase();
             document.getElementById('vault-top-name').textContent = user.username;
             document.getElementById('vault-top-avatar').textContent = user.username[0].toUpperCase();
             document.getElementById('vault-role-label').textContent = isOwner ? 'OWNER VAULT' : 'ADMIN VAULT';
             document.getElementById('vault-welcome').textContent = `Welcome back, ${user.username} ${isOwner?'👑':''}`;
+            document.getElementById('vault-subtitle').textContent = isOwner ? 'Ultimate Access' : 'Admin Access';
+            // Fix top right tag: Owner shows "The One Above All", Admin shows "Admin Access"
+            const topTag = document.querySelector('#vault-top-name + div');
+            if (topTag) topTag.textContent = isOwner ? 'The One Above All' : 'Admin Access';
             if (!isOwner && !user.is_admin) window.location.href = '/app';
         } catch { window.location.href = '/'; return; }
         this.loadStats();

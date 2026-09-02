@@ -62,6 +62,7 @@ const Vault = {
         if (this._pollInterval) clearInterval(this._pollInterval);
         if (this._sysPollInterval) clearInterval(this._sysPollInterval);
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
+        if (this._onlinePollInterval) clearInterval(this._onlinePollInterval);
         this._pollInterval = setInterval(() => {
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 1000);
@@ -73,12 +74,13 @@ const Vault = {
                 this.loadActivityFeed();
                 this.loadOnlineUsers();
             }
-            this.refreshOnlineCount();
-        }, 1000);
-        // heartbeat — vault staff must ping too, otherwise they never appear online (app.js heartbeat only runs on /app)
+        }, 5000);
+        // Online count — poll slower (3s) to reduce flicker from 1s heartbeat
+        this._onlinePollInterval = setInterval(() => this.refreshOnlineCount(), 3000);
+        // heartbeat — vault staff must ping too, otherwise they never appear online
         this._heartbeatInterval = setInterval(() => {
             if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-        }, 1000);
+        }, 5000);
         // fire once immediately so vault staff show online without waiting 1s
         fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     },
@@ -86,36 +88,50 @@ const Vault = {
     async refreshOnlineCount() {
         try {
             const d = await api('/api/auth/admin/analytics/overview');
-            document.getElementById('vault-online-count').textContent = d.online_users + ' online';
-            document.getElementById('vault-cache', d);
+            const el = document.getElementById('vault-online-count');
+            if (el) el.textContent = d.online_users + ' online';
+            this._cache.online = d.online_users;
         } catch {}
     },
 
     // ═══════════════════════════ SVG CHARTS ═══════════════════════════
+    _svgDefs: `<defs>
+        <linearGradient id="g-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60A5FA" stop-opacity="0.4"/><stop offset="100%" stop-color="#60A5FA" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A78BFA" stop-opacity="0.4"/><stop offset="100%" stop-color="#A78BFA" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ADE80" stop-opacity="0.4"/><stop offset="100%" stop-color="#4ADE80" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F472B6" stop-opacity="0.4"/><stop offset="100%" stop-color="#F472B6" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-teal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.4"/><stop offset="100%" stop-color="#2DD4BF" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-violet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.4"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.02"/></linearGradient>
+    </defs>`,
+
+    _smoothCurve(pts) {
+        if (pts.length < 2) return '';
+        let d = `M${pts[0].x},${pts[0].y}`;
+        for (let i = 0; i < pts.length - 1; i++) {
+            const p0 = pts[Math.max(i - 1, 0)];
+            const p1 = pts[i], p2 = pts[i + 1];
+            const p3 = pts[Math.min(i + 2, pts.length - 1)];
+            d += ` C${(p1.x + (p2.x - p0.x) / 6).toFixed(1)},${(p1.y + (p2.y - p0.y) / 6).toFixed(1)} ${(p2.x - (p3.x - p1.x) / 6).toFixed(1)},${(p2.y - (p3.y - p1.y) / 6).toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+        }
+        return d;
+    },
+
     svgLine(data, w, h, color, fill = false) {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
-        const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
-        const pad = 4;
-        const step = (w - pad * 2) / Math.max(data.length - 1, 1);
-        let path = '';
-        let fillPath = `M${pad},${h - pad}`;
-        data.forEach((d, i) => {
-            const v = d.count || d.value || 0;
-            const x = pad + i * step;
-            const y = h - pad - (v / max) * (h - pad * 2);
-            path += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ',' + y.toFixed(1);
-            fillPath += 'L' + x.toFixed(1) + ',' + y.toFixed(1);
-        });
-        fillPath += `L${pad + (data.length - 1) * step},${h - pad}Z`;
-        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="none">`;
-        if (fill) svg += `<path d="${fillPath}" fill="${color}" opacity="0.15"/>`;
-        svg += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
-        const last = data[data.length - 1];
-        const lv = last.count || last.value || 0;
-        const lx = pad + (data.length - 1) * step;
-        const ly = h - pad - (lv / max) * (h - pad * 2);
-        svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3" fill="${color}"/>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${ly - 6}" fill="${color}" font-size="11" text-anchor="middle" font-weight="700">${lv}</text>`;
+        const vals = data.map(d => d.count || d.value || 0);
+        const max = Math.max(...vals, 1);
+        const pad = { t: 10, b: 22, l: 2, r: 2 };
+        const step = (w - pad.l - pad.r) / Math.max(vals.length - 1, 1);
+        const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * (h - pad.t - pad.b) }));
+        const curve = this._smoothCurve(pts);
+        const fillPath = curve + ` L${pts[pts.length-1].x},${h - pad.b} L${pts[0].x},${h - pad.b} Z`;
+        const gid = 'g-' + color.replace('#', '').toLowerCase().slice(0, 6);
+        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="none">${this._svgDefs}`;
+        if (fill) svg += `<path d="${fillPath}" fill="url(#${gid})" opacity="0.7"/>`;
+        svg += `<path d="${curve}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        const lv = vals[vals.length - 1], lx = pts[pts.length - 1].x, ly = pts[pts.length - 1].y;
+        svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${color}" stroke="#0a0a0f" stroke-width="1.5"/>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${ly - 8}" fill="${color}" font-size="11" text-anchor="middle" font-weight="700">${lv}</text>`;
         svg += '</svg>';
         return svg;
     },
@@ -123,28 +139,56 @@ const Vault = {
     svgBar(data, w, h, color, highlightLast = null) {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
-        const pad = 4;
-        const slot = (w - pad * 2) / data.length;
-        const barW = Math.max(slot - 2, 2);
+        const pad = { t: 4, b: 24, l: 2, r: 2 };
+        const slot = (w - pad.l - pad.r) / data.length;
+        const barW = Math.max(slot - 3, 3);
         let svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">`;
         data.forEach((d, i) => {
             const v = d.count || d.value || 0;
-            const bh = (v / max) * (h - pad * 2);
-            const x = pad + i * slot + 1;
-            const y = h - pad - bh;
+            const bh = (v / max) * (h - pad.t - pad.b);
+            const x = pad.l + i * slot + (slot - barW) / 2;
+            const y = h - pad.b - bh;
             const isHL = highlightLast !== null && i === highlightLast;
-            const col = isHL ? '#DDE4EE' : color;
-            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" rx="2" opacity="0.85"><title>${this.hourLabel(i)}: ${v} msgs</title></rect>`;
+            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${isHL ? '#DDE4EE' : color}" rx="2" opacity="${isHL ? '1' : '0.8'}"><title>${i}h: ${v} msgs</title></rect>`;
         });
-        // x-axis hour labels (every 4 hours)
         if (data.length === 24) {
             svg += '<g>';
-            for (let h = 0; h < 24; h += 4) {
-                const x = pad + h * slot + slot / 2;
-                svg += `<text x="${x.toFixed(1)}" y="${h - 4}" fill="#666" font-size="8" text-anchor="middle">${h}h</text>`;
+            for (let hr = 0; hr < 24; hr += 4) {
+                svg += `<text x="${(pad.l + hr * slot + slot / 2).toFixed(1)}" y="${h - 4}" fill="#555" font-size="9" text-anchor="middle">${hr}h</text>`;
             }
             svg += '</g>';
         }
+        svg += '</svg>';
+        return svg;
+    },
+
+    svgDonut(segments, size, centerLabel, centerValue) {
+        const r = (size - 16) / 2, circ = 2 * Math.PI * r;
+        const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+        let offset = 0;
+        let svg = `<svg viewBox="0 0 ${size} ${size}" style="width:100%;height:100%;max-width:${size}px;">`;
+        segments.forEach(seg => {
+            const dash = circ * (seg.value / total), gap = circ - dash;
+            svg += `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="14" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})" opacity="0.85"><title>${seg.label}: ${seg.value} (${(seg.value/total*100).toFixed(1)}%)</title></circle>`;
+            offset += dash;
+        });
+        svg += `<text x="${size/2}" y="${size/2 - 4}" text-anchor="middle" fill="#fff" font-size="16" font-weight="700">${centerValue}</text>`;
+        svg += `<text x="${size/2}" y="${size/2 + 12}" text-anchor="middle" fill="#8B949E" font-size="9">${centerLabel}</text>`;
+        svg += '</svg>';
+        return svg;
+    },
+
+    svgHBar(items, w, h) {
+        const max = Math.max(...items.map(i => i.value), 1);
+        const barH = Math.min(18, (h - 10) / items.length - 4);
+        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;">`;
+        items.forEach((item, i) => {
+            const y = i * (barH + 8) + 4;
+            const bw = (item.value / max) * (w - 130);
+            svg += `<text x="0" y="${y + barH/2 + 4}" fill="#DDE4EE" font-size="11" font-weight="500">${item.label}</text>`;
+            svg += `<rect x="100" y="${y}" width="${bw.toFixed(1)}" height="${barH}" fill="${item.color}" rx="4" opacity="0.85"/>`;
+            svg += `<text x="${(100 + bw + 8).toFixed(1)}" y="${y + barH/2 + 4}" fill="#8B949E" font-size="10" font-weight="600">${item.display}</text>`;
+        });
         svg += '</svg>';
         return svg;
     },
@@ -179,6 +223,21 @@ const Vault = {
                 api('/api/auth/admin/analytics/accounts-per-day').catch(() => ({days:[]})),
             ]);
             this._cache.overview = overview;
+            const totalData = overview.total_users + overview.total_chats + overview.total_messages + overview.banned_count + overview.deleted_count;
+            const donutSegs = [
+                { label: 'Users', value: overview.total_users, color: '#60A5FA' },
+                { label: 'Chats', value: overview.total_chats, color: '#A78BFA' },
+                { label: 'Messages', value: overview.total_messages, color: '#F472B6' },
+                { label: 'Banned', value: overview.banned_count, color: '#EF4444' },
+                { label: 'Deleted', value: overview.deleted_count, color: '#8B949E' },
+            ].filter(s => s.value > 0);
+            const collItems = [
+                { label: 'Users', value: overview.total_users, color: '#60A5FA', display: overview.total_users.toLocaleString() },
+                { label: 'Chats', value: overview.total_chats, color: '#A78BFA', display: overview.total_chats.toLocaleString() },
+                { label: 'Messages', value: overview.total_messages, color: '#F472B6', display: overview.total_messages.toLocaleString() },
+                { label: 'Guests', value: overview.guest_count, color: '#4ADE80', display: String(overview.guest_count) },
+                { label: 'Admins', value: overview.admin_count, color: '#F59E0B', display: String(overview.admin_count) },
+            ].filter(s => s.value > 0);
             el.innerHTML = `
                 <div class="vault-stats" id="dash-stats">
                     ${this.statCard('👥','TOTAL ACCOUNTS',overview.total_users,'','')}
@@ -194,20 +253,31 @@ const Vault = {
                     ${this.statCard('⭐','PRO',overview.pro_count,'','')}
                     ${this.statCard('💎','ULTIMATE',overview.ultimate_count,'','purple')}
                 </div>
-                <div class="vault-grid">
+                <div class="vault-grid" style="grid-template-columns:2fr 1fr;">
                     <div class="vault-card">
-                        <div class="card-header"><span>📈 Message Activity (30d)</span></div>
-                        <div style="height:140px;" id="chart-messages">${this.svgLine(msgDay.days, 500, 140, '#8B5CF6', true)}</div>
+                        <div class="card-header"><span>📈 Message Activity (30d)</span><span style="font-size:10px;color:#8B5CF6;">Daily</span></div>
+                        <div style="height:160px;" id="chart-messages">${this.svgLine(msgDay.days, 500, 160, '#8B5CF6', true)}</div>
                     </div>
-                    <div class="vault-card">
-                        <div class="card-header"><span>💬 Chat Activity (30d)</span></div>
-                        <div style="height:140px;" id="chart-chats">${this.svgBar(chatDay.days, 500, 140, '#60A5FA')}</div>
+                    <div class="vault-card" style="display:flex;flex-direction:column;align-items:center;">
+                        <div class="card-header" style="width:100;"><span>📊 Data Distribution</span></div>
+                        <div style="height:160px;width:100%;display:flex;justify-content:center;" id="chart-donut">${this.svgDonut(donutSegs, 150, 'Total', totalData >= 1000 ? (totalData/1000).toFixed(1)+'K' : String(totalData))}</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;justify-content:center;">${donutSegs.map(s => `<span style="font-size:10px;color:${s.color};display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;"></span>${s.label}</span>`).join('')}</div>
                     </div>
                 </div>
                 <div class="vault-grid">
                     <div class="vault-card">
+                        <div class="card-header"><span>💬 Chat Activity (30d)</span></div>
+                        <div style="height:120px;" id="chart-chats">${this.svgBar(chatDay.days, 500, 120, '#60A5FA')}</div>
+                    </div>
+                    <div class="vault-card">
                         <div class="card-header"><span>🆕 Account Growth (30d)</span></div>
                         <div style="height:120px;" id="chart-accounts">${this.svgLine(accDay.days, 500, 120, '#4ADE80', true)}</div>
+                    </div>
+                </div>
+                <div class="vault-grid">
+                    <div class="vault-card">
+                        <div class="card-header"><span>📊 Top Collections by Size</span></div>
+                        <div style="height:140px;" id="chart-collections">${this.svgHBar(collItems, 400, 140)}</div>
                     </div>
                     <div class="vault-card">
                         <div class="card-header"><span>🖥️ System Health</span></div>

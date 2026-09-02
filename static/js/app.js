@@ -631,10 +631,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Poll for broadcasts every 1s for all users — fast delivery of staff popups
     pollAnnouncements(); setInterval(pollAnnouncements, 1000);
-    // Presence heartbeat — keeps last_seen fresh so staff can see live online users (fires ~1s for real-time presence)
+    // Presence heartbeat — keeps last_seen fresh so staff can see live online users (fires every 5s for stable presence)
     setInterval(() => {
         if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
-    }, 1000);
+    }, 5000);
     // Keep refreshAttention for staff fallback (old) but now poll handles it
     async function refreshAttentionBadge() {
         await pollAnnouncements();

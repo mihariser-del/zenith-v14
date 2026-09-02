@@ -341,6 +341,29 @@ DIRECTORY = [
     {"keywords": ["spell beautiful", "how do you spell beautiful", "spell the word"], "answer": "**B-E-A-U-T-I-F-U-L**. If you meant a different word, just tell me and I'll spell it out!"},
     {"keywords": ["text me under a minute", "short reply", "reply fast"], "answer": "Consider it done — instant reply right here, no wait needed. ⚡"},
     {"keywords": ["who is the cat", "why is that the name", "what does zenith mean"], "answer": "**Zenith** means the highest or most successful point — the point in the sky directly above you. Fitting name for an AI that aims to be right on top of your questions!"},
+    {"keywords": ["what is chatgpt", "are you chatgpt", "who made chatgpt"], "answer": "**ChatGPT** is an AI chatbot made by OpenAI. I'm **Zenith**, a different AI created by Wanzu Ibrahim — not ChatGPT."},
+    {"keywords": ["who is elon musk", "elon musk"], "answer": "**Elon Musk** is a billionaire entrepreneur known for founding SpaceX, co-founding Tesla, and acquiring Twitter (now X). He's one of the world's richest people."},
+    {"keywords": ["who is mark zuckerberg", "zuckerberg"], "answer": "**Mark Zuckerberg** is the co-founder and CEO of Meta (formerly Facebook). He launched Facebook in 2004 from Harvard and built it into a global social media giant."},
+    {"keywords": ["what is nollywood", "nigerian movies", "nollywood meaning"], "answer": "**Nollywood** is Nigeria's film industry — the second largest by volume in the world (after Bollywood). It produces thousands of movies annually, mainly in English, Yoruba, Hausa, and Igbo."},
+    {"keywords": ["who is wizkid", "wizkid real name", "starboy"], "answer": "**Wizkid** (Ayodeji Ibrahim Balogun) is a Nigerian Afrobeats superstar known for global hits like 'Essence' (feat. Tems) and his Grammy-winning collaborations."},
+    {"keywords": ["who is burna boy", "burna boy real name"], "answer": "**Burna Boy** (Damini Ebunoluwa Ogulu) is a Nigerian Afrobeats star and Grammy Award winner."},
+    {"keywords": ["who is davido", "davido real name"], "answer": "**Davido** (David Adedeji Adeleke) is a Nigerian Afrobeats singer, songwriter and record producer — one of Africa's biggest music stars."},
+    {"keywords": ["how to learn python fast", "python for beginners", "python tips"], "answer": "Start with **variables, loops, functions, and lists** (the basics). Practice daily with small projects. Try free resources like Python.org docs, Codecademy, or freeCodeCamp."},
+    {"keywords": ["what is css", "css meaning", "what does css do"], "answer": "**CSS (Cascading Style Sheets)** is the language used to style HTML elements — controlling colors, layout, fonts, spacing, and responsive design on web pages."},
+    {"keywords": ["what is html", "html meaning", "what does html do"], "answer": "**HTML (HyperText Markup Language)** is the standard language for creating web pages. It defines the structure and content of a page using tags."},
+    {"keywords": ["what is api", "api meaning", "how does api work"], "answer": "**API (Application Programming Interface)** is a way for different software systems to communicate. It defines the rules and endpoints for requesting and exchanging data between apps."},
+    {"keywords": ["what is database", "types of database", "sql meaning"], "answer": "**Database** is an organized collection of data stored electronically. Common types: **SQL** (MySQL, PostgreSQL — structured tables) and **NoSQL** (MongoDB — flexible documents)."},
+    {"keywords": ["how to type fast", "typing speed", "touch typing"], "answer": "Touch typing (home row keys: ASDF JKL;) is the fastest method. Practice daily on sites like typingclub.com or keybr.com. Aim for 40+ WPM initially."},
+    {"keywords": ["how to make a website", "build a website", "website development steps"], "answer": "Steps: 1) Learn **HTML/CSS/JS** basics, 2) Choose a domain/hosting, 3) Design your layout, 4) Build pages, 5) Deploy (Netlify, Vercel, or GitHub Pages are free)."},
+    {"keywords": ["what is github", "github meaning", "git explained"], "answer": "**GitHub** is a platform for hosting and collaborating on code using **Git** (version control). It tracks changes, enables branching/merging, and supports open-source collaboration."},
+    {"keywords": ["what is a server", "how do servers work", "server explained"], "answer": "**Server** is a computer that stores, processes, and serves data to other computers (clients) over a network. When you visit a website, your browser requests data from a server."},
+    {"keywords": ["how old is the earth", "earth age", "age of our planet"], "answer": "**Earth is about 4.54 billion years old**, based on radiometric dating of meteorite material and the oldest known rocks."},
+    {"keywords": ["how many oceans are there", "name the oceans", "seven oceans"], "answer": "There are **5 oceans**: Pacific (largest), Atlantic, Indian, Southern (Antarctic), and Arctic (smallest)."},
+    {"keywords": ["what is electricity", "how does electricity work", "electricity explained"], "answer": "**Electricity** is the flow of electric charge (electrons) through a conductor. It powers devices by providing energy through circuits — measured in volts (V), amps (A), and watts (W)."},
+    {"keywords": ["how does combustion work", "what is combustion", "fire triangle"], "answer": "**Combustion** is a chemical reaction where a fuel reacts with oxygen, releasing heat and light. The fire triangle requires: **fuel + oxygen + heat**."},
+    {"keywords": ["who invented the internet", "when was the internet created", "history of the internet"], "answer": "**ARPANET** (1969, funded by the US DoD) was the internet's predecessor. **Tim Berners-Lee** invented the World Wide Web in 1989."},
+    {"keywords": ["what is satellite", "how do satellites work", "what does a satellite do"], "answer": "**Satellite** is an object placed in orbit around Earth. They're used for communication, weather monitoring, GPS, and scientific research."},
+    {"keywords": ["is the earth round", "is earth flat", "shape of the earth"], "answer": "The Earth is an **oblate spheroid** — nearly round but slightly flattened at the poles and bulging at the equator."},
     {"keywords": ["what is the solar system", "our solar system"], "answer": "**Our solar system** consists of the Sun and everything orbiting it: 8 planets (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune), dwarf planets, asteroids, and comets."},
 ]
 
@@ -351,39 +374,192 @@ def _norm(text: str) -> str:
 
 def solve_math(query: str):
     """Try to evaluate query as math. Returns 'expr = result' or None."""
-    import re, math
-    lower = (query or "").lower().strip()
-    prefix_re = r"^(whats|what\'s|what is|what are|whats is|calculate|solve|compute|please|can you|hey|hi|the answer is|result of|answer|is|the)\s+"
+    import re, math as _m
+    raw = (query or "").lower().strip()
+    if not raw:
+        return None
+    prefix_re = r"^(whats|what's|what is|what are|whats is|calculate|solve|compute|please|can you|hey|hi|the answer is|result of|answer|is|the)\s+"
+    s = raw
     prev = None
-    while prev != lower and lower:
-        prev = lower
-        lower = re.sub(prefix_re, "", lower, flags=re.I).strip()
-    if not lower:
+    while prev != s and s:
+        prev = s
+        s = re.sub(prefix_re, "", s, flags=re.I).strip()
+    if not s:
         return None
-    s = lower.replace("\u00d7", "*").replace("\u00f7", "/").replace("\u2212", "-").replace("\u03c0", "pi")
+    s = s.replace("\u00d7", "*").replace("\u00f7", "/").replace("\u2212", "-")
     s = s.replace(" ", "")
-    s = re.sub(r"(\d+(\.\d+)?)\s*%", r"(\1/100)", s)
-    s = re.sub(r"sqrt\(([^)]+)\)", r"math.sqrt(\1)", s, flags=re.I)
-    s = re.sub(r"sqrt(\d+(\.\d+)?)", r"math.sqrt(\1)", s, flags=re.I)
-    s = re.sub(r"\bpi\b", str(math.pi), s, flags=re.I)
-    s = s.replace("^", "**")
-    s = re.sub(r"(\d)\(", r"\1*(", s)
-    s = re.sub(r"\)(\d)", r")*\1", s)
-    s = s.replace(")(", ")*(")
-    cleaned = s.replace("math.sqrt", "").replace("math.pi", "").replace("math.pi", "")
-    cleaned = re.sub(r"[0-9+\-*/%().]", "", cleaned)
-    if cleaned:
+    s = re.sub(r"(\d+(\.\d+)?)%", r"(\1/100)", s)
+    s = re.sub(r"sqrt\(([^)]+)\)", r"SQRT(\1)", s, flags=re.I)
+    s = re.sub(r"sqrt(\d+(\.\d+)?)", r"SQRT(\1)", s, flags=re.I)
+    pi_val = str(_m.pi)
+    s = re.sub(r"\bpi\b", f"({pi_val})", s, flags=re.I)
+    s = re.sub(r"(\d)(\()", r"\1*\2", s)
+    s = re.sub(r"(\))(\d)", r"\1*\2", s)
+    s = re.sub(r"(\))(\()", r"\1*\2", s)
+    # Power: 2^3 -> pow(2,3)
+    s = re.sub(r"(\d+(\.\d+)?)\^(\d+(\.\d+)?)", r"POW(\1,\3)", s)
+
+    tokens = []
+    i = 0
+    while i < len(s):
+        c = s[i]
+        if c.isdigit() or c == '.':
+            num = ''
+            while i < len(s) and (s[i].isdigit() or s[i] == '.'):
+                num += s[i]; i += 1
+            tokens.append(('num', float(num)))
+        elif c in '+-*/':
+            if c == '-' and (not tokens or tokens[-1][0] == 'op'):
+                tokens.append(('num', 0.0))
+            tokens.append(('op', c)); i += 1
+        elif c == '(':
+            tokens.append(('lparen',)); i += 1
+        elif c == ')':
+            tokens.append(('rparen',)); i += 1
+        elif s[i:i+4].upper() == 'SQRT' and i+4 < len(s) and s[i+4] == '(':
+            depth = 0; start = i + 5; j = start
+            while j < len(s):
+                if s[j] == '(': depth += 1
+                elif s[j] == ')':
+                    if depth == 0: break
+                    depth -= 1
+                j += 1
+            inner = s[start:j]
+            val = _eval_inner(inner, _m)
+            if val is None or val < 0: return None
+            tokens.append(('num', _m.sqrt(val)))
+            i = j + 1
+        elif s[i:i+3].upper() == 'POW' and i+3 < len(s) and s[i+3] == '(':
+            depth = 0; start = i + 4; j = start
+            while j < len(s):
+                if s[j] == '(': depth += 1
+                elif s[j] == ')':
+                    if depth == 0: break
+                    depth -= 1
+                j += 1
+            args_str = s[start:j]
+            parts = _split_top(args_str, ',')
+            if len(parts) != 2: return None
+            base = _eval_inner(parts[0], _m)
+            exp = _eval_inner(parts[1], _m)
+            if base is None or exp is None: return None
+            tokens.append(('num', _m.pow(base, exp)))
+            i = j + 1
+        else:
+            return None
+    if not tokens:
         return None
+
+    pos = [0]
+    def parse_expr():
+        return parse_addsub()
+    def parse_addsub():
+        left = parse_muldiv()
+        while pos[0] < len(tokens) and tokens[pos[0]][0] == 'op' and tokens[pos[0]][1] in '+-':
+            op = tokens[pos[0]][1]; pos[0] += 1
+            right = parse_muldiv()
+            left = left + right if op == '+' else left - right
+        return left
+    def parse_muldiv():
+        left = parse_unary()
+        while pos[0] < len(tokens) and tokens[pos[0]][0] == 'op' and tokens[pos[0]][1] in '*/':
+            op = tokens[pos[0]][1]; pos[0] += 1
+            right = parse_unary()
+            left = left * right if op == '*' else left / right
+        return left
+    def parse_unary():
+        if pos[0] < len(tokens) and tokens[pos[0]][0] == 'op' and tokens[pos[0]][1] == '-':
+            pos[0] += 1
+            return -parse_atom()
+        return parse_atom()
+    def parse_atom():
+        if pos[0] >= len(tokens): return 0.0
+        t = tokens[pos[0]]
+        if t[0] == 'num':
+            pos[0] += 1; return t[1]
+        if t[0] == 'lparen':
+            pos[0] += 1; val = parse_expr()
+            if pos[0] < len(tokens) and tokens[pos[0]][0] == 'rparen': pos[0] += 1
+            return val
+        return 0.0
+
     try:
-        result = eval(s, {"__builtins__": {}}, {"math": math})
-        if isinstance(result, (int, float)) and math.isfinite(result):
+        result = parse_expr()
+        if isinstance(result, (int, float)) and _m.isfinite(result):
             rounded = round(result, 10)
             if isinstance(rounded, float) and rounded.is_integer():
                 rounded = int(rounded)
-            return f"**{lower} = {rounded}**"
+            return f"**{raw} = {rounded}**"
     except Exception:
         return None
     return None
+
+
+def _eval_inner(expr_str, _m):
+    """Evaluate a standalone sub-expression string (for SQRT/POW args)."""
+    import re as _re
+    toks = []
+    j = 0
+    while j < len(expr_str):
+        ch = expr_str[j]
+        if ch.isdigit() or ch == '.':
+            n = ''
+            while j < len(expr_str) and (expr_str[j].isdigit() or expr_str[j] == '.'):
+                n += expr_str[j]; j += 1
+            toks.append(('num', float(n)))
+        elif ch in '+-*/':
+            if ch == '-' and (not toks or toks[-1][0] == 'op'):
+                toks.append(('num', 0.0))
+            toks.append(('op', ch)); j += 1
+        elif ch == '(': toks.append(('lparen',)); j += 1
+        elif ch == ')': toks.append(('rparen',)); j += 1
+        else: return None
+    if not toks: return None
+    pos = [0]
+    def pe():
+        return pa()
+    def pa():
+        l = pm()
+        while pos[0] < len(toks) and toks[pos[0]][0] == 'op' and toks[pos[0]][1] in '+-':
+            op = toks[pos[0]][1]; pos[0] += 1; r = pm()
+            l = l + r if op == '+' else l - r
+        return l
+    def pm():
+        l = pu()
+        while pos[0] < len(toks) and toks[pos[0]][0] == 'op' and toks[pos[0]][1] in '*/':
+            op = toks[pos[0]][1]; pos[0] += 1; r = pu()
+            l = l * r if op == '*' else l / r
+        return l
+    def pu():
+        if pos[0] < len(toks) and toks[pos[0]][0] == 'op' and toks[pos[0]][1] == '-':
+            pos[0] += 1; return -paa()
+        return paa()
+    def paa():
+        if pos[0] >= len(toks): return 0.0
+        t = toks[pos[0]]
+        if t[0] == 'num': pos[0] += 1; return t[1]
+        if t[0] == 'lparen':
+            pos[0] += 1; v = pe()
+            if pos[0] < len(toks) and toks[pos[0]][0] == 'rparen': pos[0] += 1
+            return v
+        return 0.0
+    try:
+        return pe()
+    except:
+        return None
+
+
+def _split_top(s, sep):
+    """Split string by sep only at top level (not inside parens)."""
+    parts, depth, cur = [], 0, ''
+    for ch in s:
+        if ch == '(': depth += 1
+        elif ch == ')': depth -= 1
+        elif ch == sep and depth == 0:
+            parts.append(cur); cur = ''; continue
+        cur += ch
+    if cur: parts.append(cur)
+    return parts
 
 
 def match_directory(query: str):

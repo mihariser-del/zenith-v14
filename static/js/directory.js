@@ -287,6 +287,30 @@ window.ZenithDirectory = (function () {
         { keywords: ["text me under a minute", "short reply", "reply fast"], answer: "Consider it done — instant reply right here, no wait needed. ⚡" },
         { keywords: ["solve 12x + 5 where x=2", "evaluate 3x - 1", "plug in x"], answer: "If you mean **substitute a value into an expression**, that's exactly what my math engine can do — just tell me the expression and the value of x, e.g. 'what is 3*2 + 1' with numbers included." },
         { keywords: ["who is the cat", "why is that the name", "what does zenith mean"], answer: "**Zenith** means the highest or most successful point — the point in the sky directly above you. Fitting name for an AI that aims to be right on top of your questions!" },
+        { keywords: ["what is chatgpt", "are you chatgpt", "who made chatgpt"], answer: "**ChatGPT** is an AI chatbot made by OpenAI. I'm **Zenith**, a different AI created by Wanzu Ibrahim — not ChatGPT." },
+        { keywords: ["who is elon musk", "elon musk"], answer: "**Elon Musk** is a billionaire entrepreneur known for founding SpaceX, co-founding Tesla, and acquiring Twitter (now X). He's one of the world's richest people." },
+        { keywords: ["who is mark zuckerberg", "zuckerberg"], answer: "**Mark Zuckerberg** is the co-founder and CEO of Meta (formerly Facebook). He launched Facebook in 2004 from Harvard and built it into a global social media giant." },
+        { keywords: ["what is nollywood", "nigerian movies", "nollywood meaning"], answer: "**Nollywood** is Nigeria's film industry — the second largest by volume in the world (after Bollywood). It produces thousands of movies annually, mainly in English, Yoruba, Hausa, and Igbo." },
+        { keywords: ["who is wizkid", "wizkid real name", "starboy"], answer: "**Wizkid** (Ayodeji Ibrahim Balogun) is a Nigerian Afrobeats superstar known for global hits like 'Essence' (feat. Tems) and his Grammy-winning collaborations." },
+        { keywords: ["who is burna boy", "burna boy real name"], answer: "**Burna Boy** (Damini Ebunoluwa Ogulu) is a Nigerian Afrobeats star and Grammy Award winner. His real name means 'son of the burner'." },
+        { keywords: ["who is davido", "davido real name"], answer: "**Davido** (David Adedeji Adeleke) is a Nigerian Afrobeats singer, songwriter and record producer — one of Africa's biggest music stars." },
+        { keywords: ["what is bitcoin", "bitcoin price", "how much is bitcoin"], answer: "**Bitcoin** is the first and most well-known cryptocurrency, created in 2009 by Satoshi Nakamoto. I can't give live prices — use a web search when online for the latest rate." },
+        { keywords: ["how to learn python fast", "python for beginners", "python tips"], answer: "Start with **variables, loops, functions, and lists** (the basics). Practice daily with small projects. Try free resources like Python.org docs, Codecademy, or freeCodeCamp." },
+        { keywords: ["what is css", "css meaning", "what does css do"], answer: "**CSS (Cascading Style Sheets)** is the language used to style HTML elements — controlling colors, layout, fonts, spacing, and responsive design on web pages." },
+        { keywords: ["what is html", "html meaning", "what does html do"], answer: "**HTML (HyperText Markup Language)** is the standard language for creating web pages. It defines the structure and content of a page using tags like <p>, <h1>, <div>, etc." },
+        { keywords: ["what is api", "api meaning", "how does api work"], answer: "**API (Application Programming Interface)** is a way for different software systems to communicate. It defines the rules and endpoints for requesting and exchanging data between apps." },
+        { keywords: ["what is database", "types of database", "sql meaning"], answer: "**Database** is an organized collection of data stored electronically. Common types: **SQL** (MySQL, PostgreSQL — structured tables) and **NoSQL** (MongoDB — flexible documents)." },
+        { keywords: ["how to type fast", "typing speed", "touch typing"], answer: "Touch typing (home row keys: ASDF JKL;) is the fastest method. Practice daily on sites like typingclub.com or keybr.com. Aim for 40+ WPM initially, then build up." },
+        { keywords: ["how to make a website", "build a website", "website development steps"], answer: "Steps: 1) Learn **HTML/CSS/JS** basics, 2) Choose a domain/hosting, 3) Design your layout, 4) Build pages, 5) Deploy (Netlify, Vercel, or GitHub Pages are free). WordPress is a no-code alternative." },
+        { keywords: ["what is github", "github meaning", "git explained"], answer: "**GitHub** is a platform for hosting and collaborating on code using **Git** (version control). It tracks changes, enables branching/merging, and supports open-source collaboration." },
+        { keywords: ["what is a server", "how do servers work", "server explained"], answer: "**Server** is a computer that stores, processes, and serves data to other computers (clients) over a network. When you visit a website, your browser requests data from a server." },
+        { keywords: ["how old is the earth", "earth age", "age of our planet"], answer: "**Earth is about 4.54 billion years old**, based on radiometric dating of meteorite material and the oldest known rocks." },
+        { keywords: ["how many oceans are there", "name the oceans", "seven oceans"], answer: "There are **5 oceans**: Pacific (largest), Atlantic, Indian, Southern (Antarctic), and Arctic (smallest)." },
+        { keywords: ["what is electricity", "how does electricity work", "electricity explained"], answer: "**Electricity** is the flow of electric charge (electrons) through a conductor. It powers devices by providing energy through circuits — measured in volts (V), amps (A), and watts (W)." },
+        { keywords: ["how does combustion work", "what is combustion", "fire triangle"], answer: "**Combustion** is a chemical reaction where a fuel reacts with oxygen, releasing heat and light. The fire triangle requires: **fuel + oxygen + heat**." },
+        { keywords: ["who invented the internet", "when was the internet created", "history of the internet"], answer: "**ARPANET** (1969, funded by the US DoD) was the internet's predecessor. **Tim Berners-Lee** invented the World Wide Web in 1989. The internet evolved from decades of academic/military research." },
+        { keywords: ["what is satellite", "how do satellites work", "what does a satellite do"], answer: "**Satellite** is an object placed in orbit around Earth (or another body). They're used for communication, weather monitoring, GPS, and scientific research. They orbit by balancing gravity with their forward velocity." },
+        { keywords: ["is the earth round", "is earth flat", "shape of the earth"], answer: "The Earth is an **oblate spheroid** — nearly round but slightly flattened at the poles and bulging at the equator. It's not perfectly spherical." },
         { keywords: ["what is the boiling point of water", "water boiling point"], answer: "**100 degrees Celsius (212 degrees Fahrenheit)** at sea level." },
         { keywords: ["what is the freezing point of water", "water freezing point"], answer: "**0 degrees Celsius (32 degrees Fahrenheit)**." },
         { keywords: ["how many bones in the human body", "human bones"], answer: "An adult human body has **206 bones**. Babies are born with about 270, but many fuse together as they grow." },
@@ -312,49 +336,168 @@ window.ZenithDirectory = (function () {
     }
 
     function solveMath(input) {
-        // Strip natural-language prefixes like "whats 34+43" -> "34+43", "what is 2*7" -> "2*7"
-        var lower = (input || '').toLowerCase().trim();
-        // remove leading question words repeatedly
-        var prefixRe = /^(whats|what\'s|what is|what are|whats is|calculate|solve|compute|please|can you|hey|hi|the answer is|result of|answer|is|the)\s+/i;
+        var raw = (input || '').toLowerCase().trim();
+        if (!raw) return null;
+        // Strip natural-language prefixes repeatedly
+        var prefixRe = /^(whats|what's|what is|what are|whats is|calculate|solve|compute|please|can you|hey|hi|the answer is|result of|answer|is|the)\s+/i;
         var prev;
-        do { prev = lower; lower = lower.replace(prefixRe, '').trim(); } while (lower !== prev && lower.length);
-        if (!lower) return null;
-        // Clean input — use the stripped version, preserve math chars
-        var s = lower.replace(/\s+/g, '').replace(/×/g, '*').replace(/÷/g, '/').replace(/\u2212/g, '-').replace(/π/g, 'pi');
+        var s = raw;
+        do { prev = s; s = s.replace(prefixRe, '').trim(); } while (s !== prev && s.length);
+        if (!s) return null;
+        // Normalize unicode and whitespace
+        s = s.replace(/\u00d7/g, '*').replace(/\u00f7/g, '/').replace(/\u2212/g, '-').replace(/\u03c0/gi, 'pi').replace(/\s+/g, '');
+        // Handle percentage: 50% -> (50/100)
+        s = s.replace(/(\d+(\.\d+)?)%/g, '($1/100)');
+        // Handle sqrt: sqrt(144) or sqrt25
+        s = s.replace(/sqrt\(([^)]+)\)/gi, 'SQRT($1)');
+        s = s.replace(/sqrt(\d+(\.\d+)?)/gi, 'SQRT($1)');
+        // Handle pi constant
+        s = s.replace(/\bpi\b/gi, '(' + Math.PI + ')');
+        // Handle implicit multiplication: 2(3+4) -> 2*(3+4), (2)(3) -> (2)*(3), 2pi -> 2*pi
+        s = s.replace(/(\d)(\()/g, '$1*$2');
+        s = s.replace(/(\))(\d)/g, '$1*$2');
+        s = s.replace(/(\))(\()/g, '$1*$2');
+        // Handle power operator: 2^3 -> pow(2,3)
+        s = s.replace(/(\d+(\.\d+)?)\^(\d+(\.\d+)?)/g, 'POW($1,$3)');
 
-        // Replace percentage: 50% -> (50/100)
-        s = s.replace(/(\d+(\.\d+)?)\s*%/g, '($1/100)');
+        // ─── Tokenizer ───
+        var tokens = [];
+        var i = 0;
+        while (i < s.length) {
+            var c = s[i];
+            if (c >= '0' && c <= '9' || c === '.') {
+                var num = '';
+                while (i < s.length && (s[i] >= '0' && s[i] <= '9' || s[i] === '.')) num += s[i++];
+                tokens.push({ type: 'num', val: parseFloat(num) });
+            } else if (c === '+' || c === '-' || c === '*' || c === '/') {
+                // Handle unary minus
+                if (c === '-' && (tokens.length === 0 || tokens[tokens.length-1].type === 'op')) {
+                    tokens.push({ type: 'num', val: 0 });
+                }
+                tokens.push({ type: 'op', val: c });
+                i++;
+            } else if (c === '(') {
+                tokens.push({ type: 'lparen' });
+                i++;
+            } else if (c === ')') {
+                tokens.push({ type: 'rparen' });
+                i++;
+            } else if (s.substr(i, 4).toUpperCase() === 'SQRT' && s[i+4] === '(') {
+                // SQRT function
+                var depth = 0, start = i + 5;
+                for (var j = start; j < s.length; j++) {
+                    if (s[j] === '(') depth++;
+                    if (s[j] === ')') { if (depth === 0) break; depth--; }
+                }
+                var inner = s.substring(start, j);
+                var innerVal = evalExpr(inner);
+                if (innerVal === null || innerVal < 0) return null;
+                tokens.push({ type: 'num', val: Math.sqrt(innerVal) });
+                i = j + 1;
+            } else if (s.substr(i, 3).toUpperCase() === 'POW' && s[i+3] === '(') {
+                var depth = 0, start = i + 4;
+                for (var j = start; j < s.length; j++) {
+                    if (s[j] === '(') depth++;
+                    if (s[j] === ')') { if (depth === 0) break; depth--; }
+                }
+                var args = s.substring(start, j);
+                var parts = splitTopLevel(args, ',');
+                if (parts.length !== 2) return null;
+                var base = evalExpr(parts[0]);
+                var exp = evalExpr(parts[1]);
+                if (base === null || exp === null) return null;
+                tokens.push({ type: 'num', val: Math.pow(base, exp) });
+                i = j + 1;
+            } else {
+                return null; // invalid character
+            }
+        }
+        if (!tokens.length) return null;
 
-        // Replace sqrt: sqrt(144) -> Math.sqrt(144), sqrt25 -> Math.sqrt(25)
-        s = s.replace(/sqrt\(([^)]+)\)/gi, 'Math.sqrt($1)');
-        s = s.replace(/sqrt(\d+(\.\d+)?)/gi, 'Math.sqrt($1)');
-
-        // Replace pi
-        s = s.replace(/\bpi\b/gi, String(Math.PI));
-
-        // Replace ^ with **
-        s = s.replace(/\^/g, '**');
-
-        // Insert implicit multiplication: 2( -> 2*(, )( -> )*(, (2 -> (2... but be careful
-        // 2(3+4) -> 2*(3+4), (2)(3) -> (2)*(3)
-        s = s.replace(/(\d)\(/g, '$1*(');
-        s = s.replace(/\)(\d)/g, ')*$1');
-        s = s.replace(/\)\(/g, ')*(');
-
-        // Validate: only allow digits, operators, dots, parens, Math.sqrt, Math.PI, *
-        var cleaned = s.replace(/Math\.sqrt/g, '').replace(/Math\.PI/g, '').replace(/[0-9+\-*/%().]/g, '');
-        if (cleaned.length > 0) return null; // has invalid chars
-
-        // Try to evaluate safely
+        // ─── Recursive-descent parser (handles +,-,*,/) ───
+        var pos = 0;
+        function parseExpr() { return parseAddSub(); }
+        function parseAddSub() {
+            var left = parseMulDiv();
+            while (pos < tokens.length && tokens[pos].type === 'op' && (tokens[pos].val === '+' || tokens[pos].val === '-')) {
+                var op = tokens[pos++].val;
+                var right = parseMulDiv();
+                left = op === '+' ? left + right : left - right;
+            }
+            return left;
+        }
+        function parseMulDiv() {
+            var left = parseUnary();
+            while (pos < tokens.length && tokens[pos].type === 'op' && (tokens[pos].val === '*' || tokens[pos].val === '/')) {
+                var op = tokens[pos++].val;
+                var right = parseUnary();
+                left = op === '*' ? left * right : left / right;
+            }
+            return left;
+        }
+        function parseUnary() {
+            if (pos < tokens.length && tokens[pos].type === 'op' && tokens[pos].val === '-') {
+                pos++;
+                return -parseAtom();
+            }
+            return parseAtom();
+        }
+        function parseAtom() {
+            if (pos >= tokens.length) return 0;
+            if (tokens[pos].type === 'num') return tokens[pos++].val;
+            if (tokens[pos].type === 'lparen') {
+                pos++;
+                var val = parseExpr();
+                if (pos < tokens.length && tokens[pos].type === 'rparen') pos++;
+                return val;
+            }
+            return 0;
+        }
         try {
-            var result = new Function('return ' + s)();
+            var result = parseExpr();
             if (typeof result === 'number' && isFinite(result)) {
                 var rounded = Math.round(result * 1e10) / 1e10;
-                return "**" + lower + " = " + String(rounded) + "**";
+                if (Number.isInteger(rounded)) return "**" + raw + " = " + rounded + "**";
+                return "**" + raw + " = " + rounded + "**";
             }
             return null;
-        } catch (e) {
-            return null;
+        } catch (e) { return null; }
+
+        // helper: evaluate a standalone expression string
+        function evalExpr(str) {
+            var saved = { tokens: tokens.slice(), pos: pos };
+            tokens = []; pos = 0;
+            // tokenize the sub-expression
+            var j = 0;
+            while (j < str.length) {
+                var ch = str[j];
+                if (ch >= '0' && ch <= '9' || ch === '.') {
+                    var n = '';
+                    while (j < str.length && (str[j] >= '0' && str[j] <= '9' || str[j] === '.')) n += str[j++];
+                    tokens.push({ type: 'num', val: parseFloat(n) });
+                } else if (ch === '+' || ch === '-' || ch === '*' || ch === '/') {
+                    if (ch === '-' && (tokens.length === 0 || tokens[tokens.length-1].type === 'op'))
+                        tokens.push({ type: 'num', val: 0 });
+                    tokens.push({ type: 'op', val: ch }); j++;
+                } else if (ch === '(') { tokens.push({ type: 'lparen' }); j++;
+                } else if (ch === ')') { tokens.push({ type: 'rparen' }); j++;
+                } else { return null; }
+            }
+            if (!tokens.length) return null;
+            var val = parseExpr();
+            tokens = saved.tokens; pos = saved.pos;
+            return val;
+        }
+        function splitTopLevel(str, sep) {
+            var parts = [], depth = 0, cur = '';
+            for (var k = 0; k < str.length; k++) {
+                if (str[k] === '(') depth++;
+                else if (str[k] === ')') depth--;
+                else if (str[k] === sep && depth === 0) { parts.push(cur); cur = ''; continue; }
+                cur += str[k];
+            }
+            if (cur) parts.push(cur);
+            return parts;
         }
     }
 

@@ -29,7 +29,7 @@ async def analytics_overview(request: Request, db: AsyncSession = Depends(get_db
     guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%"), User.is_deleted == False))).scalar() or 0
     messages_today = (await db.execute(select(func.count()).select_from(Message).where(Message.created_at >= today_start))).scalar() or 0
     new_this_week = (await db.execute(select(func.count()).select_from(User).where(User.created_at >= week_ago, User.is_deleted == False))).scalar() or 0
-    online_users = (await db.execute(select(func.count()).select_from(User).where(User.last_seen >= now - timedelta(seconds=1), User.is_deleted == False))).scalar() or 0
+    online_users = (await db.execute(select(func.count()).select_from(User).where(User.last_seen >= now - timedelta(seconds=10), User.is_deleted == False))).scalar() or 0
     active_chats = (await db.execute(select(func.count()).select_from(Chat).where(Chat.updated_at >= now - timedelta(hours=24)))).scalar() or 0
     suspended_count = (await db.execute(select(func.count()).select_from(User).where(User.is_banned == True, User.is_deleted == False))).scalar() or 0
     verified_count = total_users - guest_count

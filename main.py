@@ -27,13 +27,16 @@ from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
 
-VERSION = "17.0"
+VERSION = "18.0"
 CHANGELOG = [
-    "Upgrade button + Monthly/Yearly/Lifetime tabs — Pro $5.99/$59.99, Ultimate $11.99/$119.99, Lifetime $200/$400",
-    "Billing: Stripe + 5-day Pro trial (card required), guest 40-msg pause, free 5 img/15 uploads",
-    "Vault fullscreen — hamburger, Ban/Delete, live stats, owner titanium vs admin gold",
-    "Mobile: billing, vault, voice orb (blue-purple), broadcast all responsive",
-    "Upgrade prompt only on limit — not on every click",
+    "Offline Mode: exiting returns you to the offline popup, not the app UI",
+    "Back online while offline → mini popup prompts you to leave offline mode",
+    "Offline directory massively expanded: world capitals, history, algebra & math (1+1=2, square roots, equations, pi, trig)",
+    "Fixed '?' showing in Banned/Deleted 'by' columns — old records backfilled to 'Staff'",
+    "Dashboard Live Now: who's online, green dots in recent & activity feed (live, no caching)",
+    "System gauges now labelled (CPU / RAM / Storage) so every percent is clear",
+    "All PRO tags cleared from non-staff users; Owners & Admins auto-have Ultimate",
+    "Full UI polish on recent accounts, activity feed & messages-per-hour",
 ]
 
 

@@ -4,9 +4,6 @@ const Vault = {
     _pollInterval: null,
     _sysPollInterval: null,
     _cache: {},
-    _recentKey: null,
-    _activityKey: null,
-    _hourlyKey: null,
 
     async init() {
         try {
@@ -73,6 +70,7 @@ const Vault = {
                 this.loadHourlyChart();
                 this.loadRecentAccounts();
                 this.loadActivityFeed();
+                this.loadOnlineUsers();
             }
             this.refreshOnlineCount();
         }, 1000);
@@ -211,6 +209,10 @@ const Vault = {
                         </div>
                         <div style="font-size:11px;color:#4ADE80;text-align:center;margin-top:8px;">✓ All systems operational</div>
                     </div>
+                    <div class="vault-card">
+                        <div class="card-header"><span>🟢 Online Now</span></div>
+                        <div id="dash-online"></div>
+                    </div>
                 </div>
                 <div class="vault-grid">
                     <div class="vault-card">
@@ -236,6 +238,7 @@ const Vault = {
             this.loadActivityFeed();
             this.loadHourlyChart();
             this.loadSecurityAlerts();
+            this.loadOnlineUsers();
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
     },
 
@@ -260,19 +263,28 @@ const Vault = {
 
     renderGauges(sys) {
         return `
-            <div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.cpu, 100, 80, '#60A5FA')}</div>
-            <div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.ram, 100, 80, '#A78BFA')}</div>
-            <div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.storage, 100, 80, '#4ADE80')}</div>`;
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.cpu, 100, 80, '#60A5FA')}</div><span style="font-size:10px;color:#60A5FA;font-weight:600;">CPU</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.ram, 100, 80, '#A78BFA')}</div><span style="font-size:10px;color:#A78BFA;font-weight:600;">RAM</span></div>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:2px;"><div class="vault-gauge" style="width:80px;height:80px;">${this.svgGauge(sys.storage, 100, 80, '#4ADE80')}</div><span style="font-size:10px;color:#4ADE80;font-weight:600;">Storage</span></div>`;
+    },
+
+    _usersCache: null,
+    _usersCacheTime: 0,
+
+    async getUsersOnce() {
+        const now = Date.now();
+        if (this._usersCache && (now - this._usersCacheTime) < 1000) return this._usersCache;
+        const { users } = await api('/api/auth/admin/users');
+        this._usersCache = users;
+        this._usersCacheTime = now;
+        return users;
     },
 
     async loadRecentAccounts() {
         const el = document.getElementById('dash-recent');
         if (!el) return;
         try {
-            const { users } = await api('/api/auth/admin/users');
-            const key = users.slice(0, 5).map(u => `${u.id}:${u.is_banned ? 1 : 0}:${u.is_deleted ? 1 : 0}:${u.created_at}`).join('|');
-            if (key === this._recentKey) return;
-            this._recentKey = key;
+            const users = await this.getUsersOnce();
             el.innerHTML = users.slice(0, 5).map((u, i) => {
                 const sc = u.is_banned ? 'badge-red' : (u.is_deleted ? 'badge-gray' : (u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-green')));
                 const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
@@ -285,16 +297,15 @@ const Vault = {
         const el = document.getElementById('dash-activity');
         if (!el) return;
         try {
-            const { users } = await api('/api/auth/admin/users');
-            const key = users.slice(0, 10).map(u => `${u.username}|${u.is_banned ? 1 : 0}|${u.id}|${u.last_active || ''}`).join('~');
-            if (key === this._activityKey) return;
-            this._activityKey = key;
+            const users = await this.getUsersOnce();
             let html = '';
             users.filter(u => u.is_banned).slice(0, 3).forEach(u => {
                 html += `<div class="vault-activity-item"><span style="color:#EF4444;">🚫</span><div><div style="color:#a78bfa;font-size:12px;">Banned: ${u.username}</div><div style="color:#666;font-size:11px;">${u.ban_reason || 'No reason'}</div></div></div>`;
             });
             users.filter(u => !u.is_banned && !u.is_deleted).slice(0, 4).forEach(u => {
-                html += `<div class="vault-activity-item"><span style="color:#4ADE80;">👤</span><div><div style="color:#a78bfa;font-size:12px;">${u.username}</div><div style="color:#666;font-size:11px;">${u.created_at} — ${u.last_active || 'Never'}</div></div></div>`;
+                const dotColor = u.online ? '#4ADE80' : '#666';
+                const dotShadow = u.online ? 'box-shadow:0 0 6px #4ADE80;' : '';
+                html += `<div class="vault-activity-item"><span style="width:8px;height:8px;border-radius:50%;background:${dotColor};${dotShadow}flex-shrink:0;margin-top:4px;"></span><div><div style="color:#a78bfa;font-size:12px;">${u.username}</div><div style="color:#666;font-size:11px;">${u.created_at} — ${u.last_active || 'Never'}</div></div></div>`;
             });
             el.innerHTML = html || '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity</div>';
         } catch { el.innerHTML = ''; }
@@ -305,9 +316,6 @@ const Vault = {
             const d = await api('/api/auth/admin/analytics/messages-per-hour');
             const el = document.getElementById('chart-hourly');
             const data = d.hours.map(h => ({ count: h.count }));
-            const key = data.map(x => x.count).join(',');
-            if (key === this._hourlyKey) return;
-            this._hourlyKey = key;
             const lastHr = new Date().getUTCHours();
             if (el) el.innerHTML = this.svgBar(data, 500, 100, '#A78BFA', lastHr);
         } catch {}
@@ -322,6 +330,21 @@ const Vault = {
                 <div class="vault-activity-item" style="border-left:3px solid ${dash.failed_logins > 0 ? '#EF4444' : '#4ADE80'};"><div><div style="font-size:12px;color:#fff;">${dash.failed_logins} failed logins</div><div style="font-size:11px;color:#666;">Total: ${dash.total_logins}</div></div></div>
                 <div class="vault-activity-item" style="border-left:3px solid #4ADE80;"><div><div style="font-size:12px;color:#fff;">${dash.unique_ips} unique IPs</div><div style="font-size:11px;color:#666;">Last: ${dash.last_ip}</div></div></div>`;
         } catch { el.innerHTML = '<div style="color:#666;font-size:12px;">No data</div>'; }
+    },
+
+    async loadOnlineUsers() {
+        const el = document.getElementById('dash-online');
+        if (!el) return;
+        try {
+            const users = await this.getUsersOnce();
+            const online = users.filter(u => u.online && !u.is_banned && !u.is_deleted);
+            if (!online.length) { el.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:16px;">No users online</div>'; return; }
+            el.innerHTML = online.map(u => {
+                const rc = u.role === 'owner' ? '#a78bfa' : (u.role === 'admin' ? '#fbbf24' : '#4ADE80');
+                const rl = u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'User');
+                return `<div class="vault-activity-item" style="border-left:3px solid ${rc};"><div style="flex:1;min-width:0;"><div style="color:${rc};font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#666;font-size:10px;">${rl}</div></div><span style="width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px #4ADE80;flex-shrink:0;"></span></div>`;
+            }).join('');
+        } catch { el.innerHTML = '<div style="color:#666;font-size:12px;">Unable to load</div>'; }
     },
 
     statCard(icon, label, value, sub, cls) {
@@ -601,7 +624,7 @@ const Vault = {
             <td style="font-weight:600;color:#EF4444;">${u.username}</td>
             <td style="color:#8B949E;">${u.email}</td>
             <td>${u.ban_reason || 'No reason'}</td>
-            <td><span class="badge badge-yellow">${u.banned_by || '?'}</span></td>
+            <td><span class="badge badge-yellow">${u.banned_by || 'Staff'}</span></td>
             <td><button class="vault-btn success" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',true)">Unban</button></td>
         </tr>`).join('');
     },
@@ -632,7 +655,7 @@ const Vault = {
                             <td style="color:#8B949E;">${i + 1}</td>
                             <td style="font-weight:600;color:#8B949E;">${u.username}</td>
                             <td style="color:#666;">${u.email}</td>
-                            <td><span class="badge badge-yellow">${u.deleted_by || '?'}</span></td>
+                            <td><span class="badge badge-yellow">${u.deleted_by || 'Staff'}</span></td>
                             <td style="color:#8B949E;font-size:11px;">${u.created_at}</td>
                         </tr>`).join('') || '<tr><td colspan="5" class="vault-empty"><div class="vault-empty-icon">✅</div>No deleted accounts</td></tr>'}</tbody>
                     </table>

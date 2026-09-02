@@ -865,13 +865,46 @@ function openOfflineChat() {
     }
     wrap.querySelector('#offline-chat-send').addEventListener('click', send);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    wrap.querySelector('#offline-chat-close').addEventListener('click', () => wrap.remove());
-    window.addEventListener('online', function onBack() { wrap.remove(); window.removeEventListener('online', onBack); showToast('Back online', 'success'); });
+    // Closing offline mode should take the user BACK to the offline popup (not the app UI)
+    wrap.querySelector('#offline-chat-close').addEventListener('click', () => {
+        wrap.remove();
+        if (navigator.onLine) {
+            // Already back online — offer to return to the full app
+            promptBackOnline();
+        } else {
+            showOfflineScreen();
+        }
+    });
+    // Wifi returns while in offline mode → mini popup prompting to leave offline mode
+    window.addEventListener('online', function onBack() {
+        if (!document.getElementById('offline-chat')) { window.removeEventListener('online', onBack); return; }
+        wrap.remove();
+        window.removeEventListener('online', onBack);
+        promptBackOnline();
+    });
     document.body.appendChild(wrap);
     input.focus();
 }
+function promptBackOnline() {
+    if (document.getElementById('back-online-popup')) return;
+    const p = document.createElement('div');
+    p.id = 'back-online-popup';
+    p.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999; width:auto; max-width:94vw; background:linear-gradient(145deg,#0a2a1a,#0f3a24); border:2px solid #4ADE80; border-radius:14px; padding:14px 18px; box-shadow:0 12px 40px rgba(74,222,128,0.3); display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center;';
+    p.innerHTML = `
+        <span style="width:12px;height:12px;border-radius:50%;background:#4ADE80;box-shadow:0 0 8px #4ADE80;display:inline-block;flex-shrink:0;"></span>
+        <div>
+            <div style="color:#fff;font-weight:700;font-size:13px;">You're back online!</div>
+            <div style="color:rgba(255,255,255,0.7);font-size:11px;">Full AI chat is available again.</div>
+        </div>
+        <button id="back-online-leave" style="padding:8px 16px;background:#4ADE80;color:#063;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">Leave Offline Mode</button>
+        <button id="back-online-stay" style="padding:8px 14px;background:transparent;color:#4ADE80;border:1px solid #4ADE80;border-radius:8px;cursor:pointer;font-size:12px;">Stay</button>`;
+    const close = () => p.remove();
+    p.querySelector('#back-online-leave').addEventListener('click', close);
+    p.querySelector('#back-online-stay').addEventListener('click', close);
+    document.body.appendChild(p);
+}
 window.addEventListener('offline', showOfflineScreen);
-window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); showToast('Back online','success'); });
+window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); if(!document.getElementById('offline-chat')) showToast('Back online','success'); });
 function showDeletedScreen(deletedBy) {
     if (document.getElementById('banned-screen')) return;
     const div = document.createElement('div');

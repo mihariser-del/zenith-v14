@@ -108,6 +108,8 @@ const AdminPanel = {
                 <div style="display:flex; gap:4px; flex-wrap:wrap;">
                     <button style="padding:4px 8px; background:none; border:1px solid var(--border); color:#888; border-radius:6px; cursor:pointer; font-size:10px;" data-action="chats" data-id="${u.id}">Chats</button>
                     ${canAct && targetRole !== 'admin' ? `<button style="padding:4px 8px; background:none; border:1px solid #ffaa00; color:#ffaa00; border-radius:6px; cursor:pointer; font-size:10px;" data-action="reset" data-id="${u.id}">Reset PW</button>` : ''}
+                    ${canAct && targetRole === 'admin' ? `<button style="padding:4px 8px; background:none; border:1px solid #EF4444; color:#EF4444; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="demote" data-id="${u.id}">Demote</button>` : ''}
+                    ${canAct && targetRole === 'user' && meIsOwner ? `<button style="padding:4px 8px; background:none; border:1px solid #4ADE80; color:#4ADE80; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="promote" data-id="${u.id}">Promote</button>` : ''}
                     ${canAct ? (u.is_banned ? `<button style="padding:4px 8px; background:#00ff88; border:none; color:#000; border-radius:6px; cursor:pointer; font-size:10px; font-weight:600;" data-action="unban" data-id="${u.id}">Unban</button>` : `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="ban" data-id="${u.id}">Ban</button>`) : ''}
                     ${canAct ? `<button style="padding:4px 8px; background:none; border:1px solid var(--error); color:var(--error); border-radius:6px; cursor:pointer; font-size:10px;" data-action="delete" data-id="${u.id}">Delete</button>` : ''}
                 </div>`;
@@ -144,6 +146,22 @@ const AdminPanel = {
                     if (!newPw || newPw.length < 6) { if (newPw !== null) showToast('Password must be at least 6 chars', 'error'); return; }
                     await api(`/api/auth/admin/users/${u.id}/reset-password`, { method: 'POST', body: JSON.stringify({ new_password: newPw }) });
                     showToast(`Password reset for ${u.username}`, 'success');
+                });
+                const demoteBtn = div.querySelector('[data-action="demote"]');
+                if (demoteBtn) demoteBtn.addEventListener('click', async () => {
+                    const ok = await showConfirm(`Demote ${u.username}?`, 'They will become a regular user and lose all admin privileges.', true);
+                    if (!ok) return;
+                    await api(`/api/auth/admin/users/${u.id}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) });
+                    showToast(`${u.username} demoted to user`, 'success');
+                    AdminPanel.load();
+                });
+                const promoteBtn = div.querySelector('[data-action="promote"]');
+                if (promoteBtn) promoteBtn.addEventListener('click', async () => {
+                    const ok = await showConfirm(`Promote ${u.username}?`, 'They will become an admin with full admin access.', false);
+                    if (!ok) return;
+                    await api(`/api/auth/admin/users/${u.id}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) });
+                    showToast(`${u.username} promoted to admin`, 'success');
+                    AdminPanel.load();
                 });
             }
             div.querySelector('[data-action="chats"]').addEventListener('click', async () => {

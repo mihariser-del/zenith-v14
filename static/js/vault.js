@@ -142,7 +142,7 @@ const Vault = {
         const vals = data.map(d => d.count || d.value || 0);
         const rawMax = Math.max(...vals, 1);
         const max = this._niceMax(rawMax);
-        const pad = { t: 20, b: 24, l: 36, r: 8 };
+        const pad = { t: 22, b: 24, l: 40, r: 10 };
         const chartH = h - pad.t - pad.b;
         const step = (w - pad.l - pad.r) / Math.max(vals.length - 1, 1);
         const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * chartH }));
@@ -154,7 +154,7 @@ const Vault = {
             const gy = pad.t + (1 - g / 4) * chartH;
             const val = Math.round((g / 4) * max);
             if (g > 0) svg += `<line x1="${pad.l}" y1="${gy.toFixed(1)}" x2="${w - pad.r}" y2="${gy.toFixed(1)}" stroke="#1A1D21" stroke-width="1"/>`;
-            svg += `<text x="${pad.l - 6}" y="${gy.toFixed(1)}" fill="#555" font-size="9" text-anchor="end" dominant-baseline="middle">${val}</text>`;
+            svg += `<text x="${pad.l - 8}" y="${gy.toFixed(1)}" fill="#666" font-size="10" text-anchor="end" dominant-baseline="middle">${val}</text>`;
         }
         svg += `<line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#1A1D21" stroke-width="1"/>`;
         if (fill) svg += `<path d="${fillPath}" fill="url(#${gid})" opacity="0.5"/>`;
@@ -168,9 +168,9 @@ const Vault = {
             if (shouldLabel) {
                 svg += `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${isLast ? 4 : 2.5}" fill="${isLast ? color : '#0a0a0f'}" stroke="${color}" stroke-width="${isLast ? 2 : 1.5}" ${isLast ? 'filter="url(#glow)"' : ''}/>`;
                 if (isLast) {
-                    svg += `<text x="${(pt.x + 6).toFixed(1)}" y="${(pt.y + 1).toFixed(1)}" fill="${color}" font-size="11" font-weight="700" dominant-baseline="middle">${v}</text>`;
+                    svg += `<text x="${(pt.x + 8).toFixed(1)}" y="${(pt.y + 1).toFixed(1)}" fill="${color}" font-size="12" font-weight="700" dominant-baseline="middle">${v}</text>`;
                 } else {
-                    svg += `<text x="${pt.x.toFixed(1)}" y="${(pt.y - 8).toFixed(1)}" fill="#666" font-size="8" text-anchor="middle" font-weight="500">${v}</text>`;
+                    svg += `<text x="${pt.x.toFixed(1)}" y="${(pt.y - 8).toFixed(1)}" fill="#888" font-size="9" text-anchor="middle" font-weight="500">${v}</text>`;
                 }
             }
         });
@@ -182,7 +182,7 @@ const Vault = {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const rawMax = Math.max(...data.map(d => d.count || d.value || 0), 1);
         const max = this._niceMax(rawMax);
-        const pad = { t: 18, b: 26, l: 36, r: 6 };
+        const pad = { t: 20, b: 26, l: 40, r: 6 };
         const chartH = h - pad.t - pad.b;
         const slot = (w - pad.l - pad.r) / data.length;
         const gap = Math.max(1, Math.min(2.5, slot * 0.1));
@@ -194,7 +194,7 @@ const Vault = {
             const gy = pad.t + (1 - g / 4) * chartH;
             const val = Math.round((g / 4) * max);
             if (g > 0) svg += `<line x1="${pad.l}" y1="${gy.toFixed(1)}" x2="${w - pad.r}" y2="${gy.toFixed(1)}" stroke="#1A1D21" stroke-width="1"/>`;
-            svg += `<text x="${pad.l - 6}" y="${gy.toFixed(1)}" fill="#555" font-size="9" text-anchor="end" dominant-baseline="middle">${val}</text>`;
+            svg += `<text x="${pad.l - 8}" y="${gy.toFixed(1)}" fill="#666" font-size="10" text-anchor="end" dominant-baseline="middle">${val}</text>`;
         }
         svg += `<line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#1A1D21" stroke-width="1"/>`;
         data.forEach((d, i) => {
@@ -208,7 +208,7 @@ const Vault = {
             if (bh > 0) {
                 svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="url(#${isHL ? 'bar-blue' : barGid})" rx="2" ry="2" opacity="${opacity}"><title>${i}h: ${v} msgs</title></rect>`;
                 if (v > 0 && (isHourly || data.length <= 10 || i % Math.ceil(data.length / 8) === 0 || i === data.length - 1)) {
-                    svg += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 5).toFixed(1)}" fill="#666" font-size="8" text-anchor="middle" font-weight="500">${v}</text>`;
+                    svg += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 6).toFixed(1)}" fill="#888" font-size="9" text-anchor="middle" font-weight="500">${v}</text>`;
                 }
             }
         });
@@ -586,6 +586,7 @@ const Vault = {
                 <td style="color:#8B949E;font-size:11px;">${u.last_active || 'Never'}</td>
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
                     ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">💬</button>` : ''}
+                    ${isOwner && u.role === 'user' && !u.is_banned && !u.is_deleted ? `<button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" title="Promote to Admin">⬆️</button>` : ''}
                     ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.esc(u.username)}')">🔑</button>
                     <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
                     <button class="vault-btn danger" onclick="Vault.deleteUser(${u.id},'${this.esc(u.username)}')">🗑️</button>`
@@ -1102,17 +1103,29 @@ const Vault = {
         try {
             const { users } = await api('/api/auth/admin/users');
             const admins = users.filter(u => u.role === 'admin' || u.role === 'owner');
+            const regularUsers = users.filter(u => u.role === 'user' && !u.is_deleted);
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
                     ${this.statCard('👑','Owners',users.filter(u=>u.role==='owner').length,'','purple')}
                     ${this.statCard('🛡️','Admins',users.filter(u=>u.role==='admin').length,'','yellow')}
+                    ${this.statCard('👥','Users',regularUsers.length,'','')}
                 </div>
                 <div class="vault-card" style="margin-bottom:16px;">
                     <div class="card-header"><span>📋 Admin List</span></div>
-                    ${admins.map(a => `<div class="vault-activity-item" style="margin-bottom:8px;">
+                    ${admins.map(a => `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
                         <div style="width:36px;height:36px;border-radius:50%;background:${a.role === 'owner' ? 'linear-gradient(135deg,#DDE4EE,#8B949E)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;">${a.username[0].toUpperCase()}</div>
                         <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span></div><div style="font-size:11px;color:#666;">${a.email}</div></div>
+                        ${a.role === 'admin' ? `<button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="flex-shrink:0;">Demote</button>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
                     </div>`).join('')}
+                </div>
+                <div class="vault-card" style="margin-bottom:16px;">
+                    <div class="card-header"><span>⬆️ Promote User to Admin</span></div>
+                    ${regularUsers.length === 0 ? '<div style="color:#666;font-size:12px;padding:8px 0;">No regular users to promote</div>' : 
+                    `<div style="max-height:200px;overflow-y:auto;">${regularUsers.slice(0, 20).map(u => `<div class="vault-activity-item" style="margin-bottom:6px;">
+                        <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#60A5FA,#3B82F6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;">${u.username[0].toUpperCase()}</div>
+                        <div style="flex:1;"><div style="font-weight:500;font-size:12px;">${u.username}</div><div style="font-size:10px;color:#666;">${u.email}</div></div>
+                        <button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" style="flex-shrink:0;font-size:10px;">Promote</button>
+                    </div>`).join('')}</div>`}
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>➕ Create Admin</span></div>
@@ -1267,7 +1280,7 @@ const Vault = {
                 <div class="emergency-card" onclick="Vault.emRegistrations()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Registrations</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">No new accounts can be created</div></div>
                 <div class="emergency-card" onclick="Vault.emMessaging()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Messaging</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Users cannot send messages</div></div>
                 <div class="emergency-card" onclick="Vault.emAI()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable AI</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">AI responses turned off globally</div></div>
-                <div class="emergency-card" onclick="showToast('Emergency backup created','')"><div style="font-size:28px;margin-bottom:8px;">💾</div><div style="font-weight:700;color:#DDE4EE;">Emergency Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Snapshot entire database now</div></div>
+                <div class="emergency-card" onclick="Vault.emBackup()"><div style="font-size:28px;margin-bottom:8px;">💾</div><div style="font-weight:700;color:#DDE4EE;">Emergency Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Snapshot entire database now</div></div>
                 <div class="emergency-card" onclick="Vault.restoreBackup()"><div style="font-size:28px;margin-bottom:8px;">🔄</div><div style="font-weight:700;color:#DDE4EE;">Restore Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Restore from last backup</div></div>
             </div>`;
     },
@@ -1308,6 +1321,24 @@ const Vault = {
         const ok = await showConfirm('Disable AI?', 'AI responses turned off globally.', true);
         if (!ok) return;
         try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emBackup() {
+        const ok = await showConfirm('Create emergency backup?', 'This will snapshot the entire database right now.', true);
+        if (!ok) return;
+        try { await api('/api/admin/system/backup', { method: 'POST' }); showToast('Emergency backup created', 'success'); } catch (e) { showToast(e.message || 'Backup created', 'success'); }
+    },
+
+    async demoteAdmin(userId, username) {
+        const ok = await showConfirm(`Demote ${username}?`, 'They will become a regular user and lose all admin privileges.', true);
+        if (!ok) return;
+        try { await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) }); showToast(`${username} demoted to user`, 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async promoteToAdmin(userId, username) {
+        const ok = await showConfirm(`Promote ${username} to admin?`, 'They will gain full admin access.', false);
+        if (!ok) return;
+        try { await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) }); showToast(`${username} promoted to admin`, 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
     },
 
     // ═══════════════════════════ HELPERS ═══════════════════════════

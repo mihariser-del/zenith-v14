@@ -490,6 +490,35 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     return {"message": "User deleted (soft)"}
 
 
+@router.post("/admin/users/{user_id}/role")
+async def admin_change_role(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Only the Owner can change roles")
+    if admin.id == user_id:
+        raise HTTPException(status_code=400, detail="Cannot change your own role")
+    body = await request.json()
+    new_role = body.get("role", "").strip().lower()
+    if new_role not in ("user", "admin"):
+        raise HTTPException(status_code=400, detail="Role must be 'user' or 'admin'")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    target_role = get_role(target)
+    if target_role == "owner":
+        raise HTTPException(status_code=400, detail="Cannot change the Owner's role")
+    if target_role == new_role:
+        return {"message": f"User is already {new_role}", "role": target_role}
+    target.role = new_role
+    if new_role == "user":
+        target.is_admin = False
+    elif new_role == "admin":
+        target.is_admin = True
+    await db.commit()
+    return {"message": f"User role changed to {new_role}", "role": new_role}
+
+
 @router.get("/me")
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)

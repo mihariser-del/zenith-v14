@@ -370,14 +370,20 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
-    now = datetime.now(timezone.utc)
+    now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     enriched = []
     for u in users:
         chat_count = (await db.execute(select(func.count()).select_from(Chat).where(Chat.user_id == u.id))).scalar() or 0
         msg_count = (await db.execute(select(func.count()).select_from(Message).join(Chat, Message.chat_id == Chat.id).where(Chat.user_id == u.id))).scalar() or 0
         last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
         last_seen = getattr(u, "last_seen", None)
-        online = bool(last_seen) and (now - last_seen).total_seconds() < 120
+        online = False
+        if last_seen:
+            try:
+                ls = last_seen if last_seen.tzinfo is None else last_seen.replace(tzinfo=None)
+                online = (now_naive - ls).total_seconds() < 120
+            except Exception:
+                online = False
         enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else "", "online": online, "last_seen": last_seen.strftime("%Y-%m-%d %H:%M") if last_seen else ""})
     return {"users": enriched}
 

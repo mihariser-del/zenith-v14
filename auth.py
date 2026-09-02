@@ -220,6 +220,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
             pass
 
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
+    user.last_seen = datetime.now(timezone.utc)
     await db.commit()
 
     token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
@@ -369,12 +370,15 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
+    now = datetime.now(timezone.utc)
     enriched = []
     for u in users:
         chat_count = (await db.execute(select(func.count()).select_from(Chat).where(Chat.user_id == u.id))).scalar() or 0
         msg_count = (await db.execute(select(func.count()).select_from(Message).join(Chat, Message.chat_id == Chat.id).where(Chat.user_id == u.id))).scalar() or 0
         last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
-        enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else ""})
+        last_seen = getattr(u, "last_seen", None)
+        online = bool(last_seen) and (now - last_seen).total_seconds() < 120
+        enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else "", "online": online, "last_seen": last_seen.strftime("%Y-%m-%d %H:%M") if last_seen else ""})
     return {"users": enriched}
 
 
@@ -484,3 +488,12 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     return {"user": UserResponse.model_validate(user)}
+
+
+@router.post("/heartbeat")
+async def heartbeat(request: Request, db: AsyncSession = Depends(get_db)):
+    """Lightweight presence ping. Updates last_seen so staff can see live online users."""
+    user = await get_current_user_from_cookie(request, db)
+    user.last_seen = datetime.now(timezone.utc)
+    await db.commit()
+    return {"ok": True}

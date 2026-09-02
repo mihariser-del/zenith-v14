@@ -88,6 +88,8 @@ class User(Base):
     stripe_subscription_id = Column(String(100), default="")
     # Rate limit - guest pause after 40 msgs
     last_pause_at = Column(DateTime, nullable=True)
+    # Presence
+    last_seen = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -286,6 +288,7 @@ async def init_db():
             ("stripe_customer_id", "VARCHAR(100) DEFAULT ''"),
             ("stripe_subscription_id", "VARCHAR(100) DEFAULT ''"),
             ("last_pause_at", "DATETIME"),
+            ("last_seen", "DATETIME"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

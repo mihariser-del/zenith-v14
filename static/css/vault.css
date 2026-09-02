@@ -50,6 +50,7 @@
 .vault-table td{padding:10px 12px;border-bottom:1px solid #0a0a0f;color:#e5e5e5;}
 .vault-table tr:hover td{background:#1A1D21;}
 .vault-table .badge{padding:1px 8px;border-radius:999px;font-size:10px;font-weight:600;display:inline-block;line-height:16px;}
+.badge{padding:1px 8px;border-radius:999px;font-size:10px;font-weight:600;display:inline-block;line-height:16px;white-space:nowrap;}
 .badge-green{background:#4ADE8022;color:#4ADE80;border:1px solid #4ADE8044;}
 .badge-red{background:#EF444422;color:#EF4444;border:1px solid #EF444444;}
 .badge-yellow{background:#F59E0B22;color:#F59E0B;border:1px solid #F59E0B44;}

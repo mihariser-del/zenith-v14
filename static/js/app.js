@@ -629,8 +629,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); localStorage.setItem('zenith_last_ann_seen', String(a.id)); } });
         document.body.appendChild(wrap);
     }
-    // Poll for broadcasts every 5s for all users including guests and new accounts — persistent until dismissed
-    pollAnnouncements(); setInterval(pollAnnouncements, 5000);
+    // Poll for broadcasts every 1s for all users — fast delivery of staff popups
+    pollAnnouncements(); setInterval(pollAnnouncements, 1000);
+    // Presence heartbeat — keeps last_seen fresh so staff can see live online users
+    setInterval(() => {
+        if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+    }, 30000);
     // Keep refreshAttention for staff fallback (old) but now poll handles it
     async function refreshAttentionBadge() {
         await pollAnnouncements();
@@ -803,10 +807,68 @@ function showOfflineScreen() {
             <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(0,170,255,0.15); border:2px solid #00aaff; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#00aaff; font-size:32px;">&#128246;</div>
             <h2 style="color:#00aaff; font-size:20px; margin-bottom:8px;">YOU ARE OFFLINE</h2>
             <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:16px;">Check your connection. Chat will resume when back online.</p>
-            <button id="offline-retry" style="padding:10px 18px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Retry</button>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button id="offline-retry" style="padding:10px 18px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Retry</button>
+                <button id="offline-mode-btn" style="padding:10px 18px; background:rgba(0,170,255,0.15); color:#00aaff; border:1px solid #00aaff; border-radius:8px; font-weight:700; cursor:pointer;">Offline Mode</button>
+            </div>
+            <p style="color:rgba(255,255,255,0.45); font-size:11px; margin-top:12px;">Offline Mode lets me answer basic questions from my local directory.</p>
         </div>`;
     div.querySelector('#offline-retry').addEventListener('click', () => { if (navigator.onLine) div.remove(); else showToast('Still offline', 'error'); });
+    div.querySelector('#offline-mode-btn').addEventListener('click', () => {
+        div.remove();
+        openOfflineChat();
+    });
     document.body.appendChild(div);
+}
+function openOfflineChat() {
+    if (document.getElementById('offline-chat')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'offline-chat';
+    wrap.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.9); backdrop-filter:blur(8px);';
+    wrap.innerHTML = `
+        <div style="width:100%; max-width:520px; height:80vh; display:flex; flex-direction:column; background:linear-gradient(160deg,#0a1a2a,#152536); border:2px solid #00aaff; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,170,255,0.35);">
+            <div style="padding:14px 18px; border-bottom:1px solid rgba(0,170,255,0.3); display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2);">
+                <div>
+                    <div style="color:#00aaff; font-weight:800; font-size:15px; letter-spacing:1px;">OFFLINE MODE</div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:11px;">Basic answers · no internet</div>
+                </div>
+                <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+            </div>
+            <div id="offline-chat-body" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;"></div>
+            <div style="padding:12px; border-top:1px solid rgba(0,170,255,0.3); display:flex; gap:8px;">
+                <input id="offline-chat-input" placeholder="Ask me something basic..." style="flex:1; padding:10px 12px; background:rgba(0,0,0,0.3); border:1px solid rgba(0,170,255,0.4); border-radius:8px; color:#fff; outline:none; font-size:13px;">
+                <button id="offline-chat-send" style="padding:10px 16px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Send</button>
+            </div>
+        </div>`;
+    const body = wrap.querySelector('#offline-chat-body');
+    const input = wrap.querySelector('#offline-chat-input');
+    function addMsg(role, text) {
+        const m = document.createElement('div');
+        m.style.cssText = 'padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; max-width:85%; white-space:pre-wrap; word-wrap:break-word;' +
+            (role === 'user'
+                ? 'align-self:flex-end; background:rgba(0,170,255,0.25); color:#fff; border:1px solid rgba(0,170,255,0.5);'
+                : 'align-self:flex-start; background:rgba(0,0,0,0.35); color:#e5e5e5; border:1px solid rgba(0,170,255,0.3);');
+        m.textContent = text;
+        body.appendChild(m);
+        body.scrollTop = body.scrollHeight;
+    }
+    addMsg('assistant', "You're offline, but I can still answer basic questions from my directory. Try asking 'what can you do' or 'who are you'.");
+    function send() {
+        const q = input.value.trim();
+        if (!q) return;
+        addMsg('user', q);
+        input.value = '';
+        const answer = window.ZenithDirectory ? window.ZenithDirectory.match(q) : null;
+        setTimeout(() => {
+            addMsg('assistant', answer || "I don't have an offline answer for that yet. When you're back online I can help with anything else. You can also retry or exit offline mode.");
+        }, 300);
+    }
+    wrap.querySelector('#offline-chat-send').addEventListener('click', send);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+    wrap.querySelector('#offline-chat-close').addEventListener('click', () => wrap.remove());
+    window.addEventListener('online', function onBack() { wrap.remove(); window.removeEventListener('online', onBack); showToast('Back online', 'success'); });
+    document.body.appendChild(wrap);
+    input.focus();
 }
 window.addEventListener('offline', showOfflineScreen);
 window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); showToast('Back online','success'); });

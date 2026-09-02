@@ -65,3 +65,15 @@ async def post_announcement(req: AnnouncementRequest, request: Request, db: Asyn
     await db.commit()
     await db.refresh(ann)
     return {"id": ann.id, "message": "Announced"}
+
+
+@router.delete("")
+async def clear_announcements(request: Request, db: AsyncSession = Depends(get_db)):
+    """Delete all announcement history (broadcast cache). Owner or admin."""
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Staff only")
+    from sqlalchemy import delete as sa_delete
+    await db.execute(sa_delete(Announcement))
+    await db.commit()
+    return {"message": "All broadcast cache cleared"}

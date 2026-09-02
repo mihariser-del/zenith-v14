@@ -595,6 +595,12 @@ const Chat = {
                 bubble.querySelector('.thinking-text')?.remove();
                 if (!fullResponse) bubble.textContent = 'Stopped.';
                 bubble.classList.remove('streaming-cursor');
+            } else if (!navigator.onLine || err.message === 'Failed to fetch') {
+                // Network lost mid-chat — offer retry or offline mode
+                bubble.textContent = '';
+                bubble.classList.remove('streaming-cursor');
+                if (typeof showOfflineScreen === 'function') showOfflineScreen();
+                else { bubble.textContent = 'Error: ' + err.message; }
             } else {
                 showToast('Error: ' + err.message, 'error');
                 bubble.textContent = 'Error: ' + err.message;

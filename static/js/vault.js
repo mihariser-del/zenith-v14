@@ -4,6 +4,9 @@ const Vault = {
     _pollInterval: null,
     _sysPollInterval: null,
     _cache: {},
+    _recentKey: null,
+    _activityKey: null,
+    _hourlyKey: null,
 
     async init() {
         try {
@@ -63,7 +66,7 @@ const Vault = {
         if (this._sysPollInterval) clearInterval(this._sysPollInterval);
         this._pollInterval = setInterval(() => {
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
-        }, 100);
+        }, 1000);
         this._sysPollInterval = setInterval(() => {
             if (this._currentTab === 'dashboard') {
                 this.refreshSystemStats();
@@ -267,6 +270,9 @@ const Vault = {
         if (!el) return;
         try {
             const { users } = await api('/api/auth/admin/users');
+            const key = users.slice(0, 5).map(u => `${u.id}:${u.is_banned ? 1 : 0}:${u.is_deleted ? 1 : 0}:${u.created_at}`).join('|');
+            if (key === this._recentKey) return;
+            this._recentKey = key;
             el.innerHTML = users.slice(0, 5).map((u, i) => {
                 const sc = u.is_banned ? 'badge-red' : (u.is_deleted ? 'badge-gray' : (u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-green')));
                 const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
@@ -280,11 +286,14 @@ const Vault = {
         if (!el) return;
         try {
             const { users } = await api('/api/auth/admin/users');
+            const key = users.slice(0, 10).map(u => `${u.username}|${u.is_banned ? 1 : 0}|${u.id}|${u.last_active || ''}`).join('~');
+            if (key === this._activityKey) return;
+            this._activityKey = key;
             let html = '';
             users.filter(u => u.is_banned).slice(0, 3).forEach(u => {
                 html += `<div class="vault-activity-item"><span style="color:#EF4444;">🚫</span><div><div style="color:#a78bfa;font-size:12px;">Banned: ${u.username}</div><div style="color:#666;font-size:11px;">${u.ban_reason || 'No reason'}</div></div></div>`;
             });
-            users.slice(0, 4).forEach(u => {
+            users.filter(u => !u.is_banned && !u.is_deleted).slice(0, 4).forEach(u => {
                 html += `<div class="vault-activity-item"><span style="color:#4ADE80;">👤</span><div><div style="color:#a78bfa;font-size:12px;">${u.username}</div><div style="color:#666;font-size:11px;">${u.created_at} — ${u.last_active || 'Never'}</div></div></div>`;
             });
             el.innerHTML = html || '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity</div>';
@@ -296,6 +305,9 @@ const Vault = {
             const d = await api('/api/auth/admin/analytics/messages-per-hour');
             const el = document.getElementById('chart-hourly');
             const data = d.hours.map(h => ({ count: h.count }));
+            const key = data.map(x => x.count).join(',');
+            if (key === this._hourlyKey) return;
+            this._hourlyKey = key;
             const lastHr = new Date().getUTCHours();
             if (el) el.innerHTML = this.svgBar(data, 500, 100, '#A78BFA', lastHr);
         } catch {}
@@ -362,12 +374,16 @@ const Vault = {
     renderUsersTable(users) {
         const tbody = document.getElementById('users-tbody');
         if (!tbody) return;
+        const isOwner = this._isOwner;
         tbody.innerHTML = users.map((u, i) => {
             const sc = u.is_banned ? 'badge-red' : (u.is_deleted ? 'badge-gray' : (u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-green')));
             const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
+            const onlineDot = u.online ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ADE80;margin-left:6px;box-shadow:0 0 6px #4ADE80;" title="Online now"></span>' : '';
+            const isStaff = u.role === 'owner' || u.role === 'admin';
+            const canAct = isOwner || !isStaff;
             return `<tr>
                 <td style="color:#8B949E;">${i + 1}</td>
-                <td><div style="font-weight:600;">${u.username}</div></td>
+                <td><div style="font-weight:600;display:flex;align-items:center;">${u.username}${onlineDot}</div></td>
                 <td style="color:#8B949E;">${u.email}</td>
                 <td><span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span></td>
                 <td><span class="badge ${sc}">${st}</span></td>
@@ -375,10 +391,11 @@ const Vault = {
                 <td>${u.message_count || 0}</td>
                 <td style="color:#8B949E;font-size:11px;">${u.last_active || 'Never'}</td>
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    <button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">💬</button>
-                    <button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.esc(u.username)}')">🔑</button>
+                    ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">💬</button>` : ''}
+                    ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.esc(u.username)}')">🔑</button>
                     <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
-                    <button class="vault-btn danger" onclick="Vault.deleteUser(${u.id},'${this.esc(u.username)}')">🗑️</button>
+                    <button class="vault-btn danger" onclick="Vault.deleteUser(${u.id},'${this.esc(u.username)}')">🗑️</button>`
+                    : '<span style="color:#8B949E;font-size:10px;align-self:center;">—</span>'}
                 </div></td></tr>`;
         }).join('');
     },
@@ -939,6 +956,7 @@ const Vault = {
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Broadcast message to all users immediately via popup.</div>
                     <textarea class="vault-input" id="global-announce" rows="3" placeholder="Type announcement..." style="resize:vertical;"></textarea>
                     <button class="vault-btn primary" style="margin-top:8px;width:100%;" onclick="Vault.sendAnnouncement()">Send Broadcast →</button>
+                    <button class="vault-btn danger" style="margin-top:8px;width:100%;" onclick="Vault.clearBroadcastCache()">🗑️ Clear All Broadcast Cache</button>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🚫 Registration Control</span></div>
@@ -1032,6 +1050,12 @@ const Vault = {
         const ok = await showConfirm('Send broadcast?', 'This will show a popup to ALL users immediately.');
         if (!ok) return;
         try { await api('/api/announcements', { method: 'POST', body: JSON.stringify({ content: msg }) }); showToast('Broadcast sent!', 'success'); document.getElementById('global-announce').value = ''; } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async clearBroadcastCache() {
+        const ok = await showConfirm('Clear broadcast cache?', 'This deletes ALL broadcast history. Users will stop getting old broadcast popups.', true);
+        if (!ok) return;
+        try { await api('/api/announcements', { method: 'DELETE' }); showToast('Broadcast cache cleared', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     // ═══════════════════════════ EMERGENCY ═══════════════════════════

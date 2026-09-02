@@ -257,6 +257,16 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 last_user_msg = content
             break
 
+    # Basic Directory short-circuit — answer from canned knowledge (saves credits)
+    # and works identically for offline-style responses.
+    from directory import match_directory as _match_directory
+    _dir_match = None
+    if not research and not factcheck and not web_search and not images:
+        try:
+            _dir_match = _match_directory(last_user_msg)
+        except Exception:
+            _dir_match = None
+
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
     messages.insert(0, {"role": "system", "content": system_prompt})
 
@@ -278,6 +288,22 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
     async def generate():
         full_response = ""
+
+        # Basic Directory short-circuit: answer from canned knowledge without
+        # calling the paid AI — saves OpenRouter credits and works offline-style.
+        if _dir_match:
+            answer = _dir_match.get("answer", "")
+            if answer:
+                for i in range(0, len(answer), 20):
+                    yield f"data: {json.dumps({'token': answer[i:i+20]})}\n\n"
+                    import asyncio as _aio_dir
+                    await _aio_dir.sleep(0.02)
+                async with async_session() as db:
+                    ai_msg = Message(chat_id=chat_id, role="assistant", content=answer)
+                    db.add(ai_msg)
+                    await db.commit()
+                yield "data: [DONE]\n\n"
+                return
 
         # True links path for web/research/factcheck (perplexity) - non-stream to get real citation URLs
         is_perplexity = user_model == "perplexity/sonar"

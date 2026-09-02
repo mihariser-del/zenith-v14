@@ -29,7 +29,7 @@ async def analytics_overview(request: Request, db: AsyncSession = Depends(get_db
     guest_count = (await db.execute(select(func.count()).select_from(User).where(User.username.like("guest_%"), User.is_deleted == False))).scalar() or 0
     messages_today = (await db.execute(select(func.count()).select_from(Message).where(Message.created_at >= today_start))).scalar() or 0
     new_this_week = (await db.execute(select(func.count()).select_from(User).where(User.created_at >= week_ago, User.is_deleted == False))).scalar() or 0
-    online_users = (await db.execute(select(func.count(func.distinct(Chat.user_id))).select_from(Chat).join(User, Chat.user_id == User.id).where(Chat.updated_at >= now - timedelta(minutes=5), User.is_deleted == False))).scalar() or 0
+    online_users = (await db.execute(select(func.count()).select_from(User).where(User.last_seen >= now - timedelta(minutes=2), User.is_deleted == False))).scalar() or 0
     active_chats = (await db.execute(select(func.count()).select_from(Chat).where(Chat.updated_at >= now - timedelta(hours=24)))).scalar() or 0
     suspended_count = (await db.execute(select(func.count()).select_from(User).where(User.is_banned == True, User.is_deleted == False))).scalar() or 0
     verified_count = total_users - guest_count
@@ -122,6 +122,10 @@ async def all_chats(request: Request, db: AsyncSession = Depends(get_db)):
     chats = result.scalars().all()
     out = []
     for c in chats:
+        if get_role(user) != "owner":
+            owner = c.user
+            if owner and get_role(owner) in ("admin", "owner"):
+                continue
         msg_count = (await db.execute(select(func.count()).select_from(Message).where(Message.chat_id == c.id))).scalar() or 0
         out.append({
             "id": c.id, "title": c.title, "user_id": c.user_id,
@@ -144,6 +148,10 @@ async def all_messages(request: Request, db: AsyncSession = Depends(get_db)):
     out = []
     for m in msgs:
         chat = (await db.execute(select(Chat).where(Chat.id == m.chat_id))).scalar_one_or_none()
+        if get_role(user) != "owner" and chat:
+            cowner = (await db.execute(select(User).where(User.id == chat.user_id))).scalar_one_or_none()
+            if cowner and get_role(cowner) in ("admin", "owner"):
+                continue
         out.append({
             "id": m.id, "chat_id": m.chat_id, "role": m.role,
             "content": m.content[:200], "chat_title": chat.title if chat else "?",
@@ -164,6 +172,8 @@ async def chat_messages_admin(chat_id: int, request: Request, db: AsyncSession =
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     owner = (await db.execute(select(User).where(User.id == chat.user_id))).scalar_one_or_none()
+    if owner and get_role(owner) in ("admin", "owner") and get_role(user) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot view fellow staff chats")
     return {
         "chat": {"id": chat.id, "title": chat.title, "user_id": chat.user_id, "username": owner.username if owner else "?"},
         "messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""} for m in chat.messages],

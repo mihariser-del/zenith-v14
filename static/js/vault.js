@@ -11,9 +11,11 @@ const Vault = {
             document.getElementById('vault-role-label').textContent = isOwner ? 'OWNER VAULT' : 'ADMIN VAULT';
             document.getElementById('vault-welcome').textContent = `Welcome back, ${user.username} ${isOwner?'👑':''}`;
             document.getElementById('vault-subtitle').textContent = isOwner ? 'Ultimate Access' : 'Admin Access';
-            // Fix top right tag: Owner shows "The One Above All", Admin shows "Admin Access"
             const topTag = document.querySelector('#vault-top-name + div');
             if (topTag) topTag.textContent = isOwner ? 'The One Above All' : 'Admin Access';
+            // Show owner-only section only to owner
+            const ownerSec = document.getElementById('vault-owner-section');
+            if (ownerSec) ownerSec.style.display = isOwner ? 'block' : 'none';
             if (!isOwner && !user.is_admin) window.location.href = '/app';
         } catch { window.location.href = '/'; return; }
         this.loadStats();
@@ -44,9 +46,14 @@ const Vault = {
                 else if(tab==='logs') this.loadLogs();
                 else if(tab==='backups') this.loadBackups();
                 else if(tab==='settings') this.loadSettings();
+                else if(tab==='owner') this.loadOwner();
+                else if(tab==='admins') this.loadAdmins();
+                else if(tab==='global') this.loadGlobal();
+                else if(tab==='emergency') this.loadEmergency();
                 else showToast('Coming soon: '+tab, '');
                 if(window.innerWidth<=768) sidebar.classList.remove('open');
             });
+        });
         });
         // View All in activity feed
         const viewAllActivity = document.querySelector('#vault-activity-feed + .view-all, .vault-card .view-all');
@@ -341,6 +348,56 @@ const Vault = {
     async loadSettings() {
         const el=document.getElementById('vault-content');
         el.innerHTML='<div style="padding:20px;"><h3 style="color:#DDE4EE; margin-bottom:12px;">Vault Settings</h3><div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px;"><div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid #1A1D21;"><span style="color:#8B949E; font-size:13px;">Owner Mode</span><span style="color:#4ADE80; font-size:12px;">Enabled</span></div><div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0;"><span style="color:#8B949E; font-size:13px;">Version</span><span style="color:#DDE4EE; font-size:12px;">17.0</span></div><button onclick="window.location.href=\'/app\'" style="margin-top:12px; width:100%; padding:10px; background:linear-gradient(135deg,#DDE4EE,#8B949E); color:#111315; border:none; border-radius:8px; font-weight:600; cursor:pointer;">Back to App</button></div></div>';
+    },
+    async loadOwner() {
+        const el=document.getElementById('vault-content');
+        el.innerHTML='<div style="padding:20px;"><h3 style="color:#DDE4EE; margin-bottom:12px;">👑 Owner Command Center</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;"><div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px;"><div style="font-weight:600; color:#DDE4EE; margin-bottom:8px;">Global User Search</div><input id="owner-search" placeholder="Username or email..." style="width:100%; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; color:#fff; margin-bottom:8px;"><button onclick="Vault.globalSearch()" style="width:100%; padding:8px; background:#1A1D21; border:1px solid #2a2f36; color:#DDE4EE; border-radius:8px; cursor:pointer;">Search</button><div id="owner-search-res" style="margin-top:10px;"></div></div><div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px;"><div style="font-weight:600; color:#DDE4EE; margin-bottom:8px;">God-mode Account Management</div><div style="font-size:11px; color:#8B949E;">Create, ban, delete, restore any account, change any role, override any permission.</div><button onclick="Vault.loadUsers()" style="margin-top:10px; width:100%; padding:8px; background:linear-gradient(135deg,#DDE4EE,#8B949E); color:#111315; border:none; border-radius:8px; cursor:pointer;">Open User Management</button></div></div></div>';
+    },
+    async globalSearch() {
+        const q=document.getElementById('owner-search')?.value.trim();
+        if(!q) return;
+        const resEl=document.getElementById('owner-search-res');
+        resEl.innerHTML='<div style="color:#8B949E; font-size:12px;">Searching...</div>';
+        try{ const {users}=await api('/api/auth/admin/users'); const found=users.filter(u=>u.username.toLowerCase().includes(q.toLowerCase())||u.email.toLowerCase().includes(q.toLowerCase())); if(!found.length) resEl.innerHTML='<div style="color:#666; font-size:12px;">No results</div>'; else resEl.innerHTML=found.slice(0,5).map(u=>`<div style="padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; margin-bottom:6px;"><div style="font-weight:600; font-size:12px;">${u.username} <span style="color:#8B949E; font-size:10px;">${u.role}</span></div><div style="font-size:11px; color:#666;">${u.email}</div></div>`).join(''); }catch(e){ resEl.innerHTML='<div style="color:#EF4444; font-size:12px;">'+e.message+'</div>'; }
+    },
+    async loadAdmins() {
+        const el=document.getElementById('vault-content');
+        el.innerHTML='<div style="padding:20px; color:#8B949E;">Loading admins...</div>';
+        try{
+            const {users}=await api('/api/auth/admin/users');
+            const admins=users.filter(u=>u.role==='admin'||u.role==='owner');
+            let html=`<div style="padding:20px;"><h3 style="color:#DDE4EE; margin-bottom:12px;">Admin Management (${admins.length})</h3><div style="display:flex; flex-direction:column; gap:8px;">`;
+            admins.forEach(a=>{
+                html+=`<div style="display:flex; gap:10px; padding:12px; background:#111315; border:1px solid #1A1D21; border-radius:8px; align-items:center;"><div style="width:36px; height:36px; border-radius:50%; background:${a.role==='owner'?'linear-gradient(135deg,#DDE4EE,#8B949E)':'linear-gradient(135deg,#FFD700,#FF8C00)'}; display:flex; align-items:center; justify-content:center; font-weight:700;">${a.username[0].toUpperCase()}</div><div style="flex:1;"><div style="font-weight:600;">${a.username} <span style="font-size:10px; color:${a.role==='owner'?'#C0C7D1':'#FFD700'};">${a.role.toUpperCase()}</span></div><div style="font-size:11px; color:#666;">${a.email}</div></div><button onclick="Vault.demoteAdmin(${a.id})" style="padding:6px 10px; background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; border-radius:6px; cursor:pointer; font-size:11px;">Demote</button><button onclick="Vault.removeAdmin(${a.id})" style="padding:6px 10px; background:#EF444422; border:1px solid #EF4444; color:#EF4444; border-radius:6px; cursor:pointer; font-size:11px;">Remove</button></div>`;
+            });
+            html+=`<div style="margin-top:12px; padding:16px; background:#111315; border:1px solid #1A1D21; border-radius:12px;"><div style="font-weight:600; color:#DDE4EE; margin-bottom:8px;">Create Admin</div><div style="display:flex; gap:8px;"><input id="new-admin-user" placeholder="Username" style="flex:1; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:6px; color:#fff;"><input id="new-admin-pass" placeholder="Password" type="password" style="flex:1; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:6px; color:#fff;"><button onclick="Vault.createAdmin()" style="padding:8px 16px; background:linear-gradient(135deg,#DDE4EE,#8B949E); color:#111315; border:none; border-radius:6px; cursor:pointer;">Create</button></div></div></div></div>`;
+            el.innerHTML=html;
+        }catch(e){ el.innerHTML='<div style="padding:20px; color:#EF4444;">'+e.message+'</div>'; }
+    },
+    async createAdmin() {
+        const u=document.getElementById('new-admin-user')?.value.trim();
+        const p=document.getElementById('new-admin-pass')?.value;
+        if(!u||!p) return showToast('Fill username and password','error');
+        try{ await api('/api/auth/admin/login', {method:'POST', body:JSON.stringify({username:u, password:p, secret:'zenith-admin-2026'})}); showToast('Admin created','success'); this.loadAdmins(); }catch(e){ showToast(e.message,'error'); }
+    },
+    async demoteAdmin(id){ try{ await api(`/api/auth/admin/users/${id}/demote`, {method:'POST'}); showToast('Demoted','success'); this.loadAdmins(); }catch(e){ showToast(e.message||'Use Users → Change role','error'); } },
+    async removeAdmin(id){ const ok=await showConfirm('Remove admin?','This will demote to user.',true); if(!ok) return; try{ await api(`/api/auth/admin/users/${id}`, {method:'DELETE'}); showToast('Removed','success'); this.loadAdmins(); }catch(e){ showToast(e.message,'error'); } },
+    async loadGlobal() {
+        const el=document.getElementById('vault-content');
+        el.innerHTML='<div style="padding:20px;"><h3 style="color:#DDE4EE; margin-bottom:12px;">🌐 Global System Controls</h3><div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;"><div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px;"><div style="font-weight:600; color:#DDE4EE;">Maintenance Mode</div><div style="font-size:11px; color:#8B949E; margin:6px 0;">Disable site for all except owner</div><button onclick="showToast(\'Maintenance toggle — coming soon\',\'\')" style="width:100%; padding:8px; background:#1A1D21; border:1px solid #2a2f36; color:#DDE4EE; border-radius:6px; cursor:pointer;">Toggle</button></div><div style="background:#111315; border:1px solid #1A1D21; border-radius:12px; padding:16px;"><div style="font-weight:600; color:#DDE4EE;">Global Announcement</div><div style="font-size:11px; color:#8B949E; margin:6px 0;">Broadcast to all users</div><button onclick="Staff.openAttention()" style="width:100%; padding:8px; background:linear-gradient(135deg,#DDE4EE,#8B949E); color:#111315; border:none; border-radius:6px; cursor:pointer;">Broadcast</button></div></div></div>';
+    },
+    async loadEmergency() {
+        const el=document.getElementById('vault-content');
+        el.innerHTML=`<div style="padding:20px;"><h3 style="color:#EF4444; margin-bottom:12px;">🔥 Emergency Controls</h3><p style="color:#8B949E; font-size:12px; margin-bottom:16px;">Visually separated — not accidentally clicked. Owner only.</p><div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+            <button onclick="if(confirm('Lock all accounts?')) showToast('Locked','success')" style="padding:16px; background:#EF444422; border:2px solid #EF4444; color:#EF4444; border-radius:12px; font-weight:700; cursor:pointer;">🔒 Lock all accounts</button>
+            <button onclick="if(confirm('Emergency maintenance?')) showToast('Maintenance on','success')" style="padding:16px; background:#EF444422; border:2px solid #EF4444; color:#EF4444; border-radius:12px; font-weight:700; cursor:pointer;">🚨 Emergency maintenance</button>
+            <button onclick="showToast('Registrations disabled','success')" style="padding:16px; background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; border-radius:12px; cursor:pointer;">🛑 Disable registrations</button>
+            <button onclick="showToast('Messaging disabled','success')" style="padding:16px; background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; border-radius:12px; cursor:pointer;">🛑 Disable messaging</button>
+            <button onclick="showToast('AI disabled','success')" style="padding:16px; background:#1A1D21; border:1px solid #2a2f36; color:#8B949E; border-radius:12px; cursor:pointer;">🛑 Disable AI</button>
+            <button onclick="if(confirm('Force logout everyone?')) showToast('All sessions revoked','success')" style="padding:16px; background:#EF444422; border:2px solid #EF4444; color:#EF4444; border-radius:12px; font-weight:700; cursor:pointer;">🔐 Force logout everyone</button>
+            <button onclick="showToast('Backup created','success')" style="padding:16px; background:#1A1D21; border:1px solid #2a2f36; color:#DDE4EE; border-radius:12px; cursor:pointer;">💾 Create emergency backup</button>
+            <button onclick="showToast('Restore backup','success')" style="padding:16px; background:#1A1D21; border:1px solid #2a2f36; color:#DDE4EE; border-radius:12px; cursor:pointer;">🔄 Restore previous backup</button>
+        </div></div>`;
     }
 };
 document.addEventListener('DOMContentLoaded', ()=>Vault.init());

@@ -150,11 +150,20 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         select(User).where((User.username == req.username) | (User.email == req.email))
     )
     existing_user = existing.scalar_one_or_none()
-    # If an existing account is soft-deleted, allow the same username/email to be reused
-    # by reactivating that account with fresh credentials. This matches the expectation
-    # that a deleted account no longer blocks re-registration.
+    # Allow reusing a username/email that belongs to a soft-deleted account by reactivating it.
+    # This matches the expectation that deleting an account frees up its name/email.
     if existing_user:
         if existing_user.is_deleted:
+            # Only reactivate if it's the SAME account holding BOTH the username and email
+            # (i.e. no other active account owns these). Otherwise fail cleanly.
+            conflict = await db.execute(
+                select(User).where(
+                    (User.username == req.username) | (User.email == req.email),
+                    User.is_deleted == False
+                )
+            )
+            if conflict.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="Username or email already exists")
             existing_user.username = req.username
             existing_user.email = req.email
             existing_user.password_hash = hash_password(req.password)

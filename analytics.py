@@ -177,16 +177,21 @@ async def export_users(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    import csv, io
     result = await db.execute(select(User).order_by(User.created_at.desc()))
     users = result.scalars().all()
-    buf = io.StringIO()
-    writer = csv.writer(buf)
-    writer.writerow(["id", "username", "email", "role", "is_admin", "is_banned", "is_deleted", "is_pro", "is_ultimate", "created_at", "last_active"])
+
+    def esc(v):
+        s = str(v) if v is not None else ""
+        return '"' + s.replace('"', '""') + '"' if ("," in s or '"' in s or "\n" in s) else s
+
+    lines = ["id,username,email,role,is_admin,is_banned,is_deleted,is_pro,is_ultimate,created_at,last_active"]
     for u in users:
         last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
-        writer.writerow([u.id, u.username, u.email, get_role(u), u.is_admin, u.is_banned, u.is_deleted, u.is_pro, u.is_ultimate, u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "", last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else ""])
-    return Response(content=buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="zenith_users.csv"'})
+        row = [u.id, u.username, u.email, get_role(u), u.is_admin, u.is_banned, u.is_deleted, u.is_pro, u.is_ultimate,
+               u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "",
+               last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else ""]
+        lines.append(",".join(esc(v) for v in row))
+    return Response(content="\n".join(lines), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="zenith_users.csv"'})
 
 
 @router.get("/export/chats")

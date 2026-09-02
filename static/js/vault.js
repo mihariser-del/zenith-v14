@@ -120,7 +120,7 @@ const Vault = {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const vals = data.map(d => d.count || d.value || 0);
         const max = Math.max(...vals, 1);
-        const pad = { t: 14, b: 26, l: 4, r: 4 };
+        const pad = { t: 18, b: 26, l: 4, r: 4 };
         const chartH = h - pad.t - pad.b;
         const step = (w - pad.l - pad.r) / Math.max(vals.length - 1, 1);
         const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * chartH }));
@@ -135,9 +135,18 @@ const Vault = {
         }
         if (fill) svg += `<path d="${fillPath}" fill="url(#${gid})" opacity="0.6"/>`;
         svg += `<path d="${curve}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
-        const lv = vals[vals.length - 1], lx = pts[pts.length - 1].x, ly = pts[pts.length - 1].y;
-        svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5" fill="${color}" stroke="#0a0a0f" stroke-width="2"/>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${ly - 10}" fill="${color}" font-size="12" text-anchor="middle" font-weight="700">${lv}</text>`;
+        const labelEvery = vals.length <= 10 ? 1 : vals.length <= 20 ? 3 : 5;
+        pts.forEach((pt, i) => {
+            const v = vals[i];
+            const isLast = i === pts.length - 1;
+            const isFirst = i === 0;
+            const shouldLabel = isLast || isFirst || (i % labelEvery === 0);
+            if (shouldLabel) {
+                svg += `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${isLast ? 5 : 3}" fill="${isLast ? color : '#0a0a0f'}" stroke="${color}" stroke-width="${isLast ? 2 : 1.5}"/>`;
+                const labelY = pt.y - (isLast ? 10 : 8);
+                svg += `<text x="${pt.x.toFixed(1)}" y="${labelY.toFixed(1)}" fill="${isLast ? color : '#8B949E'}" font-size="${isLast ? 12 : 9}" text-anchor="middle" font-weight="${isLast ? '700' : '500'}">${v}</text>`;
+            }
+        });
         svg += '</svg>';
         return svg;
     },
@@ -145,7 +154,7 @@ const Vault = {
     svgBar(data, w, h, color, highlightLast = null) {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
-        const pad = { t: 8, b: 28, l: 2, r: 2 };
+        const pad = { t: 14, b: 28, l: 2, r: 2 };
         const chartH = h - pad.t - pad.b;
         const slot = (w - pad.l - pad.r) / data.length;
         const gap = Math.max(1, Math.min(2, slot * 0.08));
@@ -170,6 +179,9 @@ const Vault = {
             const opacity = isHL ? '1' : '0.85';
             if (bh > 0) {
                 svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${barColor}" rx="2.5" ry="2.5" opacity="${opacity}"><title>${i}h: ${v} msgs</title></rect>`;
+                if (v > 0 && (isHourly || data.length <= 10 || i % Math.ceil(data.length / 10) === 0 || i === data.length - 1)) {
+                    svg += `<text x="${(x + barW / 2).toFixed(1)}" y="${(y - 4).toFixed(1)}" fill="#8B949E" font-size="8" text-anchor="middle" font-weight="500">${v}</text>`;
+                }
             }
         });
         if (isHourly) {

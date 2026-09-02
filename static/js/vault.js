@@ -1334,7 +1334,7 @@ const Vault = {
         if (!ok) return;
         try {
             await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) });
-            this._showRoleChangePopup(username, 'demoted');
+            showToast(`${username} has been demoted to user`, 'success');
             this.renderAdmins();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1344,7 +1344,7 @@ const Vault = {
         if (!ok) return;
         try {
             await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) });
-            this._showRoleChangePopup(username, 'promoted');
+            showToast(`${username} has been promoted to admin`, 'success');
             this.renderAdmins();
         } catch (e) { showToast(e.message, 'error'); }
     },

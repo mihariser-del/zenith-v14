@@ -11,6 +11,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     const badgeEl = $('user-role-badge');
     if (nameTextEl) nameTextEl.textContent = user.username;
     if (badgeEl) badgeEl.innerHTML = '';
+    // Check for pending role change notification
+    if (user.pending_notification === 'promoted') {
+        setTimeout(() => _showRoleNotificationPopup(true), 500);
+        api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+    } else if (user.pending_notification === 'demoted') {
+        setTimeout(() => _showRoleNotificationPopup(false), 500);
+        api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+    }
     // legacy fallback if old structure
     if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = user.username;
     $('user-avatar').textContent = user.username[0].toUpperCase();
@@ -593,6 +601,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         } catch (e) {}
         _pollingAnn = false;
+    }
+    function _showRoleNotificationPopup(promoted) {
+        const existing = document.getElementById('role-notif-popup');
+        if (existing) existing.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'role-notif-popup';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);animation:fadeIn .25s;';
+        const icons = promoted ? ['<div style="font-size:64px;margin-bottom:12px;">⬆️</div>'] : ['<div style="font-size:64px;margin-bottom:12px;">⬇️</div>'];
+        const title = promoted ? 'Promoted to Admin' : 'Role Changed to User';
+        const color = promoted ? '#10B981' : '#F59E0B';
+        const desc = promoted
+            ? 'You have been promoted to <strong style="color:#10B981">Admin</strong> by the Owner.<br><br>You now have access to:<br>• Ban / Unban users<br>• Reset passwords<br>• View chats and messages<br>• Manage user accounts<br>• Access the admin vault'
+            : 'You have been demoted to <strong style="color:#9CA3AF">User</strong> by the Owner.<br><br>You have lost admin access. You can no longer:<br>• Ban / Unban users<br>• Reset passwords<br>• View chats and messages<br>• Access the admin vault';
+        wrap.innerHTML = `
+            <div style="background:#1a1d23;border:1px solid #333;border-radius:16px;padding:40px 48px;max-width:440px;width:90%;text-align:center;box-shadow:0 0 60px rgba(0,0,0,.6);position:relative;">
+                ${icons[0]}
+                <h2 style="color:${color};font-size:22px;margin:0 0 12px;font-weight:700;">${title}</h2>
+                <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">${desc}</p>
+                <button onclick="this.closest('#role-notif-popup').remove()" style="background:${color};color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Got it</button>
+            </div>`;
+        document.body.appendChild(wrap);
     }
     function showBroadcastPopup(a) {
         if (document.getElementById('broadcast-popup-' + a.id)) return;

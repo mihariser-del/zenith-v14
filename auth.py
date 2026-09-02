@@ -52,6 +52,7 @@ class UserResponse(BaseModel):
     deleted_by: str = ""
     pending_password_by: str = ""
     permissions: str = ""
+    pending_notification: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -546,8 +547,10 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
     target.role = new_role
     if new_role == "user":
         target.is_admin = False
+        target.pending_notification = 'demoted'
     elif new_role == "admin":
         target.is_admin = True
+        target.pending_notification = 'promoted'
     await db.commit()
     return {"message": f"User role changed to {new_role}", "role": new_role}
 
@@ -600,6 +603,14 @@ async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     return {"user": UserResponse.model_validate(user)}
+
+
+@router.post("/me/clear-notification")
+async def clear_notification(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    user.pending_notification = ""
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/heartbeat")

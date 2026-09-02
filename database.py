@@ -92,6 +92,8 @@ class User(Base):
     last_seen = Column(DateTime, nullable=True)
     # Admin permissions (JSON string): {"ban_users":true,"reset_password":true,"view_messages":true,"manage_chats":true}
     permissions = Column(Text, default="")
+    # Pending notification (role change, etc)
+    pending_notification = Column(Text, default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -292,6 +294,7 @@ async def init_db():
             ("last_pause_at", "DATETIME"),
             ("last_seen", "DATETIME"),
             ("permissions", "TEXT DEFAULT ''"),
+            ("pending_notification", "TEXT DEFAULT ''"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

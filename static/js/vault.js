@@ -55,8 +55,8 @@ const Vault = {
                 btn.addEventListener('click', ()=> this.loadActivity(true));
             }
         });
-        // Refresh stats every 30s for live
-        setInterval(()=>this.loadStats(), 30000);
+        // Live 1s poll for system + live chat unified
+        setInterval(()=>{ this.loadStats(); this.pollLiveChatForVault(); }, 1000);
     },
     async loadStats() {
         try {
@@ -67,19 +67,38 @@ const Vault = {
             document.getElementById('stat-chats').textContent = d.total_chats;
             document.getElementById('stat-messages').textContent = d.total_messages;
             document.getElementById('stat-admins').textContent = d.admin_count;
-            // Real system stats + users over time
+            // Task Manager style live system stats
             try {
                 const sys = await api('/api/system/stats');
-                // Update system status circles
-                const cards = document.querySelectorAll('.vault-card');
-                // Find system status card by header
                 document.querySelectorAll('.vault-card').forEach(card=>{
                     const header = card.querySelector('.card-header');
                     if(header && header.textContent.includes('SYSTEM STATUS')){
-                        const circles = card.querySelectorAll('div[style*="border-radius:50%"]');
-                        if(circles[0]) circles[0].innerHTML = `${sys.cpu}%<br><span style="font-size:10px; color:#8B949E;">CPU</span>`;
-                        if(circles[1]) circles[1].innerHTML = `${sys.ram}%<br><span style="font-size:10px; color:#8B949E;">RAM</span>`;
-                        if(circles[2]) circles[2].innerHTML = `${sys.storage}%<br><span style="font-size:10px; color:#8B949E;">STORAGE</span>`;
+                        card.innerHTML = `
+                            <div class="card-header"><span>SYSTEM STATUS</span><span style="font-size:10px; color:#4ADE80;">● Live 1s</span></div>
+                            <div style="display:flex; flex-direction:column; gap:8px;">
+                                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; border-left:3px solid #60A5FA;">
+                                    <div style="width:40px; height:40px; border:1px solid #60A5FA; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#60A5FA;">CPU</div>
+                                    <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">CPU</div><div style="font-size:11px; color:#8B949E;">${sys.cpu}% ${sys.cpu_ghz} GHz</div></div>
+                                    <div style="width:60px; height:30px; background:linear-gradient(90deg, rgba(96,165,250,0.3), transparent); border-radius:4px;"></div>
+                                </div>
+                                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; border-left:3px solid #A78BFA;">
+                                    <div style="width:40px; height:40px; border:1px solid #A78BFA; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#A78BFA;">MEM</div>
+                                    <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">Memory</div><div style="font-size:11px; color:#8B949E;">${sys.ram_used}/${sys.ram_total} GB (${sys.ram}%)</div></div>
+                                </div>
+                                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; border-left:3px solid #4ADE80;">
+                                    <div style="width:40px; height:40px; border:1px solid #4ADE80; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#4ADE80;">SSD</div>
+                                    <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">Disk 0 (C:) SSD</div><div style="font-size:11px; color:#8B949E;">${sys.storage}%</div></div>
+                                </div>
+                                <div style="display:flex; gap:8px; padding:8px; background:#0a0a0f; border:1px solid #1A1D21; border-radius:8px; border-left:3px solid #F97316;">
+                                    <div style="width:40px; height:40px; border:1px solid #F97316; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#F97316;">WiFi</div>
+                                    <div style="flex:1;"><div style="font-size:12px; color:#fff; font-weight:600;">Wi-Fi</div><div style="font-size:11px; color:#8B949E;">S: ${sys.wifi_sent} R: ${sys.wifi_recv} Mbps</div></div>
+                                </div>
+                                <div style="display:flex; gap:8px; padding:8px; background:#e0f2fe; border:1px solid #60A5FA; border-radius:8px; border-left:3px solid #60A5FA;">
+                                    <div style="width:40px; height:40px; border:1px solid #60A5FA; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:8px; color:#60A5FA;">GPU</div>
+                                    <div style="flex:1;"><div style="font-size:12px; color:#111315; font-weight:600;">GPU 0</div><div style="font-size:11px; color:#475569;">${sys.gpu_name}<br>${sys.gpu}%</div></div>
+                                </div>
+                            </div>
+                        `;
                     }
                 });
             } catch {}
@@ -184,6 +203,22 @@ const Vault = {
         } catch {
             el.innerHTML='<div style="color:#666; font-size:12px; text-align:center; padding:20px;">No activity</div>';
         }
+    },
+    async pollLiveChatForVault() {
+        try {
+            const { messages } = await api('/api/staff/chat');
+            if (messages && messages.length) {
+                const last = messages[messages.length - 1];
+                // Update bell count if any
+                const bell = document.getElementById('vault-bell-count');
+                if (bell) {
+                    const lastSeen = parseInt(localStorage.getItem('zenith_last_staff_seen') || '0', 10);
+                    const unread = messages.filter(m=>m.id > lastSeen).length;
+                    if (unread>0) { bell.textContent = unread>9?'9+':String(unread); bell.style.display='block'; }
+                    else bell.style.display='none';
+                }
+            }
+        } catch {}
     },
     async loadSecurity() {
         // Handle both the dashboard widget and the full tab

@@ -61,6 +61,7 @@ const Vault = {
     startPolling() {
         if (this._pollInterval) clearInterval(this._pollInterval);
         if (this._sysPollInterval) clearInterval(this._sysPollInterval);
+        if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
         this._pollInterval = setInterval(() => {
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 1000);
@@ -74,6 +75,12 @@ const Vault = {
             }
             this.refreshOnlineCount();
         }, 1000);
+        // heartbeat — vault staff must ping too, otherwise they never appear online (app.js heartbeat only runs on /app)
+        this._heartbeatInterval = setInterval(() => {
+            if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
+        }, 1000);
+        // fire once immediately so vault staff show online without waiting 1s
+        fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
     },
 
     async refreshOnlineCount() {
@@ -285,10 +292,13 @@ const Vault = {
         if (!el) return;
         try {
             const users = await this.getUsersOnce();
+            const sig = users.slice(0,5).map(u=>`${u.id}:${u.is_banned}:${u.is_deleted}:${u.role}`).join('|');
+            if (sig === this._recentSig) return;
+            this._recentSig = sig;
             el.innerHTML = users.slice(0, 5).map((u, i) => {
                 const sc = u.is_banned ? 'badge-red' : (u.is_deleted ? 'badge-gray' : (u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-green')));
                 const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
-                return `<div class="vault-activity-item"><div style="color:#8B949E;font-size:11px;width:20px;">${i + 1}</div><div style="flex:1;min-width:0;"><div style="color:#a78bfa;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#666;font-size:11px;">${u.created_at}</div></div><span class="badge ${sc}">${st}</span></div>`;
+                return `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,${sc==='badge-red'?'#EF4444':sc==='badge-purple'?'#a78bfa':sc==='badge-yellow'?'#F59E0B':'#4ADE80'},transparent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">${u.username.charAt(0).toUpperCase()}</div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#555;font-size:10px;">${u.role === 'owner' ? 'Owner' : u.role === 'admin' ? 'Admin' : 'User'} · ${u.created_at}</div></div><span class="badge ${sc}" style="flex-shrink:0;">${st}</span></div>`;
             }).join('');
         } catch { el.innerHTML = '<div style="color:#666;font-size:12px;">No data</div>'; }
     },
@@ -298,17 +308,36 @@ const Vault = {
         if (!el) return;
         try {
             const users = await this.getUsersOnce();
+            const sig = users.slice(0,10).map(u=>`${u.id}:${u.is_banned}:${u.username}`).join('~');
+            if (sig === this._activitySig) { this._patchActivityDots(users); return; }
+            this._activitySig = sig;
             let html = '';
             users.filter(u => u.is_banned).slice(0, 3).forEach(u => {
-                html += `<div class="vault-activity-item"><span style="color:#EF4444;">🚫</span><div><div style="color:#a78bfa;font-size:12px;">Banned: ${u.username}</div><div style="color:#666;font-size:11px;">${u.ban_reason || 'No reason'}</div></div></div>`;
+                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><span style="color:#EF4444;flex-shrink:0;">🚫</span><div style="flex:1;min-width:0;"><div style="color:#EF4444;font-size:12px;font-weight:500;">${u.username}</div><div style="color:#555;font-size:10px;">${u.ban_reason || 'No reason'}</div></div><span class="badge badge-red" style="flex-shrink:0;font-size:9px;">Banned</span></div>`;
             });
             users.filter(u => !u.is_banned && !u.is_deleted).slice(0, 4).forEach(u => {
                 const dotColor = u.online ? '#4ADE80' : '#666';
                 const dotShadow = u.online ? 'box-shadow:0 0 6px #4ADE80;' : '';
-                html += `<div class="vault-activity-item"><span style="width:8px;height:8px;border-radius:50%;background:${dotColor};${dotShadow}flex-shrink:0;margin-top:4px;"></span><div><div style="color:#a78bfa;font-size:12px;">${u.username}</div><div style="color:#666;font-size:11px;">${u.created_at} — ${u.last_active || 'Never'}</div></div></div>`;
+                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:8px;height:8px;border-radius:50%;background:${dotColor};${dotShadow}flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#555;font-size:10px;">${u.last_active || 'Never'}</div></div><span style="font-size:10px;color:#555;">${u.online ? 'active now' : 'idle'}</span></div>`;
             });
             el.innerHTML = html || '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity</div>';
         } catch { el.innerHTML = ''; }
+    },
+    _patchActivityDots(users) {
+        const el = document.getElementById('dash-activity');
+        if (!el || !el.children.length) return;
+        const map = new Map(users.map(u => [u.username, u.online]));
+        [...el.children].forEach(row => {
+            const nameEl = row.querySelector('div div');
+            const name = nameEl ? nameEl.textContent.trim() : '';
+            if (!name || name.startsWith('Banned:')) return;
+            const dot = row.firstElementChild;
+            const label = row.lastElementChild;
+            const isOnline = map.get(name);
+            if (isOnline === undefined) return;
+            if (dot) { dot.style.background = isOnline ? '#4ADE80' : '#666'; dot.style.boxShadow = isOnline ? '0 0 6px #4ADE80' : 'none'; }
+            if (label) label.textContent = isOnline ? 'active now' : 'idle';
+        });
     },
 
     async loadHourlyChart() {
@@ -316,6 +345,9 @@ const Vault = {
             const d = await api('/api/auth/admin/analytics/messages-per-hour');
             const el = document.getElementById('chart-hourly');
             const data = d.hours.map(h => ({ count: h.count }));
+            const sig = data.map(x=>x.count).join(',');
+            if (sig === this._hourlySig) return;
+            this._hourlySig = sig;
             const lastHr = new Date().getUTCHours();
             if (el) el.innerHTML = this.svgBar(data, 500, 100, '#A78BFA', lastHr);
         } catch {}
@@ -338,6 +370,9 @@ const Vault = {
         try {
             const users = await this.getUsersOnce();
             const online = users.filter(u => u.online && !u.is_banned && !u.is_deleted);
+            const sig = online.map(u => `${u.id}:${u.username}`).join('|') || 'none';
+            if (sig === this._onlineSig) return;
+            this._onlineSig = sig;
             if (!online.length) { el.innerHTML = '<div style="color:#666;font-size:12px;text-align:center;padding:16px;">No users online</div>'; return; }
             el.innerHTML = online.map(u => {
                 const rc = u.role === 'owner' ? '#a78bfa' : (u.role === 'admin' ? '#fbbf24' : '#4ADE80');
@@ -681,7 +716,7 @@ const Vault = {
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🔐 Login History (all users, last 100)</span></div>
-                    <div style="overflow-x:auto;">
+                    <div style="max-height:60vh;overflow-y:auto;overflow-x:hidden;">
                         <table class="vault-table">
                             <thead><tr><th>#</th><th>User</th><th>Status</th><th>IP</th><th>Device</th><th>Time</th></tr></thead>
                             <tbody>${(hist.history || []).map((h, i) => `<tr>

@@ -77,48 +77,7 @@ DIRECTORY = [
         "answer": "Account deletion is handled by administrators for safety. You can delete your chats anytime, and contact an admin if you need your account removed."
     },
 
-    # === BASIC ARITHMETIC ===
-    {"keywords": ["1+1", "1 + 1", "one plus one", "1 plus 1"], "answer": "**1 + 1 = 2**"},
-    {"keywords": ["2+2", "2 + 2", "two plus two", "2 plus 2"], "answer": "**2 + 2 = 4**"},
-    {"keywords": ["3+3", "3 + 3", "three plus three"], "answer": "**3 + 3 = 6**"},
-    {"keywords": ["4+4", "4 + 4", "four plus four"], "answer": "**4 + 4 = 8**"},
-    {"keywords": ["5+5", "5 + 5", "five plus five"], "answer": "**5 + 5 = 10**"},
-    {"keywords": ["6+6", "6 + 6", "six plus six"], "answer": "**6 + 6 = 12**"},
-    {"keywords": ["7+7", "7 + 7", "seven plus seven"], "answer": "**7 + 7 = 14**"},
-    {"keywords": ["8+8", "8 + 8", "eight plus eight"], "answer": "**8 + 8 = 16**"},
-    {"keywords": ["9+9", "9 + 9", "nine plus nine"], "answer": "**9 + 9 = 18**"},
-    {"keywords": ["10+10", "10 + 10", "ten plus ten"], "answer": "**10 + 10 = 20**"},
-    {"keywords": ["100+100", "100 + 100"], "answer": "**100 + 100 = 200**"},
-    {"keywords": ["1-1", "1 - 1", "one minus one"], "answer": "**1 - 1 = 0**"},
-    {"keywords": ["5-3", "5 - 3", "five minus three"], "answer": "**5 - 3 = 2**"},
-    {"keywords": ["10-5", "10 - 5", "ten minus five"], "answer": "**10 - 5 = 5**"},
-    {"keywords": ["20-10", "20 - 10", "twenty minus ten"], "answer": "**20 - 10 = 10**"},
-    {"keywords": ["2*3", "2 * 3", "2 times 3", "2 multiplied by 3"], "answer": "**2 x 3 = 6**"},
-    {"keywords": ["3*3", "3 * 3", "3 times 3"], "answer": "**3 x 3 = 9**"},
-    {"keywords": ["4*4", "4 * 4", "4 times 4"], "answer": "**4 x 4 = 16**"},
-    {"keywords": ["5*5", "5 * 5", "5 times 5"], "answer": "**5 x 5 = 25**"},
-    {"keywords": ["6*7", "6 * 7", "6 times 7"], "answer": "**6 x 7 = 42**"},
-    {"keywords": ["7*8", "7 * 8", "7 times 8"], "answer": "**7 x 8 = 56**"},
-    {"keywords": ["8*9", "8 * 9", "8 times 9"], "answer": "**8 x 9 = 72**"},
-    {"keywords": ["9*9", "9 * 9", "9 times 9"], "answer": "**9 x 9 = 81**"},
-    {"keywords": ["12*12", "12 * 12", "12 times 12"], "answer": "**12 x 12 = 144**"},
-    {"keywords": ["6/2", "6 / 2", "6 divided by 2"], "answer": "**6 / 2 = 3**"},
-    {"keywords": ["10/2", "10 / 2", "10 divided by 2"], "answer": "**10 / 2 = 5**"},
-    {"keywords": ["20/4", "20 / 4", "20 divided by 4"], "answer": "**20 / 4 = 5**"},
-    {"keywords": ["100/5", "100 / 5", "100 divided by 5"], "answer": "**100 / 5 = 20**"},
-    {"keywords": ["100/10", "100 / 10", "100 divided by 10"], "answer": "**100 / 10 = 10**"},
-
     # === MATH CONCEPTS ===
-    {"keywords": ["square root of 4", "sqrt(4)", "sqrt of 4"], "answer": "**sqrt(4) = 2**"},
-    {"keywords": ["square root of 9", "sqrt(9)", "sqrt of 9"], "answer": "**sqrt(9) = 3**"},
-    {"keywords": ["square root of 16", "sqrt(16)", "sqrt of 16"], "answer": "**sqrt(16) = 4**"},
-    {"keywords": ["square root of 25", "sqrt(25)", "sqrt of 25"], "answer": "**sqrt(25) = 5**"},
-    {"keywords": ["square root of 36", "sqrt(36)", "sqrt of 36"], "answer": "**sqrt(36) = 6**"},
-    {"keywords": ["square root of 49", "sqrt(49)", "sqrt of 49"], "answer": "**sqrt(49) = 7**"},
-    {"keywords": ["square root of 64", "sqrt(64)", "sqrt of 64"], "answer": "**sqrt(64) = 8**"},
-    {"keywords": ["square root of 81", "sqrt(81)", "sqrt of 81"], "answer": "**sqrt(81) = 9**"},
-    {"keywords": ["square root of 100", "sqrt(100)", "sqrt of 100"], "answer": "**sqrt(100) = 10**"},
-    {"keywords": ["square root of 144", "sqrt(144)", "sqrt of 144"], "answer": "**sqrt(144) = 12**"},
     {"keywords": ["what is pi", "value of pi", "pi value", "how much is pi", "ratio of circumference"], "answer": "**Pi (pi) is approximately 3.14159265358979...** It is the ratio of a circle's circumference to its diameter."},
     {"keywords": ["value of e", "euler's number", "what is euler", "what is e in math"], "answer": "**Euler's number (e) is approximately 2.71828...** It is the base of natural logarithms and appears in compound interest, growth/decay, and many math formulas."},
     {"keywords": ["is zero even", "is 0 even", "is zero odd", "is 0 odd"], "answer": "**0 is an even number** because it is divisible by 2 with no remainder."},
@@ -269,6 +228,26 @@ DIRECTORY = [
     {"keywords": ["what was the slave trade", "transatlantic slave trade"], "answer": "The **Transatlantic Slave Trade (16th-19th century)** forcibly transported millions of Africans to the Americas. It was one of the greatest atrocities in human history and ended through abolition movements."},
     {"keywords": ["who was olaudah equiano"], "answer": "**Olaudah Equiano (1745-1797)** was a freed enslaved African whose autobiography helped the abolitionist movement in Britain. He documented the horrors of the Middle Passage."},
 
+    # === GENERAL KNOWLEDGE / FUN ===
+    {"keywords": ["what is the meaning of life", "meaning of life", "what is meaning of life"], "answer": "42. At least according to The Hitchhiker's Guide to the Galaxy."},
+    {"keywords": ["tell me a joke", "joke", "say something funny", "make me laugh"], "answer": "Why do programmers prefer dark mode? Because light attracts bugs!"},
+    {"keywords": ["what is 0 divided by 0", "0 divided by 0", "0/0"], "answer": "0/0 is undefined (indeterminate form). Mathematics says this operation has no meaningful result."},
+    {"keywords": ["is infinity a number", "is infinity a number or concept"], "answer": "No. Infinity is a concept describing something without bound or end."},
+    {"keywords": ["what language do you speak", "what languages do you know", "what language are you"], "answer": "I communicate in English, but I understand many languages."},
+    {"keywords": ["are you sentient", "are you conscious", "do you have consciousness"], "answer": "No. I'm an AI that processes text and generates responses based on patterns in data."},
+    {"keywords": ["do you have feelings", "can you feel", "are you emotional"], "answer": "No. I don't have feelings, consciousness, or self-awareness. I'm a language model."},
+    {"keywords": ["what is ai", "define ai", "what is artificial intelligence"], "answer": "Artificial Intelligence (AI) is computer software that mimics human-like tasks such as reasoning, learning, and problem-solving."},
+    {"keywords": ["what is machine learning", "define machine learning", "explain machine learning"], "answer": "Machine Learning is a subset of AI where systems learn patterns from data to improve performance without being explicitly programmed."},
+    {"keywords": ["what is the internet", "how does the internet work", "define internet"], "answer": "A global network of interconnected computers that communicate using standardized protocols to share information."},
+    {"keywords": ["what is cryptocurrency", "define cryptocurrency", "explain cryptocurrency"], "answer": "A digital or virtual currency that uses cryptography for security, operating on decentralized networks like blockchain."},
+    {"keywords": ["what is blockchain", "define blockchain", "explain blockchain"], "answer": "A distributed, immutable digital ledger that records transactions across many computers so no single entity controls the data."},
+    {"keywords": ["what is bitcoin", "define bitcoin", "explain bitcoin"], "answer": "The first and most well-known cryptocurrency, created in 2009 by the pseudonymous Satoshi Nakamoto."},
+    {"keywords": ["what is climate change", "explain climate change", "define climate change"], "answer": "Long-term shifts in global temperatures and weather patterns, primarily driven by human activities like burning fossil fuels."},
+    {"keywords": ["what is photosynthesis", "explain photosynthesis"], "answer": "The process by which plants convert sunlight, water, and carbon dioxide into glucose and oxygen."},
+    {"keywords": ["what is dna", "define dna"], "answer": "Deoxyribonucleic acid - a molecule that carries the genetic instructions for the development and functioning of all living things."},
+    {"keywords": ["what is evolution", "explain evolution", "define evolution"], "answer": "The process by which species change over generations through variations in heritable traits, natural selection, and genetic drift."},
+    {"keywords": ["what is gravity", "explain gravity", "define gravity"], "answer": "A fundamental force of attraction between objects with mass. On Earth, it gives objects weight and causes them to fall when dropped."},
+
     # === GENERAL KNOWLEDGE ===
     {"keywords": ["largest ocean", "what is the largest ocean"], "answer": "**The Pacific Ocean** is the largest and deepest ocean, covering about 63 million square miles."},
     {"keywords": ["tallest mountain", "what is the tallest mountain"], "answer": "**Mount Everest** is the tallest mountain above sea level at **8,849 meters (29,032 feet)** in the Himalayas."},
@@ -281,15 +260,49 @@ DIRECTORY = [
     {"keywords": ["what is the boiling point of water", "water boiling point"], "answer": "**100 degrees Celsius (212 degrees Fahrenheit)** at sea level."},
     {"keywords": ["what is the freezing point of water", "water freezing point"], "answer": "**0 degrees Celsius (32 degrees Fahrenheit)**."},
     {"keywords": ["how many bones in the human body", "human bones"], "answer": "An adult human body has **206 bones**. Babies are born with about 270, but many fuse together as they grow."},
-    {"keywords": ["what is dna", "define dna"], "answer": "**DNA (Deoxyribonucleic Acid)** is the molecule that carries genetic instructions for life. It has a double-helix structure and is found in nearly every cell."},
-    {"keywords": ["what is photosynthesis", "explain photosynthesis"], "answer": "**Photosynthesis** is the process by which plants convert sunlight, water, and CO2 into glucose and oxygen. It's the basis of most food chains on Earth."},
-    {"keywords": ["what is gravity", "define gravity"], "answer": "**Gravity** is the force of attraction between objects with mass. On Earth's surface, objects accelerate downward at about **9.8 m/s^2**. Newton described it; Einstein explained it via spacetime curvature."},
     {"keywords": ["what is the solar system", "our solar system"], "answer": "**Our solar system** consists of the Sun and everything orbiting it: 8 planets (Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, Neptune), dwarf planets, asteroids, and comets."},
 ]
 
 
 def _norm(text: str) -> str:
     return text.lower().strip()
+
+
+def solve_math(query: str):
+    """Try to evaluate query as math. Returns 'expr = result' or None."""
+    import re, math
+    lower = (query or "").lower().strip()
+    prefix_re = r"^(whats|what\'s|what is|what are|whats is|calculate|solve|compute|please|can you|hey|hi|the answer is|result of|answer|is|the)\s+"
+    prev = None
+    while prev != lower and lower:
+        prev = lower
+        lower = re.sub(prefix_re, "", lower, flags=re.I).strip()
+    if not lower:
+        return None
+    s = lower.replace("\u00d7", "*").replace("\u00f7", "/").replace("\u2212", "-").replace("\u03c0", "pi")
+    s = s.replace(" ", "")
+    s = re.sub(r"(\d+(\.\d+)?)\s*%", r"(\1/100)", s)
+    s = re.sub(r"sqrt\(([^)]+)\)", r"math.sqrt(\1)", s, flags=re.I)
+    s = re.sub(r"sqrt(\d+(\.\d+)?)", r"math.sqrt(\1)", s, flags=re.I)
+    s = re.sub(r"\bpi\b", str(math.pi), s, flags=re.I)
+    s = s.replace("^", "**")
+    s = re.sub(r"(\d)\(", r"\1*(", s)
+    s = re.sub(r"\)(\d)", r")*\1", s)
+    s = s.replace(")(", ")*(")
+    cleaned = s.replace("math.sqrt", "").replace("math.pi", "").replace("math.pi", "")
+    cleaned = re.sub(r"[0-9+\-*/%().]", "", cleaned)
+    if cleaned:
+        return None
+    try:
+        result = eval(s, {"__builtins__": {}}, {"math": math})
+        if isinstance(result, (int, float)) and math.isfinite(result):
+            rounded = round(result, 10)
+            if isinstance(rounded, float) and rounded.is_integer():
+                rounded = int(rounded)
+            return f"**{lower} = {rounded}**"
+    except Exception:
+        return None
+    return None
 
 
 def match_directory(query: str):
@@ -299,6 +312,10 @@ def match_directory(query: str):
     matching entries, the one with the most specific (longest) matched keywords
     wins, so 'what is your name' outranks a generic 'name' keyword.
     """
+    # math has priority — handles "whats 34+43" etc. without keyword tricks
+    math_ans = solve_math(query)
+    if math_ans:
+        return {"keywords": [], "answer": math_ans}
     if not query:
         return None
     q = _norm(query)

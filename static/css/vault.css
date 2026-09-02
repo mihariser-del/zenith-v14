@@ -46,7 +46,7 @@
 .vault-card{background:#111315;border:1px solid #1A1D21;border-radius:12px;padding:16px;animation:fadeIn .3s ease;}
 .card-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#8B949E;margin-bottom:12px;}
 .vault-table{width:100%;border-collapse:collapse;font-size:12px;}
-.vault-table th{text-align:left;padding:10px 12px;color:#8B949E;border-bottom:1px solid #1A1D21;font-weight:600;font-size:11px;letter-spacing:.5px;position:sticky;top:0;background:#111315;}
+.vault-table th{text-align:left;padding:10px 12px;color:#8B949E;border-bottom:1px solid #1A1D21;font-weight:600;font-size:11px;letter-spacing:.5px;background:#111315;}
 .vault-table td{padding:10px 12px;border-bottom:1px solid #0a0a0f;color:#e5e5e5;}
 .vault-table tr:hover td{background:#1A1D21;}
 .vault-table .badge{padding:1px 8px;border-radius:999px;font-size:10px;font-weight:600;display:inline-block;line-height:16px;}

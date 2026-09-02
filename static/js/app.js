@@ -858,7 +858,15 @@ function openOfflineChat() {
         if (!q) return;
         addMsg('user', q);
         input.value = '';
-        const answer = window.ZenithDirectory ? window.ZenithDirectory.match(q) : null;
+        // Try math engine first
+        let answer = null;
+        if (window.ZenithDirectory && window.ZenithDirectory.solveMath) {
+            answer = window.ZenithDirectory.solveMath(q);
+        }
+        // Fall back to keyword directory
+        if (!answer && window.ZenithDirectory) {
+            answer = window.ZenithDirectory.match(q);
+        }
         setTimeout(() => {
             addMsg('assistant', answer || "I don't have an offline answer for that yet. When you're back online I can help with anything else. You can also retry or exit offline mode.");
         }, 300);

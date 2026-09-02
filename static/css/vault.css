@@ -31,11 +31,12 @@
 .vault-owner-mode{background:#1A1D21;border:1px solid #2a2f36;border-radius:10px;padding:10px;display:flex;gap:8px;align-items:center;}
 .vault-main{flex:1;display:flex;flex-direction:column;overflow-y:auto;background:#0a0a0f;}
 .vault-topbar{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #1A1D21;background:#0a0a0f;position:sticky;top:0;z-index:10;}
-.vault-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;padding:0 0 16px;}
-.stat-card{background:#111315;border:1px solid #1A1D21;border-radius:12px;padding:16px;text-align:center;animation:fadeIn .3s ease;}
-.stat-icon{font-size:20px;margin-bottom:6px;}
-.stat-label{font-size:10px;color:#8B949E;letter-spacing:1px;}
-.stat-value{font-size:24px;font-weight:700;color:#fff;margin:4px 0;font-variant-numeric:tabular-nums;}
+.vault-stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;padding:0 0 16px;}
+.stat-card{background:linear-gradient(145deg,#111315,#0d0e12);border:1px solid #1A1D21;border-radius:14px;padding:18px 16px;text-align:center;animation:fadeIn .3s ease;transition:border-color .2s,box-shadow .2s;}
+.stat-card:hover{border-color:#2a2f36;box-shadow:0 4px 20px rgba(0,0,0,0.3);}
+.stat-icon{font-size:22px;margin-bottom:6px;}
+.stat-label{font-size:10px;color:#8B949E;letter-spacing:1px;text-transform:uppercase;}
+.stat-value{font-size:26px;font-weight:700;color:#fff;margin:6px 0 2px;font-variant-numeric:tabular-nums;}
 .stat-sub{font-size:11px;color:#4ADE80;}
 .stat-card.warning .stat-value{color:#F59E0B;}
 .stat-card.danger .stat-value{color:#EF4444;}
@@ -43,12 +44,14 @@
 .stat-card.info .stat-value{color:#60A5FA;}
 .vault-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 0 16px;}
 .vault-grid.tri{grid-template-columns:1fr 1fr 1fr;}
-.vault-card{background:#111315;border:1px solid #1A1D21;border-radius:12px;padding:16px;animation:fadeIn .3s ease;}
-.card-header{display:flex;justify-content:space-between;align-items:center;font-size:12px;font-weight:600;color:#8B949E;margin-bottom:12px;}
+.vault-card{background:linear-gradient(145deg,#111315,#0d0e12);border:1px solid #1A1D21;border-radius:14px;padding:20px;animation:fadeIn .3s ease;transition:border-color .2s;}
+.vault-card:hover{border-color:#2a2f36;}
+.card-header{display:flex;justify-content:space-between;align-items:center;font-size:13px;font-weight:600;color:#8B949E;margin-bottom:14px;}
+.card-header .card-title{display:flex;align-items:center;gap:8px;}
 .vault-table{width:100%;border-collapse:collapse;font-size:12px;}
-.vault-table th{text-align:left;padding:10px 12px;color:#8B949E;border-bottom:1px solid #1A1D21;font-weight:600;font-size:11px;letter-spacing:.5px;background:#111315;}
-.vault-table td{padding:10px 12px;border-bottom:1px solid #1A1D21;color:#e5e5e5;font-size:12px;vertical-align:middle;}
-.vault-table tr:hover td{background:#1A1D21;}
+.vault-table th{text-align:left;padding:12px 14px;color:#8B949E;border-bottom:1px solid #1E2030;font-weight:600;font-size:11px;letter-spacing:.5px;background:#111315;}
+.vault-table td{padding:12px 14px;border-bottom:1px solid #1A1D21;color:#e5e5e5;font-size:12px;vertical-align:middle;}
+.vault-table tr:hover td{background:#15171c;}
 .vault-table .badge{padding:1px 8px;border-radius:999px;font-size:10px;font-weight:600;display:inline-block;line-height:16px;}
 .badge{padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;display:inline-block;line-height:16px;white-space:nowrap;}
 .badge-green{background:#4ADE8022;color:#4ADE80;border:1px solid #4ADE8044;}
@@ -75,7 +78,8 @@
 .vault-gauge svg{transform:rotate(-90deg);}
 .vault-gauge-text{position:absolute;font-weight:700;font-size:14px;color:#fff;}
 .vault-gauge-label{position:absolute;bottom:-4px;font-size:9px;color:#8B949E;}
-.vault-activity-item{display:flex;gap:10px;padding:8px;background:#0a0a0f;border-radius:8px;animation:slideIn .2s ease;}
+.vault-activity-item{display:flex;gap:10px;padding:10px 12px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:10px;animation:slideIn .2s ease;transition:border-color .15s;}
+.vault-activity-item:hover{border-color:#2a2f36;}
 .vault-empty{text-align:center;padding:40px;color:#666;font-size:13px;}
 .vault-empty-icon{font-size:32px;margin-bottom:8px;}
 .vault-section-title{font-size:14px;font-weight:700;color:#DDE4EE;margin-bottom:12px;}
@@ -97,5 +101,6 @@
 .vault-toggle.on::after{left:20px;}
 .emergency-card{padding:20px;background:#EF444411;border:2px solid #EF4444;border-radius:12px;cursor:pointer;text-align:center;transition:all .2s;}
 .emergency-card:hover{background:#EF444422;transform:scale(1.02);}
+.chart-container{position:relative;width:100%;min-height:140px;}
 @media(max-width:1100px){.vault-stats{grid-template-columns:repeat(3,1fr);}.vault-grid,.vault-grid.tri{grid-template-columns:1fr;}.vault-sidebar{width:200px;}.vault-grid-3{grid-template-columns:1fr 1fr;}.vault-grid-2{grid-template-columns:1fr;}}
 @media(max-width:768px){.vault-hamburger{display:flex;}.vault-sidebar{position:fixed;top:0;left:0;height:100vh;width:260px;transform:translateX(-100%);z-index:90;}.vault-sidebar.open{transform:translateX(0);}.vault-page{flex-direction:column;}.vault-stats{grid-template-columns:repeat(2,1fr);gap:8px;padding:12px;}.vault-topbar{flex-direction:column;gap:12px;align-items:stretch;padding:12px;}.vault-grid,.vault-grid.tri{grid-template-columns:1fr;padding:0 12px 12px;}.vault-grid-3,.vault-grid-2{grid-template-columns:1fr;}.vault-table{font-size:11px;}.vault-table th,.vault-table td{padding:8px 6px;}}

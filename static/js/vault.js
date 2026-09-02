@@ -96,12 +96,12 @@ const Vault = {
 
     // ═══════════════════════════ SVG CHARTS ═══════════════════════════
     _svgDefs: `<defs>
-        <linearGradient id="g-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60A5FA" stop-opacity="0.4"/><stop offset="100%" stop-color="#60A5FA" stop-opacity="0.02"/></linearGradient>
-        <linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A78BFA" stop-opacity="0.4"/><stop offset="100%" stop-color="#A78BFA" stop-opacity="0.02"/></linearGradient>
-        <linearGradient id="g-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ADE80" stop-opacity="0.4"/><stop offset="100%" stop-color="#4ADE80" stop-opacity="0.02"/></linearGradient>
-        <linearGradient id="g-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F472B6" stop-opacity="0.4"/><stop offset="100%" stop-color="#F472B6" stop-opacity="0.02"/></linearGradient>
-        <linearGradient id="g-teal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.4"/><stop offset="100%" stop-color="#2DD4BF" stop-opacity="0.02"/></linearGradient>
-        <linearGradient id="g-violet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.4"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.02"/></linearGradient>
+        <linearGradient id="g-blue" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#60A5FA" stop-opacity="0.5"/><stop offset="100%" stop-color="#60A5FA" stop-opacity="0.03"/></linearGradient>
+        <linearGradient id="g-purple" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#A78BFA" stop-opacity="0.5"/><stop offset="100%" stop-color="#A78BFA" stop-opacity="0.03"/></linearGradient>
+        <linearGradient id="g-green" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#4ADE80" stop-opacity="0.5"/><stop offset="100%" stop-color="#4ADE80" stop-opacity="0.03"/></linearGradient>
+        <linearGradient id="g-pink" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F472B6" stop-opacity="0.5"/><stop offset="100%" stop-color="#F472B6" stop-opacity="0.03"/></linearGradient>
+        <linearGradient id="g-teal" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2DD4BF" stop-opacity="0.5"/><stop offset="100%" stop-color="#2DD4BF" stop-opacity="0.03"/></linearGradient>
+        <linearGradient id="g-violet" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#8B5CF6" stop-opacity="0.5"/><stop offset="100%" stop-color="#8B5CF6" stop-opacity="0.03"/></linearGradient>
     </defs>`,
 
     _smoothCurve(pts) {
@@ -120,18 +120,24 @@ const Vault = {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const vals = data.map(d => d.count || d.value || 0);
         const max = Math.max(...vals, 1);
-        const pad = { t: 10, b: 22, l: 2, r: 2 };
+        const pad = { t: 14, b: 26, l: 4, r: 4 };
+        const chartH = h - pad.t - pad.b;
         const step = (w - pad.l - pad.r) / Math.max(vals.length - 1, 1);
-        const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * (h - pad.t - pad.b) }));
+        const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * chartH }));
         const curve = this._smoothCurve(pts);
         const fillPath = curve + ` L${pts[pts.length-1].x},${h - pad.b} L${pts[0].x},${h - pad.b} Z`;
         const gid = 'g-' + color.replace('#', '').toLowerCase().slice(0, 6);
-        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="none">${this._svgDefs}`;
-        if (fill) svg += `<path d="${fillPath}" fill="url(#${gid})" opacity="0.7"/>`;
-        svg += `<path d="${curve}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
+        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="xMidYMid meet">${this._svgDefs}`;
+        svg += `<line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#1E2030" stroke-width="1"/>`;
+        for (let g = 1; g <= 4; g++) {
+            const gy = h - pad.b - (g / 4) * chartH;
+            svg += `<line x1="${pad.l}" y1="${gy.toFixed(1)}" x2="${w - pad.r}" y2="${gy.toFixed(1)}" stroke="#1E2030" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+        }
+        if (fill) svg += `<path d="${fillPath}" fill="url(#${gid})" opacity="0.6"/>`;
+        svg += `<path d="${curve}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
         const lv = vals[vals.length - 1], lx = pts[pts.length - 1].x, ly = pts[pts.length - 1].y;
-        svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="4" fill="${color}" stroke="#0a0a0f" stroke-width="1.5"/>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${ly - 8}" fill="${color}" font-size="11" text-anchor="middle" font-weight="700">${lv}</text>`;
+        svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="5" fill="${color}" stroke="#0a0a0f" stroke-width="2"/>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${ly - 10}" fill="${color}" font-size="12" text-anchor="middle" font-weight="700">${lv}</text>`;
         svg += '</svg>';
         return svg;
     },
@@ -139,22 +145,37 @@ const Vault = {
     svgBar(data, w, h, color, highlightLast = null) {
         if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
-        const pad = { t: 4, b: 24, l: 2, r: 2 };
+        const pad = { t: 8, b: 28, l: 2, r: 2 };
+        const chartH = h - pad.t - pad.b;
         const slot = (w - pad.l - pad.r) / data.length;
-        const barW = Math.max(slot - 3, 3);
+        const gap = Math.max(1, Math.min(2, slot * 0.08));
+        const barW = slot - gap;
+        const isHourly = data.length === 24;
         let svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">`;
+        svg += `<line x1="${pad.l}" y1="${h - pad.b}" x2="${w - pad.r}" y2="${h - pad.b}" stroke="#1E2030" stroke-width="1"/>`;
+        if (max > 0) {
+            const gridLines = 4;
+            for (let g = 1; g <= gridLines; g++) {
+                const gy = h - pad.b - (g / gridLines) * chartH;
+                svg += `<line x1="${pad.l}" y1="${gy.toFixed(1)}" x2="${w - pad.r}" y2="${gy.toFixed(1)}" stroke="#1E2030" stroke-width="0.5" stroke-dasharray="3,3"/>`;
+            }
+        }
         data.forEach((d, i) => {
             const v = d.count || d.value || 0;
-            const bh = (v / max) * (h - pad.t - pad.b);
-            const x = pad.l + i * slot + (slot - barW) / 2;
+            const bh = Math.max(v > 0 ? 4 : 0, (v / max) * chartH);
+            const x = pad.l + i * slot + gap / 2;
             const y = h - pad.b - bh;
             const isHL = highlightLast !== null && i === highlightLast;
-            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${isHL ? '#DDE4EE' : color}" rx="2" opacity="${isHL ? '1' : '0.8'}"><title>${i}h: ${v} msgs</title></rect>`;
+            const barColor = isHL ? '#DDE4EE' : color;
+            const opacity = isHL ? '1' : '0.85';
+            if (bh > 0) {
+                svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${barColor}" rx="2.5" ry="2.5" opacity="${opacity}"><title>${i}h: ${v} msgs</title></rect>`;
+            }
         });
-        if (data.length === 24) {
+        if (isHourly) {
             svg += '<g>';
             for (let hr = 0; hr < 24; hr += 4) {
-                svg += `<text x="${(pad.l + hr * slot + slot / 2).toFixed(1)}" y="${h - 4}" fill="#555" font-size="9" text-anchor="middle">${hr}h</text>`;
+                svg += `<text x="${(pad.l + hr * slot + slot / 2).toFixed(1)}" y="${h - 6}" fill="#666" font-size="10" text-anchor="middle">${String(hr).padStart(2,'0')}h</text>`;
             }
             svg += '</g>';
         }
@@ -180,14 +201,16 @@ const Vault = {
 
     svgHBar(items, w, h) {
         const max = Math.max(...items.map(i => i.value), 1);
-        const barH = Math.min(18, (h - 10) / items.length - 4);
+        const barH = Math.min(20, (h - 10) / items.length - 6);
+        const labelW = 105;
         let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;">`;
         items.forEach((item, i) => {
-            const y = i * (barH + 8) + 4;
-            const bw = (item.value / max) * (w - 130);
-            svg += `<text x="0" y="${y + barH/2 + 4}" fill="#DDE4EE" font-size="11" font-weight="500">${item.label}</text>`;
-            svg += `<rect x="100" y="${y}" width="${bw.toFixed(1)}" height="${barH}" fill="${item.color}" rx="4" opacity="0.85"/>`;
-            svg += `<text x="${(100 + bw + 8).toFixed(1)}" y="${y + barH/2 + 4}" fill="#8B949E" font-size="10" font-weight="600">${item.display}</text>`;
+            const y = i * (barH + 10) + 4;
+            const bw = Math.max(4, (item.value / max) * (w - labelW - 60));
+            svg += `<rect x="${labelW}" y="${y}" width="${(w - labelW - 60).toFixed(1)}" height="${barH}" fill="#1A1B2E" rx="4"/>`;
+            svg += `<rect x="${labelW}" y="${y}" width="${bw.toFixed(1)}" height="${barH}" fill="${item.color}" rx="4" opacity="0.85"/>`;
+            svg += `<text x="${labelW - 8}" y="${y + barH/2 + 4}" fill="#DDE4EE" font-size="11" font-weight="500" text-anchor="end">${item.label}</text>`;
+            svg += `<text x="${(labelW + bw + 8).toFixed(1)}" y="${y + barH/2 + 4}" fill="#8B949E" font-size="10" font-weight="600">${item.display}</text>`;
         });
         svg += '</svg>';
         return svg;

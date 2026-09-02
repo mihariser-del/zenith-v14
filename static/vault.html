@@ -16,34 +16,34 @@
             <div class="z-logo">Z</div>
             <div>
                 <div style="font-weight:700; letter-spacing:1px;">ZENITH</div>
-                <div style="font-size:11px; color:#8B949E;" id="vault-role-label">OWNER VAULT</div>
+                <div style="font-size:11px; color:#8B949E;" id="vault-role-label">VAULT</div>
             </div>
         </div>
         <div class="vault-user-card" id="vault-user-card">
             <div class="vault-avatar" id="vault-avatar">O</div>
             <div>
-                <div id="vault-username" style="font-weight:600; font-size:13px;">OWNER</div>
-                <div style="font-size:11px; color:#8B949E;" id="vault-subtitle">Ultimate Access</div>
+                <div id="vault-username" style="font-weight:600; font-size:13px;">Loading...</div>
+                <div style="font-size:11px; color:#8B949E;" id="vault-subtitle">Access</div>
             </div>
         </div>
-        <nav class="vault-nav" style="overflow-y:auto; scrollbar-width:thin;">
+        <nav class="vault-nav" id="vault-nav">
             <a class="active" data-tab="dashboard"><span>🏠</span> Dashboard</a>
             <a data-tab="users"><span>👥</span> Users</a>
             <a data-tab="chats"><span>💬</span> Chats</a>
             <a data-tab="messages"><span>✉️</span> Messages</a>
             <a data-tab="bans"><span>🚫</span> Bans</a>
-            <a data-tab="deleted"><span>🗑️</span> Deleted Accounts</a>
+            <a data-tab="deleted"><span>🗑️</span> Deleted</a>
             <a data-tab="security"><span>🛡️</span> Security</a>
-            <a data-tab="logs"><span>📋</span> Logs & Audit</a>
+            <a data-tab="logs"><span>📋</span> Logs</a>
             <a data-tab="backups"><span>💾</span> Backups</a>
             <a data-tab="settings"><span>⚙️</span> Settings</a>
             <div id="vault-owner-section" style="display:none;">
-                <div style="font-size:10px; color:#DDE4EE; letter-spacing:1px; padding:8px 12px 4px; font-weight:700; border-top:1px solid #1A1D21; margin-top:8px;">👑 OWNER-ONLY</div>
+                <div class="nav-divider">OWNER-ONLY</div>
                 <a data-tab="owner"><span>👑</span> Owner Command</a>
                 <a data-tab="admins"><span>👥</span> Admin Management</a>
                 <a data-tab="global"><span>🌐</span> Global Controls</a>
-                <div style="font-size:10px; color:#EF4444; letter-spacing:1px; padding:8px 12px 4px; font-weight:700; border-top:1px solid #2d2416; margin-top:8px;">🔥 EMERGENCY</div>
-                <a data-tab="emergency" style="color:#EF4444;"><span>🚨</span> Emergency Controls</a>
+                <div class="nav-divider emergency">EMERGENCY</div>
+                <a data-tab="emergency" class="emergency-link"><span>🚨</span> Emergency Controls</a>
             </div>
         </nav>
         <div class="vault-owner-mode">
@@ -54,58 +54,24 @@
     <div class="vault-main">
         <div class="vault-topbar">
             <div>
-                <div style="color:#8B949E; font-size:11px; letter-spacing:1px;">OVERVIEW</div>
-                <div id="vault-welcome" style="font-weight:600;">Welcome back, Owner 👑</div>
+                <div style="color:#8B949E; font-size:11px; letter-spacing:1px;" id="vault-section-label">DASHBOARD</div>
+                <div id="vault-welcome" style="font-weight:600;">Loading...</div>
             </div>
             <div style="display:flex; gap:12px; align-items:center;">
+                <div id="vault-online-badge" style="display:flex; gap:6px; align-items:center; background:#1A1D21; border:1px solid #2a2f36; border-radius:20px; padding:4px 10px;">
+                    <div style="width:8px; height:8px; border-radius:50%; background:#4ADE80; animation:pulse 2s infinite;"></div>
+                    <span style="font-size:11px; color:#4ADE80;" id="vault-online-count">0 online</span>
+                </div>
                 <div style="display:flex; gap:8px; align-items:center; background:#1A1D21; border:1px solid #2a2f36; border-radius:20px; padding:4px 10px;">
                     <div id="vault-top-avatar" style="width:28px; height:28px; border-radius:50%; background:linear-gradient(135deg,#DDE4EE,#8B949E); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:12px;">O</div>
                     <div>
                         <div id="vault-top-name" style="font-size:12px; font-weight:600;">Owner</div>
-                        <div style="font-size:10px; color:#8B949E;">The One Above All</div>
+                        <div style="font-size:10px; color:#8B949E;" id="vault-top-role">The One Above All</div>
                     </div>
                 </div>
             </div>
         </div>
-        <div id="vault-content">
-            <div class="vault-stats">
-                <div class="stat-card"><div class="stat-icon">👥</div><div class="stat-label">TOTAL ACCOUNTS</div><div class="stat-value" id="stat-total">0</div><div class="stat-sub" id="stat-total-sub">↑ 0 this week</div></div>
-                <div class="stat-card"><div class="stat-icon">🛡️</div><div class="stat-label">BANNED ACCOUNTS</div><div class="stat-value" id="stat-banned">0</div><div class="stat-sub">↑ 0 this week</div></div>
-                <div class="stat-card"><div class="stat-icon">🗑️</div><div class="stat-label">DELETED ACCOUNTS</div><div class="stat-value" id="stat-deleted">0</div><div class="stat-sub">↑ 0 this week</div></div>
-                <div class="stat-card"><div class="stat-icon">💬</div><div class="stat-label">TOTAL CHATS</div><div class="stat-value" id="stat-chats">0</div><div class="stat-sub">↑ 0 this week</div></div>
-                <div class="stat-card"><div class="stat-icon">✉️</div><div class="stat-label">TOTAL MESSAGES</div><div class="stat-value" id="stat-messages">0</div><div class="stat-sub">↑ 0 this week</div></div>
-                <div class="stat-card"><div class="stat-icon">👑</div><div class="stat-label">ADMINS</div><div class="stat-value" id="stat-admins">0</div><div class="stat-sub">↑ 0 this week</div></div>
-            </div>
-            <div class="vault-grid">
-                <div class="vault-card">
-                    <div class="card-header"><span>👤 RECENT ACCOUNTS</span><button class="view-all" onclick="Vault.loadUsers()">View All</button></div>
-                    <div id="vault-recent-accounts" style="display:flex; flex-direction:column; gap:8px;"></div>
-                </div>
-                <div class="vault-card">
-                    <div class="card-header"><span>⚡ OWNER ACTIVITY FEED</span><button class="view-all">View All</button></div>
-                    <div id="vault-activity-feed" style="display:flex; flex-direction:column; gap:10px;"></div>
-                </div>
-            </div>
-            <div class="vault-grid">
-                <div class="vault-card">
-                    <div class="card-header"><span>SYSTEM STATUS</span></div>
-                    <div style="display:flex; gap:16px; justify-content:space-around; padding:10px 0;">
-                        <div style="text-align:center;"><div style="width:80px; height:80px; border-radius:50%; border:4px solid #8B949E; display:flex; align-items:center; justify-content:center; font-weight:700;">23%<br><span style="font-size:10px; color:#8B949E;">CPU</span></div></div>
-                        <div style="text-align:center;"><div style="width:80px; height:80px; border-radius:50%; border:4px solid #C0C7D1; display:flex; align-items:center; justify-content:center; font-weight:700;">45%<br><span style="font-size:10px; color:#8B949E;">RAM</span></div></div>
-                        <div style="text-align:center;"><div style="width:80px; height:80px; border-radius:50%; border:4px solid #DDE4EE; display:flex; align-items:center; justify-content:center; font-weight:700;">62%<br><span style="font-size:10px; color:#8B949E;">STORAGE</span></div></div>
-                    </div>
-                    <div style="font-size:11px; color:#4ADE80; margin-top:10px;">✓ All systems operational</div>
-                </div>
-                <div class="vault-card">
-                    <div class="card-header"><span>USERS OVER TIME</span></div>
-                    <div id="vault-chart" style="height:120px; background:linear-gradient(180deg, rgba(139,92,246,0.15), transparent); border-radius:8px; display:flex; align-items:flex-end; padding:10px; gap:4px;"></div>
-                </div>
-                <div class="vault-card">
-                    <div class="card-header"><span>SECURITY ALERTS</span></div>
-                    <div id="vault-security-alerts" style="display:flex; flex-direction:column; gap:8px;"></div>
-                </div>
-            </div>
-        </div>
+        <div id="vault-content" style="padding:20px; color:#8B949E;">Loading vault...</div>
     </div>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/confirm.js"></script>

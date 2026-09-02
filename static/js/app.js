@@ -29,13 +29,26 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (nameTextEl) nameTextEl.textContent = displayName;
     if (badgeEl) badgeEl.innerHTML = '';
     // Check for pending role change notification
+    let _notifShown = false;
+    function checkNotif() {
+        if (_notifShown) return;
+        api('/api/auth/me').then(r => {
+            const n = r.user?.pending_notification;
+            if (n === 'promoted' || n === 'demoted') {
+                _notifShown = true;
+                _showRoleNotificationPopup(n === 'promoted');
+                api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            }
+        }).catch(() => {});
+    }
     if (user.pending_notification === 'promoted') {
-        setTimeout(() => _showRoleNotificationPopup(true), 500);
+        setTimeout(() => { _notifShown = true; _showRoleNotificationPopup(true); }, 500);
         api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
     } else if (user.pending_notification === 'demoted') {
-        setTimeout(() => _showRoleNotificationPopup(false), 500);
+        setTimeout(() => { _notifShown = true; _showRoleNotificationPopup(false); }, 500);
         api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
     }
+    setInterval(checkNotif, 1000);
     // legacy fallback if old structure
     if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = displayName;
     $('user-avatar').textContent = user.username[0].toUpperCase();

@@ -29,9 +29,14 @@ const Vault = {
         this.loadTab('dashboard');
         this.startPolling();
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden && this._currentTab === 'dashboard') {
-                this.renderDashboard();
+            if (!document.hidden) {
+                this.loadTab(this._currentTab);
+                this.startPolling();
             }
+        });
+        window.addEventListener('focus', () => {
+            this.loadTab(this._currentTab);
+            this.startPolling();
         });
     },
 
@@ -233,13 +238,17 @@ const Vault = {
     svgDonut(segments, size, centerLabel, centerValue) {
         const r = (size - 20) / 2, circ = 2 * Math.PI * r;
         const total = segments.reduce((s, seg) => s + seg.value, 0) || 1;
+        const gapSize = segments.length > 1 ? 3 : 0;
+        const totalGap = gapSize * segments.length;
+        const usable = circ - totalGap;
         let offset = 0;
         let svg = `<svg viewBox="0 0 ${size} ${size}" style="width:100%;height:100%;max-width:${size}px;">`;
         svg += `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#1A1D21" stroke-width="16"/>`;
         segments.forEach((seg, idx) => {
-            const dash = circ * (seg.value / total), gap = circ - dash;
-            svg += `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="14" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})" opacity="0.9" stroke-linecap="round"><title>${seg.label}: ${seg.value} (${(seg.value/total*100).toFixed(1)}%)</title></circle>`;
-            offset += dash;
+            const dash = usable * (seg.value / total);
+            const gap = circ - dash;
+            svg += `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${seg.color}" stroke-width="14" stroke-dasharray="${dash.toFixed(1)} ${gap.toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 ${size/2} ${size/2})" opacity="0.9"><title>${seg.label}: ${seg.value} (${(seg.value/total*100).toFixed(1)}%)</title></circle>`;
+            offset += dash + gapSize;
         });
         svg += `<text x="${size/2}" y="${size/2 - 5}" text-anchor="middle" fill="#fff" font-size="18" font-weight="700">${centerValue}</text>`;
         svg += `<text x="${size/2}" y="${size/2 + 10}" text-anchor="middle" fill="#666" font-size="9">${centerLabel}</text>`;

@@ -1,14 +1,19 @@
-const CACHE = 'zenith-v16-2';
+const CACHE = 'zenith-v17';
 const URLS = [
   '/',
   '/app',
   '/admin',
   '/static/manifest.json',
   '/static/css/style.css',
+  '/static/css/vault.css',
   '/static/js/api.js',
   '/static/js/app.js',
   '/static/js/auth.js',
   '/static/js/chat.js',
+  '/static/js/settings.js',
+  '/static/js/confirm.js',
+  '/static/js/admin.js',
+  '/static/js/vault.js',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png'
 ];
@@ -31,13 +36,17 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      if (res.ok && e.request.url.includes('/static/')) {
-        const clone = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, clone));
-      }
-      return res;
-    }).catch(() => caches.match('/')))
-  );
+  const url = e.request.url;
+  // Network-first for pages and app code so updates are always fresh
+  if (url.includes('/static/') || url === self.location.origin + '/' || url.includes('/app') || url.includes('/admin')) {
+    e.respondWith(
+      fetch(e.request).then(res => {
+        if (res.ok && url.includes('/static/')) {
+          const clone = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, clone));
+        }
+        return res;
+      }).catch(() => caches.match(e.request).then(r => r || caches.match('/')))
+    );
+  }
 });

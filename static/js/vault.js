@@ -1218,6 +1218,7 @@ const Vault = {
             tog.classList.toggle('on', turningOn);
             document.getElementById('maint-label').textContent = turningOn ? 'ON' : 'OFF';
             showToast('Maintenance ' + (turningOn ? 'ON' : 'OFF'), 'success');
+            showEmergencyPopup(turningOn ? 'maintenance' : 'maintenance-off');
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -1230,6 +1231,7 @@ const Vault = {
             await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             document.getElementById('reg-label').textContent = turningOn ? 'OPEN' : 'CLOSED';
             showToast('Registrations ' + (turningOn ? 'OPEN' : 'CLOSED'), 'success');
+            showEmergencyPopup(turningOn ? 'registrations-on' : 'registrations');
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1241,6 +1243,7 @@ const Vault = {
         try {
             await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             showToast('Messaging ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
+            showEmergencyPopup(turningOn ? 'messaging-on' : 'messaging');
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1252,6 +1255,7 @@ const Vault = {
         try {
             await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             showToast('AI ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
+            showEmergencyPopup(turningOn ? 'ai-on' : 'ai');
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1307,37 +1311,37 @@ const Vault = {
         if (!ok) return;
         const ok2 = await showConfirm('FINAL CONFIRM', 'Irreversible until manually unbanned. Continue?', true);
         if (!ok2) return;
-        try { const r = await api('/api/admin/system/lock-all', { method: 'POST' }); showToast('Locked ' + r.locked + ' accounts', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { const r = await api('/api/admin/system/lock-all', { method: 'POST' }); showToast('Locked ' + r.locked + ' accounts', 'success'); showEmergencyPopup('lock-all'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emForceLogout() {
         const ok = await showConfirm('Force logout everyone?', 'All active sessions are revoked and users get a popup.', true);
         if (!ok) return;
-        try { const r = await api('/api/admin/system/force-logout', { method: 'POST' }); showToast('Revoked ' + r.sessions_revoked + ' sessions', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { const r = await api('/api/admin/system/force-logout', { method: 'POST' }); showToast('Revoked ' + r.sessions_revoked + ' sessions', 'success'); showEmergencyPopup('force-logout'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emMaintenance() {
         const ok = await showConfirm('Emergency maintenance?', 'Shut down the entire platform except for you.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: 'on' }) }); showToast('Maintenance MODE ON', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: 'on' }) }); showToast('Maintenance MODE ON', 'success'); showEmergencyPopup('maintenance'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emRegistrations() {
         const ok = await showConfirm('Disable registrations?', 'No new accounts can be created.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Registrations DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Registrations DISABLED', 'success'); showEmergencyPopup('registrations'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emMessaging() {
         const ok = await showConfirm('Disable messaging?', 'Users cannot send messages.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Messaging DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Messaging DISABLED', 'success'); showEmergencyPopup('messaging'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emAI() {
         const ok = await showConfirm('Disable AI?', 'AI responses turned off globally.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); showEmergencyPopup('ai'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emBackup() {

@@ -1218,7 +1218,7 @@ const Vault = {
             tog.classList.toggle('on', turningOn);
             document.getElementById('maint-label').textContent = turningOn ? 'ON' : 'OFF';
             showToast('Maintenance ' + (turningOn ? 'ON' : 'OFF'), 'success');
-            showEmergencyPopup(turningOn ? 'maintenance' : 'maintenance-off');
+            
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -1231,7 +1231,7 @@ const Vault = {
             await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             document.getElementById('reg-label').textContent = turningOn ? 'OPEN' : 'CLOSED';
             showToast('Registrations ' + (turningOn ? 'OPEN' : 'CLOSED'), 'success');
-            showEmergencyPopup(turningOn ? 'registrations-on' : 'registrations');
+            
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1243,7 +1243,7 @@ const Vault = {
         try {
             await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             showToast('Messaging ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
-            showEmergencyPopup(turningOn ? 'messaging-on' : 'messaging');
+            
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1255,7 +1255,6 @@ const Vault = {
         try {
             await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
             showToast('AI ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
-            showEmergencyPopup(turningOn ? 'ai-on' : 'ai');
             this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
@@ -1296,6 +1295,7 @@ const Vault = {
             </div>
             <div class="vault-grid-2">
                 <div class="emergency-card" onclick="Vault.emLockAll()"><div style="font-size:28px;margin-bottom:8px;">🔒</div><div style="font-weight:700;color:#EF4444;">Lock All Accounts</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Ban every account except yours, expel sessions, popup to all</div></div>
+                <div class="emergency-card" onclick="Vault.emUnlockAll()"><div style="font-size:28px;margin-bottom:8px;">🔓</div><div style="font-weight:700;color:#4ADE80;">Unlock All Accounts</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Reverse the lock - unban everyone locked by Owner</div></div>
                 <div class="emergency-card" onclick="Vault.emForceLogout()"><div style="font-size:28px;margin-bottom:8px;">🔐</div><div style="font-weight:700;color:#EF4444;">Force Logout Everyone</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Revoke all active sessions, popup to all</div></div>
                 <div class="emergency-card" onclick="Vault.emMaintenance()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🚨</div><div style="font-weight:700;color:#F59E0B;">Emergency Maintenance</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Lock down the entire platform immediately</div></div>
                 <div class="emergency-card" onclick="Vault.emRegistrations()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Registrations</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">No new accounts can be created</div></div>
@@ -1309,39 +1309,45 @@ const Vault = {
     async emLockAll() {
         const ok = await showConfirm('Lock ALL accounts?', 'This locks every account except yours and forces them out with a popup. Continue?', true);
         if (!ok) return;
-        const ok2 = await showConfirm('FINAL CONFIRM', 'Irreversible until manually unbanned. Continue?', true);
+        const ok2 = await showConfirm('FINAL CONFIRM', 'Irreversible until you unlock them. Continue?', true);
         if (!ok2) return;
-        try { const r = await api('/api/admin/system/lock-all', { method: 'POST' }); showToast('Locked ' + r.locked + ' accounts', 'success'); showEmergencyPopup('lock-all'); } catch (e) { showToast(e.message, 'error'); }
+        try { const r = await api('/api/admin/system/lock-all', { method: 'POST' }); showToast('Locked ' + r.locked + ' accounts', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emUnlockAll() {
+        const ok = await showConfirm('Unlock ALL accounts?', 'This unbans every account locked by the Owner and lets them back in.', false);
+        if (!ok) return;
+        try { const r = await api('/api/admin/system/unlock-all', { method: 'POST' }); showToast('Unlocked ' + r.unlocked + ' accounts', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emForceLogout() {
         const ok = await showConfirm('Force logout everyone?', 'All active sessions are revoked and users get a popup.', true);
         if (!ok) return;
-        try { const r = await api('/api/admin/system/force-logout', { method: 'POST' }); showToast('Revoked ' + r.sessions_revoked + ' sessions', 'success'); showEmergencyPopup('force-logout'); } catch (e) { showToast(e.message, 'error'); }
+        try { const r = await api('/api/admin/system/force-logout', { method: 'POST' }); showToast('Revoked ' + r.sessions_revoked + ' sessions', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emMaintenance() {
         const ok = await showConfirm('Emergency maintenance?', 'Shut down the entire platform except for you.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: 'on' }) }); showToast('Maintenance MODE ON', 'success'); showEmergencyPopup('maintenance'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: 'on' }) }); showToast('Maintenance MODE ON', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emRegistrations() {
         const ok = await showConfirm('Disable registrations?', 'No new accounts can be created.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Registrations DISABLED', 'success'); showEmergencyPopup('registrations'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Registrations DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emMessaging() {
         const ok = await showConfirm('Disable messaging?', 'Users cannot send messages.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Messaging DISABLED', 'success'); showEmergencyPopup('messaging'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Messaging DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emAI() {
         const ok = await showConfirm('Disable AI?', 'AI responses turned off globally.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); showEmergencyPopup('ai'); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emBackup() {

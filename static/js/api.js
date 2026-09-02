@@ -14,9 +14,10 @@ function showEmergencyPopup(type) {
     const id = 'emergency-popup-' + (type || 'alert') + '-' + Date.now();
     if (document.getElementById(id)) return;
     const configs = {
-        'maintenance': { icon: '🚧', title: 'MAINTENANCE MODE', color: '#F59E0B', desc: 'The platform is now in maintenance mode. Only the Owner can access it.' },
-        'lock-all': { icon: '🔒', title: 'ALL ACCOUNTS LOCKED', color: '#EF4444', desc: 'All accounts have been locked. Users are currently locked out.' },
-        'force-logout': { icon: '🔐', title: 'FORCE LOGOUT', color: '#EF4444', desc: 'All active sessions have been revoked. Users must log in again.' },
+        'maintenance': { icon: '🚧', title: 'MAINTENANCE MODE', color: '#F59E0B', desc: 'The platform is now in maintenance mode. You have been signed out until maintenance is complete.' },
+        'lock-all': { icon: '🔒', title: 'ALL ACCOUNTS LOCKED', color: '#EF4444', desc: 'All accounts have been locked. You have been signed out until the Owner unlocks them.' },
+        'unlock-all': { icon: '🔓', title: 'ALL ACCOUNTS UNLOCKED', color: '#4ADE80', desc: 'All accounts have been unlocked by the Owner. You can log in again.' },
+        'force-logout': { icon: '🔐', title: 'FORCE LOGOUT', color: '#EF4444', desc: 'All active sessions have been revoked. Please log in again.' },
         'registrations': { icon: '🛑', title: 'REGISTRATIONS CLOSED', color: '#F59E0B', desc: 'New account registrations are now disabled.' },
         'messaging': { icon: '🚫', title: 'MESSAGING DISABLED', color: '#F59E0B', desc: 'Messaging has been disabled. Users cannot send messages.' },
         'ai': { icon: '🤖', title: 'AI DISABLED', color: '#F59E0B', desc: 'AI responses have been disabled globally.' },

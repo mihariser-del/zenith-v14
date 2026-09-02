@@ -16,10 +16,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div style="font-size:72px;margin-bottom:16px;">🚧</div>
                     <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(245,158,11,.15);border:1px solid rgba(245,158,11,.3);font-size:10px;font-weight:700;color:#F59E0B;letter-spacing:2px;margin-bottom:16px;">SYSTEM MAINTENANCE</div>
                     <h2 style="color:#F59E0B;font-size:24px;margin:0 0 12px;font-weight:800;">Maintenance Mode Active</h2>
-                    <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">The platform is temporarily under maintenance. Only the Owner can access it right now. Please try again later.</p>
+                    <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">The platform is temporarily under maintenance. You have been signed out until the work is done. Please check back later.</p>
                     <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
                 </div>`;
             document.body.appendChild(wrap);
+            return;
+        }
+        if (state.locked === 'on') {
+            document.body.innerHTML = '';
+            const wrap2 = document.createElement('div');
+            wrap2.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);';
+            wrap2.innerHTML = `
+                <div style="background:linear-gradient(160deg,#221010,#2a1414 50%,#150a0a);border:2px solid #EF4444;border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px rgba(239,68,68,.25),0 30px 60px rgba(0,0,0,.6);">
+                    <div style="font-size:72px;margin-bottom:16px;">🔒</div>
+                    <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.35);font-size:10px;font-weight:700;color:#EF4444;letter-spacing:2px;margin-bottom:16px;">ALL ACCOUNTS LOCKED</div>
+                    <h2 style="color:#EF4444;font-size:24px;margin:0 0 12px;font-weight:800;">Your Account Has Been Locked</h2>
+                    <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">The Owner has locked all accounts. You have been signed out until it is resolved. Please return when the Owner has unlocked the platform.</p>
+                    <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
+                </div>`;
+            document.body.appendChild(wrap2);
             return;
         }
     } catch (e) { /* ignore */ }

@@ -660,7 +660,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (emMatch) {
             // Use the shared emergency popup from api.js
             window.showEmergencyPopup(emMatch[1]);
-            if (emMatch[1] === 'lock-all' || emMatch[1] === 'force-logout') {
+            if (emMatch[1] === 'lock-all' || emMatch[1] === 'force-logout' || emMatch[1] === 'maintenance') {
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             }
             return;

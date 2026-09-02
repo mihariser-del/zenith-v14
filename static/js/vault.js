@@ -20,8 +20,6 @@ const Vault = {
             document.getElementById('vault-top-role').textContent = this._isOwner ? 'The One Above All' : 'Admin';
             const ownerSec = document.getElementById('vault-owner-section');
             if (ownerSec) ownerSec.style.display = this._isOwner ? 'block' : 'none';
-            const accessTag = document.getElementById('vault-access-tag');
-            if (accessTag) accessTag.textContent = this._isOwner ? '🔑 Owner Mode Enabled' : '🛡️ Admin Access';
             if (!this._isOwner && !user.is_admin) { window.location.href = '/app'; return; }
         } catch { window.location.href = '/'; return; }
         this.bindNav();

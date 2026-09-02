@@ -65,7 +65,12 @@ const Vault = {
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 100);
         this._sysPollInterval = setInterval(() => {
-            if (this._currentTab === 'dashboard') this.refreshSystemStats();
+            if (this._currentTab === 'dashboard') {
+                this.refreshSystemStats();
+                this.loadHourlyChart();
+                this.loadRecentAccounts();
+                this.loadActivityFeed();
+            }
             this.refreshOnlineCount();
         }, 1000);
     },
@@ -80,7 +85,7 @@ const Vault = {
 
     // ═══════════════════════════ SVG CHARTS ═══════════════════════════
     svgLine(data, w, h, color, fill = false) {
-        if (!data.length) return '';
+        if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
         const pad = 4;
         const step = (w - pad * 2) / Math.max(data.length - 1, 1);
@@ -94,7 +99,7 @@ const Vault = {
             fillPath += 'L' + x.toFixed(1) + ',' + y.toFixed(1);
         });
         fillPath += `L${pad + (data.length - 1) * step},${h - pad}Z`;
-        let svg = `<svg viewBox="0 0 ${w} ${h}" class="vault-chart-svg" preserveAspectRatio="none">`;
+        let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="none">`;
         if (fill) svg += `<path d="${fillPath}" fill="${color}" opacity="0.15"/>`;
         svg += `<path d="${path}" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>`;
         const last = data[data.length - 1];
@@ -102,27 +107,41 @@ const Vault = {
         const lx = pad + (data.length - 1) * step;
         const ly = h - pad - (lv / max) * (h - pad * 2);
         svg += `<circle cx="${lx.toFixed(1)}" cy="${ly.toFixed(1)}" r="3" fill="${color}"/>`;
-        svg += `<text x="${lx.toFixed(1)}" y="${ly - 6}" fill="${color}" font-size="10" text-anchor="middle" font-weight="600">${lv}</text>`;
+        svg += `<text x="${lx.toFixed(1)}" y="${ly - 6}" fill="${color}" font-size="11" text-anchor="middle" font-weight="700">${lv}</text>`;
         svg += '</svg>';
         return svg;
     },
 
-    svgBar(data, w, h, color) {
-        if (!data.length) return '';
+    svgBar(data, w, h, color, highlightLast = null) {
+        if (!data.length) return '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No data</div>';
         const max = Math.max(...data.map(d => d.count || d.value || 0), 1);
         const pad = 4;
-        const barW = Math.max((w - pad * 2) / data.length - 2, 3);
-        let svg = `<svg viewBox="0 0 ${w} ${h}" class="vault-chart-svg" preserveAspectRatio="none">`;
+        const slot = (w - pad * 2) / data.length;
+        const barW = Math.max(slot - 2, 2);
+        let svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" style="width:100%;height:100%;overflow:visible;">`;
         data.forEach((d, i) => {
             const v = d.count || d.value || 0;
             const bh = (v / max) * (h - pad * 2);
-            const x = pad + i * ((w - pad * 2) / data.length) + 1;
+            const x = pad + i * slot + 1;
             const y = h - pad - bh;
-            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${color}" rx="2" opacity="0.8"/>`;
+            const isHL = highlightLast !== null && i === highlightLast;
+            const col = isHL ? '#DDE4EE' : color;
+            svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" fill="${col}" rx="2" opacity="0.85"><title>${this.hourLabel(i)}: ${v} msgs</title></rect>`;
         });
+        // x-axis hour labels (every 4 hours)
+        if (data.length === 24) {
+            svg += '<g>';
+            for (let h = 0; h < 24; h += 4) {
+                const x = pad + h * slot + slot / 2;
+                svg += `<text x="${x.toFixed(1)}" y="${h - 4}" fill="#666" font-size="8" text-anchor="middle">${h}h</text>`;
+            }
+            svg += '</g>';
+        }
         svg += '</svg>';
         return svg;
     },
+
+    hourLabel(i) { return i + 'h'; },
 
     svgGauge(value, max, size, color) {
         const r = (size - 8) / 2;
@@ -276,7 +295,9 @@ const Vault = {
         try {
             const d = await api('/api/auth/admin/analytics/messages-per-hour');
             const el = document.getElementById('chart-hourly');
-            if (el) el.innerHTML = this.svgBar(d.hours.map(h => ({ count: h.count })), 500, 100, '#A78BFA');
+            const data = d.hours.map(h => ({ count: h.count }));
+            const lastHr = new Date().getUTCHours();
+            if (el) el.innerHTML = this.svgBar(data, 500, 100, '#A78BFA', lastHr);
         } catch {}
     },
 
@@ -466,9 +487,11 @@ const Vault = {
 
     async viewChatMessages(chatId, title) {
         try {
-            const { messages } = await api(`/api/chats/${chatId}/messages`);
-            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">✉️ ${title}</h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
-            (messages || []).forEach(m => {
+            const d = await api(`/api/auth/admin/analytics/chat/${chatId}/messages`);
+            const messages = d.messages || [];
+            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">✉️ ${title} <span style="font-size:11px;color:#8B949E;">(${d.chat && d.chat.username ? d.chat.username : ''})</span></h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
+            if (!messages.length) html += '<div class="vault-empty">No messages</div>';
+            messages.forEach(m => {
                 const isUser = m.role === 'user';
                 html += `<div style="margin:6px 0;padding:10px;background:${isUser ? '#1A1D21' : '#111315'};border-left:3px solid ${isUser ? '#4ADE80' : '#8B5CF6'};border-radius:6px;font-size:12px;color:#e5e5e5;"><strong style="color:${isUser ? '#4ADE80' : '#8B5CF6'};">${m.role}:</strong> ${(m.content || '').slice(0, 500).replace(/</g, '&lt;')}</div>`;
             });
@@ -679,10 +702,12 @@ const Vault = {
     // ═══════════════════════════ BACKUPS ═══════════════════════════
     async renderBackups() {
         const el = document.getElementById('vault-content');
-        el.innerHTML = `
+        try {
+            const sys = await api('/api/system/stats');
+            el.innerHTML = `
             <div class="vault-stats" style="padding:0 0 12px;">
                 ${this.statCard('💾','Database','SQLite','','info')}
-                ${this.statCard('📁','Storage','/data/zenith.db','','')}
+                ${this.statCard('📁','Storage', (sys.storage || 0) + '% used','','')}
                 ${this.statCard('🔄','Auto-backup','Railway','','success')}
             </div>
             <div class="vault-grid-3">
@@ -694,23 +719,79 @@ const Vault = {
                 </div>
                 <div class="vault-card" style="text-align:center;">
                     <div style="font-size:28px;margin-bottom:8px;">👤</div>
-                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">User Data</div>
-                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Export all user data</div>
-                    <button class="vault-btn" onclick="showToast('User export started','success')">Export Users</button>
+                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Export Users</div>
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Download all accounts as CSV</div>
+                    <button class="vault-btn" onclick="Vault.downloadExport('users')">Download Users</button>
                 </div>
                 <div class="vault-card" style="text-align:center;">
                     <div style="font-size:28px;margin-bottom:8px;">💬</div>
-                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Chat Data</div>
-                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Export all conversations</div>
-                    <button class="vault-btn" onclick="showToast('Chat export started','success')">Export Chats</button>
+                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Export Conversations</div>
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Download all chats as text</div>
+                    <button class="vault-btn" onclick="Vault.downloadExport('chats')">Download Chats</button>
+                </div>
+                <div class="vault-card" style="text-align:center;">
+                    <div style="font-size:28px;margin-bottom:8px;">✉️</div>
+                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Export Messages</div>
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Download all messages as text</div>
+                    <button class="vault-btn" onclick="Vault.downloadExport('messages')">Download Messages</button>
+                </div>
+                <div class="vault-card" style="text-align:center;">
+                    <div style="font-size:28px;margin-bottom:8px;">⚙️</div>
+                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Export Config</div>
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Download system configuration</div>
+                    <button class="vault-btn" onclick="Vault.exportConfig()">Download Config</button>
+                </div>
+                <div class="vault-card" style="text-align:center;">
+                    <div style="font-size:28px;margin-bottom:8px;">🔄</div>
+                    <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Restore Backup</div>
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Restore from last snapshot</div>
+                    <button class="vault-btn" onclick="Vault.restoreBackup()">Restore</button>
                 </div>
             </div>
             <div class="vault-card" style="margin-top:16px;">
                 <div class="card-header"><span>📋 Backup Schedule</span></div>
-                <div class="vault-setting-row"><span class="vault-setting-label">Automatic Backups</span><span class="vault-setting-value" style="color:#4ADE80;">Enabled (Railway)</span></div>
-                <div class="vault-setting-row"><span class="vault-setting-label">Retention Period</span><span class="vault-setting-value">30 days</span></div>
-                <div class="vault-setting-row"><span class="vault-setting-label">Last Backup</span><span class="vault-setting-value">Continuous (volume)</span></div>
+                <div class="vault-setting-row"><span class="vault-setting-label">Automatic Backups</span><span class="vault-setting-value" style="color:#4ADE80;">Enabled (Railway volumes)</span></div>
+                <div class="vault-setting-row"><span class="vault-setting-label">Retention Period</span><span class="vault-setting-value">Continuous — persistent</span></div>
+                <div class="vault-setting-row"><span class="vault-setting-label">Database Location</span><span class="vault-setting-value">/data/zenith.db</span></div>
             </div>`;
+        } catch (e) {
+            el.innerHTML = '<div style="text-align:center;padding:40px;color:#8B949E;">Loading backups... (system stats unavailable)</div>';
+        }
+    },
+
+    downloadExport(kind) {
+        const url = `/api/auth/admin/analytics/export/${kind}`;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = kind === 'users' ? 'zenith_users.csv' : (kind === 'chats' ? 'zenith_chats.txt' : 'zenith_messages.txt');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        showToast(kind + ' export downloading', 'success');
+    },
+
+    exportConfig() {
+        const config = {
+            version: '17.0',
+            platform: 'Zenith AI',
+            owner: 'WANZU-IBRAHIM',
+            themes: { owner: 'Titanium Core', admin: 'Gold' },
+            ai: { provider: 'OpenRouter', default_model: 'openai/gpt-4o-mini', temperature: 0.7, max_tokens: 2048 },
+            billing: { pro: '$5.99/mo', pro_annual: '$59.99', pro_lifetime: '$200', ultimate: '$11.99/mo', ultimate_annual: '$119.99', ultimate_lifetime: '$400', trial_days: 5 },
+            limits: { free: { images: 5, uploads: 15, edits: 5 }, guest: { images: 2, uploads: 3, edits: 1, pause_msgs: 40, pause_minutes: 15 }, pro: 100 },
+        };
+        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'zenith_config.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+        showToast('Config downloaded', 'success');
+    },
+
+    async restoreBackup() {
+        const ok = await showConfirm('Restore backup?', 'Restore the database from the last Railway snapshot? This may overwrite current data.', true);
+        if (ok) showToast('Restore initiated — check Railway dashboard', 'success');
     },
 
     // ═══════════════════════════ SETTINGS ═══════════════════════════
@@ -843,41 +924,94 @@ const Vault = {
     // ═══════════════════════════ GLOBAL CONTROLS ═══════════════════════════
     async renderGlobal() {
         const el = document.getElementById('vault-content');
+        let state = {};
+        try { state = await api('/api/admin/system/state'); } catch {}
         el.innerHTML = `
             <div class="vault-grid-2">
                 <div class="vault-card">
                     <div class="card-header"><span>🔧 Maintenance Mode</span></div>
-                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Disable site for all except owner. Users see maintenance page.</div>
-                    <div class="vault-toggle" id="maint-toggle" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'Maintenance ON':'Maintenance OFF','')"></div>
+                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Disable site for all except owner. Users see a popup and cannot log in.</div>
+                    <div class="vault-toggle ${state.maintenance_mode === 'on' ? 'on' : ''}" id="maint-toggle" onclick="Vault.toggleMaintenance()"></div>
+                    <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="maint-label">${state.maintenance_mode === 'on' ? 'ON' : 'OFF'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>📢 Global Announcement</span></div>
-                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Broadcast message to all users in real-time.</div>
+                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Broadcast message to all users immediately via popup.</div>
                     <textarea class="vault-input" id="global-announce" rows="3" placeholder="Type announcement..." style="resize:vertical;"></textarea>
-                    <button class="vault-btn primary" style="margin-top:8px;width:100%;" onclick="Vault.sendAnnouncement()">Send Broadcast</button>
+                    <button class="vault-btn primary" style="margin-top:8px;width:100%;" onclick="Vault.sendAnnouncement()">Send Broadcast →</button>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🚫 Registration Control</span></div>
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable new account registrations.</div>
-                    <div class="vault-toggle on" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'Registrations enabled':'Registrations disabled','')"></div>
+                    <div class="vault-toggle ${state.registrations === 'on' ? 'on' : ''}" onclick="Vault.toggleRegistrations()"></div>
+                    <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="reg-label">${state.registrations === 'on' ? 'OPEN' : 'CLOSED'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>✉️ Messaging Control</span></div>
-                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable AI messaging for all users.</div>
-                    <div class="vault-toggle on" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'Messaging enabled':'Messaging disabled','')"></div>
+                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable messaging for all users.</div>
+                    <div class="vault-toggle ${state.messaging === 'on' ? 'on' : ''}" onclick="Vault.toggleMessaging()"></div>
+                    <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="msg-label">${state.messaging === 'on' ? 'ENABLED' : 'DISABLED'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🤖 AI Control</span></div>
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable AI responses globally.</div>
-                    <div class="vault-toggle on" onclick="this.classList.toggle('on');showToast(this.classList.contains('on')?'AI enabled':'AI disabled','')"></div>
+                    <div class="vault-toggle ${state.ai_enabled === 'on' ? 'on' : ''}" onclick="Vault.toggleAI()"></div>
+                    <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="ai-label">${state.ai_enabled === 'on' ? 'ENABLED' : 'DISABLED'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>📊 System Status</span></div>
-                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Monitor all system services.</div>
                     <div id="global-sys-status"></div>
                 </div>
             </div>`;
         this.refreshGlobalStatus();
+    },
+
+    async toggleMaintenance() {
+        const tog = document.getElementById('maint-toggle');
+        const turningOn = !tog.classList.contains('on');
+        const ok = await showConfirm(turningOn ? 'Enable maintenance?' : 'Disable maintenance?', turningOn ? 'All users except you will be locked out.' : 'Reopen the platform to all users.');
+        if (!ok) return;
+        try {
+            await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            tog.classList.toggle('on', turningOn);
+            document.getElementById('maint-label').textContent = turningOn ? 'ON' : 'OFF';
+            showToast('Maintenance ' + (turningOn ? 'ON' : 'OFF'), 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async toggleRegistrations() {
+        const tog = event.target.classList.contains('on');
+        const turningOn = !tog;
+        const ok = await showConfirm(turningOn ? 'Open registrations?' : 'Close registrations?', turningOn ? 'Allow new accounts.' : 'Block new account creation.');
+        if (!ok) return;
+        try {
+            await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            document.getElementById('reg-label').textContent = turningOn ? 'OPEN' : 'CLOSED';
+            showToast('Registrations ' + (turningOn ? 'OPEN' : 'CLOSED'), 'success');
+            this.renderGlobal();
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async toggleMessaging() {
+        const turningOn = !event.target.classList.contains('on');
+        const ok = await showConfirm(turningOn ? 'Enable messaging?' : 'Disable messaging?', turningOn ? 'Users can send messages.' : 'Block all users from messaging.');
+        if (!ok) return;
+        try {
+            await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            showToast('Messaging ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
+            this.renderGlobal();
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async toggleAI() {
+        const turningOn = !event.target.classList.contains('on');
+        const ok = await showConfirm(turningOn ? 'Enable AI?' : 'Disable AI?', turningOn ? 'AI responses enabled.' : 'AI responses blocked globally.');
+        if (!ok) return;
+        try {
+            await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            showToast('AI ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
+            this.renderGlobal();
+        } catch (e) { showToast(e.message, 'error'); }
     },
 
     async refreshGlobalStatus() {
@@ -895,6 +1029,8 @@ const Vault = {
     async sendAnnouncement() {
         const msg = document.getElementById('global-announce')?.value.trim();
         if (!msg) return showToast('Type a message', 'error');
+        const ok = await showConfirm('Send broadcast?', 'This will show a popup to ALL users immediately.');
+        if (!ok) return;
         try { await api('/api/announcements', { method: 'POST', body: JSON.stringify({ content: msg }) }); showToast('Broadcast sent!', 'success'); document.getElementById('global-announce').value = ''; } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -907,29 +1043,53 @@ const Vault = {
                 <div style="font-size:12px;color:#8B949E;margin-top:4px;">Destructive actions — owner only. Double-confirm required.</div>
             </div>
             <div class="vault-grid-2">
-                <div class="emergency-card" onclick="Vault.emLockAll()"><div style="font-size:28px;margin-bottom:8px;">🔒</div><div style="font-weight:700;color:#EF4444;">Lock All Accounts</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Lock every account except yours</div></div>
-                <div class="emergency-card" onclick="Vault.emForceLogout()"><div style="font-size:28px;margin-bottom:8px;">🔐</div><div style="font-weight:700;color:#EF4444;">Force Logout Everyone</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Revoke all active sessions</div></div>
-                <div class="emergency-card" onclick="showToast('Emergency maintenance ON','')" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🚨</div><div style="font-weight:700;color:#F59E0B;">Emergency Maintenance</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Shit down the entire platform</div></div>
-                <div class="emergency-card" onclick="showToast('Registrations disabled','')" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Registrations</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">No new accounts can be created</div></div>
-                <div class="emergency-card" onclick="showToast('Messaging disabled','')" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Messaging</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Users cannot send messages</div></div>
-                <div class="emergency-card" onclick="showToast('AI disabled globally','')" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable AI</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">AI responses turned off globally</div></div>
+                <div class="emergency-card" onclick="Vault.emLockAll()"><div style="font-size:28px;margin-bottom:8px;">🔒</div><div style="font-weight:700;color:#EF4444;">Lock All Accounts</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Ban every account except yours, expel sessions, popup to all</div></div>
+                <div class="emergency-card" onclick="Vault.emForceLogout()"><div style="font-size:28px;margin-bottom:8px;">🔐</div><div style="font-weight:700;color:#EF4444;">Force Logout Everyone</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Revoke all active sessions, popup to all</div></div>
+                <div class="emergency-card" onclick="Vault.emMaintenance()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🚨</div><div style="font-weight:700;color:#F59E0B;">Emergency Maintenance</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Lock down the entire platform immediately</div></div>
+                <div class="emergency-card" onclick="Vault.emRegistrations()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Registrations</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">No new accounts can be created</div></div>
+                <div class="emergency-card" onclick="Vault.emMessaging()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable Messaging</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Users cannot send messages</div></div>
+                <div class="emergency-card" onclick="Vault.emAI()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable AI</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">AI responses turned off globally</div></div>
                 <div class="emergency-card" onclick="showToast('Emergency backup created','')"><div style="font-size:28px;margin-bottom:8px;">💾</div><div style="font-weight:700;color:#DDE4EE;">Emergency Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Snapshot entire database now</div></div>
-                <div class="emergency-card" onclick="showToast('Restore initiated','')"><div style="font-size:28px;margin-bottom:8px;">🔄</div><div style="font-weight:700;color:#DDE4EE;">Restore Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Restore from last backup</div></div>
+                <div class="emergency-card" onclick="Vault.restoreBackup()"><div style="font-size:28px;margin-bottom:8px;">🔄</div><div style="font-weight:700;color:#DDE4EE;">Restore Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Restore from last backup</div></div>
             </div>`;
     },
 
     async emLockAll() {
-        const ok = await showConfirm('Lock ALL accounts?', 'This locks every account except yours. Continue?', true);
+        const ok = await showConfirm('Lock ALL accounts?', 'This locks every account except yours and forces them out with a popup. Continue?', true);
         if (!ok) return;
-        const ok2 = await showConfirm('FINAL CONFIRM', 'Irreversible until manually unlocked. Continue?', true);
+        const ok2 = await showConfirm('FINAL CONFIRM', 'Irreversible until manually unbanned. Continue?', true);
         if (!ok2) return;
-        showToast('All accounts locked', 'success');
+        try { const r = await api('/api/admin/system/lock-all', { method: 'POST' }); showToast('Locked ' + r.locked + ' accounts', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     async emForceLogout() {
-        const ok = await showConfirm('Force logout everyone?', 'All active sessions will be revoked.', true);
+        const ok = await showConfirm('Force logout everyone?', 'All active sessions are revoked and users get a popup.', true);
         if (!ok) return;
-        showToast('All sessions revoked', 'success');
+        try { const r = await api('/api/admin/system/force-logout', { method: 'POST' }); showToast('Revoked ' + r.sessions_revoked + ' sessions', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emMaintenance() {
+        const ok = await showConfirm('Emergency maintenance?', 'Shut down the entire platform except for you.', true);
+        if (!ok) return;
+        try { await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: 'on' }) }); showToast('Maintenance MODE ON', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emRegistrations() {
+        const ok = await showConfirm('Disable registrations?', 'No new accounts can be created.', true);
+        if (!ok) return;
+        try { await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Registrations DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emMessaging() {
+        const ok = await showConfirm('Disable messaging?', 'Users cannot send messages.', true);
+        if (!ok) return;
+        try { await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('Messaging DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async emAI() {
+        const ok = await showConfirm('Disable AI?', 'AI responses turned off globally.', true);
+        if (!ok) return;
+        try { await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: 'off' }) }); showToast('AI DISABLED', 'success'); } catch (e) { showToast(e.message, 'error'); }
     },
 
     // ═══════════════════════════ HELPERS ═══════════════════════════

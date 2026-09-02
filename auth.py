@@ -130,6 +130,17 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
 
 @router.post("/register")
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+    # Respect global registration toggle
+    try:
+        from sqlalchemy import text
+        res = await db.execute(text("SELECT value FROM system_settings WHERE key='registrations'"))
+        row = res.fetchone()
+        if row and row[0] == "off":
+            raise HTTPException(status_code=403, detail="Registration is currently disabled by the Owner")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     if len(req.username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
     if len(req.password) < 6:
@@ -138,7 +149,25 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     existing = await db.execute(
         select(User).where((User.username == req.username) | (User.email == req.email))
     )
-    if existing.scalar_one_or_none():
+    existing_user = existing.scalar_one_or_none()
+    # If an existing account is soft-deleted, allow the same username/email to be reused
+    # by reactivating that account with fresh credentials. This matches the expectation
+    # that a deleted account no longer blocks re-registration.
+    if existing_user:
+        if existing_user.is_deleted:
+            existing_user.username = req.username
+            existing_user.email = req.email
+            existing_user.password_hash = hash_password(req.password)
+            existing_user.is_deleted = False
+            existing_user.deleted_by = ""
+            existing_user.is_banned = False
+            existing_user.ban_reason = ""
+            existing_user.banned_by = ""
+            existing_user.token_version = 0
+            existing_user.pending_password = ""
+            existing_user.pending_password_by = ""
+            await db.commit()
+            return {"message": "Account reactivated"}
         raise HTTPException(status_code=409, detail="Username or email already exists")
 
     user = User(
@@ -168,6 +197,18 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         raise HTTPException(status_code=404, detail="Account deleted.")
     if getattr(user, 'is_banned', False):
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {user.ban_reason or 'No reason provided'}")
+    # Maintenance mode: only the Owner can log in
+    if get_role(user) != "owner":
+        try:
+            from sqlalchemy import text
+            res = await db.execute(text("SELECT value FROM system_settings WHERE key='maintenance_mode'"))
+            row = res.fetchone()
+            if row and row[0] == "on":
+                raise HTTPException(status_code=503, detail="Platform under maintenance. Only the Owner can access right now.")
+        except HTTPException:
+            raise
+        except Exception:
+            pass
 
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()

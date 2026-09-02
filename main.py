@@ -25,6 +25,7 @@ from billing import router as billing_router
 from google_auth import router as google_router
 from system_stats import router as system_router
 from analytics import router as analytics_router
+from global_controls import router as global_controls_router
 
 VERSION = "17.0"
 CHANGELOG = [
@@ -65,6 +66,7 @@ app.include_router(billing_router)
 app.include_router(google_router)
 app.include_router(system_router)
 app.include_router(analytics_router)
+app.include_router(global_controls_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

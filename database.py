@@ -265,6 +265,10 @@ async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        try:
+            await conn.exec_driver_sql("CREATE TABLE IF NOT EXISTS system_settings (key VARCHAR(100) PRIMARY KEY, value TEXT)")
+        except Exception as e:
+            print(f"migration system_settings: {e}")
         for col, ddl in [
             ("is_banned", "BOOLEAN DEFAULT 0"),
             ("ban_reason", "VARCHAR(500) DEFAULT ''"),

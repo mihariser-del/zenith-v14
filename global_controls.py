@@ -1,0 +1,134 @@
+from datetime import datetime, timezone
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select, text
+from sqlalchemy.ext.asyncio import AsyncSession
+from pydantic import BaseModel
+
+from database import get_db, User, Announcement
+from auth import get_current_user_from_cookie, is_staff, is_owner, get_role
+
+router = APIRouter(prefix="/api/admin/system", tags=["admin-system"])
+
+
+class SettingRequest(BaseModel):
+    value: str
+
+
+async def _get_setting(db: AsyncSession, key: str, default: str = "off") -> str:
+    result = await db.execute(text("SELECT value FROM system_settings WHERE key=:k"), {"k": key})
+    row = result.fetchone()
+    return row[0] if row else default
+
+
+async def _set_setting(db: AsyncSession, key: str, value: str):
+    result = await db.execute(text("SELECT 1 FROM system_settings WHERE key=:k"), {"k": key})
+    if result.fetchone():
+        await db.execute(text("UPDATE system_settings SET value=:v WHERE key=:k"), {"k": key, "v": value})
+    else:
+        await db.execute(text("INSERT INTO system_settings (key, value) VALUES (:k, :v)"), {"k": key, "v": value})
+    await db.commit()
+
+
+async def _announce(db: AsyncSession, user, content: str):
+    ann = Announcement(user_id=user.id, username=user.username, role=get_role(user), content=content[:2000])
+    db.add(ann)
+    await db.commit()
+
+
+@router.get("/state")
+async def get_state(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {
+        "maintenance_mode": await _get_setting(db, "maintenance_mode", "off"),
+        "registrations": await _get_setting(db, "registrations", "on"),
+        "messaging": await _get_setting(db, "messaging", "on"),
+        "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
+        "locked": await _get_setting(db, "locked", "off"),
+    }
+
+
+@router.get("/public")
+async def public_state(db: AsyncSession = Depends(get_db)):
+    return {
+        "maintenance_mode": await _get_setting(db, "maintenance_mode", "off"),
+        "registrations": await _get_setting(db, "registrations", "on"),
+        "messaging": await _get_setting(db, "messaging", "on"),
+        "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
+    }
+
+
+@router.post("/maintenance")
+async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    await _set_setting(db, "maintenance_mode", req.value)
+    if req.value == "on":
+        await _announce(db, user, "🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner can access it right now.")
+    else:
+        await _announce(db, user, "✅ Maintenance mode is now OFF. The platform is fully available again.")
+    return {"maintenance_mode": req.value}
+
+
+@router.post("/registrations")
+async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    await _set_setting(db, "registrations", req.value)
+    await _announce(db, user, ("🚫 Registration is now CLOSED. New accounts cannot be created." if req.value == "off" else "✅ Registration is now OPEN."))
+    return {"registrations": req.value}
+
+
+@router.post("/messaging")
+async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    await _set_setting(db, "messaging", req.value)
+    await _announce(db, user, ("🛑 Messaging is now DISABLED. You cannot send messages right now." if req.value == "off" else "✅ Messaging is now ENABLED."))
+    return {"messaging": req.value}
+
+
+@router.post("/ai")
+async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    await _set_setting(db, "ai_enabled", req.value)
+    await _announce(db, user, ("🤖 AI responses are now DISABLED globally." if req.value == "off" else "✅ AI is now ENABLED."))
+    return {"ai_enabled": req.value}
+
+
+@router.post("/lock-all")
+async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+    targets = result.scalars().all()
+    for t in targets:
+        t.is_banned = True
+        if not t.ban_reason:
+            t.ban_reason = "Account locked by Owner"
+        t.banned_by = "owner"
+        t.token_version = (t.token_version or 0) + 1
+    await db.commit()
+    await _announce(db, user, "🔒 ALL ACCOUNTS HAVE BEEN LOCKED by the Owner. You are currently locked out.")
+    return {"locked": len(targets)}
+
+
+@router.post("/force-logout")
+async def force_logout(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+    targets = result.scalars().all()
+    for t in targets:
+        t.token_version = (t.token_version or 0) + 1
+    await db.commit()
+    await _announce(db, user, "🔐 Everyone has been signed out by the Owner. Please log in again.")
+    return {"sessions_revoked": len(targets)}

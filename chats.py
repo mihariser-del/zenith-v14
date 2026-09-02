@@ -137,6 +137,17 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     from ai import stream_chat
 
     user = await get_current_user_from_cookie(request, db)
+    # Global messaging toggle (Owner control)
+    from sqlalchemy import text as _text
+    try:
+        res = await db.execute(_text("SELECT value FROM system_settings WHERE key='messaging'"))
+        row = res.fetchone()
+        if row and row[0] == "off" and getattr(user, "role", "") != "owner":
+            raise HTTPException(status_code=403, detail="Messaging is currently disabled by the Owner")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
     await check_limit(user, db, "message")
     # Free/guest 20-msg window after image/file
     await check_image_file_window(user, db, chat_id)

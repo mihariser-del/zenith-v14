@@ -152,6 +152,76 @@ async def all_messages(request: Request, db: AsyncSession = Depends(get_db)):
     return {"messages": out}
 
 
+@router.get("/chat/{chat_id}/messages")
+async def chat_messages_admin(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(select(Chat).where(Chat.id == chat_id).options(selectinload(Chat.messages)))
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    owner = (await db.execute(select(User).where(User.id == chat.user_id))).scalar_one_or_none()
+    return {
+        "chat": {"id": chat.id, "title": chat.title, "user_id": chat.user_id, "username": owner.username if owner else "?"},
+        "messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""} for m in chat.messages],
+    }
+
+
+@router.get("/export/users")
+async def export_users(request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    import csv, io
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    users = result.scalars().all()
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["id", "username", "email", "role", "is_admin", "is_banned", "is_deleted", "is_pro", "is_ultimate", "created_at", "last_active"])
+    for u in users:
+        last_chat = (await db.execute(select(Chat.updated_at).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()).limit(1))).scalar_one_or_none()
+        writer.writerow([u.id, u.username, u.email, get_role(u), u.is_admin, u.is_banned, u.is_deleted, u.is_pro, u.is_ultimate, u.created_at.strftime("%Y-%m-%d %H:%M") if u.created_at else "", last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else ""])
+    return Response(content=buf.getvalue(), media_type="text/csv", headers={"Content-Disposition": 'attachment; filename="zenith_users.csv"'})
+
+
+@router.get("/export/chats")
+async def export_chats(request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(Chat).order_by(Chat.updated_at.desc()))
+    chats = result.scalars().all()
+    lines = []
+    for c in chats:
+        owner = (await db.execute(select(User).where(User.id == c.user_id))).scalar_one_or_none()
+        lines.append(f"=== Chat #{c.id} [{c.title}] by {owner.username if owner else '?'} ({c.updated_at}) ===")
+        msgs = await db.execute(select(Message).where(Message.chat_id == c.id).order_by(Message.id))
+        for m in msgs.scalars().all():
+            lines.append(f"[{m.created_at}] {m.role}: {m.content}")
+        lines.append("")
+    return Response(content="\n".join(lines), media_type="text/plain", headers={"Content-Disposition": 'attachment; filename="zenith_chats.txt'})
+
+
+@router.get("/export/messages")
+async def export_messages(request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(Message).order_by(Message.created_at.desc()).limit(2000))
+    msgs = result.scalars().all()
+    lines = [f"{m.created_at} | chat#{m.chat_id} | {m.role} | {m.content}" for m in msgs]
+    return Response(content="\n".join(lines), media_type="text/plain", headers={"Content-Disposition": 'attachment; filename="zenith_messages.txt'})
+
+
 @router.get("/login-history-all")
 async def login_history_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)

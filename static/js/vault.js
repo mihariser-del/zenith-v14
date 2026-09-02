@@ -1396,6 +1396,7 @@ const Vault = {
             { key: 'reset_password', icon: '🔑', label: 'Reset Passwords', desc: 'Can reset user passwords' },
             { key: 'view_messages', icon: '💬', label: 'View Messages', desc: 'Can view user chats and messages' },
             { key: 'manage_chats', icon: '📊', label: 'Manage Chats', desc: 'Can view and manage user chats' },
+            { key: 'delete_users', icon: '🗑️', label: 'Delete Users', desc: 'Can delete user accounts' },
         ];
         const wrap = document.createElement('div');
         wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';

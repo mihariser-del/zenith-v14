@@ -498,6 +498,14 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
+    if get_role(admin) == "admin":
+        import json
+        perms = {}
+        if admin.permissions:
+            try: perms = json.loads(admin.permissions)
+            except: pass
+        if not perms.get("delete_users", True):
+            raise HTTPException(status_code=403, detail="You do not have permission to delete users. Contact the Owner.")
     if admin.id == user_id:
         raise HTTPException(status_code=400, detail="Cannot delete yourself")
     result = await db.execute(select(User).where(User.id == user_id))
@@ -581,7 +589,7 @@ async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession
     body = await request.json()
     import json
     perms = body.get("permissions", {})
-    allowed_keys = {"ban_users", "reset_password", "view_messages", "manage_chats"}
+    allowed_keys = {"ban_users", "reset_password", "view_messages", "manage_chats", "delete_users"}
     filtered = {k: bool(v) for k, v in perms.items() if k in allowed_keys}
     target.permissions = json.dumps(filtered)
     await db.commit()

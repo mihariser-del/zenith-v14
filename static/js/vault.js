@@ -166,15 +166,15 @@ const Vault = {
             }));
             el.querySelectorAll('[data-vault="reset"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;
-                const pw=prompt('New password (min 6 chars):');
-                if(!pw || pw.length<6) return;
+                const pw=await showPrompt('Reset password', '', 'New password (min 6 chars)');
+                if(!pw || pw.length<6) { if(pw!==null) showToast('Password must be at least 6 chars','error'); return; }
                 try{ await api(`/api/auth/admin/users/${id}/reset-password`, {method:'POST', body:JSON.stringify({new_password:pw})}); showToast('Password reset','success'); }catch(e){ showToast(e.message,'error'); }
             }));
             el.querySelectorAll('[data-vault="ban"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;
                 const isBanned=b.textContent==='Unban';
                 if(isBanned){ try{ await api(`/api/auth/admin/users/${id}/unban`, {method:'POST'}); showToast('Unbanned','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); } }
-                else { const reason=prompt('Ban reason:'); if(!reason) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason})}); showToast('Banned','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); } }
+                else { const reason=await showPrompt('Ban reason', '', 'Enter a reason for the ban (shown to the user)'); if(!reason || !reason.trim()) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason:reason.trim()})}); showToast('Banned','success'); Vault.loadRecent(); Vault.loadStats(); }catch(e){ showToast(e.message,'error'); } }
             }));
             el.querySelectorAll('[data-vault="delete"]').forEach(b=>b.addEventListener('click', async()=>{
                 const id=b.dataset.id;
@@ -271,7 +271,7 @@ const Vault = {
     },
     async banUser(id, username, isBanned) {
         if(isBanned){ try{ await api(`/api/auth/admin/users/${id}/unban`, {method:'POST'}); showToast('Unbanned '+username,'success'); this.loadUsers(); this.loadStats(); }catch(e){ showToast(e.message,'error'); } }
-        else { const r=prompt('Ban reason for '+username+':'); if(!r) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason:r})}); showToast('Banned '+username,'success'); this.loadUsers(); this.loadStats(); }catch(e){ showToast(e.message,'error'); } }
+        else { const r=await showPrompt('Ban reason', '', `Enter a reason for banning ${username} (shown to the user)`); if(!r || !r.trim()) return; try{ await api(`/api/auth/admin/users/${id}/ban`, {method:'POST', body:JSON.stringify({reason:r.trim()})}); showToast('Banned '+username,'success'); this.loadUsers(); this.loadStats(); }catch(e){ showToast(e.message,'error'); } }
     },
     async deleteUser(id, username) {
         const ok = await showConfirm('Delete user?', `Delete ${username}? This cannot be undone.`, true);

@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 
 from database import get_db, User, Chat, Message, LoginHistory
-from auth import get_current_user_from_cookie, is_staff
+from auth import get_current_user_from_cookie, is_staff, get_role
 
 router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"])
 

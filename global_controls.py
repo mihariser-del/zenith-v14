@@ -66,7 +66,7 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "maintenance_mode", req.value)
     if req.value == "on":
-        await _announce(db, user, "🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner can access it right now.")
+        await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner can access it right now.")
     else:
         await _announce(db, user, "✅ Maintenance mode is now OFF. The platform is fully available again.")
     return {"maintenance_mode": req.value}
@@ -78,7 +78,10 @@ async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncS
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "registrations", req.value)
-    await _announce(db, user, ("🚫 Registration is now CLOSED. New accounts cannot be created." if req.value == "off" else "✅ Registration is now OPEN."))
+    if req.value == "off":
+        await _announce(db, user, "[EMERGENCY:registrations] 🛑 Registration is now CLOSED. New accounts cannot be created.")
+    else:
+        await _announce(db, user, "✅ Registration is now OPEN.")
     return {"registrations": req.value}
 
 
@@ -88,7 +91,10 @@ async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSessi
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "messaging", req.value)
-    await _announce(db, user, ("🛑 Messaging is now DISABLED. You cannot send messages right now." if req.value == "off" else "✅ Messaging is now ENABLED."))
+    if req.value == "off":
+        await _announce(db, user, "[EMERGENCY:messaging] 🛑 Messaging is now DISABLED. You cannot send messages right now.")
+    else:
+        await _announce(db, user, "✅ Messaging is now ENABLED.")
     return {"messaging": req.value}
 
 
@@ -98,7 +104,10 @@ async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = De
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "ai_enabled", req.value)
-    await _announce(db, user, ("🤖 AI responses are now DISABLED globally." if req.value == "off" else "✅ AI is now ENABLED."))
+    if req.value == "off":
+        await _announce(db, user, "[EMERGENCY:ai] 🤖 AI responses are now DISABLED globally.")
+    else:
+        await _announce(db, user, "✅ AI is now ENABLED.")
     return {"ai_enabled": req.value}
 
 
@@ -116,7 +125,7 @@ async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
         t.banned_by = "owner"
         t.token_version = (t.token_version or 0) + 1
     await db.commit()
-    await _announce(db, user, "🔒 ALL ACCOUNTS HAVE BEEN LOCKED by the Owner. You are currently locked out.")
+    await _announce(db, user, "[EMERGENCY:lock-all] 🔒 ALL ACCOUNTS HAVE BEEN LOCKED by the Owner. You are currently locked out.")
     return {"locked": len(targets)}
 
 
@@ -130,5 +139,5 @@ async def force_logout(request: Request, db: AsyncSession = Depends(get_db)):
     for t in targets:
         t.token_version = (t.token_version or 0) + 1
     await db.commit()
-    await _announce(db, user, "🔐 Everyone has been signed out by the Owner. Please log in again.")
+    await _announce(db, user, "[EMERGENCY:force-logout] 🔐 Everyone has been signed out by the Owner. Please log in again.")
     return {"sessions_revoked": len(targets)}

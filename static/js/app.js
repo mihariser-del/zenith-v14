@@ -6,6 +6,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.location.href = '/';
         return;
     }
+    // Check if user is banned — show full-screen ban popup
+    if (user.is_banned) {
+        document.body.innerHTML = '';
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);';
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(160deg,#1a0a0a,#2a1015 50%,#1a0505);border:2px solid #EF4444;border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px rgba(239,68,68,.2),0 30px 60px rgba(0,0,0,.6);">
+                <div style="font-size:72px;margin-bottom:16px;">🚫</div>
+                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);font-size:10px;font-weight:700;color:#EF4444;letter-spacing:2px;margin-bottom:16px;">ACCOUNT BANNED</div>
+                <h2 style="color:#EF4444;font-size:24px;margin:0 0 12px;font-weight:800;">You Have Been Banned</h2>
+                <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 12px;">${user.ban_reason || 'Your account has been banned by the Owner.'}</p>
+                <div style="font-size:11px;color:#666;">Banned by: <strong style="color:#EF4444;">${user.banned_by || 'Owner'}</strong></div>
+            </div>`;
+        document.body.appendChild(wrap);
+        return;
+    }
 
     const displayName = user.display_name || user.username;
     const nameTextEl = $('user-name-text') || $('user-name-display');
@@ -624,8 +640,45 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
         document.body.appendChild(wrap);
     }
+    function showEmergencyPopup(a, type) {
+        if (document.getElementById('emergency-popup-' + a.id)) return;
+        const configs = {
+            'maintenance': { icon: '🚧', title: 'MAINTENANCE MODE', color: '#F59E0B', desc: 'The platform is temporarily under maintenance. Only the Owner can access it right now.' },
+            'lock-all': { icon: '🔒', title: 'ALL ACCOUNTS LOCKED', color: '#EF4444', desc: 'All accounts have been locked by the Owner. You are currently locked out.' },
+            'force-logout': { icon: '🔐', title: 'FORCE LOGOUT', color: '#EF4444', desc: 'Everyone has been signed out by the Owner. Please log in again.' },
+            'registrations': { icon: '🛑', title: 'REGISTRATIONS CLOSED', color: '#F59E0B', desc: 'New account registrations are currently disabled.' },
+            'messaging': { icon: '🚫', title: 'MESSAGING DISABLED', color: '#F59E0B', desc: 'Messaging has been disabled. You cannot send messages right now.' },
+            'ai': { icon: '🤖', title: 'AI DISABLED', color: '#F59E0B', desc: 'AI responses have been disabled globally.' },
+        };
+        const cfg = configs[type] || { icon: '⚠️', title: 'SYSTEM ALERT', color: '#EF4444', desc: a.content.replace(/^\[EMERGENCY:\w+\]\s*/, '') };
+        const cleanContent = a.content.replace(/^\[EMERGENCY:\w+\]\s*/, '').replace(/^[🔒🔐🛑🚫🤖🚧]/, '').trim();
+        const wrap = document.createElement('div');
+        wrap.id = 'emergency-popup-' + a.id;
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);animation:fadeIn .3s;';
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(160deg,#1a1015,#2a1520 50%,#1a0a0a);border:2px solid ${cfg.color};border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px ${cfg.color}33, 0 0 160px ${cfg.color}11, 0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-40px;right:-40px;width:120px;height:120px;border-radius:50%;background:${cfg.color}08;filter:blur(30px);"></div>
+                <div style="position:absolute;bottom:-30px;left:-30px;width:100px;height:100px;border-radius:50%;background:${cfg.color}06;filter:blur(25px);"></div>
+                <div style="font-size:72px;margin-bottom:16px;filter:drop-shadow(0 0 20px ${cfg.color}66);">${cfg.icon}</div>
+                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:${cfg.color}22;border:1px solid ${cfg.color}44;font-size:10px;font-weight:700;color:${cfg.color};letter-spacing:2px;margin-bottom:16px;">EMERGENCY ACTION</div>
+                <h2 style="color:${cfg.color};font-size:26px;margin:0 0 12px;font-weight:800;letter-spacing:1px;text-shadow:0 0 20px ${cfg.color}44;">${cfg.title}</h2>
+                <p style="color:#C0C7D1;font-size:15px;line-height:1.7;margin:0 0 24px;">${cleanContent || cfg.desc}</p>
+                <div style="font-size:11px;color:#666;margin-bottom:20px;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
+                <button onclick="this.closest('[id^=emergency-popup-]').remove()" style="background:${cfg.color};color:#fff;border:none;padding:14px 36px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px ${cfg.color}44;transition:transform .15s;" onmouseover="this.style.transform='scale(1.05)'" onmouseout="this.style.transform='scale(1)'">Understood</button>
+            </div>`;
+        document.body.appendChild(wrap);
+        if (type === 'lock-all' || type === 'force-logout') {
+            setTimeout(() => { window.location.href = '/'; }, 30000);
+        }
+    }
     function showBroadcastPopup(a) {
         if (document.getElementById('broadcast-popup-' + a.id)) return;
+        // Check for emergency markers
+        const emMatch = (a.content || '').match(/^\[EMERGENCY:(\w+)\]\s*/);
+        if (emMatch) {
+            showEmergencyPopup(a, emMatch[1]);
+            return;
+        }
         const isOwner = a.role === 'owner';
         const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
         // Same visual language as BANNED BY THE OWNER screen — exclamation, who broadcasted, message box

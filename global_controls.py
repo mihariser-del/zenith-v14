@@ -120,11 +120,7 @@ async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
     targets = result.scalars().all()
     for t in targets:
-        t.is_banned = True
-        if not t.ban_reason:
-            t.ban_reason = "Account locked by Owner"
-        t.banned_by = "owner"
-        t.token_version = (t.token_version or 0) + 1
+        t.pending_notification = "locked"
     await db.commit()
     await _set_setting(db, "locked", "on")
     await _announce(db, user, "[EMERGENCY:lock-all] 🔒 ALL ACCOUNTS HAVE BEEN LOCKED by the Owner. You are currently locked out.")
@@ -136,13 +132,10 @@ async def unlock_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    result = await db.execute(select(User).where(User.is_deleted == False, User.is_banned == True, User.ban_reason == "Account locked by Owner"))
+    result = await db.execute(select(User).where(User.is_deleted == False))
     targets = result.scalars().all()
     for t in targets:
-        t.is_banned = False
-        t.ban_reason = ""
-        t.banned_by = ""
-        t.token_version = (t.token_version or 0) + 1
+        t.pending_notification = "unlocked"
     await db.commit()
     await _set_setting(db, "locked", "off")
     await _announce(db, user, "[EMERGENCY:unlock-all] ✅ ALL ACCOUNTS HAVE BEEN UNLOCKED by the Owner. You can log in again.")
@@ -157,7 +150,7 @@ async def force_logout(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
     targets = result.scalars().all()
     for t in targets:
-        t.token_version = (t.token_version or 0) + 1
+        t.pending_notification = "force_logout"
     await db.commit()
     await _announce(db, user, "[EMERGENCY:force-logout] 🔐 Everyone has been signed out by the Owner. Please log in again.")
     return {"sessions_revoked": len(targets)}

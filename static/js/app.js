@@ -30,23 +30,40 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (badgeEl) badgeEl.innerHTML = '';
     // Check for pending role change notification
     let _notifShown = false;
+    function _handlePendingNotification(n) {
+        if (_notifShown) return false;
+        if (n === 'promoted') {
+            _notifShown = true; _showRoleNotificationPopup(true);
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
+        } else if (n === 'demoted') {
+            _notifShown = true; _showRoleNotificationPopup(false);
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
+        } else if (n === 'locked' || n === 'force_logout') {
+            _notifShown = true;
+            window.showEmergencyPopup(n === 'locked' ? 'lock-all' : 'force-logout');
+            api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
+                setTimeout(() => { window.location.href = '/'; }, 30000);
+            }).catch(() => {});
+            return true;
+        } else if (n === 'unlocked') {
+            _notifShown = true;
+            window.showEmergencyPopup('unlock-all');
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
+        }
+        return false;
+    }
     function checkNotif() {
         if (_notifShown) return;
         api('/api/auth/me').then(r => {
             const n = r.user?.pending_notification;
-            if (n === 'promoted' || n === 'demoted') {
-                _notifShown = true;
-                _showRoleNotificationPopup(n === 'promoted');
-                api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
-            }
+            if (n) _handlePendingNotification(n);
         }).catch(() => {});
     }
-    if (user.pending_notification === 'promoted') {
-        setTimeout(() => { _notifShown = true; _showRoleNotificationPopup(true); }, 500);
-        api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
-    } else if (user.pending_notification === 'demoted') {
-        setTimeout(() => { _notifShown = true; _showRoleNotificationPopup(false); }, 500);
-        api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+    if (user.pending_notification) {
+        _handlePendingNotification(user.pending_notification);
     }
     setInterval(checkNotif, 1000);
     // legacy fallback if old structure

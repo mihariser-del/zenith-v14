@@ -44,6 +44,7 @@ const Settings = {
             $('system-prompt').value = srv.system_prompt;
             $('personality-select').value = srv.personality;
             $('memory-enabled').value = String(srv.memory_enabled);
+            $('display-name').value = srv.display_name || '';
         }
         $('theme-select').value = s.theme;
         $('accent-select').value = s.accent;
@@ -131,6 +132,7 @@ const Settings = {
                 system_prompt: $('system-prompt').value,
                 personality: $('personality-select').value,
                 memory_enabled: $('memory-enabled').value === 'true',
+                display_name: $('display-name').value.trim(),
             }),
         });
 

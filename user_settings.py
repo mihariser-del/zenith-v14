@@ -38,6 +38,7 @@ class SettingsResponse(BaseModel):
     max_tokens: int
     temperature: float
     memory_enabled: bool
+    display_name: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -49,6 +50,7 @@ class UpdateSettingsRequest(BaseModel):
     max_tokens: int | None = None
     temperature: float | None = None
     memory_enabled: bool | None = None
+    display_name: str | None = None
 
 
 async def get_user_settings(user_id: int, db: AsyncSession) -> UserSettings:

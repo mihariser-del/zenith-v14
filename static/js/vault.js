@@ -20,12 +20,19 @@ const Vault = {
             document.getElementById('vault-top-role').textContent = this._isOwner ? 'The One Above All' : 'Admin';
             const ownerSec = document.getElementById('vault-owner-section');
             if (ownerSec) ownerSec.style.display = this._isOwner ? 'block' : 'none';
+            const accessTag = document.getElementById('vault-access-tag');
+            if (accessTag) accessTag.textContent = this._isOwner ? '🔑 Owner Mode Enabled' : '🛡️ Admin Access';
             if (!this._isOwner && !user.is_admin) { window.location.href = '/app'; return; }
         } catch { window.location.href = '/'; return; }
         this.bindNav();
         this.bindHamburger();
         this.loadTab('dashboard');
         this.startPolling();
+        document.addEventListener('visibilitychange', () => {
+            if (!document.hidden && this._currentTab === 'dashboard') {
+                this.renderDashboard();
+            }
+        });
     },
 
     bindHamburger() {
@@ -327,7 +334,7 @@ const Vault = {
                     <div class="vault-card" style="display:flex;flex-direction:column;align-items:center;">
                         <div class="card-header" style="width:100;"><span>📊 Data Distribution</span></div>
                         <div style="height:160px;width:100%;display:flex;justify-content:center;" id="chart-donut">${this.svgDonut(donutSegs, 150, 'Total', totalData >= 1000 ? (totalData/1000).toFixed(1)+'K' : String(totalData))}</div>
-                        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;justify-content:center;">${donutSegs.map(s => `<span style="font-size:10px;color:${s.color};display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;"></span>${s.label}</span>`).join('')}</div>
+                        <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;justify-content:center;">${donutSegs.map(s => `<span style="font-size:10px;color:${s.color};display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:${s.color};display:inline-block;"></span>${s.label} <span style="color:#8B949E;">${s.value} (${totalData > 0 ? ((s.value/totalData)*100).toFixed(1) : 0}%)</span></span>`).join('')}</div>
                     </div>
                 </div>
                 <div class="vault-grid">
@@ -574,7 +581,8 @@ const Vault = {
             const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
             const onlineDot = u.online ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#4ADE80;margin-left:6px;box-shadow:0 0 6px #4ADE80;" title="Online now"></span>' : '';
             const isStaff = u.role === 'owner' || u.role === 'admin';
-            const canAct = isOwner || !isStaff;
+            const isMe = u.username === document.getElementById('vault-username')?.textContent;
+            const canAct = (isOwner || !isStaff) && !(isMe && u.role === 'owner');
             return `<tr>
                 <td style="color:#8B949E;">${i + 1}</td>
                 <td><div style="font-weight:600;display:flex;align-items:center;">${u.username}${onlineDot}</div></td>
@@ -636,11 +644,13 @@ const Vault = {
     },
 
     async banUser(id, username, isBanned) {
+        if (username === 'WANZU-IBRAHIM') { showToast('The Owner cannot be banned', 'error'); return; }
         if (isBanned) { try { await api(`/api/auth/admin/users/${id}/unban`, { method: 'POST' }); showToast('Unbanned ' + username, 'success'); this.loadTab(this._currentTab); } catch (e) { showToast(e.message, 'error'); } }
         else { const r = await showPrompt('Ban reason', '', 'Reason for banning ' + username); if (!r || !r.trim()) return; try { await api(`/api/auth/admin/users/${id}/ban`, { method: 'POST', body: JSON.stringify({ reason: r.trim() }) }); showToast('Banned ' + username, 'success'); this.loadTab(this._currentTab); } catch (e) { showToast(e.message, 'error'); } }
     },
 
     async deleteUser(id, username) {
+        if (username === 'WANZU-IBRAHIM') { showToast('The Owner cannot be deleted', 'error'); return; }
         const ok = await showConfirm('Delete user?', 'Delete ' + username + '? This cannot be undone.', true);
         if (!ok) return;
         try { await api(`/api/auth/admin/users/${id}`, { method: 'DELETE' }); showToast('Deleted ' + username, 'success'); this.loadTab(this._currentTab); } catch (e) { showToast(e.message, 'error'); }
@@ -1389,7 +1399,7 @@ const Vault = {
     },
 
     async editPermissions(userId, username) {
-        let perms = { ban_users: true, reset_password: true, view_messages: true, manage_chats: true };
+        let perms = { ban_users: true, reset_password: true, view_messages: true, manage_chats: true, delete_users: true };
         try { const r = await api(`/api/auth/admin/users/${userId}/permissions`); perms = r.permissions; } catch {}
         const permDefs = [
             { key: 'ban_users', icon: '🛡️', label: 'Ban / Unban Users', desc: 'Can ban and unban user accounts' },
@@ -1405,11 +1415,11 @@ const Vault = {
                 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
                     <div>
                         <div style="font-size:16px;font-weight:700;color:#DDE4EE;">🔑 Permissions — ${username}</div>
-                        <div style="font-size:11px;color:#8B949E;margin-top:2px;">Toggle what this admin can do</div>
+                        <div style="font-size:11px;color:#8B949E;margin-top:2px;">Toggle what this admin can do <span style="color:#4ADE80;">● Live</span></div>
                     </div>
                     <button id="perm-close" style="background:none;border:1px solid #2a2f36;color:#888;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">Close</button>
                 </div>
-                <div style="display:flex;flex-direction:column;gap:10px;">
+                <div style="display:flex;flex-direction:column;gap:10px;" id="perm-toggles">
                     ${permDefs.map(p => `
                         <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:10px;">
                             <div style="display:flex;align-items:center;gap:12px;">
@@ -1430,8 +1440,8 @@ const Vault = {
         wrap.querySelectorAll('.vault-toggle').forEach(t => {
             t.addEventListener('click', () => t.classList.toggle('on'));
         });
-        wrap.querySelector('#perm-close').addEventListener('click', () => wrap.remove());
-        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        wrap.querySelector('#perm-close').addEventListener('click', () => { clearInterval(permPoll); wrap.remove(); });
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) { clearInterval(permPoll); wrap.remove(); } });
         wrap.querySelector('#perm-save').addEventListener('click', async () => {
             const newPerms = {};
             wrap.querySelectorAll('.vault-toggle').forEach(t => {
@@ -1440,9 +1450,22 @@ const Vault = {
             try {
                 await api(`/api/auth/admin/users/${userId}/permissions`, { method: 'POST', body: JSON.stringify({ permissions: newPerms }) });
                 showToast(`Permissions updated for ${username}`, 'success');
+                clearInterval(permPoll);
                 wrap.remove();
             } catch (e) { showToast(e.message, 'error'); }
         });
+        const permPoll = setInterval(async () => {
+            if (!document.body.contains(wrap)) { clearInterval(permPoll); return; }
+            try {
+                const r = await api(`/api/auth/admin/users/${userId}/permissions`);
+                const latest = r.permissions || {};
+                wrap.querySelectorAll('.vault-toggle').forEach(t => {
+                    const key = t.dataset.perm;
+                    const val = !!latest[key];
+                    if (val) t.classList.add('on'); else t.classList.remove('on');
+                });
+            } catch {}
+        }, 1000);
         document.body.appendChild(wrap);
     },
 

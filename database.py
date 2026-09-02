@@ -166,6 +166,7 @@ class UserSettings(Base):
     max_tokens = Column(Integer, default=2048)
     temperature = Column(Float, default=0.7)
     memory_enabled = Column(Boolean, default=True)
+    display_name = Column(String(50), default="")
 
     user = relationship("User", back_populates="settings")
 
@@ -304,6 +305,10 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE feedbacks ADD COLUMN response_by VARCHAR(20) DEFAULT ''")
         except Exception as e:
             print(f"migration response_by: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE user_settings ADD COLUMN display_name VARCHAR(50) DEFAULT ''")
+        except Exception as e:
+            print(f"migration display_name: {e}")
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt

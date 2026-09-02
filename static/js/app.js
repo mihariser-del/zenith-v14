@@ -7,9 +7,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
+    const displayName = user.display_name || user.username;
     const nameTextEl = $('user-name-text') || $('user-name-display');
     const badgeEl = $('user-role-badge');
-    if (nameTextEl) nameTextEl.textContent = user.username;
+    if (nameTextEl) nameTextEl.textContent = displayName;
     if (badgeEl) badgeEl.innerHTML = '';
     // Check for pending role change notification
     if (user.pending_notification === 'promoted') {
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
     }
     // legacy fallback if old structure
-    if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = user.username;
+    if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = displayName;
     $('user-avatar').textContent = user.username[0].toUpperCase();
     const isGuest = user.username.startsWith('guest_');
     const isAdmin = user.is_admin;
@@ -81,8 +82,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             ? '<span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4); white-space:nowrap; flex-shrink:0;">OWNER</span>'
             : '<span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4); white-space:nowrap; flex-shrink:0;">ADMIN</span>';
         if (badgeEl) badgeEl.innerHTML = badgeHtml;
-        else if ($('user-name-display')) $('user-name-display').innerHTML = user.username + ' ' + badgeHtml;
-        if (nameTextEl && badgeEl) nameTextEl.textContent = user.username;
+        else if ($('user-name-display')) $('user-name-display').innerHTML = displayName + ' ' + badgeHtml;
+        if (nameTextEl && badgeEl) nameTextEl.textContent = displayName;
         const goldBorder = isOwner ? 'rgba(221,228,238,0.35)' : 'rgba(255,215,0,0.4)';
         const goldColor = isOwner ? '#C0C7D1' : '#FFD700';
         const adminAccentA = isOwner ? 'rgba(221,228,238,0.06)' : 'rgba(255,215,0,0.08)';

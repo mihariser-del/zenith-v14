@@ -53,6 +53,7 @@ class UserResponse(BaseModel):
     pending_password_by: str = ""
     permissions: str = ""
     pending_notification: str = ""
+    display_name: str = ""
 
     model_config = {"from_attributes": True}
 

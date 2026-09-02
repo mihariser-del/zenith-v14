@@ -381,7 +381,7 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
         if last_seen:
             try:
                 ls = last_seen if last_seen.tzinfo is None else last_seen.replace(tzinfo=None)
-                online = (now_naive - ls).total_seconds() < 120
+                online = (now_naive - ls).total_seconds() < 1
             except Exception:
                 online = False
         enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else "", "online": online, "last_seen": last_seen.strftime("%Y-%m-%d %H:%M") if last_seen else ""})

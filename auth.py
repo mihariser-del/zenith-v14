@@ -51,6 +51,7 @@ class UserResponse(BaseModel):
     banned_by: str = ""
     deleted_by: str = ""
     pending_password_by: str = ""
+    permissions: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -402,6 +403,14 @@ async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, d
         raise HTTPException(status_code=400, detail="The Owner cannot be banned")
     if target_role == "admin" and get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Admins cannot take action on fellow admins")
+    if get_role(admin) == "admin":
+        import json
+        perms = {}
+        if admin.permissions:
+            try: perms = json.loads(admin.permissions)
+            except: pass
+        if not perms.get("ban_users", True):
+            raise HTTPException(status_code=403, detail="You do not have permission to ban users. Contact the Owner.")
     target.is_banned = True
     target.ban_reason = req.reason.strip()[:500]
     target.banned_by = get_role(admin)
@@ -433,6 +442,14 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if len(req.new_password) < 6: raise HTTPException(status_code=400, detail="Password min 6 chars")
+    if get_role(admin) == "admin":
+        import json
+        perms = {}
+        if admin.permissions:
+            try: perms = json.loads(admin.permissions)
+            except: pass
+        if not perms.get("reset_password", True):
+            raise HTTPException(status_code=403, detail="You do not have permission to reset passwords. Contact the Owner.")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     if not target: raise HTTPException(status_code=404, detail="User not found")
@@ -454,6 +471,14 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
+    if get_role(admin) == "admin":
+        import json
+        perms = {}
+        if admin.permissions:
+            try: perms = json.loads(admin.permissions)
+            except: pass
+        if not perms.get("view_messages", True):
+            raise HTTPException(status_code=403, detail="You do not have permission to view messages. Contact the Owner.")
     result = await db.execute(select(User).where(User.id == user_id))
     target = result.scalar_one_or_none()
     target_role = get_role(target) if target else "user"
@@ -517,6 +542,50 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
         target.is_admin = True
     await db.commit()
     return {"message": f"User role changed to {new_role}", "role": new_role}
+
+
+@router.get("/admin/users/{user_id}/permissions")
+async def admin_get_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Only the Owner can manage permissions")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    import json
+    perms = {}
+    if target.permissions:
+        try:
+            perms = json.loads(target.permissions)
+        except Exception:
+            perms = {}
+    defaults = {"ban_users": True, "reset_password": True, "view_messages": True, "manage_chats": True}
+    for k, v in defaults.items():
+        if k not in perms:
+            perms[k] = v
+    return {"permissions": perms}
+
+
+@router.post("/admin/users/{user_id}/permissions")
+async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    admin = await get_current_user_from_cookie(request, db)
+    if get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Only the Owner can manage permissions")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    if get_role(target) == "owner":
+        raise HTTPException(status_code=400, detail="Cannot change Owner's permissions")
+    body = await request.json()
+    import json
+    perms = body.get("permissions", {})
+    allowed_keys = {"ban_users", "reset_password", "view_messages", "manage_chats"}
+    filtered = {k: bool(v) for k, v in perms.items() if k in allowed_keys}
+    target.permissions = json.dumps(filtered)
+    await db.commit()
+    return {"message": "Permissions updated", "permissions": filtered}
 
 
 @router.get("/me")

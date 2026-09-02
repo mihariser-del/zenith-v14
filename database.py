@@ -90,6 +90,8 @@ class User(Base):
     last_pause_at = Column(DateTime, nullable=True)
     # Presence
     last_seen = Column(DateTime, nullable=True)
+    # Admin permissions (JSON string): {"ban_users":true,"reset_password":true,"view_messages":true,"manage_chats":true}
+    permissions = Column(Text, default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -289,6 +291,7 @@ async def init_db():
             ("stripe_subscription_id", "VARCHAR(100) DEFAULT ''"),
             ("last_pause_at", "DATETIME"),
             ("last_seen", "DATETIME"),
+            ("permissions", "TEXT DEFAULT ''"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

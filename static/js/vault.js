@@ -1115,7 +1115,7 @@ const Vault = {
                     ${admins.map(a => `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
                         <div style="width:36px;height:36px;border-radius:50%;background:${a.role === 'owner' ? 'linear-gradient(135deg,#DDE4EE,#8B949E)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;">${a.username[0].toUpperCase()}</div>
                         <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span></div><div style="font-size:11px;color:#666;">${a.email}</div></div>
-                        ${a.role === 'admin' ? `<button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="flex-shrink:0;">Demote</button>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
+                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
                     </div>`).join('')}
                 </div>
                 <div class="vault-card" style="margin-bottom:16px;">
@@ -1332,13 +1332,117 @@ const Vault = {
     async demoteAdmin(userId, username) {
         const ok = await showConfirm(`Demote ${username}?`, 'They will become a regular user and lose all admin privileges.', true);
         if (!ok) return;
-        try { await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) }); showToast(`${username} demoted to user`, 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
+        try {
+            await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) });
+            this._showRoleChangePopup(username, 'demoted');
+            this.renderAdmins();
+        } catch (e) { showToast(e.message, 'error'); }
     },
 
     async promoteToAdmin(userId, username) {
         const ok = await showConfirm(`Promote ${username} to admin?`, 'They will gain full admin access.', false);
         if (!ok) return;
-        try { await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) }); showToast(`${username} promoted to admin`, 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
+        try {
+            await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) });
+            this._showRoleChangePopup(username, 'promoted');
+            this.renderAdmins();
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    _showRoleChangePopup(username, type) {
+        const isPromote = type === 'promoted';
+        const accent = isPromote ? '#4ADE80' : '#EF4444';
+        const icon = isPromote ? '⬆️' : '⬇️';
+        const title = isPromote ? 'PROMOTED TO ADMIN' : 'DEMOTED TO USER';
+        const gainedLost = isPromote ? 'Now Has Access To' : 'No Longer Has Access To';
+        const items = isPromote ? [
+            { icon: '🛡️', text: 'Ban & unban users' },
+            { icon: '🔑', text: 'Reset user passwords' },
+            { icon: '💬', text: 'View user messages & chats' },
+            { icon: '📊', text: 'Access admin dashboard & analytics' },
+            { icon: '⚙️', text: 'Manage user accounts' },
+            { icon: '📢', text: 'Send broadcasts to all users' },
+        ] : [
+            { icon: '🛡️', text: 'Ban & unban users' },
+            { icon: '🔑', text: 'Reset user passwords' },
+            { icon: '💬', text: 'View user messages & chats' },
+            { icon: '📊', text: 'Admin dashboard & analytics' },
+            { icon: '⚙️', text: 'User management tools' },
+            { icon: '📢', text: 'Broadcast messaging' },
+        ];
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';
+        wrap.innerHTML = `
+            <div style="background:#111315;border:2px solid ${accent};border-radius:16px;padding:32px;max-width:420px;width:100%;text-align:center;box-shadow:0 0 40px ${accent}33;">
+                <div style="font-size:48px;margin-bottom:12px;">${icon}</div>
+                <div style="font-size:18px;font-weight:700;color:${accent};margin-bottom:4px;letter-spacing:1px;">${title}</div>
+                <div style="font-size:14px;color:#DDE4EE;margin-bottom:16px;"><strong>${username}</strong> ${isPromote ? 'has been promoted' : 'has been demoted'}</div>
+                <div style="text-align:left;background:#0a0a0f;border:1px solid #1A1D21;border-radius:10px;padding:16px;margin-bottom:16px;">
+                    <div style="font-size:11px;color:#8B949E;letter-spacing:1px;margin-bottom:10px;font-weight:600;">${gainedLost.toUpperCase()}</div>
+                    ${items.map(item => `<div style="display:flex;align-items:center;gap:10px;padding:6px 0;${!isPromote ? 'opacity:0.5;' : ''}"><span style="font-size:14px;">${item.icon}</span><span style="font-size:12px;color:${isPromote ? '#DDE4EE' : '#666'};">${item.text}</span></div>`).join('')}
+                </div>
+                <button id="rcp-close" style="padding:10px 32px;background:${accent};color:${isPromote ? '#000' : '#fff'};border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Got it</button>
+            </div>`;
+        wrap.querySelector('#rcp-close').addEventListener('click', () => wrap.remove());
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        document.body.appendChild(wrap);
+    },
+
+    async editPermissions(userId, username) {
+        let perms = { ban_users: true, reset_password: true, view_messages: true, manage_chats: true };
+        try { const r = await api(`/api/auth/admin/users/${userId}/permissions`); perms = r.permissions; } catch {}
+        const permDefs = [
+            { key: 'ban_users', icon: '🛡️', label: 'Ban / Unban Users', desc: 'Can ban and unban user accounts' },
+            { key: 'reset_password', icon: '🔑', label: 'Reset Passwords', desc: 'Can reset user passwords' },
+            { key: 'view_messages', icon: '💬', label: 'View Messages', desc: 'Can view user chats and messages' },
+            { key: 'manage_chats', icon: '📊', label: 'Manage Chats', desc: 'Can view and manage user chats' },
+        ];
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';
+        wrap.innerHTML = `
+            <div style="background:#111315;border:1px solid #1A1D21;border-radius:16px;padding:28px;max-width:480px;width:100%;box-shadow:0 0 40px rgba(0,0,0,0.5);">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+                    <div>
+                        <div style="font-size:16px;font-weight:700;color:#DDE4EE;">🔑 Permissions — ${username}</div>
+                        <div style="font-size:11px;color:#8B949E;margin-top:2px;">Toggle what this admin can do</div>
+                    </div>
+                    <button id="perm-close" style="background:none;border:1px solid #2a2f36;color:#888;border-radius:8px;padding:6px 12px;cursor:pointer;font-size:11px;">Close</button>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:10px;">
+                    ${permDefs.map(p => `
+                        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:10px;">
+                            <div style="display:flex;align-items:center;gap:12px;">
+                                <span style="font-size:20px;">${p.icon}</span>
+                                <div>
+                                    <div style="font-size:13px;font-weight:600;color:#DDE4EE;">${p.label}</div>
+                                    <div style="font-size:11px;color:#666;">${p.desc}</div>
+                                </div>
+                            </div>
+                            <div class="vault-toggle ${perms[p.key] ? 'on' : ''}" data-perm="${p.key}" style="cursor:pointer;"></div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div style="margin-top:16px;text-align:right;">
+                    <button id="perm-save" class="vault-btn primary" style="padding:10px 24px;">Save Permissions</button>
+                </div>
+            </div>`;
+        wrap.querySelectorAll('.vault-toggle').forEach(t => {
+            t.addEventListener('click', () => t.classList.toggle('on'));
+        });
+        wrap.querySelector('#perm-close').addEventListener('click', () => wrap.remove());
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        wrap.querySelector('#perm-save').addEventListener('click', async () => {
+            const newPerms = {};
+            wrap.querySelectorAll('.vault-toggle').forEach(t => {
+                newPerms[t.dataset.perm] = t.classList.contains('on');
+            });
+            try {
+                await api(`/api/auth/admin/users/${userId}/permissions`, { method: 'POST', body: JSON.stringify({ permissions: newPerms }) });
+                showToast(`Permissions updated for ${username}`, 'success');
+                wrap.remove();
+            } catch (e) { showToast(e.message, 'error'); }
+        });
+        document.body.appendChild(wrap);
     },
 
     // ═══════════════════════════ HELPERS ═══════════════════════════

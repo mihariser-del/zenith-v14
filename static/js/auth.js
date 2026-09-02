@@ -132,6 +132,12 @@ async function handleGoogleCredential(response) {
         window.location.href = '/app';
     } catch (e) {
         if (typeof showToast === 'function') showToast('Google login failed: ' + e.message, 'error');
-        else alert('Google login failed: ' + e.message);
+        else {
+            const msg = document.createElement('div');
+            msg.textContent = 'Google login failed: ' + e.message;
+            msg.style.cssText = 'position:fixed; top:20px; right:20px; background:#1e1f22; color:#fff; padding:12px 16px; border-radius:8px; border:1px solid #2a2f36; z-index:9999;';
+            document.body.appendChild(msg);
+            setTimeout(()=>msg.remove(), 4000);
+        }
     }
 }

@@ -67,8 +67,16 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "maintenance_mode", req.value)
     if req.value == "on":
+        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+        for t in result.scalars().all():
+            t.pending_notification = "maintenance"
+        await db.commit()
         await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner can access it right now.")
     else:
+        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+        for t in result.scalars().all():
+            t.pending_notification = "maintenance_off"
+        await db.commit()
         await _announce(db, user, "✅ Maintenance mode is now OFF. The platform is fully available again.")
     return {"maintenance_mode": req.value}
 

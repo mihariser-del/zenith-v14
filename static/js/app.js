@@ -40,23 +40,59 @@ document.addEventListener('DOMContentLoaded', async () => {
             _notifShown = true; _showRoleNotificationPopup(false);
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
-        } else if (n === 'locked' || n === 'force_logout') {
+        } else if (n === 'locked' || n === 'maintenance') {
             _notifShown = true;
-            window.showEmergencyPopup(n === 'locked' ? 'lock-all' : 'force-logout');
+            _persistentScreen = n;
+            _showMaintenanceScreen(n);
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return false;
+        } else if (n === 'force_logout') {
+            _notifShown = true;
+            window.showEmergencyPopup('force-logout');
             api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             }).catch(() => {});
             return true;
-        } else if (n === 'unlocked') {
-            _notifShown = true;
-            window.showEmergencyPopup('unlock-all');
-            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+        } else if (n === 'unlocked' || n === 'maintenance_off') {
+            _persistentScreen = '';
+            api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
+                const sc = document.getElementById('maintenance-screen');
+                if (sc) sc.remove();
+                setTimeout(() => { window.location.href = '/app'; }, 300);
+            }).catch(() => {});
             return true;
         }
         return false;
     }
+    let _persistentScreen = '';
+    function _showMaintenanceScreen(kind) {
+        const isLock = kind === 'locked';
+        const icon = isLock ? '🔒' : '🚧';
+        const accent = isLock ? '#EF4444' : '#F59E0B';
+        const border = isLock ? '#EF4444' : '#F59E0B';
+        const label = isLock ? 'ALL ACCOUNTS LOCKED' : 'SYSTEM MAINTENANCE';
+        const title = isLock ? 'Your Account Has Been Locked' : 'Maintenance in Progress';
+        const msg = isLock
+            ? 'The Owner has locked all accounts. You have been signed out until the Owner unlocks the platform. This screen will clear automatically once access is restored.'
+            : "The platform is currently under maintenance. The Owner is working on it right now. This screen will clear automatically once maintenance is complete — no need to refresh.";
+        document.body.innerHTML = '';
+        document.body.appendChild((() => {
+            const wrap = document.createElement('div');
+            wrap.id = 'maintenance-screen';
+            wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(10px);';
+            wrap.innerHTML = `
+                <div style="background:linear-gradient(160deg,#1a1510,#2a2015 50%,#1a1005);border:2px solid ${border};border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px ${accent}22,0 30px 60px rgba(0,0,0,.6);">
+                    <div style="font-size:72px;margin-bottom:16px;">${icon}</div>
+                    <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:${accent}18;border:1px solid ${accent}38;font-size:10px;font-weight:700;color:${accent};letter-spacing:2px;margin-bottom:16px;">${label}</div>
+                    <h2 style="color:${accent};font-size:24px;margin:0 0 12px;font-weight:800;letter-spacing:1px;">${title}</h2>
+                    <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 20px;">${msg}</p>
+                    <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
+                </div>`;
+            return wrap;
+        })());
+    }
     function checkNotif() {
-        if (_notifShown) return;
+        if (_notifShown && !_persistentScreen) return;
         api('/api/auth/me').then(r => {
             const n = r.user?.pending_notification;
             if (n) _handlePendingNotification(n);

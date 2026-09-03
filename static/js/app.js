@@ -1075,10 +1075,7 @@ function openOfflineChat() {
                     <div style="color:#00aaff; font-weight:800; font-size:15px; letter-spacing:1px;">OFFLINE MODE</div>
                     <div style="color:rgba(255,255,255,0.5); font-size:11px;">Basic answers · no internet · under development</div>
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <button id="offline-web-btn" title="Search the web (requires a connection)" style="padding:7px 12px; background:rgba(0,170,255,0.15); color:#00aaff; border:1px solid #00aaff; border-radius:8px; font-weight:700; cursor:pointer; font-size:12px;">&#128269; Web</button>
-                    <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
-                </div>
+                <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
             </div>
             <div id="offline-chat-body" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;"></div>
             <div style="padding:12px; border-top:1px solid rgba(0,170,255,0.3); display:flex; gap:8px;">
@@ -1098,7 +1095,7 @@ function openOfflineChat() {
         body.appendChild(m);
         body.scrollTop = body.scrollHeight;
     }
-    addMsg('assistant', "You're offline. I can only answer a small set of pre-loaded, basic questions right now (offline mode is still under development) — open-ended or complex questions like history, current events or follow-ups may not be recognized.\n\nTry simple things like 'what can you do', 'who are you', or 'capital of Nigeria'.\n\nFor full answers, reconnect and use the live chat, or tap the Web button above to search the internet.");
+    addMsg('assistant', "You're offline. I can only answer a small set of pre-loaded, basic questions right now (offline mode is still under development) — open-ended or complex questions like history, current events or follow-ups may not be recognized.\n\nTry simple things like 'what can you do', 'who are you', or 'capital of Nigeria'.\n\nFor full answers, reconnect and use the live chat.");
     function send() {
         const q = input.value.trim();
         if (!q) return;
@@ -1121,24 +1118,11 @@ function openOfflineChat() {
             // No offline hit. Give an honest "not recognized" reply instead of a generic
             // greeting, so complex questions (history, current events, follow-ups) aren't
             // misleadingly answered. Offline mode only knows a small set of basics.
-            addMsg('assistant', "I don't have that in my offline directory yet — offline mode is still under development and only knows a small set of basic answers.\n\nTap the \uD83D\uDD0D Web button above to search the internet, or reconnect to use the full live chat. For example I can answer: 'what can you do', 'who are you', 'capital of Nigeria', 'what is pi', or simple math like '12 * 8'.");
+            addMsg('assistant', "I don't have that in my offline directory yet — offline mode is still under development and only knows a small set of basic answers.\n\nReconnect and use the live chat for anything else. For example I can answer: 'what can you do', 'who are you', 'capital of Nigeria', 'what is pi', or simple math like '12 * 8'.");
         }, 300);
     }
     wrap.querySelector('#offline-chat-send').addEventListener('click', send);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    // Web button — don't answer from the offline directory; hand off to live/web chat.
-    // If a connection is present we return to the live chat; otherwise we explain.
-    const webBtn = wrap.querySelector('#offline-web-btn');
-    if (webBtn) {
-        webBtn.addEventListener('click', () => {
-            if (navigator.onLine) {
-                addMsg('assistant', "Going online so I can search the web for you — opening the live chat…");
-                setTimeout(() => goBackOnline(), 600);
-            } else {
-                addMsg('assistant', "You're still offline, so I can't search the web yet. A connection is needed for web search. Reconnect and tap this button again (or Close Offline Mode).");
-            }
-        });
-    }
     // Closing offline mode: if online, return to the live chat; otherwise show the offline screen.
     wrap.querySelector('#offline-chat-close').addEventListener('click', () => {
         if (navigator.onLine) {

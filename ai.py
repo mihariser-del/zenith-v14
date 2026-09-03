@@ -253,10 +253,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             break
 
     # Basic Directory short-circuit — answer from canned knowledge (saves credits)
-    # and works identically for offline-style responses.
+    # and works identically for offline-style responses. Disabled whenever the user
+    # enables web search, research, think, fact-check or sends images, so the actual
+    # AI service handles those cases instead of a canned directory answer.
     from directory import match_directory as _match_directory
     _dir_match = None
-    if not research and not factcheck and not web_search and not images:
+    if not research and not factcheck and not web_search and not images and not think:
         try:
             _dir_match = _match_directory(last_user_msg)
         except Exception:

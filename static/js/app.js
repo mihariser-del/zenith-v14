@@ -611,17 +611,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 
     // --- Changelog popup ---
+    // "Seen version" is tracked PER-USER so a new account on a device that already saw the
+    // latest version still receives the changelog (it isn't suppressed by the previous account).
+    const _chgKey = 'zenith_version_' + user.username;
     (async () => {
         try {
             const data = await api('/api/changelog');
-            const seen = localStorage.getItem('zenith_version');
+            const seen = localStorage.getItem(_chgKey);
             if (seen !== data.version) {
                 $('changelog-title').textContent = `What's New — v${data.version}`;
                 $('changelog-version').textContent = `Version ${data.version}`;
                 $('changelog-list').innerHTML = data.changes.map(c => `<li>${c}</li>`).join('');
                 $('changelog-modal').style.display = 'flex';
-                $('close-changelog').onclick = () => { localStorage.setItem('zenith_version', data.version); $('changelog-modal').style.display = 'none'; };
-                $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) { localStorage.setItem('zenith_version', data.version); $('changelog-modal').style.display = 'none'; } });
+                $('close-changelog').onclick = () => { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; };
+                $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; } });
             }
         } catch (e) {}
     })();
@@ -677,12 +680,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
     else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
     // Broadcast polling — all users get popup when staff broadcasts
-    // Dedup state is stored PER-USER (keyed by username) so multiple accounts in the
-    // same browser don't block each other from receiving a broadcast.
-    const _annIdKey = 'zenith_ann_id_' + user.username;
+    // Dedup state is PER-USER (keyed by username) so multiple accounts in the same
+    // browser don't block each other, and a brand-new account doesn't replay old ones.
+    const _annBaseKey = 'zenith_ann_base_' + user.username;
     const _annSeenKey = 'zenith_ann_seen_' + user.username;
-    const _lastSeen = () => parseInt(localStorage.getItem(_annSeenKey) || '0', 10);
-    let _lastAnnId = parseInt(localStorage.getItem(_annIdKey) || '0', 10);
+    const _annBase = () => parseInt(localStorage.getItem(_annBaseKey) || '0', 10);
+    const _lastSeen = () => Math.max(_annBase(), parseInt(localStorage.getItem(_annSeenKey) || '0', 10));
+    let _lastAnnId = _lastSeen();
     let _pollingAnn = false;
     async function pollAnnouncements() {
         if (_pollingAnn) return;
@@ -692,9 +696,15 @@ document.addEventListener('DOMContentLoaded', async () => {
             const anns = d.announcements || [];
             if (anns.length) {
                 const maxId = Math.max(...anns.map(a => a.id));
+                // First-ever poll for this account: set the baseline to the current max so old
+                // broadcasts don't all replay as a burst. Only broadcasts sent after this point pop.
+                if (localStorage.getItem(_annBaseKey) === null) {
+                    localStorage.setItem(_annBaseKey, String(maxId));
+                    _lastAnnId = maxId;
+                    _pollingAnn = false;
+                    return;
+                }
                 let seen = _lastSeen();
-                // Reliably surface every broadcast we have not already dismissed/shown —
-                // works both mid-session (new ids) and on first load (existing backlog).
                 const pending = anns
                     .filter(a => a.id > seen && a.id > _lastAnnId)
                     .filter(a => a.username !== user.username && a.user_id !== user.id)
@@ -723,10 +733,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         else attBadge.style.display = 'none';
                     }
                 }
-                if (maxId > _lastAnnId) {
-                    _lastAnnId = maxId;
-                    localStorage.setItem(_annIdKey, String(maxId));
-                }
+                if (maxId > _lastAnnId) _lastAnnId = maxId;
             }
         } catch (e) {}
         _pollingAnn = false;

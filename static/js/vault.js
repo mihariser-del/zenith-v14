@@ -68,28 +68,28 @@ const Vault = {
             const me = this._user || (await api('/api/auth/me')).user;
             const meName = me?.username;
             const meId = me?.id;
-            // Per-user dedup keys so multiple accounts in one browser don't block each other.
-            const idKey = 'zenith_ann_id_' + meName;
+            if (!meName) return;
+            // Per-user dedup keys so multiple accounts in one browser don't block each other,
+            // and a brand-new account doesn't replay old broadcasts.
+            const baseKey = 'zenith_ann_base_' + meName;
             const seenKey = 'zenith_ann_seen_' + meName;
-            let lastId = parseInt(localStorage.getItem(idKey) || '0', 10);
-            let seen = parseInt(localStorage.getItem(seenKey) || '0', 10);
+            let lastId = Math.max(parseInt(localStorage.getItem(baseKey) || '0', 10), parseInt(localStorage.getItem(seenKey) || '0', 10));
             const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
             if (!anns.length) return;
+            const maxId = Math.max(...anns.map(a => a.id));
+            if (localStorage.getItem(baseKey) === null) {
+                localStorage.setItem(baseKey, String(maxId));
+                return;
+            }
             const newer = anns.filter(a => a.id > lastId && a.username !== meName && a.user_id !== meId);
             newer.sort((a, b) => a.id - b.id);
             for (const a of newer) {
                 this._showVaultBroadcast(a);
             }
-            // Refresh the feed cursor so app.js won't re-show what we just showed
-            const maxId = Math.max(...anns.map(a => a.id));
-            if (maxId > lastId) {
-                lastId = maxId;
-                localStorage.setItem(idKey, String(maxId));
-            }
             if (newer.length) {
                 const maxShown = Math.max(...newer.map(a => a.id));
-                if (maxShown > seen) localStorage.setItem(seenKey, String(maxShown));
+                if (maxShown > lastId) localStorage.setItem(seenKey, String(maxShown));
             }
         } catch (e) {}
     },

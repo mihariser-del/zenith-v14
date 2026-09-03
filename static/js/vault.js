@@ -72,10 +72,29 @@ const Vault = {
             // Per-user dedup keyed by the broadcast's created_at_ts timestamp (not integer id,
             // which resets to 1 after "clear broadcast cache" on SQLite and would otherwise
             // make every post-clear broadcast look already-seen).
-            const _tsOf = s => { const t = new Date(s || '').getTime(); return isNaN(t) ? 0 : t; };
+            const _tsOf = s => {
+                if (typeof s === 'string' && /^\d+$/.test(s.trim())) return parseInt(s.trim(), 10);
+                const t = new Date(s || '').getTime();
+                return isNaN(t) ? 0 : t;
+            };
             const baseKey = 'zenith_bc_base_' + meName;
             const seenKey = 'zenith_bc_seen_' + meName;
+            const doneKey = 'zenith_bc_done_' + meName;
             const lastSeen = () => Math.max(_tsOf(localStorage.getItem(baseKey)), _tsOf(localStorage.getItem(seenKey)));
+            const doneList = () => { try { return JSON.parse(localStorage.getItem(doneKey) || '[]'); } catch (e) { return []; } };
+            const doneId = a => (a.created_at_ts || '') + '::' + (a.content || '');
+            const isDone = a => doneList().indexOf(doneId(a)) !== -1;
+            const markDone = a => {
+                try {
+                    const list = doneList();
+                    const id = doneId(a);
+                    if (list.indexOf(id) === -1) {
+                        list.push(id);
+                        if (list.length > 200) list.splice(0, list.length - 200);
+                        localStorage.setItem(doneKey, JSON.stringify(list));
+                    }
+                } catch (e) {}
+            };
             let lastTs = lastSeen();
             const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
@@ -85,13 +104,13 @@ const Vault = {
                 localStorage.setItem(baseKey, maxAnn.created_at_ts || '');
                 return;
             }
-            const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && a.user_id !== meId);
+            const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && a.user_id !== meId && !isDone(a));
             newer.sort((a, b) => _tsOf(a.created_at_ts) - _tsOf(b.created_at_ts));
             let shownTs = lastTs;
             for (const a of newer) {
                 const ts = _tsOf(a.created_at_ts);
-                // Mark seen immediately per broadcast so a rendering hiccup or a reload never
-                // makes the same broadcast replay forever.
+                // Persist "shown" FIRST so a rendering hiccup or a reload never replays it.
+                markDone(a);
                 if (ts > shownTs) shownTs = ts;
                 try { this._showVaultBroadcast(a); } catch (e) {}
             }

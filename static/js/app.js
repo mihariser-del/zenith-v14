@@ -689,9 +689,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     // would make every post-clear broadcast look "already seen").
     const _annBaseKey = 'zenith_bc_base_' + user.username;
     const _annSeenKey = 'zenith_bc_seen_' + user.username;
-    const _tsOf = s => { const t = new Date(s || '').getTime(); return isNaN(t) ? 0 : t; };
+    const _annDoneKey = 'zenith_bc_done_' + user.username;
+    const _tsOf = s => {
+        if (typeof s === 'string' && /^\d+$/.test(s.trim())) return parseInt(s.trim(), 10);
+        const t = new Date(s || '').getTime();
+        return isNaN(t) ? 0 : t;
+    };
     const _annBase = () => _tsOf(localStorage.getItem(_annBaseKey));
     const _lastSeen = () => Math.max(_annBase(), _tsOf(localStorage.getItem(_annSeenKey)));
+    // Content-based "already shown" set: a broadcast can NEVER pop twice for this account no
+    // matter what (reloads, logouts, timestamp collisions, baseline quirks). Keyed by content+ts
+    // so the same message shown once never replays.
+    const _annDoneList = () => {
+        try { return JSON.parse(localStorage.getItem(_annDoneKey) || '[]'); } catch (e) { return []; }
+    };
+    const _annDoneId = a => (a.created_at_ts || '') + '::' + (a.content || '');
+    const _annIsDone = a => _annDoneList().indexOf(_annDoneId(a)) !== -1;
+    const _annMarkDone = a => {
+        try {
+            const list = _annDoneList();
+            const id = _annDoneId(a);
+            if (list.indexOf(id) === -1) {
+                list.push(id);
+                if (list.length > 200) list.splice(0, list.length - 200);
+                localStorage.setItem(_annDoneKey, JSON.stringify(list));
+            }
+        } catch (e) {}
+    };
     let _lastAnnTs = _lastSeen();
     let _pollingAnn = false;
     async function pollAnnouncements() {
@@ -714,14 +738,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const pending = anns
                     .filter(a => _tsOf(a.created_at_ts) > seen && _tsOf(a.created_at_ts) > _lastAnnTs)
                     .filter(a => a.username !== user.username && a.user_id !== user.id)
+                    .filter(a => !_annIsDone(a))
                     .sort((x, y) => _tsOf(x.created_at_ts) - _tsOf(y.created_at_ts));
                 if (pending.length) {
                     for (const a of pending) {
                         const ts = _tsOf(a.created_at_ts);
-                        showBroadcastPopup(a);
-                        // Mark seen immediately, before any side-effect, so a toast/push/DOM
+                        // Persist "shown" FIRST, before any popup/side-effect, so a toast/push/DOM
                         // failure or a page reload can NEVER make a broadcast replay infinitely.
+                        _annMarkDone(a);
                         seen = Math.max(seen, ts);
+                        showBroadcastPopup(a);
                         try { devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); } catch (e) {}
                         try { showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0, 80), a.username); } catch (e) {}
                     }

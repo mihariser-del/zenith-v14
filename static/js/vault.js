@@ -4,6 +4,7 @@ const Vault = {
     _pollInterval: null,
     _sysPollInterval: null,
     _cache: {},
+    _chosenHelpers: [],
 
     async init() {
         try {
@@ -1121,6 +1122,7 @@ const Vault = {
             const { users } = await api('/api/auth/admin/users');
             const admins = users.filter(u => u.role === 'admin' || u.role === 'owner');
             const regularUsers = users.filter(u => u.role === 'user' && !u.is_deleted);
+            this._chosenHelpers = admins.filter(u => u.is_chosen).map(u => u.id);
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
                     ${this.statCard('👑','Owners',users.filter(u=>u.role==='owner').length,'','purple')}
@@ -1129,13 +1131,24 @@ const Vault = {
                 </div>
                 <div class="vault-card" style="margin-bottom:16px;">
                     <div class="card-header"><span>📋 Admin List</span></div>
-                    ${admins.map(a => `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
+                    ${admins.map(a => {
+                        const isChosen = a.is_chosen || this._chosenHelpers.includes(a.id);
+                        return `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
                         <div style="width:36px;height:36px;border-radius:50%;background:${a.role === 'owner' ? 'linear-gradient(135deg,#DDE4EE,#8B949E)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;">${a.username[0].toUpperCase()}</div>
-                        <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span></div><div style="font-size:11px;color:#666;">${a.email}</div></div>
-                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
-                    </div>`).join('')}
+                        <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span>${isChosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div><div style="font-size:11px;color:#666;">${a.email}</div></div>
+                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn ${isChosen ? 'danger' : 'success'}" onclick="Vault.toggleChosen(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">${isChosen ? '✖ Remove Helper' : '⛑ Choose Helper'}</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
+                    </div>`;
+                    }).join('')}
                 </div>
-                <div class="vault-card" style="margin-bottom:16px;">
+                <div class="vault-card" style="margin-bottom:16px;border:1px solid #10B98144;">
+                    <div class="card-header"><span>⛑ Chosen Helpers</span><button class="vault-btn danger" onclick="Vault.clearChosen()" style="font-size:10px;">Clear All</button></div>
+                    <div style="font-size:12px;color:#8B949E;margin-bottom:10px;">Chosen helpers stay online and get special access during maintenance / lock-all so they can coordinate with you.</div>
+                    ${this._chosenHelpers.length === 0 ? '<div style="color:#666;font-size:12px;padding:8px 0;">No helpers chosen. Click "⛑ Choose Helper" on an admin above.</div>' :
+                    `<div style="display:flex;flex-wrap:wrap;gap:8px;">${this._chosenHelpers.map(id => {
+                        const u = admins.find(x => x.id === id);
+                        return u ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,.1);border:1px solid #10B98133;padding:8px 12px;border-radius:10px;"><span>⛑</span> ${u.username}</div>` : '';
+                    }).join('')}</div>`}
+                </div><div class="vault-card" style="margin-bottom:16px;">
                     <div class="card-header"><span>⬆️ Promote User to Admin</span></div>
                     ${regularUsers.length === 0 ? '<div style="color:#666;font-size:12px;padding:8px 0;">No regular users to promote</div>' : 
                     `<div style="max-height:200px;overflow-y:auto;">${regularUsers.slice(0, 20).map(u => `<div class="vault-activity-item" style="margin-bottom:6px;">
@@ -1372,6 +1385,32 @@ const Vault = {
         try {
             await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) });
             showToast(`${username} has been promoted to admin`, 'success');
+            this.renderAdmins();
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async toggleChosen(userId, username) {
+        const idx = this._chosenHelpers.indexOf(userId);
+        if (idx >= 0) {
+            this._chosenHelpers.splice(idx, 1);
+        } else {
+            this._chosenHelpers.push(userId);
+        }
+        try {
+            const r = await api('/api/admin/system/set-chosen', { method: 'POST', body: JSON.stringify({ user_ids: this._chosenHelpers }) });
+            const now = r.chosen.some(c => c.id === userId) ? 'helped' : 'no longer helps';
+            showToast(`${username} will ${now} during shutdowns`, 'success');
+            this.renderAdmins();
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    async clearChosen() {
+        const ok = await showConfirm('Clear all chosen helpers?', 'No staff will be exempt during the next shutdown.', true);
+        if (!ok) return;
+        try {
+            await api('/api/admin/system/set-chosen', { method: 'POST', body: JSON.stringify({ user_ids: [] }) });
+            this._chosenHelpers = [];
+            showToast('All chosen helpers cleared', 'success');
             this.renderAdmins();
         } catch (e) { showToast(e.message, 'error'); }
     },

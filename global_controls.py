@@ -57,7 +57,35 @@ async def public_state(db: AsyncSession = Depends(get_db)):
         "messaging": await _get_setting(db, "messaging", "on"),
         "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
         "locked": await _get_setting(db, "locked", "off"),
+        "chosen": await _get_setting(db, "chosen", ""),
     }
+
+
+class ChosenRequest(BaseModel):
+    user_ids: list[int]
+
+
+@router.post("/set-chosen")
+async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    # Clear any previous chosen helpers
+    prev = await db.execute(select(User).where(User.is_chosen == True))
+    for p in prev.scalars().all():
+        p.is_chosen = False
+        p.pending_notification = "unchosen"
+    # Set the new ones
+    chosen = []
+    if req.user_ids:
+        targets = await db.execute(select(User).where(User.id.in_(req.user_ids), User.is_deleted == False))
+        for t in targets.scalars().all():
+            t.is_chosen = True
+            t.pending_notification = "chosen"
+            chosen.append({"id": t.id, "username": t.username, "email": t.email})
+    await db.commit()
+    await _set_setting(db, "chosen", ",".join(str(c["id"]) for c in chosen))
+    return {"chosen": chosen}
 
 
 @router.post("/maintenance")
@@ -67,11 +95,14 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "maintenance_mode", req.value)
     if req.value == "on":
-        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen != True))
         for t in result.scalars().all():
             t.pending_notification = "maintenance"
+        chosen = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen == True))
+        for c in chosen.scalars().all():
+            c.pending_notification = "chosen"
         await db.commit()
-        await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner can access it right now.")
+        await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner and chosen helpers can access it right now.")
     else:
         result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
         for t in result.scalars().all():
@@ -125,10 +156,13 @@ async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen != True))
     targets = result.scalars().all()
     for t in targets:
         t.pending_notification = "locked"
+    chosen = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen == True))
+    for c in chosen.scalars().all():
+        c.pending_notification = "chosen"
     await db.commit()
     await _set_setting(db, "locked", "on")
     await _announce(db, user, "[EMERGENCY:lock-all] 🔒 ALL ACCOUNTS HAVE BEEN LOCKED by the Owner. You are currently locked out.")
@@ -155,7 +189,7 @@ async def force_logout(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
         raise HTTPException(status_code=403, detail="Owner only")
-    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+    result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen != True))
     targets = result.scalars().all()
     for t in targets:
         t.pending_notification = "force_logout"

@@ -53,6 +53,16 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             }).catch(() => {});
             return true;
+        } else if (n === 'chosen') {
+            _notifShown = true;
+            _showChosenPopup();
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
+        } else if (n === 'unchosen') {
+            _notifShown = true;
+            _showRolesToast('You are no longer a chosen helper.');
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
         } else if (n === 'unlocked' || n === 'maintenance_off') {
             _persistentScreen = '';
             api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
@@ -722,6 +732,31 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <button onclick="this.closest('#role-notif-popup').remove()" style="background:${color};color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Got it</button>
             </div>`;
         document.body.appendChild(wrap);
+    }
+    function _showChosenPopup() {
+        const existing = document.getElementById('chosen-popup');
+        if (existing) existing.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'chosen-popup';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(7px);animation:fadeIn .3s;';
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(160deg,#0f1a14,#1a2a20 50%,#0d1f16);border:2px solid #10B981;border-radius:20px;padding:44px 52px;max-width:500px;width:92%;text-align:center;box-shadow:0 0 80px rgba(16,185,129,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(16,185,129,.08);filter:blur(25px);"></div>
+                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(16,185,129,.5));">🛠️</div>
+                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);font-size:10px;font-weight:700;color:#10B981;letter-spacing:2px;margin-bottom:16px;">CHOSEN HELPER</div>
+                <h2 style="color:#10B981;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">You Have Been Selected</h2>
+                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">You have been chosen by the owner to help him with an existing problem. <strong style="color:#10B981;">Participate in the live chat now!</strong></p>
+                <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Your account is exempt from the current shutdown so you can assist. Join the staff live chat to coordinate with the Owner.</p>
+                <button onclick="(function(){var p=document.getElementById('chosen-popup');if(p)p.remove();if(window.Staff&&Staff.openChat)Staff.openChat();})()" style="background:#10B981;color:#04120b;border:none;padding:14px 40px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Open Live Chat ▶</button>
+            </div>`;
+        document.body.appendChild(wrap);
+    }
+    function _showRolesToast(msg) {
+        const t = document.createElement('div');
+        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;background:#1a1d23;border:1px solid #333;color:#C0C7D1;padding:12px 24px;border-radius:10px;font-size:14px;box-shadow:0 6px 30px rgba(0,0,0,.5);';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 4000);
     }
     function showBroadcastPopup(a) {
         if (document.getElementById('broadcast-popup-' + a.id)) return;

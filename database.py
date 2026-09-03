@@ -94,6 +94,8 @@ class User(Base):
     permissions = Column(Text, default="")
     # Pending notification (role change, etc)
     pending_notification = Column(Text, default="")
+    # Chosen helper — staff selected by the Owner to assist during shutdowns
+    is_chosen = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -296,6 +298,7 @@ async def init_db():
             ("last_seen", "DATETIME"),
             ("permissions", "TEXT DEFAULT ''"),
             ("pending_notification", "TEXT DEFAULT ''"),
+            ("is_chosen", "BOOLEAN DEFAULT 0"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

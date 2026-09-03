@@ -29,41 +29,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (nameTextEl) nameTextEl.textContent = displayName;
     if (badgeEl) badgeEl.innerHTML = '';
     // Check for pending role change notification
-    let _notifShown = false;
+    let _lastHandled = '';
     function _handlePendingNotification(n) {
-        if (_notifShown) return false;
+        if (_lastHandled === n) return false;
         if (n === 'promoted') {
-            _notifShown = true; _showRoleNotificationPopup(true);
+            _lastHandled = ''; _showRoleNotificationPopup(true);
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
         } else if (n === 'demoted') {
-            _notifShown = true; _showRoleNotificationPopup(false);
+            _lastHandled = ''; _showRoleNotificationPopup(false);
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
         } else if (n === 'locked' || n === 'maintenance') {
-            _notifShown = true;
+            _lastHandled = n;
             _persistentScreen = n;
             _showMaintenanceScreen(n);
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return false;
         } else if (n === 'force_logout') {
-            _notifShown = true;
+            _lastHandled = '';
             window.showEmergencyPopup('force-logout');
             api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             }).catch(() => {});
             return true;
         } else if (n === 'chosen') {
-            _notifShown = true;
+            _lastHandled = '';
             _showChosenPopup();
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
+        } else if (n === 'helper_thanks') {
+            _lastHandled = '';
+            _showHelperThanksPopup();
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
         } else if (n === 'unchosen') {
-            _notifShown = true;
+            _lastHandled = '';
             _showRolesToast('You are no longer a chosen helper.');
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
         } else if (n === 'unlocked' || n === 'maintenance_off') {
+            _lastHandled = n;
             _persistentScreen = '';
             api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
                 const sc = document.getElementById('maintenance-screen');
@@ -102,7 +108,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         })());
     }
     function checkNotif() {
-        if (_notifShown && !_persistentScreen) return;
         api('/api/auth/me').then(r => {
             const n = r.user?.pending_notification;
             if (n) _handlePendingNotification(n);
@@ -747,7 +752,28 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <h2 style="color:#10B981;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">You Have Been Selected</h2>
                 <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">You have been chosen by the owner to help him with an existing problem. <strong style="color:#10B981;">Participate in the live chat now!</strong></p>
                 <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Your account is exempt from the current shutdown so you can assist. Join the staff live chat to coordinate with the Owner.</p>
-                <button onclick="(function(){var p=document.getElementById('chosen-popup');if(p)p.remove();if(window.Staff&&Staff.openChat)Staff.openChat();})()" style="background:#10B981;color:#04120b;border:none;padding:14px 40px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Open Live Chat ▶</button>
+                <button onclick="(function(){var p=document.getElementById('chosen-popup');if(p)p.remove();window.openStaffChat();})()" style="background:#10B981;color:#04120b;border:none;padding:14px 40px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Open Live Chat ▶</button>
+            </div>`;
+        document.body.appendChild(wrap);
+    }
+    function _showHelperThanksPopup() {
+        const existing = document.getElementById('helper-thanks-popup');
+        if (existing) existing.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'helper-thanks-popup';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(7px);animation:fadeIn .3s;';
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(160deg,#101b14,#1b2e22 50%,#0c1a12);border:2px solid #4ADE80;border-radius:20px;padding:44px 52px;max-width:500px;width:92%;text-align:center;box-shadow:0 0 80px rgba(74,222,128,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(74,222,128,.08);filter:blur(25px);"></div>
+                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(74,222,128,.5));">🙏</div>
+                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.35);font-size:10px;font-weight:700;color:#4ADE80;letter-spacing:2px;margin-bottom:16px;">MAINTENANCE COMPLETE</div>
+                <h2 style="color:#4ADE80;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">Thank You For Your Help</h2>
+                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">The Owner is <strong style="color:#4ADE80;">truly thankful</strong> for your assistance during the maintenance.</p>
+                <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Everything is back up and running. You can return to the staff live chat to wrap up with the Owner.</p>
+                <div style="display:flex;gap:12px;justify-content:center;">
+                    <button onclick="(function(){var p=document.getElementById('helper-thanks-popup');if(p)p.remove();})()" style="background:transparent;color:#C0C7D1;border:1px solid #333;padding:12px 24px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">Dismiss</button>
+                    <button onclick="(function(){var p=document.getElementById('helper-thanks-popup');if(p)p.remove();window.openStaffChat();})()" style="background:#4ADE80;color:#04120b;border:none;padding:12px 32px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(74,222,128,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Return to Chat ▶</button>
+                </div>
             </div>`;
         document.body.appendChild(wrap);
     }
@@ -766,7 +792,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             const t = emMatch[1];
             if (t === 'maintenance' || t === 'lock-all') {
                 // Persistent full-screen until the owner turns it off — works mid-session too
-                _notifShown = true;
                 _persistentScreen = t === 'maintenance' ? 'maintenance' : 'locked';
                 _showMaintenanceScreen(_persistentScreen);
             } else if (t === 'force-logout') {
@@ -866,6 +891,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         localStorage.setItem('zenith_last_staff_seen', String(_lastStaffId));
         const b=$('live-chat-badge'); if(b) b.style.display='none';
         return _origOpenChat();
+    };
+    // Global helper so popup buttons can reliably open the staff live chat
+    window.openStaffChat = function() {
+        try {
+            if (window.Staff && typeof Staff.openChat === 'function') { Staff.openChat(); return true; }
+        } catch (e) {}
+        const m = document.getElementById('staff-chat-modal');
+        if (m) m.style.display = 'flex';
+        return !!m;
     };
 
     function fmtTimeLocal(s) { if (!s || s === 'Never' || s === 'Online') return s; try { // server stores UTC as "YYYY-MM-DD HH:MM" or "YYYY-MM-DD HH:MM:SS"

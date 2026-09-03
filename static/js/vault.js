@@ -1,6 +1,7 @@
 const Vault = {
     _isOwner: false,
     _currentTab: 'dashboard',
+    _renderedTab: '',
     _pollInterval: null,
     _sysPollInterval: null,
     _cache: {},
@@ -29,14 +30,32 @@ const Vault = {
         this.startPolling();
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
-                this.loadTab(this._currentTab);
+                // Refresh the current view on return without a full DOM wipe
+                this.refreshCurrentTab();
                 this.startPolling();
             }
         });
         window.addEventListener('focus', () => {
-            this.loadTab(this._currentTab);
+            this.refreshCurrentTab();
             this.startPolling();
         });
+    },
+
+    // Light refresh that avoids wiping the whole vault when returning to the tab / clicking active nav
+    refreshCurrentTab() {
+        if (this._currentTab === 'dashboard') {
+            this.refreshDashboardStats();
+            this.refreshSystemStats();
+            this.loadHourlyChart();
+            this.loadRecentAccounts();
+            this.loadActivityFeed();
+            this.loadOnlineUsers();
+        } else if (this._renderedTab === this._currentTab) {
+            // avoid full re-render for an already-rendered tab
+            return;
+        } else {
+            this.loadTab(this._currentTab);
+        }
     },
 
     bindHamburger() {
@@ -52,10 +71,17 @@ const Vault = {
 
     bindNav() {
         document.querySelectorAll('#vault-nav a').forEach(a => {
-            a.addEventListener('click', () => {
+            a.addEventListener('click', (e) => {
+                if (e && e.preventDefault) e.preventDefault();
+                const tab = a.dataset.tab;
                 document.querySelectorAll('#vault-nav a').forEach(x => x.classList.remove('active'));
                 a.classList.add('active');
-                this.loadTab(a.dataset.tab);
+                if (tab === this._currentTab && this._renderedTab === tab) {
+                    // Already showing this tab — just refresh in place, don't wipe the page
+                    this.refreshCurrentTab();
+                } else {
+                    this.loadTab(tab);
+                }
                 if (window.innerWidth <= 768) document.getElementById('vault-sidebar').classList.remove('open');
             });
         });
@@ -67,6 +93,7 @@ const Vault = {
         document.getElementById('vault-section-label').textContent = labels[tab] || tab.toUpperCase();
         const fn = { dashboard:'renderDashboard', users:'renderUsers', chats:'renderChats', messages:'renderMessages', bans:'renderBans', deleted:'renderDeleted', security:'renderSecurity', logs:'renderLogs', backups:'renderBackups', settings:'renderSettings', owner:'renderOwner', admins:'renderAdmins', global:'renderGlobal', emergency:'renderEmergency' };
         if (fn[tab]) this[fn[tab]]();
+        this._renderedTab = tab;
     },
 
     startPolling() {

@@ -104,9 +104,12 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         await db.commit()
         await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner and chosen helpers can access it right now.")
     else:
-        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id))
+        result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen != True))
         for t in result.scalars().all():
             t.pending_notification = "maintenance_off"
+        chosen = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen == True))
+        for c in chosen.scalars().all():
+            c.pending_notification = "helper_thanks"
         await db.commit()
         await _announce(db, user, "✅ Maintenance mode is now OFF. The platform is fully available again.")
     return {"maintenance_mode": req.value}
@@ -177,7 +180,7 @@ async def unlock_all(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(User).where(User.is_deleted == False))
     targets = result.scalars().all()
     for t in targets:
-        t.pending_notification = "unlocked"
+        t.pending_notification = "helper_thanks" if t.is_chosen else "unlocked"
     await db.commit()
     await _set_setting(db, "locked", "off")
     await _announce(db, user, "[EMERGENCY:unlock-all] ✅ ALL ACCOUNTS HAVE BEEN UNLOCKED by the Owner. You can log in again.")

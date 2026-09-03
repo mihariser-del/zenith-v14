@@ -102,6 +102,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         _handlePendingNotification(user.pending_notification);
     }
     setInterval(checkNotif, 1000);
+    // Self-clearing for the persistent maintenance/locked screen — polls public state so it
+    // lifts automatically the moment the Owner turns the mode back off (works mid-session too)
+    setInterval(async () => {
+        if (!_persistentScreen) return;
+        try {
+            const st = await api('/api/admin/system/public');
+            const stillOn = _persistentScreen === 'maintenance'
+                ? st.maintenance_mode === 'on'
+                : st.locked === 'on';
+            if (!stillOn) {
+                _persistentScreen = '';
+                const sc = document.getElementById('maintenance-screen');
+                if (sc) sc.remove();
+                setTimeout(() => { window.location.href = '/app'; }, 300);
+            }
+        } catch (e) {}
+    }, 3000);
     // legacy fallback if old structure
     if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = displayName;
     $('user-avatar').textContent = user.username[0].toUpperCase();
@@ -711,10 +728,22 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Check for emergency markers
         const emMatch = (a.content || '').match(/^\[EMERGENCY:(\w+)\]\s*/);
         if (emMatch) {
-            // Use the shared emergency popup from api.js
-            window.showEmergencyPopup(emMatch[1]);
-            if (emMatch[1] === 'lock-all' || emMatch[1] === 'force-logout' || emMatch[1] === 'maintenance') {
+            const t = emMatch[1];
+            if (t === 'maintenance' || t === 'lock-all') {
+                // Persistent full-screen until the owner turns it off — works mid-session too
+                _notifShown = true;
+                _persistentScreen = t === 'maintenance' ? 'maintenance' : 'locked';
+                _showMaintenanceScreen(_persistentScreen);
+            } else if (t === 'force-logout') {
+                window.showEmergencyPopup('force-logout');
                 setTimeout(() => { window.location.href = '/'; }, 30000);
+            } else if (t === 'unlock-all') {
+                window.showEmergencyPopup('unlock-all');
+                _persistentScreen = '';
+                const sc = document.getElementById('maintenance-screen');
+                if (sc) sc.remove();
+            } else {
+                window.showEmergencyPopup(t);
             }
             return;
         }

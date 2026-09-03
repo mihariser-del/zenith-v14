@@ -269,7 +269,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 popup = document.createElement('div');
                 popup.id = 'avatar-popup';
                 popup.style.cssText = 'position:fixed; bottom:20px; left:70px; background:var(--sidebar); border:1px solid var(--border); border-radius:10px; padding:12px; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.3); min-width:140px;';
-                popup.innerHTML = `<div style="font-size:13px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${user.username}</div><button class="btn danger" id="popup-logout" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;">Logout</button>`;
+                const _safe = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+                popup.innerHTML = `<div style="font-size:13px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_safe(user.username)}</div><button class="btn danger" id="popup-logout" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;">Logout</button>`;
                 popup.querySelector('#popup-logout').addEventListener('click', () => { popup.remove(); $('logout-btn').click(); });
                 document.body.appendChild(popup);
                 const close = (e) => { if (!popup.contains(e.target) && e.target !== avatarEl) { popup.remove(); document.removeEventListener('click', close); } };
@@ -682,22 +683,30 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (_pollingAnn) return;
         _pollingAnn = true;
         try {
-            const d = await api('/api/announcements/feed');
+            const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
             if (anns.length) {
                 const maxId = Math.max(...anns.map(a => a.id));
-                // Show new ones as popup — not to broadcaster, wait offline until dismissed, device push to all devices
-                const newAnnsAll = anns.filter(a => a.id > _lastAnnId);
-                const newAnns = newAnnsAll.filter(a => a.username !== user.username && a.user_id !== user.id);
-                if (newAnns.length && _lastAnnId !== 0) {
-                    newAnns.forEach(a => { showBroadcastPopup(a); devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0,80), a.username); });
-                } else if (newAnnsAll.length && _lastAnnId === 0 && anns.length) {
-                    // First load after offline — show latest pending if not yet dismissed and not own
-                    const latest = anns[anns.length - 1];
-                    if (latest.username === user.username || latest.user_id === user.id) { /* own broadcast, don't popup */ }
-                    else {
-                        const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
-                        if (latest.id > seen) { showBroadcastPopup(latest); devicePush('Zenith Broadcast — ' + latest.username, latest.content, 'broadcast-' + latest.id); showDiscordToast('Zenith', latest.username + ' — Broadcast', latest.content.slice(0,80), latest.username); }
+                const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
+                // Reliably surface every broadcast we have not already dismissed/shown —
+                // works both mid-session (new ids) and on first load (existing backlog).
+                const pending = anns
+                    .filter(a => a.id > seen && a.id > _lastAnnId)
+                    .filter(a => a.username !== user.username && a.user_id !== user.id)
+                    .sort((x, y) => x.id - y.id);
+                if (pending.length) {
+                    for (const a of pending) {
+                        showBroadcastPopup(a);
+                        devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id);
+                        showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0, 80), a.username);
+                    }
+                    // Mark non-emergency broadcasts as seen so they don't reappear on reload.
+                    // Emergency markers drive persistent screens (maintenance/lock-all) and are
+                    // intentionally left unmarked so a reload mid-event re-applies the screen.
+                    const seenIds = pending.filter(a => !/^\[EMERGENCY:/.test(a.content || '')).map(a => a.id);
+                    if (seenIds.length) {
+                        const maxShown = Math.max(...seenIds);
+                        localStorage.setItem('zenith_last_ann_seen', String(Math.max(seen, maxShown)));
                     }
                 }
                 // For UI badge (staff)

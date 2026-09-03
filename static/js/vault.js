@@ -4,12 +4,14 @@ const Vault = {
     _renderedTab: '',
     _pollInterval: null,
     _sysPollInterval: null,
+    _annInterval: null,
     _cache: {},
     _chosenHelpers: [],
 
     async init() {
         try {
             const { user } = await api('/api/auth/me');
+            this._user = user;
             this._isOwner = user.role === 'owner';
             document.body.classList.add(this._isOwner ? 'vault-owner' : 'vault-admin');
             document.getElementById('vault-username').textContent = user.username;
@@ -58,6 +60,81 @@ const Vault = {
         }
     },
 
+    // ── Broadcast reception ─────────────────────────────────────────────
+    // The vault page does not load app.js, so staff would otherwise never see
+    // incoming broadcasts here. Poll the same feed and surface popups.
+    async pollBroadcasts() {
+        let lastId = parseInt(localStorage.getItem('zenith_last_ann_id') || '0', 10);
+        let seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
+        try {
+            const d = await api('/api/announcements/feed?_=' + Date.now());
+            const anns = d.announcements || [];
+            if (!anns.length) return;
+            const me = this._user || (await api('/api/auth/me')).user;
+            const meName = me?.username;
+            const meId = me?.id;
+            const newer = anns.filter(a => a.id > lastId && a.username !== meName && a.user_id !== meId);
+            newer.sort((a, b) => a.id - b.id);
+            for (const a of newer) {
+                this._showVaultBroadcast(a);
+            }
+            // Refresh the feed cursor so app.js won't re-show what we just showed
+            const maxId = Math.max(...anns.map(a => a.id));
+            if (maxId > lastId) {
+                lastId = maxId;
+                localStorage.setItem('zenith_last_ann_id', String(maxId));
+            }
+            if (newer.length) {
+                const maxShown = Math.max(...newer.map(a => a.id));
+                if (maxShown > seen) localStorage.setItem('zenith_last_ann_seen', String(maxShown));
+            }
+        } catch (e) {}
+    },
+
+    _showVaultBroadcast(a) {
+        const existing = document.getElementById('vault-broadcast-' + a.id);
+        if (existing) return;
+        const isOwner = a.role === 'owner';
+        const safe = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+        const emMatch = (a.content || '').match(/^\[EMERGENCY:(\w+)\]\s*/);
+        if (emMatch) {
+            const t = emMatch[1];
+            const ok = typeof window.showEmergencyPopup === 'function';
+            if (t === 'maintenance' || t === 'lock-all') {
+                if (ok) window.showEmergencyPopup(t === 'maintenance' ? 'maintenance' : 'lock-all');
+            } else {
+                if (ok) window.showEmergencyPopup(t);
+            }
+            const wrap = document.createElement('div');
+            wrap.id = 'vault-broadcast-' + a.id;
+            document.body.appendChild(wrap);
+            return;
+        }
+        const accent = isOwner ? '#C0C7D1' : '#FFD700';
+        const border = isOwner ? '#C0C7D1' : '#FFD700';
+        const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#1a1a0a,#2d2416)';
+        const title = isOwner ? 'BROADCAST FROM THE OWNER' : 'BROADCAST FROM STAFF';
+        const byLine = isOwner
+            ? `A broadcast from <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM`
+            : `A broadcast from <strong style="color:#FFD700;">${safe(a.username)}</strong> — staff`;
+        const wrap = document.createElement('div');
+        wrap.id = 'vault-broadcast-' + a.id;
+        wrap.style.cssText = 'position:fixed; inset:0; z-index:99997; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px);';
+        wrap.innerHTML = `
+            <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:36px 24px; box-shadow:0 0 60px rgba(0,0,0,0.5);">
+                <div style="width:64px; height:64px; margin:0 auto 14px; background:${accent}18; border:2px solid ${border}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:32px; line-height:1;">&#9888;</div>
+                <h2 style="color:${accent}; font-size:18px; margin-bottom:6px; letter-spacing:2px; font-weight:800;">${title}</h2>
+                <p style="color:rgba(255,255,255,0.75); font-size:12px; line-height:1.6; margin-bottom:14px;">${byLine}</p>
+                <div style="background:rgba(0,0,0,0.35); border:1px solid ${accent}33; border-radius:12px; padding:14px 16px; margin-bottom:18px; font-size:14px; color:#e5e5e5; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; text-align:left; border-left:3px solid ${accent};">${safe(a.content)}</div>
+                <button id="vb-close-${a.id}" style="width:100%; padding:13px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'}; color:${isOwner ? '#f4f6f8' : '#000'}; border:none; border-radius:10px; font-weight:800; cursor:pointer; letter-spacing:1px; font-size:14px;">DISMISS</button>
+            </div>`;
+        wrap.querySelector('#vb-close-' + a.id).addEventListener('click', () => {
+            wrap.remove();
+        });
+        wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+        document.body.appendChild(wrap);
+    },
+
     bindHamburger() {
         const ham = document.getElementById('vault-hamburger');
         const sidebar = document.getElementById('vault-sidebar');
@@ -99,8 +176,11 @@ const Vault = {
     startPolling() {
         if (this._pollInterval) clearInterval(this._pollInterval);
         if (this._sysPollInterval) clearInterval(this._sysPollInterval);
+        if (this._annInterval) clearInterval(this._annInterval);
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
         if (this._onlinePollInterval) clearInterval(this._onlinePollInterval);
+        this.pollBroadcasts();
+        this._annInterval = setInterval(() => this.pollBroadcasts(), 2000);
         this._pollInterval = setInterval(() => {
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 1000);
@@ -1184,14 +1264,14 @@ const Vault = {
                         <button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" style="flex-shrink:0;font-size:10px;">Promote</button>
                     </div>`).join('')}</div>`}
                 </div>
-                <div class="vault-card">
+                ${this._isOwner ? `<div class="vault-card">
                     <div class="card-header"><span>➕ Create Admin</span></div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         <input class="vault-input" id="new-admin-user" placeholder="Username" style="flex:1;min-width:150px;">
                         <input class="vault-input" id="new-admin-pass" placeholder="Password" type="password" style="flex:1;min-width:150px;">
                         <button class="vault-btn primary" onclick="Vault.createAdmin()">Create Admin</button>
                     </div>
-                </div>`;
+                </div>` : ''}`;
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
     },
 
@@ -1199,7 +1279,7 @@ const Vault = {
         const u = document.getElementById('new-admin-user')?.value.trim();
         const p = document.getElementById('new-admin-pass')?.value;
         if (!u || !p) return showToast('Fill both fields', 'error');
-        try { await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username: u, password: p, secret: 'zenith-admin-2026' }) }); showToast('Admin created', 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
+        try { await api('/api/auth/admin/users', { method: 'POST', body: JSON.stringify({ username: u, password: p }) }); showToast('Admin created', 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
     },
 
     // ═══════════════════════════ GLOBAL CONTROLS ═══════════════════════════
@@ -1393,7 +1473,7 @@ const Vault = {
     async emBackup() {
         const ok = await showConfirm('Create emergency backup?', 'This will snapshot the entire database right now.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/backup', { method: 'POST' }); showToast('Emergency backup created', 'success'); } catch (e) { showToast(e.message || 'Backup created', 'success'); }
+        try { await api('/api/admin/system/backup', { method: 'POST' }); showToast('Emergency backup created', 'success'); } catch (e) { showToast(e.message || 'Backup failed', 'error'); }
     },
 
     async demoteAdmin(userId, username) {

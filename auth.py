@@ -113,7 +113,13 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")
     payload = decode_token(token)
-    user_id = int(payload["sub"])
+    sub = payload.get("sub")
+    if sub is None:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    try:
+        user_id = int(sub)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
     result = await db.execute(select(User).where(User.id == user_id))
     user = result.scalar_one_or_none()
     if not user:
@@ -210,8 +216,9 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         raise HTTPException(status_code=404, detail="Account deleted.")
     if getattr(user, 'is_banned', False):
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {user.ban_reason or 'No reason provided'}")
-    # Maintenance mode: only the Owner can log in
-    if get_role(user) != "owner":
+    # Maintenance mode: only the Owner and chosen helpers can log in
+    is_chosen = getattr(user, "is_chosen", False) or False
+    if get_role(user) != "owner" and not is_chosen:
         try:
             from sqlalchemy import text
             res = await db.execute(text("SELECT value FROM system_settings WHERE key='maintenance_mode'"))
@@ -297,8 +304,6 @@ async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(
     return {"message": "dismissed"}
 
 
-ADMIN_SECRET = "zenith-admin-2026"
-
 class AdminRequest(BaseModel):
     username: str
     password: str
@@ -320,21 +325,6 @@ async def guest_login(response: Response, db: AsyncSession = Depends(get_db)):
 
 @router.post("/admin/login")
 async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = Depends(get_db)):
-    if req.secret:
-        if req.secret != ADMIN_SECRET:
-            raise HTTPException(status_code=403, detail="Invalid admin secret")
-        if len(req.username) < 3 or len(req.password) < 6:
-            raise HTTPException(status_code=400, detail="Username min 3, password min 6")
-        existing = await db.execute(select(User).where((User.username == req.username) | (User.email == req.username)))
-        if existing.scalar_one_or_none():
-            raise HTTPException(status_code=409, detail="Username already exists")
-        user = User(username=req.username, email=f"{req.username}@admin.local", password_hash=hash_password(req.password), is_admin=True)
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
-        response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
-        return {"user": UserResponse.model_validate(user), "admin": True}
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(req.password, user.password_hash):
@@ -342,6 +332,27 @@ async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = 
     token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
     response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
     return {"user": UserResponse.model_validate(user), "admin": True}
+
+
+@router.post("/admin/users")
+async def create_admin(req: AdminRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # Owner only — creating a brand-new admin account no longer relies on a hardcoded secret.
+    actor = await get_current_user_from_cookie(request, db)
+    if not is_owner(actor):
+        raise HTTPException(status_code=403, detail="Owner only")
+    username = (req.username or "").strip()
+    if len(username) < 3:
+        raise HTTPException(status_code=400, detail="Username min 3")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password min 6")
+    existing = await db.execute(select(User).where((User.username == username) | (User.email == username)))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=409, detail="Username already exists")
+    user = User(username=username, email=f"{username}@admin.local", password_hash=hash_password(req.password), is_admin=True, role="admin")
+    db.add(user)
+    await db.commit()
+    await db.refresh(user)
+    return {"id": user.id, "username": user.username, "message": "Admin created"}
 
 
 @router.get("/admin/dashboard")

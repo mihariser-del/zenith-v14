@@ -54,12 +54,11 @@ const CodeExec = {
 
             if (data.fallback === 'browser' && lang === 'javascript') {
                 output.textContent = 'Trying browser execution...\n';
+                let logs = [];
+                const origLog = console.log;
                 try {
-                    let logs = [];
-                    const origLog = console.log;
                     console.log = (...a) => logs.push(a.join(' '));
                     const result = new Function(code)();
-                    console.log = origLog;
                     let text = logs.join('\n');
                     if (result !== undefined) text += (text ? '\n' : '') + String(result);
                     output.textContent = text || '(no output)';
@@ -67,6 +66,8 @@ const CodeExec = {
                 } catch (e) {
                     output.textContent = 'Browser error: ' + e.message;
                     output.style.color = 'var(--error)';
+                } finally {
+                    console.log = origLog;
                 }
                 return;
             }

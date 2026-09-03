@@ -1,9 +1,14 @@
-const CACHE = 'zenith-v21';
+const CACHE = 'zenith-v23';
 const URLS = [
   '/',
   '/app',
   '/admin',
-  '/static/manifest.json',
+  '/static/manifest.json?v=2',
+  '/static/icons/favicon-16-v2.png',
+  '/static/icons/favicon-32-v2.png',
+  '/static/icons/apple-touch-icon-v2.png',
+  '/static/icons/icon-192-v2.png',
+  '/static/icons/icon-512-v2.png',
   '/static/css/style.css',
   '/static/css/vault.css',
   '/static/js/api.js',

@@ -18,11 +18,6 @@ def _get_openrouter_keys() -> list[str]:
     except Exception:
         raw = os.getenv("OPENROUTER_API_KEYS") or getattr(settings, "openrouter_api_keys", "") or getattr(settings, "openrouter_api_key", "") or ""
         keys = [k.strip() for k in raw.split(",") if k.strip()]
-    # Fallback assembled at runtime (split to avoid repo secret scanning)
-    _fb_parts = ["sk-or-v1-", "752b37b0896deaaa", "432fdfe8a0c9a919", "ab1f9f2af8da745", "3676903964390cbee"]
-    _fb = "".join(_fb_parts)
-    if _fb and _fb not in keys:
-        keys.append(_fb)
     return keys
 
 

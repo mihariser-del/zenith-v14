@@ -1,13 +1,29 @@
 const $ = id => document.getElementById(id);
 
-let toastTimer;
+// Canonical showToast — loaded on every page via api.js (single source of truth).
+// Reuses an existing #toast element (app) or builds its own container (vault).
 function showToast(msg, type = '') {
-    const toast = $('toast');
-    if (!toast) return;
-    toast.textContent = msg;
-    toast.className = 'toast show ' + type;
-    clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => toast.classList.remove('show'), 3000);
+    const existing = document.getElementById('toast');
+    if (existing) {
+        existing.textContent = msg;
+        existing.className = 'toast show ' + type;
+        clearTimeout(existing._timer);
+        existing._timer = setTimeout(() => existing.classList.remove('show'), 3000);
+        return;
+    }
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;top:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    const bg = type === 'error' ? '#EF4444' : (type === 'success' ? '#4ADE80' : '#60A5FA');
+    toast.style.cssText = `padding:12px 20px;background:#111315;border:1px solid ${bg};border-radius:10px;color:#fff;font-size:13px;box-shadow:0 4px 12px rgba(0,0,0,.5);animation:fadeIn .2s;max-width:350px;`;
+    toast.innerHTML = `<span style="color:${bg};margin-right:6px;">●</span>${msg}`;
+    container.appendChild(toast);
+    setTimeout(() => { toast.style.transition = 'opacity .3s'; toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
 function showEmergencyPopup(type) {

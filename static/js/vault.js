@@ -87,14 +87,15 @@ const Vault = {
             }
             const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && a.user_id !== meId);
             newer.sort((a, b) => _tsOf(a.created_at_ts) - _tsOf(b.created_at_ts));
+            let shownTs = lastTs;
             for (const a of newer) {
-                this._showVaultBroadcast(a);
+                const ts = _tsOf(a.created_at_ts);
+                // Mark seen immediately per broadcast so a rendering hiccup or a reload never
+                // makes the same broadcast replay forever.
+                if (ts > shownTs) shownTs = ts;
+                try { this._showVaultBroadcast(a); } catch (e) {}
             }
-            if (newer.length) {
-                const maxShown = newer.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, newer[0]);
-                const maxShownTs = _tsOf(maxShown.created_at_ts);
-                if (maxShownTs > lastTs) localStorage.setItem(seenKey, String(maxShownTs));
-            }
+            if (shownTs > lastTs) localStorage.setItem(seenKey, String(shownTs));
         } catch (e) {}
     },
 

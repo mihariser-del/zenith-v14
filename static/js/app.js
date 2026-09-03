@@ -717,18 +717,15 @@ document.addEventListener('DOMContentLoaded', async () => {
                     .sort((x, y) => _tsOf(x.created_at_ts) - _tsOf(y.created_at_ts));
                 if (pending.length) {
                     for (const a of pending) {
+                        const ts = _tsOf(a.created_at_ts);
                         showBroadcastPopup(a);
-                        devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id);
-                        showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0, 80), a.username);
+                        // Mark seen immediately, before any side-effect, so a toast/push/DOM
+                        // failure or a page reload can NEVER make a broadcast replay infinitely.
+                        seen = Math.max(seen, ts);
+                        try { devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); } catch (e) {}
+                        try { showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0, 80), a.username); } catch (e) {}
                     }
-                    // Mark ALL broadcasts (including emergency) as seen so none reappear on
-                    // reload/logout. Persistent maintenance/locked screens are re-applied by the
-                    // live-system-state sync (_syncPersistentScreen), not by replaying broadcasts.
-                    const seenItems = pending;
-                    if (seenItems.length) {
-                        const maxShown = seenItems.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, seenItems[0]);
-                        localStorage.setItem(_annSeenKey, String(Math.max(seen, _tsOf(maxShown.created_at_ts))));
-                    }
+                    localStorage.setItem(_annSeenKey, String(seen));
                 }
                 // For UI badge (staff)
                 if (isAdmin) {

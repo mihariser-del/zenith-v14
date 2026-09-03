@@ -680,13 +680,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
     else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
     // Broadcast polling — all users get popup when staff broadcasts
-    // Dedup state is PER-USER (keyed by username) so multiple accounts in the same
-    // browser don't block each other, and a brand-new account doesn't replay old ones.
-    const _annBaseKey = 'zenith_ann_base_' + user.username;
-    const _annSeenKey = 'zenith_ann_seen_' + user.username;
-    const _annBase = () => parseInt(localStorage.getItem(_annBaseKey) || '0', 10);
-    const _lastSeen = () => Math.max(_annBase(), parseInt(localStorage.getItem(_annSeenKey) || '0', 10));
-    let _lastAnnId = _lastSeen();
+    // Dedup state is PER-USER and tracked by the broadcast's created_at_ts timestamp,
+    // NOT its integer id (ids reset to 1 after "clear broadcast cache" on SQLite, which
+    // would make every post-clear broadcast look "already seen").
+    const _annBaseKey = 'zenith_bc_base_' + user.username;
+    const _annSeenKey = 'zenith_bc_seen_' + user.username;
+    const _tsOf = s => { const t = new Date(s || '').getTime(); return isNaN(t) ? 0 : t; };
+    const _annBase = () => _tsOf(localStorage.getItem(_annBaseKey));
+    const _lastSeen = () => Math.max(_annBase(), _tsOf(localStorage.getItem(_annSeenKey)));
+    let _lastAnnTs = _lastSeen();
     let _pollingAnn = false;
     async function pollAnnouncements() {
         if (_pollingAnn) return;
@@ -695,20 +697,20 @@ document.addEventListener('DOMContentLoaded', async () => {
             const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
             if (anns.length) {
-                const maxId = Math.max(...anns.map(a => a.id));
-                // First-ever poll for this account: set the baseline to the current max so old
-                // broadcasts don't all replay as a burst. Only broadcasts sent after this point pop.
+                const maxAnn = anns.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, anns[0]);
+                // First-ever poll for this account: baseline to the latest broadcast so old
+                // ones don't replay. Only broadcasts created after this point pop.
                 if (localStorage.getItem(_annBaseKey) === null) {
-                    localStorage.setItem(_annBaseKey, String(maxId));
-                    _lastAnnId = maxId;
+                    localStorage.setItem(_annBaseKey, maxAnn.created_at_ts || '');
+                    _lastAnnTs = _tsOf(maxAnn.created_at_ts);
                     _pollingAnn = false;
                     return;
                 }
                 let seen = _lastSeen();
                 const pending = anns
-                    .filter(a => a.id > seen && a.id > _lastAnnId)
+                    .filter(a => _tsOf(a.created_at_ts) > seen && _tsOf(a.created_at_ts) > _lastAnnTs)
                     .filter(a => a.username !== user.username && a.user_id !== user.id)
-                    .sort((x, y) => x.id - y.id);
+                    .sort((x, y) => _tsOf(x.created_at_ts) - _tsOf(y.created_at_ts));
                 if (pending.length) {
                     for (const a of pending) {
                         showBroadcastPopup(a);
@@ -718,22 +720,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                     // Mark non-emergency broadcasts as seen so they don't reappear on reload.
                     // Emergency markers drive persistent screens (maintenance/lock-all) and are
                     // intentionally left unmarked so a reload mid-event re-applies the screen.
-                    const seenIds = pending.filter(a => !/^\[EMERGENCY:/.test(a.content || '')).map(a => a.id);
-                    if (seenIds.length) {
-                        const maxShown = Math.max(...seenIds);
-                        localStorage.setItem(_annSeenKey, String(Math.max(seen, maxShown)));
+                    const seenItems = pending.filter(a => !/^\[EMERGENCY:/.test(a.content || ''));
+                    if (seenItems.length) {
+                        const maxShown = seenItems.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, seenItems[0]);
+                        localStorage.setItem(_annSeenKey, String(Math.max(seen, _tsOf(maxShown.created_at_ts))));
                     }
                 }
                 // For UI badge (staff)
                 if (isAdmin) {
                     const attBadge = $('attention-badge');
                     if (attBadge) {
-                        const unread = anns.filter(a => a.id > _lastSeen()).length;
+                        const unread = anns.filter(a => _tsOf(a.created_at_ts) > _lastSeen()).length;
                         if (unread > 0) { attBadge.textContent = unread; attBadge.style.display = 'block'; }
                         else attBadge.style.display = 'none';
                     }
                 }
-                if (maxId > _lastAnnId) _lastAnnId = maxId;
+                const mt = _tsOf(maxAnn.created_at_ts);
+                if (mt > _lastAnnTs) _lastAnnTs = mt;
             }
         } catch (e) {}
         _pollingAnn = false;
@@ -855,11 +858,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         wrap.querySelector('#bc-close-' + a.id).addEventListener('click', () => {
             wrap.remove();
             const prev = _lastSeen();
-            localStorage.setItem(_annSeenKey, String(Math.max(prev, a.id)));
+            localStorage.setItem(_annSeenKey, String(Math.max(prev, _tsOf(a.created_at_ts))));
             const attBadge = $('attention-badge') || $('broadcast-badge');
             if (attBadge) attBadge.style.display = 'none';
         });
-        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); const prev = _lastSeen(); localStorage.setItem(_annSeenKey, String(Math.max(prev, a.id))); } });
+        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); const prev = _lastSeen(); localStorage.setItem(_annSeenKey, String(Math.max(prev, _tsOf(a.created_at_ts)))); } });
         document.body.appendChild(wrap);
     }
     // Poll for broadcasts every 1s for all users — fast delivery of staff popups

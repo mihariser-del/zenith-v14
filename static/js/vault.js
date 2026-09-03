@@ -69,27 +69,31 @@ const Vault = {
             const meName = me?.username;
             const meId = me?.id;
             if (!meName) return;
-            // Per-user dedup keys so multiple accounts in one browser don't block each other,
-            // and a brand-new account doesn't replay old broadcasts.
-            const baseKey = 'zenith_ann_base_' + meName;
-            const seenKey = 'zenith_ann_seen_' + meName;
-            let lastId = Math.max(parseInt(localStorage.getItem(baseKey) || '0', 10), parseInt(localStorage.getItem(seenKey) || '0', 10));
+            // Per-user dedup keyed by the broadcast's created_at_ts timestamp (not integer id,
+            // which resets to 1 after "clear broadcast cache" on SQLite and would otherwise
+            // make every post-clear broadcast look already-seen).
+            const _tsOf = s => { const t = new Date(s || '').getTime(); return isNaN(t) ? 0 : t; };
+            const baseKey = 'zenith_bc_base_' + meName;
+            const seenKey = 'zenith_bc_seen_' + meName;
+            const lastSeen = () => Math.max(_tsOf(localStorage.getItem(baseKey)), _tsOf(localStorage.getItem(seenKey)));
+            let lastTs = lastSeen();
             const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
             if (!anns.length) return;
-            const maxId = Math.max(...anns.map(a => a.id));
+            const maxAnn = anns.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, anns[0]);
             if (localStorage.getItem(baseKey) === null) {
-                localStorage.setItem(baseKey, String(maxId));
+                localStorage.setItem(baseKey, maxAnn.created_at_ts || '');
                 return;
             }
-            const newer = anns.filter(a => a.id > lastId && a.username !== meName && a.user_id !== meId);
-            newer.sort((a, b) => a.id - b.id);
+            const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && a.user_id !== meId);
+            newer.sort((a, b) => _tsOf(a.created_at_ts) - _tsOf(b.created_at_ts));
             for (const a of newer) {
                 this._showVaultBroadcast(a);
             }
             if (newer.length) {
-                const maxShown = Math.max(...newer.map(a => a.id));
-                if (maxShown > lastId) localStorage.setItem(seenKey, String(maxShown));
+                const maxShown = newer.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, newer[0]);
+                const maxShownTs = _tsOf(maxShown.created_at_ts);
+                if (maxShownTs > lastTs) localStorage.setItem(seenKey, String(maxShownTs));
             }
         } catch (e) {}
     },

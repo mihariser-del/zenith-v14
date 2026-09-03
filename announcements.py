@@ -22,15 +22,7 @@ async def get_announcements(request: Request, db: AsyncSession = Depends(get_db)
     result = await db.execute(select(Announcement).order_by(Announcement.created_at.desc()).limit(50))
     items = result.scalars().all()
     items = list(reversed(items))
-    return {"announcements": [
-        {
-            "id": a.id,
-            "username": a.username,
-            "role": a.role,
-            "content": a.content,
-            "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
-        } for a in items
-    ]}
+    return {"announcements": [_ann_info(a) for a in items]}
 
 
 @router.get("/feed")
@@ -39,15 +31,21 @@ async def get_announcement_feed(request: Request, db: AsyncSession = Depends(get
     result = await db.execute(select(Announcement).order_by(Announcement.created_at.desc()).limit(20))
     items = result.scalars().all()
     items = list(reversed(items))
-    return {"announcements": [
-        {
-            "id": a.id,
-            "username": a.username,
-            "role": a.role,
-            "content": a.content,
-            "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
-        } for a in items
-    ]}
+    return {"announcements": [_ann_info(a) for a in items]}
+
+
+def _ann_info(a):
+    # id can RESET after a cache clear on SQLite (rowid-based INTEGER PRIMARY KEY),
+    # so clients must NOT dedupe by id alone. created_at_ts is a full-precision ISO
+    # timestamp that always increases, giving a reliable "newer than this" marker.
+    return {
+        "id": a.id,
+        "username": a.username,
+        "role": a.role,
+        "content": a.content,
+        "created_at": a.created_at.strftime("%Y-%m-%d %H:%M") if a.created_at else "",
+        "created_at_ts": a.created_at.isoformat() if a.created_at else "",
+    }
 
 
 @router.post("")

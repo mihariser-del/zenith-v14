@@ -5,6 +5,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     } catch (e) { /* not logged in */ }
 
     // Check maintenance/locked status
+    function _awaitAuthReset(kind) {
+        setInterval(async () => {
+            try {
+                const st = await api('/api/admin/system/public');
+                const stillOn = kind === 'maintenance' ? st.maintenance_mode === 'on' : st.locked === 'on';
+                if (!stillOn) window.location.reload();
+            } catch (e) {}
+        }, 2000);
+    }
     try {
         const state = await api('/api/admin/system/public');
         if (state.maintenance_mode === 'on') {
@@ -20,6 +29,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
                 </div>`;
             document.body.appendChild(wrap);
+            _awaitAuthReset('maintenance');
             return;
         }
         if (state.locked === 'on') {
@@ -35,6 +45,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
                 </div>`;
             document.body.appendChild(wrap2);
+            _awaitAuthReset('locked');
             return;
         }
     } catch (e) { /* ignore */ }

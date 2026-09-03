@@ -146,10 +146,18 @@ Changes:
   `id > seen` reliably pops (previously the first-load path only showed the latest; now it reliably shows
   the backlog). Extra broadcasts marked as seen to avoid re-show on reload; `[EMERGENCY:]` markers left
   unmarked so persistent maintenance/lock screens re-apply on reload.
-- **sw.js** — bumped cache to `zenith-v22`.
+- **sw.js** — bumped cache to `zenith-v23`.
 
-**Verify:** deploy and send a broadcast, then confirm popups appear both in the app (regular users) and in
-the vault (admins), and that no popup duplicates across pages.
+### Follow-up root-cause fix (why "two accounts still didn't receive it")
+The dedup cursor (`zenith_last_ann_id` / `zenith_last_ann_seen`) was stored **globally in localStorage**,
+which is **shared across accounts in the same browser**. When you send a broadcast from account A, that
+account's poll advances the shared cursor past the new broadcast's id; logging into account B in the same
+browser then sees `id <= seen` and **never shows it**. Fixed by keying the dedup state **per-user**
+(`zenith_ann_id_<username>` / `zenith_ann_seen_<username>`) in both `app.js` and `vault.js`, so each
+account tracks its own "seen" cursor independently.
+
+**Verify:** deploy, then log into TWO accounts in the same browser (send a broadcast from one) — the other
+must now show the popup. Note: a user never sees their OWN broadcast (by design, `a.user_id !== user.id`).
 
 ---
 

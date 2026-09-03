@@ -64,15 +64,18 @@ const Vault = {
     // The vault page does not load app.js, so staff would otherwise never see
     // incoming broadcasts here. Poll the same feed and surface popups.
     async pollBroadcasts() {
-        let lastId = parseInt(localStorage.getItem('zenith_last_ann_id') || '0', 10);
-        let seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
         try {
-            const d = await api('/api/announcements/feed?_=' + Date.now());
-            const anns = d.announcements || [];
-            if (!anns.length) return;
             const me = this._user || (await api('/api/auth/me')).user;
             const meName = me?.username;
             const meId = me?.id;
+            // Per-user dedup keys so multiple accounts in one browser don't block each other.
+            const idKey = 'zenith_ann_id_' + meName;
+            const seenKey = 'zenith_ann_seen_' + meName;
+            let lastId = parseInt(localStorage.getItem(idKey) || '0', 10);
+            let seen = parseInt(localStorage.getItem(seenKey) || '0', 10);
+            const d = await api('/api/announcements/feed?_=' + Date.now());
+            const anns = d.announcements || [];
+            if (!anns.length) return;
             const newer = anns.filter(a => a.id > lastId && a.username !== meName && a.user_id !== meId);
             newer.sort((a, b) => a.id - b.id);
             for (const a of newer) {
@@ -82,11 +85,11 @@ const Vault = {
             const maxId = Math.max(...anns.map(a => a.id));
             if (maxId > lastId) {
                 lastId = maxId;
-                localStorage.setItem('zenith_last_ann_id', String(maxId));
+                localStorage.setItem(idKey, String(maxId));
             }
             if (newer.length) {
                 const maxShown = Math.max(...newer.map(a => a.id));
-                if (maxShown > seen) localStorage.setItem('zenith_last_ann_seen', String(maxShown));
+                if (maxShown > seen) localStorage.setItem(seenKey, String(maxShown));
             }
         } catch (e) {}
     },

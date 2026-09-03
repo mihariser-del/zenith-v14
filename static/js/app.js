@@ -677,7 +677,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
     else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
     // Broadcast polling — all users get popup when staff broadcasts
-    let _lastAnnId = parseInt(localStorage.getItem('zenith_last_ann_id') || '0', 10);
+    // Dedup state is stored PER-USER (keyed by username) so multiple accounts in the
+    // same browser don't block each other from receiving a broadcast.
+    const _annIdKey = 'zenith_ann_id_' + user.username;
+    const _annSeenKey = 'zenith_ann_seen_' + user.username;
+    const _lastSeen = () => parseInt(localStorage.getItem(_annSeenKey) || '0', 10);
+    let _lastAnnId = parseInt(localStorage.getItem(_annIdKey) || '0', 10);
     let _pollingAnn = false;
     async function pollAnnouncements() {
         if (_pollingAnn) return;
@@ -687,7 +692,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const anns = d.announcements || [];
             if (anns.length) {
                 const maxId = Math.max(...anns.map(a => a.id));
-                const seen = parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10);
+                let seen = _lastSeen();
                 // Reliably surface every broadcast we have not already dismissed/shown —
                 // works both mid-session (new ids) and on first load (existing backlog).
                 const pending = anns
@@ -706,21 +711,21 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const seenIds = pending.filter(a => !/^\[EMERGENCY:/.test(a.content || '')).map(a => a.id);
                     if (seenIds.length) {
                         const maxShown = Math.max(...seenIds);
-                        localStorage.setItem('zenith_last_ann_seen', String(Math.max(seen, maxShown)));
+                        localStorage.setItem(_annSeenKey, String(Math.max(seen, maxShown)));
                     }
                 }
                 // For UI badge (staff)
                 if (isAdmin) {
                     const attBadge = $('attention-badge');
                     if (attBadge) {
-                        const unread = anns.filter(a => a.id > parseInt(localStorage.getItem('zenith_last_ann_seen') || '0', 10)).length;
+                        const unread = anns.filter(a => a.id > _lastSeen()).length;
                         if (unread > 0) { attBadge.textContent = unread; attBadge.style.display = 'block'; }
                         else attBadge.style.display = 'none';
                     }
                 }
                 if (maxId > _lastAnnId) {
                     _lastAnnId = maxId;
-                    localStorage.setItem('zenith_last_ann_id', String(maxId));
+                    localStorage.setItem(_annIdKey, String(maxId));
                 }
             }
         } catch (e) {}
@@ -743,7 +748,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 ${icons[0]}
                 <h2 style="color:${color};font-size:22px;margin:0 0 12px;font-weight:700;">${title}</h2>
                 <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">${desc}</p>
-                <button onclick="this.closest('#role-notif-popup').remove()" style="background:${color};color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Got it</button>
+                <button onclick="var p=this.closest('#role-notif-popup');if(p)p.remove();setTimeout(function(){window.location.reload();},150)" style="background:${color};color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Got it</button>
             </div>`;
         document.body.appendChild(wrap);
     }
@@ -842,11 +847,12 @@ document.addEventListener('DOMContentLoaded', async () => {
             </div>`;
         wrap.querySelector('#bc-close-' + a.id).addEventListener('click', () => {
             wrap.remove();
-            localStorage.setItem('zenith_last_ann_seen', String(a.id));
+            const prev = _lastSeen();
+            localStorage.setItem(_annSeenKey, String(Math.max(prev, a.id)));
             const attBadge = $('attention-badge') || $('broadcast-badge');
             if (attBadge) attBadge.style.display = 'none';
         });
-        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); localStorage.setItem('zenith_last_ann_seen', String(a.id)); } });
+        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); const prev = _lastSeen(); localStorage.setItem(_annSeenKey, String(Math.max(prev, a.id))); } });
         document.body.appendChild(wrap);
     }
     // Poll for broadcasts every 1s for all users — fast delivery of staff popups

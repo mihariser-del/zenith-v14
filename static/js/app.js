@@ -71,10 +71,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const accent = isLock ? '#EF4444' : '#F59E0B';
         const border = isLock ? '#EF4444' : '#F59E0B';
         const label = isLock ? 'ALL ACCOUNTS LOCKED' : 'SYSTEM MAINTENANCE';
-        const title = isLock ? 'Your Account Has Been Locked' : 'Maintenance in Progress';
+        const title = isLock ? 'Your Account Has Been Locked' : 'Maintenance Mode Active';
         const msg = isLock
             ? 'The Owner has locked all accounts. You have been signed out until the Owner unlocks the platform. This screen will clear automatically once access is restored.'
-            : "The platform is currently under maintenance. The Owner is working on it right now. This screen will clear automatically once maintenance is complete — no need to refresh.";
+            : 'The platform is temporarily under maintenance. The Owner is working on it right now. This screen will clear automatically once maintenance is complete.';
         document.body.innerHTML = '';
         document.body.appendChild((() => {
             const wrap = document.createElement('div');

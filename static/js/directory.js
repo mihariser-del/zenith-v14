@@ -69,6 +69,7 @@ window.ZenithDirectory = (function () {
 
         // === WORLD CAPITALS ===
         { keywords: ["capital of nigeria", "what is the capital of nigeria", "nigerian capital"], answer: "**Abuja** is the capital of Nigeria (since 1991; the former capital was Lagos)." },
+        { keywords: ["history of nigeria", "nigerian history", "nigeria history", "brief history of nigeria", "about the history of nigeria", "what is the history of nigeria", "tell me about the history of nigeria"], answer: "Nigeria's history is long and rich. Key points:\n\n- **Ancient era:** Home to the Nok culture (c. 1500 BC–500 AD), famous for terracotta figures, and later the powerful kingdoms of Benin, Oyo, Kanem-Bornu and the Hausa city-states.\n- **Transatlantic slave trade:** From the 15th–19th centuries, coastal kingdoms like Oyo and Dahomey were deeply involved.\n- **British colonization:** The area was brought under British control in the 19th century and formally unified as the Colony and Protectorate of Nigeria in 1914 by Lord Lugard.\n- **Independence:** Nigeria became independent from Britain on **1 October 1960**.\n- **Republic & civil war:** It became a republic in 1963, and the Biafran civil war was fought 1967–1970.\n- **Present:** Today it is Africa's most populous country and largest economy, with over 250 ethnic groups including Hausa, Yoruba and Igbo.\n\nThis is a summary from my offline directory — for deeper or more current detail, use the live/web search." },
         { keywords: ["capital of usa", "capital of united states", "what is the capital of america", "us capital", "american capital"], answer: "**Washington, D.C.** is the capital of the United States." },
         { keywords: ["capital of united kingdom", "capital of uk", "uk capital", "british capital"], answer: "**London** is the capital of the United Kingdom." },
         { keywords: ["capital of france", "french capital", "what is the capital of france"], answer: "**Paris** is the capital of France." },
@@ -325,11 +326,24 @@ window.ZenithDirectory = (function () {
     function match(query) {
         const q = norm(query);
         if (!q) return null;
+        // Helper: does keyword appear as a whole word/phrase (word boundaries)?
+        function hasWord(q, kw) {
+            const k = norm(kw);
+            if (!k) return false;
+            try {
+                const escaped = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)').test(q);
+            } catch (e) { return q.includes(k); }
+        }
         let best = null;
         for (const entry of DIRECTORY) {
-            const matched = entry.keywords.filter(kw => q.includes(kw));
+            const matched = entry.keywords.filter(kw => hasWord(q, kw));
+            // Require at least one keyword length >= 3 OR a short query, otherwise short
+            // tokens like "hi"/"me"/"is" could hijack a longer, unrelated question.
             if (!matched.length) continue;
-            const score = matched.reduce((s, kw) => s + kw.length, 0);
+            const covered = matched.some(kw => norm(kw).length >= 3) || q.length <= 6;
+            if (!covered) continue;
+            const score = matched.reduce((s, kw) => s + norm(kw).length, 0);
             if (!best || score > best.score) best = { answer: entry.answer, score };
         }
         return best ? best.answer : null;

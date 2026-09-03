@@ -125,6 +125,7 @@ DIRECTORY = [
 
     # === WORLD CAPITALS ===
     {"keywords": ["capital of nigeria", "what is the capital of nigeria", "nigerian capital"], "answer": "**Abuja** is the capital of Nigeria (since 1991; the former capital was Lagos)."},
+    {"keywords": ["history of nigeria", "nigerian history", "nigeria history", "brief history of nigeria", "about the history of nigeria", "what is the history of nigeria", "tell me about the history of nigeria"], "answer": "Nigeria's history is long and rich. Key points:\n\n- **Ancient era:** Home to the Nok culture (c. 1500 BC\u2013AD 500), famous for terracotta figures, and later the powerful kingdoms of Benin, Oyo, Kanem-Bornu and the Hausa city-states.\n- **Transatlantic slave trade:** From the 15th\u201319th centuries, coastal kingdoms like Oyo and Dahomey were deeply involved.\n- **British colonization:** The area was brought under British control in the 19th century and formally unified as the Colony and Protectorate of Nigeria in 1914 by Lord Lugard.\n- **Independence:** Nigeria became independent from Britain on **1 October 1960**.\n- **Republic & civil war:** It became a republic in 1963, and the Biafran civil war was fought 1967\u20131970.\n- **Present:** Today it is Africa's most populous country and largest economy, with over 250 ethnic groups including Hausa, Yoruba and Igbo.\n\nThis is a summary from my offline directory \u2014 for deeper or more current detail, use the live/web search."},
     {"keywords": ["capital of usa", "capital of united states", "what is the capital of america", "us capital", "american capital"], "answer": "**Washington, D.C.** is the capital of the United States."},
     {"keywords": ["capital of united kingdom", "capital of uk", "uk capital", "british capital"], "answer": "**London** is the capital of the United Kingdom."},
     {"keywords": ["capital of france", "french capital", "what is the capital of france"], "answer": "**Paris** is the capital of France."},
@@ -563,11 +564,14 @@ def _split_top(s, sep):
 
 
 def match_directory(query: str):
-    """Return (entry, ) if query matches a directory entry, else None.
+    """Return an entry if query matches a directory entry, else None.
 
-    An entry matches if ANY of its keywords appears in the query. Among all
-    matching entries, the one with the most specific (longest) matched keywords
-    wins, so 'what is your name' outranks a generic 'name' keyword.
+    An entry matches if ANY of its keywords appears in the query as a whole
+    word/phrase. Among all matching entries, the one with the most specific
+    (longest) matched keywords wins, so 'what is your name' outranks a generic
+    'name' keyword. Short tokens (< 3 chars) on their own are ignored so a
+    question like "what is the history of Nigeria" is never hijacked by a
+    stray substring (e.g. "hi").
     """
     # math has priority — handles "whats 34+43" etc. without keyword tricks
     math_ans = solve_math(query)
@@ -576,12 +580,25 @@ def match_directory(query: str):
     if not query:
         return None
     q = _norm(query)
+
+    def has_word(q, kw):
+        k = _norm(kw)
+        if not k:
+            return False
+        import re
+        try:
+            return bool(re.search(r"(^|[^a-z0-9])" + re.escape(k) + r"([^a-z0-9]|$)", q))
+        except Exception:
+            return k in q
+
     best = None
     for entry in DIRECTORY:
-        matched = [kw for kw in entry["keywords"] if kw in q]
+        matched = [kw for kw in entry["keywords"] if has_word(q, kw)]
         if not matched:
             continue
-        score = sum(len(kw) for kw in matched)
+        if not (any(len(_norm(kw)) >= 3 for kw in matched) or len(q) <= 6):
+            continue
+        score = sum(len(_norm(kw)) for kw in matched)
         if best is None or score > best[1]:
             best = (entry, score)
     return best[0] if best else None

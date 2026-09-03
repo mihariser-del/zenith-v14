@@ -1054,6 +1054,7 @@ function showOfflineScreen() {
                 <button id="offline-mode-btn" style="padding:10px 18px; background:rgba(0,170,255,0.15); color:#00aaff; border:1px solid #00aaff; border-radius:8px; font-weight:700; cursor:pointer;">Offline Mode</button>
             </div>
             <p style="color:rgba(255,255,255,0.45); font-size:11px; margin-top:12px;">Offline Mode lets me answer basic questions from my local directory.</p>
+            <p style="color:#FFD700; font-size:11px; margin-top:8px; line-height:1.5; border:1px solid rgba(255,215,0,0.4); background:rgba(255,215,0,0.08); border-radius:8px; padding:8px 10px;">⚠ Offline Mode is still under development. Only my pre-loaded answer directory works here, so many styles of questioning (open-ended, complex, or follow-up questions) won't be recognized. For full answers, reconnect and use the live chat.</p>
         </div>`;
     div.querySelector('#offline-retry').addEventListener('click', () => { if (navigator.onLine) div.remove(); else showToast('Still offline', 'error'); });
     div.querySelector('#offline-mode-btn').addEventListener('click', () => {
@@ -1072,9 +1073,12 @@ function openOfflineChat() {
             <div style="padding:14px 18px; border-bottom:1px solid rgba(0,170,255,0.3); display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2);">
                 <div>
                     <div style="color:#00aaff; font-weight:800; font-size:15px; letter-spacing:1px;">OFFLINE MODE</div>
-                    <div style="color:rgba(255,255,255,0.5); font-size:11px;">Basic answers · no internet</div>
+                    <div style="color:rgba(255,255,255,0.5); font-size:11px;">Basic answers · no internet · under development</div>
                 </div>
-                <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <button id="offline-web-btn" title="Search the web (requires a connection)" style="padding:7px 12px; background:rgba(0,170,255,0.15); color:#00aaff; border:1px solid #00aaff; border-radius:8px; font-weight:700; cursor:pointer; font-size:12px;">&#128269; Web</button>
+                    <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
+                </div>
             </div>
             <div id="offline-chat-body" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;"></div>
             <div style="padding:12px; border-top:1px solid rgba(0,170,255,0.3); display:flex; gap:8px;">
@@ -1094,7 +1098,7 @@ function openOfflineChat() {
         body.appendChild(m);
         body.scrollTop = body.scrollHeight;
     }
-    addMsg('assistant', "You're offline, but I can still answer basic questions from my directory. Try asking 'what can you do' or 'who are you'.");
+    addMsg('assistant', "You're offline. I can only answer a small set of pre-loaded, basic questions right now (offline mode is still under development) — open-ended or complex questions like history, current events or follow-ups may not be recognized.\n\nTry simple things like 'what can you do', 'who are you', or 'capital of Nigeria'.\n\nFor full answers, reconnect and use the live chat, or tap the Web button above to search the internet.");
     function send() {
         const q = input.value.trim();
         if (!q) return;
@@ -1110,51 +1114,82 @@ function openOfflineChat() {
             answer = window.ZenithDirectory.match(q);
         }
         setTimeout(() => {
-            addMsg('assistant', answer || "I don't have an offline answer for that yet. When you're back online I can help with anything else. You can also retry or exit offline mode.");
+            if (answer) {
+                addMsg('assistant', answer);
+                return;
+            }
+            // No offline hit. Give an honest "not recognized" reply instead of a generic
+            // greeting, so complex questions (history, current events, follow-ups) aren't
+            // misleadingly answered. Offline mode only knows a small set of basics.
+            addMsg('assistant', "I don't have that in my offline directory yet — offline mode is still under development and only knows a small set of basic answers.\n\nTap the \uD83D\uDD0D Web button above to search the internet, or reconnect to use the full live chat. For example I can answer: 'what can you do', 'who are you', 'capital of Nigeria', 'what is pi', or simple math like '12 * 8'.");
         }, 300);
     }
     wrap.querySelector('#offline-chat-send').addEventListener('click', send);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    // Closing offline mode should take the user BACK to the offline popup (not the app UI)
+    // Web button — don't answer from the offline directory; hand off to live/web chat.
+    // If a connection is present we return to the live chat; otherwise we explain.
+    const webBtn = wrap.querySelector('#offline-web-btn');
+    if (webBtn) {
+        webBtn.addEventListener('click', () => {
+            if (navigator.onLine) {
+                addMsg('assistant', "Going online so I can search the web for you — opening the live chat…");
+                setTimeout(() => goBackOnline(), 600);
+            } else {
+                addMsg('assistant', "You're still offline, so I can't search the web yet. A connection is needed for web search. Reconnect and tap this button again (or Close Offline Mode).");
+            }
+        });
+    }
+    // Closing offline mode: if online, return to the live chat; otherwise show the offline screen.
     wrap.querySelector('#offline-chat-close').addEventListener('click', () => {
-        wrap.remove();
         if (navigator.onLine) {
-            // Already back online — offer to return to the full app
-            promptBackOnline();
+            goBackOnline();
         } else {
+            wrap.remove();
             showOfflineScreen();
         }
     });
-    // Wifi returns while in offline mode → mini popup prompting to leave offline mode
-    window.addEventListener('online', function onBack() {
-        if (!document.getElementById('offline-chat')) { window.removeEventListener('online', onBack); return; }
-        wrap.remove();
-        window.removeEventListener('online', onBack);
-        promptBackOnline();
-    });
     document.body.appendChild(wrap);
     input.focus();
+}
+// Leave offline mode entirely and reveal the live chat underneath.
+function goBackOnline() {
+    const oc = document.getElementById('offline-chat');
+    if (oc) oc.remove();
+    const os = document.getElementById('offline-screen');
+    if (os) os.remove();
+    const p = document.getElementById('back-online-popup');
+    if (p) p.remove();
 }
 function promptBackOnline() {
     if (document.getElementById('back-online-popup')) return;
     const p = document.createElement('div');
     p.id = 'back-online-popup';
-    p.style.cssText = 'position:fixed; bottom:24px; left:50%; transform:translateX(-50%); z-index:9999; width:auto; max-width:94vw; background:linear-gradient(145deg,#0a2a1a,#0f3a24); border:2px solid #4ADE80; border-radius:14px; padding:14px 18px; box-shadow:0 12px 40px rgba(74,222,128,0.3); display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:center;';
+    p.style.cssText = 'position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); animation:fadeIn .3s;';
     p.innerHTML = `
-        <span style="width:12px;height:12px;border-radius:50%;background:#4ADE80;box-shadow:0 0 8px #4ADE80;display:inline-block;flex-shrink:0;"></span>
-        <div>
-            <div style="color:#fff;font-weight:700;font-size:13px;">You're back online!</div>
-            <div style="color:rgba(255,255,255,0.7);font-size:11px;">Full AI chat is available again.</div>
-        </div>
-        <button id="back-online-leave" style="padding:8px 16px;background:#4ADE80;color:#063;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12px;">Leave Offline Mode</button>
-        <button id="back-online-stay" style="padding:8px 14px;background:transparent;color:#4ADE80;border:1px solid #4ADE80;border-radius:8px;cursor:pointer;font-size:12px;">Stay</button>`;
-    const close = () => p.remove();
-    p.querySelector('#back-online-leave').addEventListener('click', close);
-    p.querySelector('#back-online-stay').addEventListener('click', close);
+        <div style="width:100%; max-width:440px; text-align:center; background:linear-gradient(145deg,#0a2a1a,#0f3a24); border:2px solid #4ADE80; border-radius:18px; padding:38px 26px; box-shadow:0 20px 60px rgba(74,222,128,0.25);">
+            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(74,222,128,0.15); border:2px solid #4ADE80; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#4ADE80; font-size:30px;">&#9989;</div>
+            <h2 style="color:#4ADE80; font-size:20px; margin-bottom:8px; letter-spacing:1px;">YOU'RE BACK ONLINE</h2>
+            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:20px;">Your connection is restored. The full AI chat (with web search and a complete answer directory) is available again.</p>
+            <div style="display:flex; gap:10px; justify-content:center;">
+                <button id="back-online-go" style="padding:12px 22px; background:#4ADE80; color:#063; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">&#128640; Back to Live Chat</button>
+                <button id="back-online-stay" style="padding:12px 20px; background:transparent; color:#4ADE80; border:1px solid #4ADE80; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Continue Offline</button>
+            </div>
+        </div>`;
+    p.querySelector('#back-online-go').addEventListener('click', () => {
+        p.remove();
+        goBackOnline();
+    });
+    // "Continue offline" — just dismiss the popup; the offline chat stays open.
+    p.querySelector('#back-online-stay').addEventListener('click', () => p.remove());
     document.body.appendChild(p);
 }
 window.addEventListener('offline', showOfflineScreen);
-window.addEventListener('online', () => { const el=document.getElementById('offline-screen'); if(el) el.remove(); if(!document.getElementById('offline-chat')) showToast('Back online','success'); });
+window.addEventListener('online', () => {
+    const el = document.getElementById('offline-screen');
+    if (el) el.remove();
+    if (!document.getElementById('offline-chat')) showToast('Back online', 'success');
+    else promptBackOnline();
+});
 function showDeletedScreen(deletedBy) {
     if (document.getElementById('banned-screen')) return;
     const div = document.createElement('div');

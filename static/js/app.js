@@ -117,23 +117,27 @@ document.addEventListener('DOMContentLoaded', async () => {
         _handlePendingNotification(user.pending_notification);
     }
     setInterval(checkNotif, 1000);
-    // Self-clearing for the persistent maintenance/locked screen — polls public state so it
-    // lifts automatically the moment the Owner turns the mode back off (works mid-session too)
-    setInterval(async () => {
-        if (!_persistentScreen) return;
+    // Persistent maintenance/locked screen driven by LIVE system state (not replayed broadcasts).
+    // Checks on load (so a reload mid-emergency re-applies the screen, and once the Owner turns
+    // the mode off it lifts automatically and never gets stuck repeopulated).
+    async function _syncPersistentScreen(force) {
         try {
             const st = await api('/api/admin/system/public');
-            const stillOn = _persistentScreen === 'maintenance'
-                ? st.maintenance_mode === 'on'
-                : st.locked === 'on';
-            if (!stillOn) {
+            const want = st && st.maintenance_mode === 'on' ? 'maintenance'
+                : (st && st.locked === 'on' ? 'locked' : '');
+            if (want && want !== _persistentScreen) {
+                _persistentScreen = want;
+                _showMaintenanceScreen(want);
+            } else if (!want && _persistentScreen) {
                 _persistentScreen = '';
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
                 setTimeout(() => { window.location.href = '/app'; }, 300);
             }
         } catch (e) {}
-    }, 3000);
+    }
+    _syncPersistentScreen(true);
+    setInterval(() => _syncPersistentScreen(), 3000);
     // legacy fallback if old structure
     if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = displayName;
     $('user-avatar').textContent = user.username[0].toUpperCase();
@@ -717,10 +721,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                         devicePush('Zenith Broadcast — ' + a.username, a.content, 'broadcast-' + a.id);
                         showDiscordToast('Zenith', a.username + ' — Broadcast', a.content.slice(0, 80), a.username);
                     }
-                    // Mark non-emergency broadcasts as seen so they don't reappear on reload.
-                    // Emergency markers drive persistent screens (maintenance/lock-all) and are
-                    // intentionally left unmarked so a reload mid-event re-applies the screen.
-                    const seenItems = pending.filter(a => !/^\[EMERGENCY:/.test(a.content || ''));
+                    // Mark ALL broadcasts (including emergency) as seen so none reappear on
+                    // reload/logout. Persistent maintenance/locked screens are re-applied by the
+                    // live-system-state sync (_syncPersistentScreen), not by replaying broadcasts.
+                    const seenItems = pending;
                     if (seenItems.length) {
                         const maxShown = seenItems.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, seenItems[0]);
                         localStorage.setItem(_annSeenKey, String(Math.max(seen, _tsOf(maxShown.created_at_ts))));

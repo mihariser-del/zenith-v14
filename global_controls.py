@@ -111,7 +111,6 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         for c in chosen.scalars().all():
             c.pending_notification = "helper_thanks"
         await db.commit()
-        await _announce(db, user, "✅ Maintenance mode is now OFF. The platform is fully available again.")
     return {"maintenance_mode": req.value}
 
 
@@ -123,8 +122,6 @@ async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncS
     await _set_setting(db, "registrations", req.value)
     if req.value == "off":
         await _announce(db, user, "[EMERGENCY:registrations] 🛑 Registration is now CLOSED. New accounts cannot be created.")
-    else:
-        await _announce(db, user, "✅ Registration is now OPEN.")
     return {"registrations": req.value}
 
 
@@ -136,8 +133,6 @@ async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSessi
     await _set_setting(db, "messaging", req.value)
     if req.value == "off":
         await _announce(db, user, "[EMERGENCY:messaging] 🛑 Messaging is now DISABLED. You cannot send messages right now.")
-    else:
-        await _announce(db, user, "✅ Messaging is now ENABLED.")
     return {"messaging": req.value}
 
 
@@ -149,8 +144,6 @@ async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = De
     await _set_setting(db, "ai_enabled", req.value)
     if req.value == "off":
         await _announce(db, user, "[EMERGENCY:ai] 🤖 AI responses are now DISABLED globally.")
-    else:
-        await _announce(db, user, "✅ AI is now ENABLED.")
     return {"ai_enabled": req.value}
 
 
@@ -183,7 +176,6 @@ async def unlock_all(request: Request, db: AsyncSession = Depends(get_db)):
         t.pending_notification = "helper_thanks" if t.is_chosen else "unlocked"
     await db.commit()
     await _set_setting(db, "locked", "off")
-    await _announce(db, user, "[EMERGENCY:unlock-all] ✅ ALL ACCOUNTS HAVE BEEN UNLOCKED by the Owner. You can log in again.")
     return {"unlocked": len(targets)}
 
 

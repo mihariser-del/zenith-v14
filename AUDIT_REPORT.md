@@ -25,6 +25,14 @@ Still open / not addressed:
 - **2.5 role-change popup / page reload** — investigation ongoing; no root cause confirmed yet.
 
 ---
+## 🔧 LATEST (same day) — emergency/feature-control fixes
+- **No more "now working" broadcasts on toggle-OFF**: removing the ON/restored `_announce` calls in `global_controls.py` (maintenance off, registrations on, messaging on, ai on, unlock-all). These no longer broadcast to everyone — the vault shows a confirming toast instead. Kills the endless "X is working again" replay.
+- **Emergency broadcasts no longer replay on reload/logout**: `app.js` `pollAnnouncements` now marks ALL broadcasts (including `[EMERGENCY:...]`) as seen.
+- **Persistent maintenance/locked screen is now driven by LIVE system state** (`_syncPersistentScreen` in `app.js`): checked on load + every 3s, so a reload mid-emergency still re-applies the screen, and it lifts automatically the instant the Owner turns the mode off (no more stuck/infinite reload loop).
+- **Guest upgrade → "Login Required" popup**: guest click on Upgrade now shows a login prompt (plan cards hidden) instead of the full upgrade modal.
+- **Removed the 5-day Pro trial**: "Start Pro Trial"/free-trial messaging removed; `pro_monthly` now goes through normal checkout; the auto `checkTrialOffer` popup removed.
+
+---
 
 
 ## 1. CRITICAL — Security findings

@@ -3,7 +3,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import UserSettings, get_db
+from database import UserSettings, User, get_db
 from auth import get_current_user_from_cookie
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -78,6 +78,9 @@ async def update_settings(req: UpdateSettingsRequest, request: Request, db: Asyn
     update_data = req.model_dump(exclude_unset=True)
     for k, v in update_data.items():
         setattr(s, k, v)
+    # Keep the profile display name (surfaced by /api/auth/me) in sync with settings
+    if "display_name" in update_data:
+        user.display_name = (update_data["display_name"] or "").strip()
     await db.commit()
     await db.refresh(s)
     return {"settings": SettingsResponse.model_validate(s)}

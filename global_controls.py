@@ -12,6 +12,7 @@ router = APIRouter(prefix="/api/admin/system", tags=["admin-system"])
 
 class SettingRequest(BaseModel):
     value: str
+    note: str = ""
 
 
 async def _get_setting(db: AsyncSession, key: str, default: str = "off") -> str:
@@ -58,6 +59,7 @@ async def public_state(db: AsyncSession = Depends(get_db)):
         "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
         "locked": await _get_setting(db, "locked", "off"),
         "chosen": await _get_setting(db, "chosen", ""),
+        "maint_note": await _get_setting(db, "maint_note", ""),
     }
 
 
@@ -104,6 +106,7 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
         await db.commit()
         await _announce(db, user, "[EMERGENCY:maintenance] 🚧 MAINTENANCE MODE: The platform is temporarily under maintenance. Only the Owner and chosen helpers can access it right now.")
     else:
+        await _set_setting(db, "maint_note", (req.note or "").strip())
         result = await db.execute(select(User).where(User.is_deleted == False, User.id != user.id, User.is_chosen != True))
         for t in result.scalars().all():
             t.pending_notification = "maintenance_off"

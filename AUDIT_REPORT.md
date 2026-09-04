@@ -33,6 +33,20 @@ Still open / not addressed:
 - **Removed the 5-day Pro trial**: "Start Pro Trial"/free-trial messaging removed; `pro_monthly` now goes through normal checkout; the auto `checkTrialOffer` popup removed.
 
 ---
+## 🔧 NEWEST — batch: controls, limits, offline & polish (see CHANGELOG 17.1)
+- **Vault admin list hygiene** — `renderAdmins` + stat cards now filter out `is_deleted` users end-to-end (deleted admins no longer appear in Admin Management or counts).
+- **Global AI OFF really silences the AI** — `chats.py` now checks the `ai_enabled` system setting; user messages are saved but the model returns an empty `[DONE]` stream for everyone except the Owner (also applies to edit/regenerate). No more "I'm still underserved by disabling AI".
+- **Global Messaging OFF totally blocks sending** — `app.js` caches `/api/admin/system/public` as `window.__sysState`, `_applySysUI` disables composer/send/mic for non-owners and `Chat.send()` no-ops via `window.__msgBlocked`; server 403 remains as defense-in-depth.
+- **Silent 429s fixed** — `chat.js send()`/`regenerate()` now check `res.ok`; limit/pause errors render a countdown banner above the composer (`#limit-banner`) and auto-disable messaging (`_limitBlocked`) until the cooldown expires; guest pause parses `wait Xm Ys` (else 30 min). Billing modal still fires for guests via the api interceptor (messages containing "Guest"/"limit").
+- **Guest limits revised** — `limits.py`: message 40→60/day, pause 15→30 min; the pause window now also blocks image generation (`last_pause_at` check on `image_gen`). Mirror updates in vault limits display + export config + `database.py` comment + new `LIMITS.md`.
+- **Guests can use Settings & Feedback** — settings-btn/save/sections un-gated; `feedback.py` no longer 403s guests on POST/GET; vault feedback thread labels `guest_*` users as **Guest**; guest logout shows a permanent-deletion warning.
+- **Device notifications** — `devicePush` now also fires real `new Notification(...)` for broadcasts and AI replies; permission requested for everyone (incl. guests) after 2s.
+- **Maintenance-off note popup** — Owner prompted (vault) for a "what was fixed" note on toggling OFF; stored in `system_settings` key `maint_note`, exposed via `/api/admin/system/public`; `app.js` `_maybeShowMaintNote()` shows a fullscreen "What Was Fixed During The Break" popup (session+localStorage dedup), wired into both the pending-notification path and the `_syncPersistentScreen` lift.
+- **Offline math + rotation** — wording now "The value for X is Y" (Python + JS engines); directory entries support `answers[]` rotation (localStorage counter client-side, per-minute bucket server-side); added new common questions (can-you-hear-me, who-owns-zenith, contact-admin, meaning-of-life, joke).
+- **Voice double-speech fixed** — `voice.js sendVoiceMode` no longer calls `speak()` after `Chat` already auto-speaks (chat.js:573), and the redundant `onend` override block in `speak()` was removed.
+- **Display name real-time** — `user_settings.py` PATCH now also mirrors `User.display_name` (the field `/api/auth/me` uses), and `settings.js` calls a new `window.__applyDisplayName` hook after saving.
+
+---
 
 
 ## 1. CRITICAL — Security findings

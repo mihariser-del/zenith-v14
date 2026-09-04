@@ -4,7 +4,7 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 
 ## 1. Authentication & Accounts
 - Register, login, logout, logout-all (revokes all my sessions via `token_version`)
-- Guest mode (username prefix `guest_`, limited features, 40-msg rate-limit pause)
+- Guest mode (username prefix `guest_`, limited features, 60-msg daily budget → 30-minute pause that also blocks image-gen)
 - Google OAuth login (`google_auth.py`)
 - Forgot password (`/api/auth/forgot-password`)
 - Admin password reset → target user gets a "password changed" screen with the new password

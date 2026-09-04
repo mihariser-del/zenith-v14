@@ -157,8 +157,8 @@ const Voice = {
                     if (txt) {
                         if (status) status.textContent = 'Speaking...';
                         if (orb) orb.classList.add('speaking');
-                        this.speak(txt, true);
-                        // When speaking ends, go back to listening
+                        // chat.js auto-speaks the reply (voiceToVoice), so we only
+                        // wait for speech to finish before listening again.
                         const utterCheck = setInterval(() => {
                             if (!window.speechSynthesis.speaking) {
                                 clearInterval(utterCheck);
@@ -229,15 +229,6 @@ const Voice = {
         };
         utterance.onerror = () => { if (isAuto) this.voiceToVoice = false; };
         window.speechSynthesis.speak(utterance);
-        if (isAuto) {
-            // Auto voice-to-voice: after AI speaks, go back to listening
-            utterance.onend = () => {
-                const btns = document.querySelectorAll('[data-action="speak"]');
-                btns.forEach(b => b.classList.remove('active'));
-                this.voiceToVoice = false;
-                showToast('Voice reply done — tap mic for next', '');
-            };
-        }
     },
 
     stop() {

@@ -25,8 +25,6 @@ def _is_guest(user) -> bool:
 @router.post("")
 async def create_feedback(req: CreateFeedbackRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if _is_guest(user):
-        raise HTTPException(status_code=403, detail="Feedback limited please login to use")
     content = req.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Feedback content required")
@@ -42,8 +40,6 @@ async def create_feedback(req: CreateFeedbackRequest, request: Request, db: Asyn
 @router.get("")
 async def get_own_feedback(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if _is_guest(user):
-        raise HTTPException(status_code=403, detail="Feedback limited please login to use")
     result = await db.execute(select(Feedback).where(Feedback.user_id == user.id).order_by(Feedback.created_at.desc()))
     feedbacks = result.scalars().all()
     return {"feedbacks": [

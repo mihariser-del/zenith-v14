@@ -5,10 +5,10 @@
 window.ZenithDirectory = (function () {
     const DIRECTORY = [
         { keywords: ["who created you", "who made you", "who built you", "your creator", "who is wanzu", "who created zenith"], answer: "I'm Zenith, created by Wanzu Ibrahim. He designed me to be a helpful, accurate and loyal AI assistant ready to help with anything — chat, files, documents, images, code and more." },
-        { keywords: ["what is zenith", "who are you", "what are you", "about yourself", "tell me about yourself", "are you ai", "are you real"], answer: "I'm Zenith — an AI assistant created by Wanzu Ibrahim. I can chat, write code, generate documents, edit files, create images, search the web and more. Ask me anything!" },
-        { keywords: ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "howdy"], answer: "Hello! I'm Zenith. How can I help you today?" },
-        { keywords: ["how are you", "how r u", "how are u", "how do you feel", "are you okay", "are you ok"], answer: "I'm doing great, thank you! I don't have feelings like humans, but I'm fully online and ready to help. What can I do for you?" },
-        { keywords: ["what can you do", "help", "capabilities", "what are your capabilities", "features", "what do you do"], answer: "Here's what I can do:\n\n- **Chat** — answer questions, have conversations\n- **Files** — upload, edit and manage documents\n- **Code** — write, run and explain code\n- **Documents** — generate formatted documents\n- **Images** — create images from descriptions\n- **Web search** — browse the internet for current info\n- **Memory** — remember things you tell me\n- **Knowledge bases** — learn from your custom data\n\nJust ask!" },
+        { keywords: ["what is zenith", "who are you", "what are you", "about yourself", "tell me about yourself", "are you ai", "are you real"], answers: ["I'm Zenith — an AI assistant created by Wanzu Ibrahim. I can chat, write code, generate documents, edit files, create images, search the web and more. Ask me anything!", "I'm Zenith, an AI built by Wanzu Ibrahim to be helpful, accurate and loyal. I can handle chat, files, code, documents, images and web search — what do you need?", "Zenith at your service! A capable AI assistant created by Wanzu Ibrahim. Chat, code, documents, images, memory and more — that's me."] },
+        { keywords: ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "howdy"], answers: ["Hello! I'm Zenith. How can I help you today?", "Hi there! Zenith here — what can I do for you?", "Hey! Good to see you. What would you like to do?"] },
+        { keywords: ["how are you", "how r u", "how are u", "how do you feel", "are you okay", "are you ok"], answers: ["I'm doing great, thank you! I don't have feelings like humans, but I'm fully online and ready to help. What can I do for you?", "Running smoothly! All systems operational. How can I help?", "I'm always ready! What would you like to do today?"] },
+        { keywords: ["what can you do", "help", "capabilities", "what are your capabilities", "features", "what do you do"], answers: ["Here's what I can do:\n\n- **Chat** — answer questions, have conversations\n- **Files** — upload, edit and manage documents\n- **Code** — write, run and explain code\n- **Documents** — generate formatted documents\n- **Images** — create images from descriptions\n- **Web search** — browse the internet for current info\n- **Memory** — remember things you tell me\n- **Knowledge bases** — learn from your custom data\n\nJust ask!", "I'm Zenith and I handle a lot: chatting, writing code, editing files, generating documents and images, knowledge bases, memory and web search. Anything you need — just ask!", "Short version: chat about anything, write and run code, create documents and images, search the web, and learn from your own knowledge bases and memories. What can I start with?"] },
         { keywords: ["bye", "goodbye", "see you", "good night", "gtg", "talk later"], answer: "Goodbye! Take care — I'll be here whenever you need me." },
         { keywords: ["thank you", "thanks", "thx", "ty", "appreciate it"], answer: "You're very welcome! Happy to help anytime." },
         { keywords: ["what time is it", "current time", "time now", "tell me the time", "whats the time", "what is the time"], answer: "I can't read the clock directly, but your device shows the local time. If you're online, I can look up timezones with a web search when you enable the web button!" },
@@ -20,6 +20,11 @@ window.ZenithDirectory = (function () {
         { keywords: ["what is today", "today's date", "date today", "what day is it", "whats today"], answer: "I don't have a live calendar when offline. When you're back online I can search the web for the current date." },
         { keywords: ["reset password", "forgot password", "change password", "password reset"], answer: "You can reset your password from the login screen using 'Forgot password' with your username and email. If that doesn't work, an admin can reset it for you." },
         { keywords: ["delete my account", "delete account", "cancel account"], answer: "Account deletion is handled by administrators for safety. You can delete your chats anytime, and contact an admin if you need your account removed." },
+        { keywords: ["can you hear me", "are you listening", "are you there", "you there", "can you hear"], answer: "Loud and clear! I'm listening — go ahead." },
+        { keywords: ["who is wanzu ibrahim", "who is wanzu", "who owns zenith", "who runs zenith", "wanzu ibrahim"], answer: "Wanzu Ibrahim is the creator and owner of Zenith. He built me to be a helpful, accurate and loyal AI assistant." },
+        { keywords: ["contact support", "contact admin", "talk to admin", "report a problem", "get help from admin", "report bug", "report a bug"], answer: "You can reach the owner/admins through the **Staff chat** or **Attention** buttons in the sidebar. They get notified right away and will check on you." },
+        { keywords: ["what is the meaning of life", "meaning of life", "purpose of life"], answer: "Philosophers have debated that for millennia! A popular take: life's meaning is what you make of it — purpose comes from the things you care about, the people you help, and the good you do. Deep question, though!" },
+        { keywords: ["tell me a joke", "make me laugh", "tell joke", "joke"], answer: "Why do programmers prefer dark mode? Because light attracts bugs! \ud83d\ude04" },
 
         // === MATH CONCEPTS ===
         { keywords: ["what is pi", "value of pi", "pi value", "how much is pi", "ratio of circumference"], answer: "**Pi (pi) is approximately 3.14159265358979...** It is the ratio of a circle's circumference to its diameter." },
@@ -323,6 +328,18 @@ window.ZenithDirectory = (function () {
 
     function norm(text) { return (text || "").toLowerCase().trim(); }
 
+    // Rotating answers: if an entry has an `answers` array, serve a different
+    // variant each time (counter kept in localStorage so it feels fresh, not random).
+    function rotatedAnswer(entry, q) {
+        var arr = entry.answers;
+        if (!arr || !Array.isArray(arr) || !arr.length) return entry.answer;
+        var key = 'zenith_rot_' + norm((entry.keywords && entry.keywords[0]) || q);
+        var c = 0;
+        try { c = parseInt(window.localStorage.getItem(key) || '0', 10) || 0; } catch (e) {}
+        try { window.localStorage.setItem(key, String(c + 1)); } catch (e) {}
+        return arr[c % arr.length];
+    }
+
     function match(query) {
         const q = norm(query);
         if (!q) return null;
@@ -344,7 +361,7 @@ window.ZenithDirectory = (function () {
             const covered = matched.some(kw => norm(kw).length >= 3) || q.length <= 6;
             if (!covered) continue;
             const score = matched.reduce((s, kw) => s + norm(kw).length, 0);
-            if (!best || score > best.score) best = { answer: entry.answer, score };
+            if (!best || score > best.score) best = { answer: rotatedAnswer(entry, q), score };
         }
         return best ? best.answer : null;
     }
@@ -373,6 +390,7 @@ window.ZenithDirectory = (function () {
         s = s.replace(/(\))(\()/g, '$1*$2');
         // Handle power operator: 2^3 -> pow(2,3)
         s = s.replace(/(\d+(\.\d+)?)\^(\d+(\.\d+)?)/g, 'POW($1,$3)');
+        var display = s;
 
         // ─── Tokenizer ───
         var tokens = [];
@@ -471,8 +489,8 @@ window.ZenithDirectory = (function () {
             var result = parseExpr();
             if (typeof result === 'number' && isFinite(result)) {
                 var rounded = Math.round(result * 1e10) / 1e10;
-                if (Number.isInteger(rounded)) return "**" + raw + " = " + rounded + "**";
-                return "**" + raw + " = " + rounded + "**";
+                if (Number.isInteger(rounded)) return "**The value for " + display + " is " + rounded + "**";
+                return "**The value for " + display + " is " + rounded + "**";
             }
             return null;
         } catch (e) { return null; }

@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -31,6 +32,17 @@ class MessageResponse(BaseModel):
 
 class RenameRequest(BaseModel):
     title: str
+
+
+async def _ai_off(db: AsyncSession, user) -> bool:
+    """True when the Owner has globally disabled AI responses for non-owner users."""
+    from sqlalchemy import text as _text
+    try:
+        res = await db.execute(_text("SELECT value FROM system_settings WHERE key='ai_enabled'"))
+        row = res.fetchone()
+        return bool(row and row[0] == "off" and getattr(user, "role", "") != "owner")
+    except Exception:
+        return False
 
 
 @router.get("")
@@ -116,6 +128,10 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
     research = body.get("research", False)
     factcheck = body.get("factcheck", False)
     images = body.get("images", [])
+    if await _ai_off(db, user):
+        async def _silent_gen():
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(_silent_gen(), media_type="text/event-stream")
     return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)
 
 
@@ -180,6 +196,14 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
 
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()
+
+    # Global AI toggle (Owner control): when AI responses are off, the user message is
+    # saved but the AI stays completely silent ("talking to nothing") for everyone except
+    # the Owner, so disabling AI actually stops all responses.
+    if await _ai_off(db, user):
+        async def _silent_gen():
+            yield "data: [DONE]\n\n"
+        return StreamingResponse(_silent_gen(), media_type="text/event-stream")
 
     web_search = body.get("web_search", False)
     research = body.get("research", False)

@@ -86,7 +86,7 @@ class User(Base):
     trial_end = Column(DateTime, nullable=True)
     stripe_customer_id = Column(String(100), default="")
     stripe_subscription_id = Column(String(100), default="")
-    # Rate limit - guest pause after 40 msgs
+    # Rate limit - guest pause after 60 msgs (30 min window, blocks chat + images)
     last_pause_at = Column(DateTime, nullable=True)
     # Presence
     last_seen = Column(DateTime, nullable=True)

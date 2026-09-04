@@ -4,8 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database import User, UsageLog, get_db
 from fastapi import HTTPException
 
-# Free: 5 images/day, 15 uploads/day, 1 file edit/day? Actually spec says free: 5 image, 15 file uploads, file editing? Let's set free file_edit 5/day? But spec says guests 1 file editing, free should be more. We'll set free: 5 image, 15 upload, 5 edit.
-# Guest: 3 uploads, 2 images, 1 edit per day, 15 min pause after 40 msgs
+# Free: 5 images/day, 15 uploads/day, 5 file edits/day
+# Guest: 3 uploads, 2 images, 1 edit per day, 30 min pause after 60 msgs
 
 async def check_limit(user: User, db: AsyncSession, action: str):
     # action: image_gen, file_upload, file_edit, message
@@ -19,26 +19,32 @@ async def check_limit(user: User, db: AsyncSession, action: str):
         # Pro: 100 images/day, 100 uploads/day, unlimited edits? spec says Pro: give them 100? We'll set Pro 100 each
         limits = {"image_gen": 100, "file_upload": 100, "file_edit": 100, "message": 1000}
     elif is_guest:
-        limits = {"image_gen": 2, "file_upload": 3, "file_edit": 1, "message": 40}
+        limits = {"image_gen": 2, "file_upload": 3, "file_edit": 1, "message": 60}
     else:  # free
         limits = {"image_gen": 5, "file_upload": 15, "file_edit": 5, "message": 1000}  # free chat forever, but image/file window 20 msgs handled elsewhere
 
     limit = limits.get(action, 1000)
+    # While a guest is inside the post-limit pause window, image generation stays blocked too
+    if is_guest and action == "image_gen" and user.last_pause_at:
+        elapsed = (datetime.now(timezone.utc) - user.last_pause_at).total_seconds()
+        if elapsed < 30 * 60:
+            remaining = int(30 * 60 - elapsed)
+            raise HTTPException(status_code=429, detail=f"Guest pause: wait {remaining//60}m {remaining%60}s. Please login for unlimited.")
     # Count today
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     result = await db.execute(select(func.count()).select_from(UsageLog).where(UsageLog.user_id == user.id, UsageLog.action == action, UsageLog.created_at >= today_start))
     count = result.scalar() or 0
     if count >= limit:
-        # Check for guest pause after 40 messages
+        # Guest pause after the daily messaging budget runs out
         if is_guest and action == "message":
             # Check last_pause_at
-            if user.last_pause_at and (datetime.now(timezone.utc) - user.last_pause_at).total_seconds() < 15*60:
-                remaining = int(15*60 - (datetime.now(timezone.utc) - user.last_pause_at).total_seconds())
-                raise HTTPException(status_code=429, detail=f"Guest pause: wait {remaining//60}m {remaining%60}s after 40 messages. Please login for unlimited.")
-            # If 40 reached, set pause
+            if user.last_pause_at and (datetime.now(timezone.utc) - user.last_pause_at).total_seconds() < 30*60:
+                remaining = int(30*60 - (datetime.now(timezone.utc) - user.last_pause_at).total_seconds())
+                raise HTTPException(status_code=429, detail=f"Guest pause: wait {remaining//60}m {remaining%60}s after 60 messages. Please login for unlimited.")
+            # If 60 reached, set pause
             user.last_pause_at = datetime.now(timezone.utc)
             await db.commit()
-            raise HTTPException(status_code=429, detail="Guest limit 40 messages reached. 15 minute pause. Please login for unlimited chat.")
+            raise HTTPException(status_code=429, detail="Guest limit 60 messages reached. 30 minute pause. Please login for unlimited chat.")
         # For other limits, prompt upgrade
         if is_guest:
             raise HTTPException(status_code=429, detail=f"Guest limit {limit} {action} per day reached. Please login to continue.")

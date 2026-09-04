@@ -28,6 +28,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     const badgeEl = $('user-role-badge');
     if (nameTextEl) nameTextEl.textContent = displayName;
     if (badgeEl) badgeEl.innerHTML = '';
+    // Real-time display-name hook used by Settings so the top bar updates immediately
+    window.__applyDisplayName = (name) => {
+        const n = name || user.username;
+        try { user.display_name = n; } catch (e) {}
+        const el = $('user-name-text') || $('user-name-display');
+        if (el) el.textContent = n;
+    };
     // Check for pending role change notification
     let _lastHandled = '';
     function _handlePendingNotification(n) {
@@ -71,9 +78,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (n === 'unlocked' || n === 'maintenance_off') {
             _lastHandled = n;
             _persistentScreen = '';
-            api('/api/auth/me/clear-notification', { method: 'POST' }).then(() => {
+            api('/api/auth/me/clear-notification', { method: 'POST' }).then(async () => {
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
+                if (await _maybeShowMaintNote()) return;
                 setTimeout(() => { window.location.href = '/app'; }, 300);
             }).catch(() => {});
             return true;
@@ -123,6 +131,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function _syncPersistentScreen(force) {
         try {
             const st = await api('/api/admin/system/public');
+            window.__sysState = st;
+            _applySysUI();
             const want = st && st.maintenance_mode === 'on' ? 'maintenance'
                 : (st && st.locked === 'on' ? 'locked' : '');
             if (want && want !== _persistentScreen) {
@@ -132,12 +142,61 @@ document.addEventListener('DOMContentLoaded', async () => {
                 _persistentScreen = '';
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
-                setTimeout(() => { window.location.href = '/app'; }, 300);
+                _maybeShowMaintNote().then(shown => { if (!shown) setTimeout(() => { window.location.href = '/app'; }, 300); });
             }
         } catch (e) {}
     }
+    // Messaging OFF from the vault → total block: composer + send button inert, Chat.send() no-ops.
+    function _applySysUI() {
+        if (!window.__sysState || !$('user-input')) return;
+        const owner = user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
+        const blocked = window.__sysState.messaging === 'off' && !owner;
+        window.__msgBlocked = blocked;
+        const input = $('user-input');
+        const sendBtn = $('send-btn');
+        const micBtn = $('mic-btn') || $('mic-icon');
+        if (blocked) {
+            if (!input.dataset.sysBlocked) { input.dataset.sysBlocked = '1'; input.disabled = true; input.placeholder = 'Messaging is currently disabled by the Owner'; }
+            if (sendBtn && !sendBtn.dataset.sysBlocked) { sendBtn.dataset.sysBlocked = '1'; sendBtn.style.opacity = '0.35'; sendBtn.style.pointerEvents = 'none'; }
+            if (micBtn) { micBtn.style.opacity = '0.35'; micBtn.style.pointerEvents = 'none'; }
+        } else {
+            if (input.dataset.sysBlocked) { delete input.dataset.sysBlocked; input.disabled = false; input.placeholder = 'Ask anything...'; }
+            if (sendBtn && sendBtn.dataset.sysBlocked) { delete sendBtn.dataset.sysBlocked; sendBtn.style.opacity = ''; sendBtn.style.pointerEvents = ''; }
+            if (micBtn) { micBtn.style.opacity = ''; micBtn.style.pointerEvents = ''; }
+        }
+    }
     _syncPersistentScreen(true);
     setInterval(() => _syncPersistentScreen(), 3000);
+    // "What was fixed during the break" fullscreen popup shown ONCE when maintenance/lock lifts.
+    // The Owner types the fix note in the vault when turning maintenance OFF; it is stored
+    // server-side (maint_note) and surfaced to users here — never replaying across reloads.
+    let _maintNoteShown = '';
+    async function _maybeShowMaintNote() {
+        if (document.getElementById('maint-note-popup')) return true;
+        let note = '';
+        try { const st = await api('/api/admin/system/public'); note = (st.maint_note || '').trim(); } catch (e) { note = ''; }
+        if (!note) return false;
+        if (_maintNoteShown === note) return false;
+        if (localStorage.getItem('zenith_maint_note_seen') === note) return false;
+        _maintNoteShown = note;
+        localStorage.setItem('zenith_maint_note_seen', note);
+        const _safeNote = (() => { const d = document.createElement('div'); d.textContent = note; return d.innerHTML; })();
+        const wrap = document.createElement('div');
+        wrap.id = 'maint-note-popup';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(10px);animation:fadeIn .3s;';
+        wrap.innerHTML = `
+            <div style="background:linear-gradient(160deg,#0f1a14,#16241c 50%,#0c1a12);border:2px solid #10B981;border-radius:20px;padding:44px 50px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px rgba(16,185,129,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
+                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(16,185,129,.08);filter:blur(25px);"></div>
+                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(16,185,129,.5));">✅</div>
+                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);font-size:10px;font-weight:700;color:#10B981;letter-spacing:2px;margin-bottom:16px;">BACK ONLINE</div>
+                <h2 style="color:#4ADE80;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">What Was Fixed During The Break</h2>
+                <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:16px 18px;margin-bottom:22px;font-size:14px;color:#e5e5e5;line-height:1.7;text-align:left;border-left:3px solid #10B981;white-space:pre-wrap;word-wrap:break-word;">${_safeNote}</div>
+                <button onclick="var p=document.getElementById('maint-note-popup');if(p)p.remove();window.location.href='/app';" style="background:#10B981;color:#04120b;border:none;padding:13px 40px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Continue ▶</button>
+            </div>`;
+        document.body.appendChild(wrap);
+        try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Zenith — Back Online', { body: note.slice(0, 120), icon: '/static/icons/icon-192.png', tag: 'maint-note', requireInteraction: true }); } catch (e) {}
+        return true;
+    }
     // legacy fallback if old structure
     if (!$('user-name-text') && $('user-name-display')) $('user-name-display').textContent = displayName;
     $('user-avatar').textContent = user.username[0].toUpperCase();
@@ -158,10 +217,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
-    // In-app notifications only (no website/browser push) — uses showDiscordToast
+    // In-app + real device/browser push (OS notification center + mobile panel), uses showDiscordToast
     async function devicePush(title, body, tag) {
-        // Keep in-app only: Discord toast handles it, no browser Notification
         try { showDiscordToast('Zenith', title.replace('Zenith','').replace('—','').trim() || title, body, title.charAt(0)); } catch {}
+        // Real OS notification: works whenever the Zenith tab is open even if the user is on
+        // another website/window — shows in the Windows action center / mobile notification panel.
+        try {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                const n = new Notification('Zenith — ' + (title || 'Zenith'), { body: String(body || '').slice(0, 200), icon: '/static/icons/icon-192.png', tag: tag || 'zenith', requireInteraction: true });
+                n.onclick = () => { try { window.focus(); n.close(); } catch (e) {} };
+            }
+        } catch (e) {}
     }
     // Discord-style in-app toast (mimics native OS notification: icon + avatar + name + message)
     function showDiscordToast(appName, title, body, avatarText) {
@@ -191,8 +257,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         style.textContent = '@keyframes slideIn{from{opacity:0; transform:translateX(20px)} to{opacity:1; transform:translateX(0)}}';
         if (!document.getElementById('discord-toast-style')) { style.id='discord-toast-style'; document.head.appendChild(style); }
     }
-    // Ask permission once for push (all notifications wait offline until dismissed, then show)
-    if (!isGuest && 'Notification' in window && Notification.permission === 'default') {
+    // Ask permission once for push (all users incl. guests) — notification panel / action center
+    if ('Notification' in window && Notification.permission === 'default') {
         setTimeout(() => Notification.requestPermission().catch(()=>{}), 2000);
     }
     if (isAdmin) {
@@ -393,15 +459,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('send-btn').addEventListener('click', () => Chat.send());
     $('stop-btn').addEventListener('click', () => Chat.stop());
     $('upgrade-btn').addEventListener('click', () => { Billing.showUpgrade(); closeSidebar(); });
-    $('settings-btn').addEventListener('click', () => { if (!requireLogin()) return; Settings.open(); closeSidebar(); });
+    $('settings-btn').addEventListener('click', () => { Settings.open(); closeSidebar(); });
     $('close-settings').addEventListener('click', () => Settings.close());
-    $('save-settings').addEventListener('click', () => { if (!requireLogin()) return; Settings.saveFromForm(); });
-    // Guest guard for Settings appearance/model sections
-    document.querySelectorAll('#settings-modal details summary').forEach(s => {
-        if (s.textContent.includes('Model') || s.textContent.includes('Appearance')) {
-            s.addEventListener('click', (e) => { if (!requireLogin()) { e.preventDefault(); e.stopImmediatePropagation(); const d = s.closest('details'); if (d) d.open = false; } });
-        }
-    });
+    $('save-settings').addEventListener('click', () => { Settings.saveFromForm(); });
+    // Appearance/model sections usable by everyone incl. guests (settings is now guest-accessible)
     $('info-btn').addEventListener('click', () => { $('about-modal').style.display = 'flex'; closeSidebar(); });
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
@@ -541,7 +602,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     $('logout-btn').addEventListener('click', async () => {
-        const ok = await showConfirm('Log out?', 'Are you sure you want to log out?', false);
+        let ok;
+        if (isGuest) {
+            ok = await showConfirm('End guest session?', "Using log out will permanently delete this guest account and all its messages. They cannot be recovered. Continue?", false);
+        } else {
+            ok = await showConfirm('Log out?', 'Are you sure you want to log out?', false);
+        }
         if (!ok) return;
         await api('/api/auth/logout', { method: 'POST' });
         window.location.href = '/';
@@ -801,7 +867,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(16,185,129,.5));">🛠️</div>
                 <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);font-size:10px;font-weight:700;color:#10B981;letter-spacing:2px;margin-bottom:16px;">CHOSEN HELPER</div>
                 <h2 style="color:#10B981;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">You Have Been Selected</h2>
-                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">You have been chosen by the owner to help him with an existing problem. <strong style="color:#10B981;">Participate in the live chat now!</strong></p>
+                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">You have been chosen by the owner to help him during the current lockdown. <strong style="color:#10B981;">Participate in the live chat now!</strong></p>
                 <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Your account is exempt from the current shutdown so you can assist. Join the staff live chat to coordinate with the Owner.</p>
                 <button onclick="(function(){var p=document.getElementById('chosen-popup');if(p)p.remove();window.openStaffChat();})()" style="background:#10B981;color:#04120b;border:none;padding:14px 40px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Open Live Chat ▶</button>
             </div>`;
@@ -847,14 +913,17 @@ document.addEventListener('DOMContentLoaded', async () => {
                 _showMaintenanceScreen(_persistentScreen);
             } else if (t === 'force-logout') {
                 window.showEmergencyPopup('force-logout');
+                try { devicePush('Signed Out by the Owner', 'All sessions have been revoked. Please log in again.', 'force-logout'); } catch (e) {}
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             } else if (t === 'unlock-all') {
                 window.showEmergencyPopup('unlock-all');
+                try { devicePush('Zenith — Unlocked', 'All accounts have been unlocked by the Owner.', 'unlock-all'); } catch (e) {}
                 _persistentScreen = '';
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
             } else {
                 window.showEmergencyPopup(t);
+                try { devicePush('Zenith — ' + (t === 'registrations' ? 'Registrations Closed' : t === 'messaging' ? 'Messaging Disabled' : t === 'ai' ? 'AI Disabled' : 'System Update'), a.content.replace(/^\[EMERGENCY:\w+\]\s*/, ''), 'emergency-' + t); } catch (e) {}
             }
             return;
         }
@@ -969,7 +1038,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             const div = document.createElement('div');
             div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
             const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${safe(f.username)}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${safe(fmtTimeLocal(f.created_at))}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
+            let username = String(f.username || '').startsWith('guest_') ? 'Guest' : safe(f.username);
+            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${username}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${safe(fmtTimeLocal(f.created_at))}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
             html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
             if (f.response) {
                 const replyBy = f.response_by === 'owner'
@@ -1005,7 +1075,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     }
     async function openUserFeedback() {
-        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
         $('feedback-modal').style.display='flex';
         const list = $('feedback-list');
         list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">Loading...</p>';
@@ -1024,7 +1093,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { const {feedbacks}=await api('/api/feedback/admin'); renderFeedbackThread(list, feedbacks, true); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
     }
     $('feedback-btn').addEventListener('click', () => {
-        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
         if (isAdmin) { openAdminFeedback(); } else { openUserFeedback(); }
         closeSidebar();
     });
@@ -1033,7 +1101,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('close-feedback-admin').addEventListener('click', () => $('feedback-admin-modal').style.display='none');
     $('feedback-admin-modal').addEventListener('click', e => { if (e.target === $('feedback-admin-modal')) $('feedback-admin-modal').style.display='none'; });
     $('feedback-submit').addEventListener('click', async () => {
-        if (isGuest) { showToast('Feedback limited please login to use','error'); return; }
         const inp = $('feedback-input');
         const txt = inp.value.trim();
         if (!txt) { showToast('Please write feedback','error'); return; }

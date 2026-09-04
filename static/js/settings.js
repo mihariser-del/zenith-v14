@@ -123,6 +123,7 @@ const Settings = {
         };
         this.saveLocal(localSettings);
 
+        const name = $('display-name').value.trim();
         await api('/api/settings', {
             method: 'PATCH',
             body: JSON.stringify({
@@ -132,9 +133,10 @@ const Settings = {
                 system_prompt: $('system-prompt').value,
                 personality: $('personality-select').value,
                 memory_enabled: $('memory-enabled').value === 'true',
-                display_name: $('display-name').value.trim(),
+                display_name: name,
             }),
         });
+        if (typeof window.__applyDisplayName === 'function') window.__applyDisplayName(name);
 
         this.apply();
         this.close();

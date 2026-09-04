@@ -451,6 +451,8 @@ const Chat = {
         const input = $('user-input');
         const text = input.value.trim();
         if ((!text && this.attachments.length === 0) || this.isStreaming) return;
+        if (this._limitBlocked) return; // messaging auto-disabled while a limit cooldown banner is live
+        if (window.__msgBlocked === true) return; // global messaging off → send button does nothing
         if (!this.activeId) await this.create();
 
         const think = $('think-btn').classList.contains('active');
@@ -500,6 +502,16 @@ const Chat = {
                 body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch, research, factcheck }),
                 signal: this.abortController.signal,
             });
+
+            if (!res.ok) {
+                // Server rejected the message (limit reached / guest pause / disabled). Surface it.
+                let detail = '';
+                try { const j = await res.json(); detail = (j && (j.detail || j.message)) || ''; } catch (e) {}
+                this._handleSendError(detail || ('Failed (' + res.status + ')'));
+                bubble.classList.remove('streaming-cursor');
+                if (!bubble.textContent) bubble.remove();
+                return;
+            }
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();
@@ -616,6 +628,69 @@ const Chat = {
         }
     },
 
+    _handleSendError(detail) {
+        const d = String(detail || '');
+        const lower = d.toLowerCase();
+        // Cooldown countdown: guests pause for 30 min after the message limit; free tiers reset daily.
+        let secs = 0;
+        const m = d.match(/wait\s+(\d+)m\s*(\d+)s/);
+        if (m) secs = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+        else if (lower.includes('30 minute pause')) secs = 1800;
+        else if (lower.includes('15 minute pause')) secs = 900;
+        const isGuest = lower.includes('guest');
+        const isPause = lower.includes('pause') || secs > 0;
+        const isLimit = lower.includes('limit') || lower.includes('reached');
+        if (isPause && secs > 0) {
+            this._limitBlocked = true;
+            this._limitUntil = Date.now() + secs * 1000;
+            this._showLimitBanner(secs, isGuest);
+        } else if (isLimit || isGuest) {
+            this._limitBlocked = true;
+            this._limitUntil = 0;
+            this._showLimitBanner(0, isGuest, d);
+        } else {
+            this._clearLimitBanner();
+            if (typeof showToast === 'function') showToast('Could not send: ' + d, 'error');
+        }
+    },
+
+    _showLimitBanner(secs, isGuest, rawDetail) {
+        this._clearLimitBanner(false);
+        const composerBox = document.querySelector('.composer-box');
+        const banner = document.createElement('div');
+        banner.id = 'limit-banner';
+        banner.style.cssText = 'width:100%;padding:8px 12px;background:rgba(239,68,68,.10);border:1px solid rgba(239,68,68,.35);border-radius:8px;color:#F87171;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px;box-sizing:border-box;';
+        banner.innerHTML = '<span id="limit-banner-text"></span>';
+        if (composerBox) composerBox.insertBefore(banner, composerBox.firstChild);
+        else document.body.appendChild(banner);
+        const textEl = banner.querySelector('#limit-banner-text');
+        const endTs = this._limitUntil;
+        const tick = () => {
+            if (secs > 0 && endTs) {
+                const left = Math.max(0, Math.round((endTs - Date.now()) / 1000));
+                if (left <= 0) { this._clearLimitBanner(); return; }
+                const mm = Math.floor(left / 60), ss = left % 60;
+                const human = (mm > 0 ? mm + 'm ' : '') + ss + 's';
+                textEl.innerHTML = isGuest
+                    ? '<strong>Guest limit reached.</strong> Messaging paused — continue in <strong>' + human + '</strong>. <a href="/" style="color:#F87171;font-weight:700;">Log in</a> for unlimited chat.'
+                    : '<strong>Limit reached.</strong> Messaging paused — continue in <strong>' + human + '</strong>.';
+            } else {
+                textEl.innerHTML = isGuest
+                    ? '<strong>Guest limit reached.</strong> Messaging disabled for today — <a href="/" style="color:#F87171;font-weight:700;">log in</a> to keep chatting.'
+                    : '<strong>Free limit reached for today.</strong> Messaging disabled — resets at midnight (UTC). Upgrade to Pro for more.';
+            }
+        };
+        tick();
+        this._limitTimer = setInterval(tick, 1000);
+    },
+
+    _clearLimitBanner(unblock = true) {
+        if (this._limitTimer) { clearInterval(this._limitTimer); this._limitTimer = null; }
+        const b = document.getElementById('limit-banner');
+        if (b) b.remove();
+        if (unblock !== false) { this._limitBlocked = false; this._limitUntil = 0; }
+    },
+
     showRegenerate() {
         const container = $('chat-container');
         let btn = $('regen-btn');
@@ -660,6 +735,14 @@ const Chat = {
                 body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
                 signal: this.abortController.signal,
             });
+
+            if (!res.ok) {
+                let detail = '';
+                try { const j = await res.json(); detail = (j && (j.detail || j.message)) || ''; } catch (e) {}
+                this._handleSendError(detail || ('Failed (' + res.status + ')'));
+                if (bubble && bubble.parentElement) bubble.remove();
+                return;
+            }
 
             const reader = res.body.getReader();
             const decoder = new TextDecoder();

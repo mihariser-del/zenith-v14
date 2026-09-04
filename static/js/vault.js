@@ -1142,7 +1142,7 @@ const Vault = {
             themes: { owner: 'Titanium Core', admin: 'Gold' },
             ai: { provider: 'OpenRouter', default_model: 'openai/gpt-4o-mini', temperature: 0.7, max_tokens: 2048 },
             billing: { pro: '$5.99/mo', pro_annual: '$59.99', pro_lifetime: '$200', ultimate: '$11.99/mo', ultimate_annual: '$119.99', ultimate_lifetime: '$400', trial_days: 5 },
-            limits: { free: { images: 5, uploads: 15, edits: 5 }, guest: { images: 2, uploads: 3, edits: 1, pause_msgs: 40, pause_minutes: 15 }, pro: 100 },
+            limits: { free: { images: 5, uploads: 15, edits: 5 }, guest: { images: 2, uploads: 3, edits: 1, pause_msgs: 60, pause_minutes: 30 }, pro: 100 },
         };
         const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
@@ -1195,7 +1195,9 @@ const Vault = {
                     <div class="card-header"><span>🛡️ Limits</span></div>
                     <div class="vault-setting-row"><span class="vault-setting-label">Free Image Gen</span><span class="vault-setting-value">5/day</span></div>
                     <div class="vault-setting-row"><span class="vault-setting-label">Free Uploads</span><span class="vault-setting-value">15/day</span></div>
-                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Pause</span><span class="vault-setting-value">40 msgs → 15min</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Image Gen</span><span class="vault-setting-value">2/day</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Uploads / Edits</span><span class="vault-setting-value">3/day / 1/day</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Pause</span><span class="vault-setting-value">60 msgs → 30min (blocks chat + images)</span></div>
                     <div class="vault-setting-row"><span class="vault-setting-label">Pro Limits</span><span class="vault-setting-value">100/day each</span></div>
                 </div>
             </div>
@@ -1254,13 +1256,13 @@ const Vault = {
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading admins...</div>';
         try {
             const { users } = await api('/api/auth/admin/users');
-            const admins = users.filter(u => u.role === 'admin' || u.role === 'owner');
+            const admins = users.filter(u => (u.role === 'admin' || u.role === 'owner') && !u.is_deleted);
             const regularUsers = users.filter(u => u.role === 'user' && !u.is_deleted);
             this._chosenHelpers = admins.filter(u => u.is_chosen).map(u => u.id);
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
-                    ${this.statCard('👑','Owners',users.filter(u=>u.role==='owner').length,'','purple')}
-                    ${this.statCard('🛡️','Admins',users.filter(u=>u.role==='admin').length,'','yellow')}
+                    ${this.statCard('👑','Owners',admins.filter(u=>u.role==='owner').length,'','purple')}
+                    ${this.statCard('🛡️','Admins',admins.filter(u=>u.role==='admin').length,'','yellow')}
                     ${this.statCard('👥','Users',regularUsers.length,'','')}
                 </div>
                 <div class="vault-card" style="margin-bottom:16px;">
@@ -1360,8 +1362,12 @@ const Vault = {
         const turningOn = !tog.classList.contains('on');
         const ok = await showConfirm(turningOn ? 'Enable maintenance?' : 'Disable maintenance?', turningOn ? 'All users except you will be locked out.' : 'Reopen the platform to all users.');
         if (!ok) return;
+        let note = '';
+        if (!turningOn) {
+            note = (await showPrompt('What was fixed during the break?', '', 'e.g. Fixed the crash, improved speed, added new features...')) || '';
+        }
         try {
-            await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            await api('/api/admin/system/maintenance', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off', note }) });
             tog.classList.toggle('on', turningOn);
             document.getElementById('maint-label').textContent = turningOn ? 'ON' : 'OFF';
             showToast('Maintenance ' + (turningOn ? 'ON' : 'OFF'), 'success');
@@ -1532,8 +1538,8 @@ const Vault = {
         }
         try {
             const r = await api('/api/admin/system/set-chosen', { method: 'POST', body: JSON.stringify({ user_ids: this._chosenHelpers }) });
-            const now = r.chosen.some(c => c.id === userId) ? 'helped' : 'no longer helps';
-            showToast(`${username} will ${now} during shutdowns`, 'success');
+            const now = r.chosen.some(c => c.id === userId) ? 'will help during lockdowns' : 'will no longer help during lockdowns';
+            showToast(`${username} ${now}`, 'success');
             this.renderAdmins();
         } catch (e) { showToast(e.message, 'error'); }
     },

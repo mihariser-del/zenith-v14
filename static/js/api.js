@@ -80,7 +80,21 @@ function showLimitPopup(detail) {
     wrap.querySelector('#limit-popup-close').addEventListener('click', close);
     wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
     const loginBtn = wrap.querySelector('#limit-popup-login');
-    if (loginBtn) loginBtn.addEventListener('click', () => { if (wrap._t) clearInterval(wrap._t); wrap.remove(); window.__limitPopupOpen = false; window.__modalOpen = false; window.location.href = '/'; });
+    if (loginBtn) loginBtn.addEventListener('click', async () => {
+        // Guest clicking "Login / Register" — warn like the logout flow, then log
+        // the guest out so they land on the register screen (plain /app navigation
+        // would bounce them straight back in because the guest cookie is still valid).
+        if (wrap._t) clearInterval(wrap._t);
+        wrap.remove();
+        window.__limitPopupOpen = false;
+        window.__modalOpen = false;
+        if (typeof showConfirm === 'function') {
+            const ok = await showConfirm('End guest session?', 'Using log out will permanently delete this guest account and all its messages. They cannot be recovered. Continue?', false);
+            if (!ok) return;
+        }
+        try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        window.location.href = '/';
+    });
     const upgradeBtn = wrap.querySelector('#limit-popup-upgrade');
     if (upgradeBtn) upgradeBtn.addEventListener('click', () => {
         close();

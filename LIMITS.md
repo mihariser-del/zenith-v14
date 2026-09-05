@@ -71,6 +71,10 @@ Legend: **Owner** (`WANZU-IBRAHIM`) — no limits. **Ultimate** — no limits.
   of...", "make a logo of..."), `detectImageRequest` (app.js) extracts the prompt
   and `Chat.generateImageNow` generates it immediately — persisted as an assistant
   message (survives reload, counts toward image limits and the media window).
+- Follow-up edits work the same way: "add a bell around the cow", "make it bigger",
+  "remove the hat" → `Chat.editGeneratedImage` → `/api/image/edit`, which merges
+  the change into the last generated image's prompt and reuses its seed (only
+  triggers when the chat already has a generated image). Counts as an `image_gen`.
 
 ## UI copy that must stay in sync
 - Vault → Settings → Limits panel (`vault.js`).

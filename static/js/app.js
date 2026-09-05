@@ -13,6 +13,23 @@ function detectImageRequest(text) {
     return null;
 }
 
+// Follow-up image edits: "add a bell around the cow", "remove the hat",
+// "make the cow bigger". Only treated as an edit when the chat already has a
+// generated image (checked by Chat._hasGeneratedImage before it is used).
+function detectImageEditRequest(text) {
+    const t = String(text || '').trim();
+    if (!t || t.length > 300) return null;
+    const m = t.match(/^(?:please\s+)?(?:can\s+you\s+)?(?:add|put|give|attach|include|remove|delete|change|modify|edit|draw|make|replace|swap|erase|convert|turn|take\s+out)\s+(.+)$/i);
+    if (!m) return null;
+    const rest = m[1].replace(/[.!?]+$/, '').trim();
+    if (!rest) return null;
+    // Explicitly references the picture ("the image", "it", "this")...
+    if (/\b(?:the|my|this|that|our)\s+(?:image|picture|pic|photo|logo|artwork|drawing|wallpaper|icon|portrait|avatar)s?\b|\b(?:it|this|that)\b/i.test(rest)) return rest;
+    // ...or is a short change starting with an article ("a bell", "the hat").
+    if (/^(?:a|an|the)\s+/i.test(rest) && rest.split(/\s+/).length <= 7) return rest;
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     let user;
     try {

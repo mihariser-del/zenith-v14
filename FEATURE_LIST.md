@@ -34,6 +34,7 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 - `/api/image/generate` with usage logging
 - Generated images persisted as assistant messages (survive reload; count toward the chat media window)
 - Auto image generation from chat prompts ("generate a pic of...", "i want a pic of..." → `detectImageRequest`)
+- **Image follow-up edits**: "add a bell around the cow" / "make it bigger" → `/api/image/edit` merges the change into the previous prompt and reuses its seed (similar composition); chains build on the latest edit; `detectImageEditRequest`
 
 ## 5a. Usage Limits & Cooldowns (`limits.py`)
 - Dynamic cooldown timers: free 1h–18h (usage-intensity based), pro 10–30 min (60 min on exploitation); stored on `User.cooldown_until`

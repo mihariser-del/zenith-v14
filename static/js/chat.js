@@ -451,6 +451,35 @@ const Chat = {
         }
     },
 
+    // Follow-up edit of the last generated image ("add a bell around the cow").
+    // The server merges the change into the previous prompt and reuses its seed
+    // for a similar composition, persisting the result as an assistant message.
+    async editGeneratedImage(change) {
+        if (!change || !change.trim()) return false;
+        if (!this.activeId) await this.create();
+        try {
+            const { url, prompt, change: applied } = await api('/api/image/edit', {
+                method: 'POST',
+                body: JSON.stringify({ chat_id: this.activeId, change: change.trim(), width: 1024, height: 1024 }),
+            });
+            this.appendMessage('assistant', `**Prompt:** ${prompt}\n\n**Changed:** ${applied}\n\n![Generated image](${url})`);
+            showToast('Image updated!', 'success');
+            return true;
+        } catch (e) {
+            const msg = String(e.message || '');
+            if (typeof showLimitPopup === 'function' && /wait\s+\d+m\s*\d+s|cooldown|pause|guest/i.test(msg)) showLimitPopup(msg);
+            else showToast('Could not update image: ' + msg, 'error');
+            return false;
+        }
+    },
+
+    // True when this chat already contains a generated image (follow-ups need one).
+    _hasGeneratedImage() {
+        const container = $('chat-container');
+        if (!container) return false;
+        return /!\[Generated image\]\(/.test(container.textContent || '');
+    },
+
     updateStreamingBubble(bubble, text) {
         const thinking = bubble.querySelector('.thinking-text');
         if (thinking) thinking.remove();
@@ -518,11 +547,17 @@ const Chat = {
         this.attachments = [];
         this.renderAtts();
 
-        // Auto image generation: if the text clearly asks for an image
-        // ("generate a pic of...", "i want a pic of..."), Zenith makes it for you.
+        // Auto image generation + follow-up edits: "generate a pic of..." creates
+        // an image; "add a bell around the cow" / "make it bigger" applies a
+        // follow-up edit to the last generated image in this chat.
         if (text && typeof window.detectImageRequest === 'function') {
             const imgPrompt = window.detectImageRequest(text);
-            if (imgPrompt) await this.generateImageNow(imgPrompt);
+            if (imgPrompt) {
+                await this.generateImageNow(imgPrompt);
+            } else if (typeof window.detectImageEditRequest === 'function') {
+                const change = window.detectImageEditRequest(text);
+                if (change && this._hasGeneratedImage()) await this.editGeneratedImage(change);
+            }
         }
 
         this.isStreaming = true;

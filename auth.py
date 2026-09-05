@@ -55,6 +55,8 @@ class UserResponse(BaseModel):
     pending_notification: str = ""
     is_chosen: bool = False
     display_name: str = ""
+    is_pro: bool = False
+    is_ultimate: bool = False
 
     model_config = {"from_attributes": True}
 

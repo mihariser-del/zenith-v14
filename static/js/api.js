@@ -97,17 +97,10 @@ function showLimitPopup(detail) {
     });
     const upgradeBtn = wrap.querySelector('#limit-popup-upgrade');
     if (upgradeBtn) upgradeBtn.addEventListener('click', async () => {
-        // Logged-in user clicking "Upgrade for more" — confirm first, then open
-        // the billing/pricing modal (falling back to the register page if the
-        // billing module isn't available so the click never dead-ends).
+        // Logged-in user clicking "Upgrade for more" — open the billing/pricing
+        // dialog directly (falling back to the register page if the billing module
+        // is unavailable) so the click never dead-ends.
         close();
-        let ok = true;
-        if (typeof showConfirm === 'function') {
-            try {
-                ok = await showConfirm('Upgrade to Pro?', 'See the plans to raise your limits, unlimited voice and more.', false);
-            } catch (e) { ok = true; }
-            if (!ok) return;
-        }
         try {
             if (window.Billing && typeof window.Billing.showUpgrade === 'function') {
                 await window.Billing.showUpgrade('Unlock more on Zenith');

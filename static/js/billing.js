@@ -144,7 +144,21 @@ const Billing = {
         modal.querySelector('#billing-close').addEventListener('click', ()=>{ modal.remove(); window.__modalOpen = false; });
         modal.addEventListener('click', e=>{ if(e.target===modal){ modal.remove(); window.__modalOpen = false; } });
         const loginBtn = modal.querySelector('#billing-login');
-        if(loginBtn) loginBtn.addEventListener('click', ()=>{ modal.remove(); window.__modalOpen = false; window.location.href='/'; });
+        if(loginBtn) loginBtn.addEventListener('click', async ()=>{
+            modal.remove(); window.__modalOpen = false;
+            // Guest login button (upgrade popup) — same as the limit popup: warn like
+            // the logout flow, then actually log the guest out so they land on the
+            // register screen ('/' alone would bounce them back because the cookie lives).
+            let ok = true;
+            if (typeof showConfirm === 'function') {
+                try {
+                    ok = await showConfirm('End guest session?', 'Using log out will permanently delete this guest account and all its messages. They cannot be recovered. Continue?', false);
+                } catch (e) { ok = true; }
+                if (!ok) return;
+            }
+            try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+            window.location.replace('/');
+        });
     }
 };
 // Global dedupe: only one limit/billing modal at a time.

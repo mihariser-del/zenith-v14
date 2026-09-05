@@ -27,16 +27,30 @@ from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
 
-VERSION = "18.0"
-CHANGELOG = [
-    "Offline Mode: exiting returns you to the offline popup, not the app UI",
-    "Back online while offline → mini popup prompts you to leave offline mode",
-    "Offline directory massively expanded: world capitals, history, algebra & math (1+1=2, square roots, equations, pi, trig)",
-    "Fixed '?' showing in Banned/Deleted 'by' columns — old records backfilled to 'Staff'",
-    "Dashboard Live Now: who's online, green dots in recent & activity feed (live, no caching)",
-    "System gauges now labelled (CPU / RAM / Storage) so every percent is clear",
-    "All PRO tags cleared from non-staff users; Owners & Admins auto-have Ultimate",
-    "Full UI polish on recent accounts, activity feed & messages-per-hour",
+VERSION = "18.1"
+
+# User-facing changelog: what actually matters to normal users (benefits, no internals).
+USER_CHANGELOG = [
+    "Time-based limits: after heavy use your account takes a cooling break — from 1 hour up to 18 hours, tuned to your activity",
+    "Media window: chats with lots of images/files get a 15-message allowance, then a long rest",
+    "Voice: logged-in users get 30 minutes of voice chat per day, then it pauses until midnight (UTC)",
+    "Files & documents: logged-in users can create/edit up to 10 files a day, then a 1-hour break — guests need to log in first",
+    "Clear countdown popups: whenever a limit kicks in you'll see exactly how long to wait",
+    "Just ask for an image: type something like 'generate a pic of...' and Zenith creates it automatically",
+    "Changelog is now split — normal users see what affects them; staff see the deep technical notes",
+]
+
+# Staff/admin changelog: current + technical notes (owners & admins see these too).
+STAFF_CHANGELOG = [
+    *USER_CHANGELOG,
+    "limits.py engine: cooldown_until column; dynamic free timer 60-1080 min from usage intensity (msgs today/1h/10m bounce + media volume); pro 10-30 min, 60 min on exploit",
+    "chat media window: [Image xN]/[File: markers per chat; 15-msg allowance from 5th image/15th file; images+files logged as 'message' usage",
+    "file_tool system: guests 403 on edit/document_gen; free logged-in 10/day combined upload+edit+gen then fixed 60-min cooldown",
+    "image.py persists generated images as assistant messages (survives reload, counted in media window)",
+    "client showLimitPopup (api.js) with live countdown; billing interceptor routes cooldown/pause messages to the popup",
+    "voice 30-min/day meter (localStorage, resets UTC midnight) — voice mode blocks + popup after the cap",
+    "auto image-gen: detectImageRequest() regex in chat prompts ('generate a pic of...', 'i want a pic of...')",
+    "changelog endpoint returns user_changes + staff_changes; app shows per role",
 ]
 
 
@@ -83,7 +97,7 @@ async def debug_keys():
 
 @app.get("/api/changelog")
 async def get_changelog():
-    return {"version": VERSION, "changes": CHANGELOG}
+    return {"version": VERSION, "changes": USER_CHANGELOG, "user_changes": USER_CHANGELOG, "staff_changes": STAFF_CHANGELOG}
 
 
 @app.get("/", response_class=HTMLResponse)

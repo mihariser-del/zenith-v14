@@ -88,6 +88,9 @@ class User(Base):
     stripe_subscription_id = Column(String(100), default="")
     # Rate limit - guest pause after 60 msgs (30 min window, blocks chat + images)
     last_pause_at = Column(DateTime, nullable=True)
+    # Cooldown timer for logged-in tiers: dynamic (free 1-18h, pro 10-30min / 60 on exploit)
+    # and fixed 1h for the file editor/generator system. Blocks every limited action until then.
+    cooldown_until = Column(DateTime, nullable=True)
     # Presence
     last_seen = Column(DateTime, nullable=True)
     # Admin permissions (JSON string): {"ban_users":true,"reset_password":true,"view_messages":true,"manage_chats":true}
@@ -295,6 +298,7 @@ async def init_db():
             ("stripe_customer_id", "VARCHAR(100) DEFAULT ''"),
             ("stripe_subscription_id", "VARCHAR(100) DEFAULT ''"),
             ("last_pause_at", "DATETIME"),
+            ("cooldown_until", "DATETIME"),
             ("last_seen", "DATETIME"),
             ("permissions", "TEXT DEFAULT ''"),
             ("pending_notification", "TEXT DEFAULT ''"),

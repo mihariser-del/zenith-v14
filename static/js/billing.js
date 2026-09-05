@@ -8,6 +8,8 @@ const Billing = {
         } catch { return []; }
     },
     async showUpgrade(reason) {
+        if (window.__modalOpen) return; // a limit popup or another billing modal is already open
+        window.__modalOpen = true;
         const plans = this.plans || await this.loadPlans();
         const modal = document.createElement('div');
         modal.className = 'modal';
@@ -139,12 +141,22 @@ const Billing = {
             modal.querySelector('#tab-yearly').addEventListener('click', ()=>switchTab('yearly'));
             modal.querySelector('#tab-lifetime').addEventListener('click', ()=>switchTab('lifetime'));
         }
-        modal.querySelector('#billing-close').addEventListener('click', ()=>modal.remove());
-        modal.addEventListener('click', e=>{ if(e.target===modal) modal.remove(); });
+        modal.querySelector('#billing-close').addEventListener('click', ()=>{ modal.remove(); window.__modalOpen = false; });
+        modal.addEventListener('click', e=>{ if(e.target===modal){ modal.remove(); window.__modalOpen = false; } });
         const loginBtn = modal.querySelector('#billing-login');
-        if(loginBtn) loginBtn.addEventListener('click', ()=>{ modal.remove(); window.location.href='/'; });
+        if(loginBtn) loginBtn.addEventListener('click', ()=>{ modal.remove(); window.__modalOpen = false; window.location.href='/'; });
     }
 };
+// Global dedupe: only one limit/billing modal at a time.
+function _routeLimitMessage(msg) {
+    if (window.__modalOpen) return;
+    const isCooldown = /wait\s+\d+m\s*\d+s|cooldown|pause/i.test(msg);
+    if (isCooldown) {
+        setTimeout(() => { if (typeof showLimitPopup === 'function') showLimitPopup(msg); }, 300);
+    } else {
+        setTimeout(() => Billing.showUpgrade(msg), 300);
+    }
+}
 // Intercept 429 upgrade prompts globally
 const _origFetch = window.fetch;
 window.fetch = async (...args)=>{
@@ -153,8 +165,8 @@ window.fetch = async (...args)=>{
         try{
             const data = await res.clone().json();
             const msg = data.detail || 'Limit reached';
-            if(msg.includes('limit') || msg.includes('Guest') || msg.includes('Upgrade')){
-                setTimeout(()=>Billing.showUpgrade(msg), 300);
+            if(msg.includes('limit') || msg.includes('Guest') || msg.includes('Upgrade') || msg.includes('pause')){
+                _routeLimitMessage(msg);
             }
         }catch{}
     }
@@ -168,7 +180,7 @@ if(_origApi){
         try{ return await orig(...args); }
         catch(e){
             if(e.message && (e.message.includes('limit') || e.message.includes('Guest') || e.message.includes('Upgrade') || e.message.includes('pause'))){
-                Billing.showUpgrade(e.message);
+                _routeLimitMessage(e.message);
             }
             throw e;
         }

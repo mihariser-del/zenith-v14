@@ -4,7 +4,7 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 
 ## 1. Authentication & Accounts
 - Register, login, logout, logout-all (revokes all my sessions via `token_version`)
-- Guest mode (username prefix `guest_`, limited features, 60-msg daily budget → 30-minute pause that also blocks image-gen)
+- Guest mode (username prefix `guest_`, limited features, 60-msg daily budget → 30-minute pause that also blocks image-gen; guests blocked from the file editor/generator with a login follow-up popup)
 - Google OAuth login (`google_auth.py`)
 - Forgot password (`/api/auth/forgot-password`)
 - Admin password reset → target user gets a "password changed" screen with the new password
@@ -32,6 +32,16 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 
 ## 5. Image Generation
 - `/api/image/generate` with usage logging
+- Generated images persisted as assistant messages (survive reload; count toward the chat media window)
+- Auto image generation from chat prompts ("generate a pic of...", "i want a pic of..." → `detectImageRequest`)
+
+## 5a. Usage Limits & Cooldowns (`limits.py`)
+- Dynamic cooldown timers: free 1h–18h (usage-intensity based), pro 10–30 min (60 min on exploitation); stored on `User.cooldown_until`
+- Chat media window: 5 images / 15 files per chat → 15-message allowance → long cooldown
+- Images & files count as messages; guest 60-msg budget → 30-min pause (blocks chat + images)
+- File editor/generator: guests blocked, free 10 actions/day → fixed 1h cooldown, pro 100/day
+- Voice meter: free logged-in 30 min voice-mode/day (resets midnight UTC)
+- Countdown limit popups with login/upgrade follow-up (`showLimitPopup` in `api.js`)
 
 ## 6. Code Sandbox
 - Execute user code; auto-correct snippets; copy (`codeexec.py` + `codeexec.js`)

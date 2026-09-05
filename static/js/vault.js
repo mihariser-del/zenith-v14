@@ -1142,7 +1142,7 @@ const Vault = {
             themes: { owner: 'Titanium Core', admin: 'Gold' },
             ai: { provider: 'OpenRouter', default_model: 'openai/gpt-4o-mini', temperature: 0.7, max_tokens: 2048 },
             billing: { pro: '$5.99/mo', pro_annual: '$59.99', pro_lifetime: '$200', ultimate: '$11.99/mo', ultimate_annual: '$119.99', ultimate_lifetime: '$400', trial_days: 5 },
-            limits: { free: { images: 5, uploads: 15, edits: 5 }, guest: { images: 2, uploads: 3, edits: 1, pause_msgs: 60, pause_minutes: 30 }, pro: 100 },
+            limits: { free: { images: 5, uploads_and_edits: 10, pause_timer_hours: "1-18h (dynamic)", media_window: { images: 5, files: 15, allowance: 15 } }, guest: { images: 2, uploads: 3, edits: 0, pause_msgs: 60, pause_minutes: 30 }, pro: 100, voice_minutes: 30 },
         };
         const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
         const a = document.createElement('a');
@@ -1165,7 +1165,7 @@ const Vault = {
             <div class="vault-card" style="margin-bottom:16px;">
                 <div class="card-header"><span>🏷️ General</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Platform Name</span><span class="vault-setting-value">Zenith AI</span></div>
-                <div class="vault-setting-row"><span class="vault-setting-label">Version</span><span class="vault-setting-value">17.0</span></div>
+                <div class="vault-setting-row"><span class="vault-setting-label">Version</span><span class="vault-setting-value">18.1</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Owner</span><span class="vault-setting-value">WANZU-IBRAHIM</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Timezone</span><span class="vault-setting-value">UTC</span></div>
             </div>
@@ -1193,15 +1193,34 @@ const Vault = {
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🛡️ Limits</span></div>
-                    <div class="vault-setting-row"><span class="vault-setting-label">Free Image Gen</span><span class="vault-setting-value">5/day</span></div>
-                    <div class="vault-setting-row"><span class="vault-setting-label">Free Uploads</span><span class="vault-setting-value">15/day</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Free Image Gen</span><span class="vault-setting-value">5/day → timer</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Free File Editor/Gen</span><span class="vault-setting-value">10/day → fixed 1h</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Free Cooldown Timer</span><span class="vault-setting-value">1h – 18h (dynamic, by usage)</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Chat Media Window</span><span class="vault-setting-value">5 imgs / 15 files → 15 msgs, then long timer</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Voice (logged-in free)</span><span class="vault-setting-value">30 min/day, resets at midnight UTC</span></div>
                     <div class="vault-setting-row"><span class="vault-setting-label">Guest Image Gen</span><span class="vault-setting-value">2/day</span></div>
-                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Uploads / Edits</span><span class="vault-setting-value">3/day / 1/day</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Guest Uploads / Edits</span><span class="vault-setting-value">3/day / blocked</span></div>
                     <div class="vault-setting-row"><span class="vault-setting-label">Guest Pause</span><span class="vault-setting-value">60 msgs → 30min (blocks chat + images)</span></div>
-                    <div class="vault-setting-row"><span class="vault-setting-label">Pro Limits</span><span class="vault-setting-value">100/day each</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Pro Limits</span><span class="vault-setting-value">100/day each; pro timer 10–30m / 1h on exploit</span></div>
+                    <div class="vault-setting-row"><span class="vault-setting-label">Limit Popups</span><span class="vault-setting-value">Countdown + login/upgrade follow-up</span></div>
                 </div>
             </div>
             <button class="vault-btn primary" style="width:100%;margin-top:16px;padding:12px;" onclick="window.location.href='/app'">← Back to App</button>`;
+
+        // Staff changelog: the deep technical notes only staff see.
+        try {
+            const data = await api('/api/changelog');
+            const staff = data.staff_changes || data.changes || [];
+            const card = document.createElement('div');
+            card.className = 'vault-card';
+            card.style.cssText = 'margin-top:16px;';
+            card.innerHTML = `
+                <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.querySelector('.vault-changelog-body').style.display = this.parentElement.querySelector('.vault-changelog-body').style.display === 'none' ? 'block' : 'none'"><span>🛠️ Changelog — v${data.version} (staff)</span></div>
+                <div class="vault-changelog-body" style="display:none;padding-top:8px;">
+                    ${staff.map(c => { const d = document.createElement('div'); d.textContent = c; return `<div style="padding:6px 0;border-bottom:1px solid #222;font-size:13px;color:#C0C7D1;">${d.innerHTML}</div>`; }).join('')}
+                </div>`;
+            el.appendChild(card);
+        } catch (e) {}
     },
 
     // ═══════════════════════════ OWNER COMMAND ═══════════════════════════

@@ -33,6 +33,19 @@ Still open / not addressed:
 - **Removed the 5-day Pro trial**: "Start Pro Trial"/free-trial messaging removed; `pro_monthly` now goes through normal checkout; the auto `checkTrialOffer` popup removed.
 
 ---
+## 🔧 NEWEST (18.1) — batch: dynamic limits, media window, voice meter, auto image gen & split changelog
+- **Dynamic cooldown timers** — `limits.py`: new `User.cooldown_until` column (auto-migrated in `database.py`). Hitting a limit starts a timer — free: **1h–18h** from `_usage_profile` intensity (msgs today / last hour / 10-min bursts + media volume); Pro: **10–30 min** normally, fixed **60 min** on exploitation (≥60 msgs/hr, ≥30 in 10 min, ≥15 media/day). The generic cooldown gate at the top of `check_limit` blocks *every* limited action until it expires.
+- **Images & files count as messages** — image/file/document actions now also log a `message` UsageLog row (feeds both the daily counters and the intensity profile).
+- **Chat media window** — new `check_chat_media_window` (replaces `check_image_file_window`): after **5 image gens** or **15 file uploads** in one chat (`[Image` / `[File:` markers), a **15-message allowance** runs (media counts as messages), then a cooldown starts (long for free, short for Pro, guest pause for guests). Called from `chats.py` before streaming.
+- **File editor/generator system** — guests get `403` on file edits & document generation ("Please log in"); free logged-in users get **10 combined create/edit actions/day** (upload+edit+doc-gen counted together) then a **fixed 1-hour cooldown**; Pro keeps 100/day each. `generate.py` now enforces it (previously no `check_limit` at all).
+- **Voice meter** — `voice.js` client-side accumulator keyed by UTC date; logged-in free users get **30 min of voice-mode chat/day**; opening voice mode after the cap shows a "Voice limit reached — resets at midnight (UTC)" popup. Pro/Ultimate/Owner unlimited; guests unchanged.
+- **Limit popups** — `api.js` `showLimitPopup(detail)`: fullscreen "LIMIT REACHED" countdown modal with live timer, **Login/Register** for guests (the guest image-limit follow-up) and **Upgrade for more** for logged-in. `billing.js` now routes 429 messages containing `wait Xm Ys`/cooldown/pause to the popup; modal de-dup through `window.__modalOpen`. `chat.js` `_handleSendError` shows the popup on countdowns and on persistent non-timer limits.
+- **Generated images persisted** — `image.py` accepts optional `chat_id` and saves an assistant message (`**Prompt:** … ![Generated image](url)`) so images survive reload and count toward the media window.
+- **Auto image generation** — `detectImageRequest()` (app.js) matches "generate a pic of…", "i want a pic of…", etc.; `Chat.generateImageNow` generates + persists before sending. Image-gen button now reuses the same path.
+- **Changelog split** — `main.py` now serves `user_changes` + `staff_changes`; app shows the role-appropriate list (staff include technical notes); vault Settings shows a collapsible staff changelog.
+- Docs: `LIMITS.md` rewritten, `CHANGELOG.md` 18.1 entry, `FEATURE_LIST.md` guest line updated, vault limits display + config export updated.
+
+---
 ## 🔧 NEWEST — batch: controls, limits, offline & polish (see CHANGELOG 17.1)
 - **Vault admin list hygiene** — `renderAdmins` + stat cards now filter out `is_deleted` users end-to-end (deleted admins no longer appear in Admin Management or counts).
 - **Global AI OFF really silences the AI** — `chats.py` now checks the `ai_enabled` system setting; user messages are saved but the model returns an empty `[DONE]` stream for everyone except the Owner (also applies to edit/regenerate). No more "I'm still underserved by disabling AI".

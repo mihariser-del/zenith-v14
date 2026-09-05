@@ -1,3 +1,18 @@
+// Auto image generation: detects when a message clearly asks for an image
+// ("generate a pic of...", "i want a pic of...", etc.) and extracts the prompt.
+function detectImageRequest(text) {
+    const t = String(text || '').trim();
+    if (!t) return null;
+    if (t.length > 300) return null;
+    const genRe = /^(?:please\s+)?(?:can\s+you\s+)?(?:generate|create|make|draw|get|give)\s+(?:me\s+)?(?:an?\s+|a\s+)?(?:image|picture|pic|photo|logo|artwork|drawing|wallpaper|icon|portrait|avatar)s?\s+(?:of|for|showing)\s+(.{4,240})$/i;
+    const m = t.match(genRe);
+    if (m) return m[1].replace(/[.!?]+$/, '').trim();
+    const wantRe = /^(?:i\s+(?:want|wanna|need|would\s+love)|please\s+show\s+me)\s+(?:to\s+see\s+)?(?:a|an|the)\s*(?:image|picture|pic|photo|logo|artwork|drawing|wallpaper|icon|portrait|avatar)s?\s+(?:of|for|showing)\s+(.{4,240})$/i;
+    const m2 = t.match(wantRe);
+    if (m2) return m2[1].replace(/[.!?]+$/, '').trim();
+    return null;
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     let user;
     try {
@@ -24,6 +39,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     const displayName = user.display_name || user.username;
+    window.user = user; // expose for voice meter / billing guest fallback
     const nameTextEl = $('user-name-text') || $('user-name-display');
     const badgeEl = $('user-role-badge');
     if (nameTextEl) nameTextEl.textContent = displayName;
@@ -531,21 +547,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('image-gen-btn').addEventListener('click', async () => {
         const prompt = await showPrompt('Describe the image you want to generate');
         if (!prompt || !prompt.trim()) return;
-        showToast('Generating image...', '');
-        try {
-            const { url } = await api('/api/image/generate', { method: 'POST', body: JSON.stringify({ prompt: prompt.trim(), width: 1024, height: 1024 }) });
-            Chat.appendMessage('assistant', `**Prompt:** ${prompt}`);
-            const container = $('chat-container');
-            const lastWrapper = container.querySelector('.msg-wrapper.assistant:last-of-type');
-            if (lastWrapper) {
-                const img = document.createElement('img');
-                img.src = url; img.alt = prompt; img.className = 'msg-image'; img.style.maxWidth = '360px';
-                img.onload = () => { container.scrollTop = container.scrollHeight; };
-                img.onerror = () => { showToast('Image failed to load, try again', 'error'); img.remove(); };
-                lastWrapper.querySelector('.msg-bubble').before(img);
-            }
-            showToast('Image generated!', 'success');
-        } catch (e) { showToast('Image gen failed: ' + e.message, 'error'); }
+        await Chat.generateImageNow(prompt.trim());
     });
     $('search-toggle-btn').addEventListener('click', () => {
         const panel = $('search-results');
@@ -683,15 +685,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Changelog popup ---
     // "Seen version" is tracked PER-USER so a new account on a device that already saw the
     // latest version still receives the changelog (it isn't suppressed by the previous account).
+    // Normal users see the user-facing entries; owners & admins get the deep technical notes too.
     const _chgKey = 'zenith_version_' + user.username;
     (async () => {
         try {
             const data = await api('/api/changelog');
             const seen = localStorage.getItem(_chgKey);
             if (seen !== data.version) {
+                const staffView = isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
+                const changes = staffView ? (data.staff_changes || data.changes) : (data.user_changes || data.changes);
                 $('changelog-title').textContent = `What's New — v${data.version}`;
                 $('changelog-version').textContent = `Version ${data.version}`;
-                $('changelog-list').innerHTML = data.changes.map(c => `<li>${c}</li>`).join('');
+                $('changelog-list').innerHTML = changes.map(c => `<li>${c}</li>`).join('');
                 $('changelog-modal').style.display = 'flex';
                 $('close-changelog').onclick = () => { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; };
                 $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; } });

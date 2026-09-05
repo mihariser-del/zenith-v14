@@ -26,6 +26,69 @@ function showToast(msg, type = '') {
     setTimeout(() => { toast.style.transition = 'opacity .3s'; toast.style.opacity = '0'; setTimeout(() => toast.remove(), 300); }, 3000);
 }
 
+function showLimitPopup(detail) {
+    const d = String(detail || '');
+    if (window.__limitPopupOpen) return;
+    window.__limitPopupOpen = true;
+    window.__modalOpen = true;
+
+    // Parse any countdown in the message ("wait 5m 30s" / "30 minute pause")
+    let secs = 0;
+    let m = d.match(/wait\s+(\d+)m\s*(\d+)s/i);
+    if (m) secs = parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+    else {
+        m = d.match(/(\d+)\s*minute\s*pause/);
+        if (m) secs = parseInt(m[1], 10) * 60;
+    }
+    const isGuest = /guest/i.test(d);
+
+    const wrap = document.createElement('div');
+    wrap.id = 'limit-popup';
+    wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.9);backdrop-filter:blur(10px);animation:fadeIn .25s;';
+    const countArea = secs
+        ? `<div id="limit-popup-count" style="color:#F87171;font-size:34px;font-weight:800;letter-spacing:1px;margin-bottom:18px;">&nbsp;</div>`
+        : '';
+    const btnArea = isGuest
+        ? `<button id="limit-popup-login" style="width:100%;padding:13px;background:linear-gradient(135deg,#DDE4EE,#8B949E);color:#111315;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:15px;">Login / Register</button>`
+        : `<button id="limit-popup-upgrade" style="width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FF8C00);color:#000;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:15px;">Upgrade for more</button>`;
+    wrap.innerHTML = `
+        <div style="background:linear-gradient(160deg,#221418,#2a1518 50%,#1a0f12);border:2px solid #F87171;border-radius:20px;padding:40px 44px;max-width:460px;width:92%;text-align:center;box-shadow:0 0 80px rgba(248,113,113,.22),0 24px 60px rgba(0,0,0,.6);">
+            <div style="font-size:60px;margin-bottom:12px;">⏳</div>
+            <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(248,113,113,.14);border:1px solid rgba(248,113,113,.4);font-size:10px;font-weight:700;letter-spacing:2px;color:#F87171;margin-bottom:14px;">LIMIT REACHED</div>
+            <h2 style="color:#fff;font-size:22px;margin:0 0 10px;">${isGuest ? 'Guest mode limit' : 'Daily limit reached'}</h2>
+            <p id="limit-popup-detail" style="color:#C0C7D1;font-size:14px;line-height:1.6;margin:0 0 14px;"></p>
+            ${countArea}
+            ${btnArea}
+            <button id="limit-popup-close" style="margin-top:12px;background:transparent;border:none;color:#8B949E;cursor:pointer;font-size:12px;">I'll wait</button>
+        </div>`;
+    document.body.appendChild(wrap);
+    const detailEl = wrap.querySelector('#limit-popup-detail');
+    detailEl.textContent = d;
+    if (secs) {
+        const countEl = wrap.querySelector('#limit-popup-count');
+        const endTs = Date.now() + secs * 1000;
+        const tick = () => {
+            const left = Math.max(0, Math.round((endTs - Date.now()) / 1000));
+            if (left <= 0) { countEl.textContent = 'Resetting...'; clearInterval(wrap._t); return; }
+            const mm = Math.floor(left / 60), ss = left % 60;
+            countEl.textContent = (mm > 0 ? mm + 'm ' : '') + ss + 's';
+        };
+        tick();
+        wrap._t = setInterval(tick, 1000);
+    }
+    const close = () => { if (wrap._t) clearInterval(wrap._t); wrap.remove(); window.__limitPopupOpen = false; window.__modalOpen = false; };
+    wrap.querySelector('#limit-popup-close').addEventListener('click', close);
+    wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+    const loginBtn = wrap.querySelector('#limit-popup-login');
+    if (loginBtn) loginBtn.addEventListener('click', () => { if (wrap._t) clearInterval(wrap._t); wrap.remove(); window.__limitPopupOpen = false; window.__modalOpen = false; window.location.href = '/'; });
+    const upgradeBtn = wrap.querySelector('#limit-popup-upgrade');
+    if (upgradeBtn) upgradeBtn.addEventListener('click', () => {
+        close();
+        if (window.Billing && typeof window.Billing.showUpgrade === 'function') window.Billing.showUpgrade('Unlock more on Zenith');
+    });
+    return wrap;
+}
+
 function showEmergencyPopup(type) {
     const id = 'emergency-popup-' + (type || 'alert') + '-' + Date.now();
     if (document.getElementById(id)) return;

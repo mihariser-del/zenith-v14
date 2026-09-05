@@ -6,6 +6,64 @@ const Voice = {
     voiceModeActive: false,
     voiceModeRecognition: null,
 
+    // 30-min/day voice cap for logged-in users (resets at midnight UTC).
+    VOICE_DAY_MS: 30 * 60 * 1000,
+
+    _dayKey() {
+        const d = new Date();
+        return 'zenith_voice_utc_' + d.getUTCFullYear() + '-' + (d.getUTCMonth() + 1) + '-' + d.getUTCDate();
+    },
+    _voiceUsedMs() {
+        try { return parseInt(localStorage.getItem(this._dayKey()) || '0', 10) || 0; } catch (e) { return 0; }
+    },
+    _addVoiceTime(ms) {
+        try {
+            const cur = this._voiceUsedMs();
+            localStorage.setItem(this._dayKey(), String(cur + ms));
+        } catch (e) {}
+    },
+    voiceLimitReached() {
+        if (!window.user || !window.user.username) return false;
+        if (window.user.username.startsWith('guest_')) return false; // guests keep current behaviour
+        if (window.user.is_ultimate || window.user.role === 'owner') return false;
+        if (window.user.is_pro) return false; // Pro voice unlimited per plan
+        return this._voiceUsedMs() >= this.VOICE_DAY_MS;
+    },
+    voiceMinutesLeft() {
+        const used = this._voiceUsedMs();
+        return Math.max(0, Math.round((this.VOICE_DAY_MS - used) / 60000));
+    },
+    _startVoiceTimer() {
+        if (this._voiceTimer) return;
+        this._voiceAccumMs = 0;
+        this._voiceTimerStart = Date.now();
+        this._voiceTimer = setInterval(() => {
+            if (!this.voiceModeActive) return;
+            const now = Date.now();
+            this._voiceAccumMs += now - this._voiceTimerStart;
+            this._voiceTimerStart = now;
+            if (this._voiceAccumMs >= 30000) {
+                this._addVoiceTime(this._voiceAccumMs);
+                this._voiceAccumMs = 0;
+            }
+            if (this.voiceLimitReached()) {
+                this.closeVoiceMode();
+                if (typeof showLimitPopup === 'function') {
+                    showLimitPopup('Voice limit reached — 30 minutes of voice chat used today. Resets at midnight (UTC).');
+                } else {
+                    showToast('Voice limit reached — resets at midnight (UTC)', 'error');
+                }
+            }
+        }, 5000);
+    },
+    _stopVoiceTimer() {
+        if (this._voiceTimer) {
+            clearInterval(this._voiceTimer);
+            this._voiceTimer = null;
+            if (this._voiceAccumMs > 0) { this._addVoiceTime(this._voiceAccumMs); this._voiceAccumMs = 0; }
+        }
+    },
+
     init() {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) {
@@ -99,10 +157,19 @@ const Voice = {
     },
 
     openVoiceMode() {
+        if (this.voiceLimitReached()) {
+            if (typeof showLimitPopup === 'function') {
+                showLimitPopup('Voice limit reached — 30 minutes of voice chat used today. Resets at midnight (UTC).');
+            } else {
+                showToast('Voice limit reached — resets at midnight (UTC)', 'error');
+            }
+            return;
+        }
         const modal = $('voice-mode-modal');
         if (!modal) return;
         this.voiceModeActive = true;
         modal.style.display = 'flex';
+        this._startVoiceTimer();
         const status = $('voice-status');
         if (status) status.textContent = 'Listening... speak naturally';
         const transcript = $('voice-transcript');
@@ -114,6 +181,7 @@ const Voice = {
         const modal = $('voice-mode-modal');
         if (modal) modal.style.display = 'none';
         this.voiceModeActive = false;
+        this._stopVoiceTimer();
         this.isListening = false;
         try { this.recognition.stop(); } catch {}
         $('mic-btn').classList.remove('active');

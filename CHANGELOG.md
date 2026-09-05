@@ -1,5 +1,29 @@
 # Changelog
 
+## 18.1 — Batch: dynamic limits, media window, voice meter, auto image gen & split changelog
+
+- **Dynamic limit timers**: logged-in users get a cooldown from **1h to 18h**,
+  computed from usage intensity (messages today / last hour / 10-min bursts +
+  media volume); **Pro** gets 10–30 min normally and a fixed **1h** when
+  exploiting features
+- **Chat media window**: after **5 image gens** or **15 file uploads** in one chat,
+  you get a **15-message allowance** (images/files count as messages), then a long
+  cooldown starts
+- **Images and files count as messages** for the limit counters
+- **Voice meter**: logged-in free users get **30 minutes of voice chat per day**
+  (resets at midnight UTC) with a popup after the cap
+- **File editor/generator system**: guests are blocked entirely; logged-in users
+  get **10 file create/edit actions/day** then a **fixed 1-hour cooldown**
+- **Limit popups**: every cooldown now shows a full-screen countdown popup
+  (`LIMIT REACHED`) with a **Login/Register** button for guests (image-limit
+  follow-up) and **Upgrade for more** for logged-in users
+- **Auto image generation**: type "generate a pic of..." / "i want a pic of..." and
+  Zenith generates the image automatically (persisted in the chat)
+- **Changelog split**: normal users see what affects them; owners & admins see the
+  deep technical notes (vault too)
+- New `User.cooldown_until` column (auto-migrated); `generate.py` now enforces the
+  file_tool limit; generated images are persisted as assistant messages
+
 ## 17.1 — Batch: control room, limits, offline & polish
 
 - AI OFF global control now truly silences the model — messages are saved but the AI

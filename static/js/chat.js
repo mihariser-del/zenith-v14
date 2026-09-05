@@ -408,6 +408,17 @@ const Chat = {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ content, filename, format }),
             });
+            if (!res.ok) {
+                let detail = '';
+                try { const j = await res.json(); detail = (j && j.detail) || ''; } catch (e) {}
+                if (detail) {
+                    showToast('Download failed: ' + detail, 'error');
+                    if (typeof showLimitPopup === 'function' && (/wait\s+\d+m\s*\d+s|cooldown|pause|guest|limit/i.test(detail))) showLimitPopup(detail);
+                } else {
+                    showToast('Download failed (' + res.status + ')', 'error');
+                }
+                return;
+            }
             const blob = await res.blob();
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
@@ -416,6 +427,27 @@ const Chat = {
             URL.revokeObjectURL(a.href);
         } catch (e) {
             showToast('Download failed: ' + e.message, 'error');
+        }
+    },
+
+    // Generate an image now (used by the auto image-gen hook + image button),
+    // persisting it as an assistant message so it survives reload.
+    async generateImageNow(prompt) {
+        if (!prompt || !prompt.trim()) return false;
+        if (!this.activeId) await this.create();
+        try {
+            const { url } = await api('/api/image/generate', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: prompt.trim(), width: 1024, height: 1024, chat_id: this.activeId }),
+            });
+            this.appendMessage('assistant', `**Prompt:** ${prompt}\n\n![Generated image](${url})`);
+            showToast('Image generated!', 'success');
+            return true;
+        } catch (e) {
+            const msg = String(e.message || '');
+            if (typeof showLimitPopup === 'function' && /wait\s+\d+m\s*\d+s|cooldown|pause|guest/i.test(msg)) showLimitPopup(msg);
+            else showToast('Image generation failed: ' + msg, 'error');
+            return false;
         }
     },
 
@@ -485,6 +517,13 @@ const Chat = {
 
         this.attachments = [];
         this.renderAtts();
+
+        // Auto image generation: if the text clearly asks for an image
+        // ("generate a pic of...", "i want a pic of..."), Zenith makes it for you.
+        if (text && typeof window.detectImageRequest === 'function') {
+            const imgPrompt = window.detectImageRequest(text);
+            if (imgPrompt) await this.generateImageNow(imgPrompt);
+        }
 
         this.isStreaming = true;
         $('send-btn').style.display = 'none';
@@ -640,14 +679,23 @@ const Chat = {
         const isGuest = lower.includes('guest');
         const isPause = lower.includes('pause') || secs > 0;
         const isLimit = lower.includes('limit') || lower.includes('reached');
-        if (isPause && secs > 0) {
+        if (secs > 0) {
+            // Countdown timers always surface a popup (with a live countdown), plus the
+            // in-composer banner whose tick auto-unblocks messaging when time elapses.
             this._limitBlocked = true;
             this._limitUntil = Date.now() + secs * 1000;
+            if (typeof showLimitPopup === 'function') showLimitPopup(d);
             this._showLimitBanner(secs, isGuest);
         } else if (isLimit || isGuest) {
-            this._limitBlocked = true;
-            this._limitUntil = 0;
-            this._showLimitBanner(0, isGuest, d);
+            // Limits without a timer: banner first, popup when the user persists.
+            if (this._limitPopupShown) {
+                if (typeof showLimitPopup === 'function') showLimitPopup(d);
+            } else {
+                this._limitBlocked = true;
+                this._limitUntil = 0;
+                this._limitPopupShown = true;
+                this._showLimitBanner(0, isGuest, d);
+            }
         } else {
             this._clearLimitBanner();
             if (typeof showToast === 'function') showToast('Could not send: ' + d, 'error');
@@ -688,6 +736,7 @@ const Chat = {
         if (this._limitTimer) { clearInterval(this._limitTimer); this._limitTimer = null; }
         const b = document.getElementById('limit-banner');
         if (b) b.remove();
+        this._limitPopupShown = false;
         if (unblock !== false) { this._limitBlocked = false; this._limitUntil = 0; }
     },
 

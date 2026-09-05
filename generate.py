@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 from database import get_db
 from auth import get_current_user_from_cookie
+from limits import check_limit
 
 router = APIRouter(prefix="/api/generate", tags=["generate"])
 
@@ -21,7 +22,10 @@ class GenerateDocRequest(BaseModel):
 
 @router.post("/document")
 async def generate_document(req: GenerateDocRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    await get_current_user_from_cookie(request, db)
+    user = await get_current_user_from_cookie(request, db)
+    # File editor/generator system: guests blocked entirely, logged-in (free)
+    # users get 10 combined create/edit actions/day then a fixed 1h cooldown.
+    await check_limit(user, db, "file_tool")
     content = req.content
     fmt = req.format.lower()
     filename = req.filename[:50]

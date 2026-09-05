@@ -84,16 +84,16 @@ function showLimitPopup(detail) {
         // Guest clicking "Login / Register" — warn like the logout flow, then log
         // the guest out so they land on the register screen (plain /app navigation
         // would bounce them straight back in because the guest cookie is still valid).
-        if (wrap._t) clearInterval(wrap._t);
-        wrap.remove();
-        window.__limitPopupOpen = false;
-        window.__modalOpen = false;
+        close();
+        let ok = true;
         if (typeof showConfirm === 'function') {
-            const ok = await showConfirm('End guest session?', 'Using log out will permanently delete this guest account and all its messages. They cannot be recovered. Continue?', false);
+            try {
+                ok = await showConfirm('End guest session?', 'Using log out will permanently delete this guest account and all its messages. They cannot be recovered. Continue?', false);
+            } catch (e) { ok = true; }
             if (!ok) return;
         }
         try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-        window.location.href = '/';
+        window.location.replace('/');
     });
     const upgradeBtn = wrap.querySelector('#limit-popup-upgrade');
     if (upgradeBtn) upgradeBtn.addEventListener('click', () => {

@@ -59,7 +59,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.user = user; // expose for voice meter / billing guest fallback
     const nameTextEl = $('user-name-text') || $('user-name-display');
     const badgeEl = $('user-role-badge');
+    const mobileNameEl = $('mobile-uname');
     if (nameTextEl) nameTextEl.textContent = displayName;
+    if (mobileNameEl) mobileNameEl.textContent = displayName;
     if (badgeEl) badgeEl.innerHTML = '';
     // Real-time display-name hook used by Settings so the top bar updates immediately
     window.__applyDisplayName = (name) => {
@@ -67,6 +69,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { user.display_name = n; } catch (e) {}
         const el = $('user-name-text') || $('user-name-display');
         if (el) el.textContent = n;
+        const mel = $('mobile-uname');
+        if (mel) mel.textContent = n;
     };
     // Check for pending role change notification
     let _lastHandled = '';
@@ -661,6 +665,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const close = (ev) => { if (!popup.contains(ev.target)) { popup.remove(); document.removeEventListener('click', close); } };
         setTimeout(() => document.addEventListener('click', close), 100);
     });
+
+    // Mobile top bar: username + logout (always visible next to the hamburger)
+    const mobileLogout = $('mobile-logout-btn');
+    if (mobileLogout) {
+        mobileLogout.addEventListener('click', () => { $('logout-btn').click(); });
+        mobileLogout.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            $('logout-btn').dispatchEvent(new MouseEvent('contextmenu', { bubbles: true }));
+        });
+    }
 
     const input = $('user-input');
     input.addEventListener('input', () => {

@@ -101,6 +101,12 @@ body.auth-page { display: block; }
 .hamburger.hidden { opacity: 0; pointer-events: none; transform: scale(0.8); }
 .hamburger svg { width: 22px; height: 22px; }
 
+/* MOBILE TOP BAR (username + logout, always visible) */
+.mobile-topbar { display: none; position: fixed; top: 0; left: 0; right: 0; height: 52px; background: var(--sidebar); border-bottom: 1px solid var(--border); z-index: 100; align-items: center; gap: 10px; padding: 0 12px 0 66px; }
+.mobile-uname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; color: var(--text); }
+.mobile-logout { background: none; border: none; color: var(--error); font-size: 12px; cursor: pointer; flex-shrink: 0; padding: 6px 8px; border-radius: 6px; }
+.mobile-logout:hover { background: var(--hover-bg); }
+
 /* MAIN */
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; position: relative; }
 #chat-container { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: #333 #0a0a0a; }
@@ -245,6 +251,8 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; }
 @media (max-width: 900px) {
     .hamburger { display: flex; }
     .hamburger.hidden { display: none !important; }
+    .mobile-topbar { display: flex; }
+    .sidebar.open + .mobile-topbar { display: none; }
     .sidebar { position: fixed; top: 0; left: 0; width: 280px; min-width: 280px; height: 100dvh; height: 100vh; transform: translateX(-100%); box-shadow: none; overflow-y: auto; display: flex; flex-direction: column; }
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }

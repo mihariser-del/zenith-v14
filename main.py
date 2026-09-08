@@ -26,6 +26,7 @@ from google_auth import router as google_router
 from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
+from personal_requests import router as personal_requests_router
 
 VERSION = "18.1"
 
@@ -38,6 +39,7 @@ USER_CHANGELOG = [
     "Clear countdown popups: whenever a limit kicks in you'll see exactly how long to wait",
     "Just ask for an image: type something like 'generate a pic of...' and Zenith creates it automatically",
     "Changelog is now split — normal users see what affects them; staff see the deep technical notes",
+    "Personal Requests: ask the admin for anything personally (a feature, a fix, a custom item) — they reply right here in the sidebar",
 ]
 
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
@@ -51,6 +53,7 @@ STAFF_CHANGELOG = [
     "voice 30-min/day meter (localStorage, resets UTC midnight) — voice mode blocks + popup after the cap",
     "auto image-gen: detectImageRequest() regex in chat prompts ('generate a pic of...', 'i want a pic of...')",
     "changelog endpoint returns user_changes + staff_changes; app shows per role",
+    "personal requests: /api/requests (create/my/admin/respond/delete); UserRequest table; staff reply in the Request Inbox with badge, device push + Discord toast; users get reply popups",
 ]
 
 
@@ -84,6 +87,7 @@ app.include_router(google_router)
 app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(global_controls_router)
+app.include_router(personal_requests_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

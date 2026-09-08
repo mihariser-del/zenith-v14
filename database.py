@@ -108,6 +108,7 @@ class User(Base):
     files = relationship("UploadedFile", back_populates="user", cascade="all, delete-orphan")
     login_history = relationship("LoginHistory", back_populates="user", cascade="all, delete-orphan")
     usage_logs = relationship("UsageLog", back_populates="user", cascade="all, delete-orphan")
+    requests = relationship("UserRequest", back_populates="user", cascade="all, delete-orphan")
 
 
 class UsageLog(Base):
@@ -245,6 +246,21 @@ class Feedback(Base):
     responded_at = Column(DateTime, nullable=True)
 
     user = relationship("User")
+
+
+class UserRequest(Base):
+    __tablename__ = "user_requests"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    username = Column(String(50), nullable=False)
+    content = Column(Text, nullable=False)
+    reply = Column(Text, default="")
+    reply_by = Column(String(20), default="")  # admin | owner
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    responded_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="requests")
 
 
 class StaffMessage(Base):

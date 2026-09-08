@@ -40,6 +40,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             New Chat
         </button>
+        <button class="btn info" id="request-btn" title="Personal Request" style="position:relative; justify-content:center;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M2 7h20v5a4 4 0 0 0-4 4l-2-1-2 1-2-1-2 1-2-1-2 1a4 4 0 0 0-4-4z"/><path d="M12 22V7M12 7H7.5A2.5 2.5 0 0 1 7.5 2C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            Personal Request
+            <span id="request-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#4CC9F0; color:#06121a; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
+        </button>
     </div>
 
     <div class="chat-list" id="chat-list"></div>
@@ -526,6 +531,32 @@
         <div id="feedback-admin-list" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
         <div class="modal-actions" style="margin-top:15px;">
             <button class="btn" id="close-feedback-admin" style="border:1px solid rgba(255,215,0,0.3); padding:10px; border-radius:8px; background:transparent; color:#FFD700;">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="request-modal" class="modal">
+    <div class="modal-content" style="max-width:550px;">
+        <h3 style="text-align:center; margin-bottom:15px; color:var(--accent-solid);">Personal Request</h3>
+        <p style="text-align:center; color:#888; font-size:13px; margin-bottom:15px;">Tell us what you personally want — a feature, a fix, a custom item. An admin receives it and replies right here.</p>
+        <div style="display:flex; gap:8px; margin-bottom:15px;">
+            <textarea id="request-input" rows="3" placeholder="Describe what you want done, changed or added for you personally..." style="flex:1; padding:10px; background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; outline:none; font-size:14px; resize:vertical;"></textarea>
+        </div>
+        <button class="btn primary" id="request-submit" style="width:100%; justify-content:center; margin-bottom:15px;">Send Request</button>
+        <div id="request-list" style="max-height:300px; overflow-y:auto; display:flex; flex-direction:column; gap:10px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-request" style="border:1px solid var(--border); padding:10px; border-radius:8px; background:transparent; color:var(--text);">Close</button>
+        </div>
+    </div>
+</div>
+
+<div id="request-admin-modal" class="modal">
+    <div class="modal-content" style="max-width:650px; background:linear-gradient(145deg, #0d1a2a, #102a3a); border:2px solid #4CC9F0;">
+        <h3 style="text-align:center; margin-bottom:15px; color:#4CC9F0;">&#127873; Request Inbox</h3>
+        <p style="text-align:center; color:#4CC9F0BB; font-size:12px; margin-bottom:15px;">Personal requests from users — reply to fulfill them.</p>
+        <div id="request-admin-list" style="max-height:400px; overflow-y:auto; display:flex; flex-direction:column; gap:10px; margin-bottom:15px;"></div>
+        <div class="modal-actions" style="margin-top:15px;">
+            <button class="btn" id="close-request-admin" style="border:1px solid rgba(76,201,240,0.3); padding:10px; border-radius:8px; background:transparent; color:#4CC9F0;">Close</button>
         </div>
     </div>
 </div>

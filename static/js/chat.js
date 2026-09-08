@@ -474,10 +474,13 @@ const Chat = {
     },
 
     // True when this chat already contains a generated image (follow-ups need one).
+    // The markdown "![Generated image]" is rendered into an <img alt="Generated image">
+    // element, so we must check the DOM, not the raw text content.
     _hasGeneratedImage() {
         const container = $('chat-container');
         if (!container) return false;
-        return /!\[Generated image\]\(/.test(container.textContent || '');
+        if (/!\[Generated image\]\(/.test(container.textContent || '')) return true;
+        return !!container.querySelector('img[alt="Generated image"]');
     },
 
     updateStreamingBubble(bubble, text) {

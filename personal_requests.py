@@ -20,9 +20,11 @@ class RespondRequestModel(BaseModel):
 
 @router.post("")
 async def create_request(req: CreateRequestModel, request: Request, db: AsyncSession = Depends(get_db)):
-    # Personal Request system: any logged-in user (including guests) sends what they
+    # Personal Request system: a logged-in (non-guest) user sends what they
     # personally want to the staff; an admin/owner receives it and replies.
     user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot send personal requests. Please login.")
     content = req.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Request content required")

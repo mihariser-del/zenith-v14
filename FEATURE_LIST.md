@@ -45,7 +45,7 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 - Countdown limit popups with login/upgrade follow-up (`showLimitPopup` in `api.js`)
 
 ## 5b. Personal Requests (`personal_requests.py`)
-- Every user (incl. guests) has a **Personal Request** tab in the sidebar: they type what they personally want (feature, fix, custom item) and staff receive it
+- Every logged-in user has a **Personal Request** tab in the sidebar (guests are blocked — server 403 + button hidden): they type what they personally want (feature, fix, custom item) and staff receive it
 - `POST /api/requests`, `GET /api/requests/my`, `GET /api/requests/admin`, `POST /api/requests/{id}/respond`, `DELETE /api/requests/{id}` (staff any, users their own)
 - Admin/owner Request Inbox modal (silver/blue themed): reply inline or delete; badge + toast + device/Discord push on new requests; users get a reply popup + badge when answered
 

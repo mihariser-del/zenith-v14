@@ -248,6 +248,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isGuest) {
         showToast('Guest mode — some features limited', '');
         ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
+        const reqBtn = $('request-btn'); if (reqBtn) reqBtn.style.display = 'none';
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     // In-app + real device/browser push (OS notification center + mobile panel), uses showDiscordToast

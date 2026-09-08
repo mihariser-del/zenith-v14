@@ -83,7 +83,6 @@ async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = De
         targets = await db.execute(select(User).where(User.id.in_(req.user_ids), User.is_deleted == False))
         for t in targets.scalars().all():
             t.is_chosen = True
-            t.pending_notification = "chosen"
             chosen.append({"id": t.id, "username": t.username, "email": t.email})
     await db.commit()
     await _set_setting(db, "chosen", ",".join(str(c["id"]) for c in chosen))

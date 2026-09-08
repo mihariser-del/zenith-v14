@@ -119,6 +119,32 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
                 is_guest = True
         except: pass
 
+        # Personality Mirror: if this user has mirror mode on and an analyzed
+        # profile, tell the model to match how THEY write (tone, wording, vibe).
+        mirror_text = ""
+        try:
+            from database import User as UM
+            from sqlalchemy import select as _sel
+            from json import loads as _jloads
+            ures = await db.execute(_sel(UM).where(UM.id == user_id))
+            urow = ures.scalar_one_or_none()
+            if urow and getattr(urow, "personality_enabled", False):
+                _p = getattr(urow, "personality_profile", "") or ""
+                if _p:
+                    try:
+                        prof = _jloads(_p)
+                        mirror_text = (
+                            f"Mirror the user's communication style: tone \"{prof.get('tone', '')}\", "
+                            f"formality \"{prof.get('formality', '')}\", energy \"{prof.get('energy', '')}\", "
+                            f"humor \"{prof.get('humor', '')}\", emoji usage \"{prof.get('emoji_use', '')}\", "
+                            f"detail level \"{prof.get('detail_level', '')}\". Style summary: {prof.get('style_summary', '')}. "
+                            "Match their vocabulary, sentence length, energy and vibe in your replies while staying accurate and helpful."
+                        )
+                    except Exception:
+                        mirror_text = f"Mirror the user's communication style (match their tone, wording and vibe): {_p}"
+        except Exception:
+            mirror_text = ""
+
         if is_guest:
             memories = []
             kb_context = ""
@@ -196,6 +222,8 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         parts.append(f"Things you remember about this user:\n{memory_text}")
     if kb_context:
         parts.append(kb_context)
+    if mirror_text:
+        parts.append(mirror_text)
 
     return "\n\n".join(parts)
 

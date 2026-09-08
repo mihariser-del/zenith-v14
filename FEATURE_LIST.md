@@ -49,6 +49,13 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 - `POST /api/requests`, `GET /api/requests/my`, `GET /api/requests/admin`, `POST /api/requests/{id}/respond`, `DELETE /api/requests/{id}` (staff any, users their own)
 - Admin/owner Request Inbox modal (silver/blue themed): reply inline or delete; badge + toast + device/Discord push on new requests; users get a reply popup + badge when answered
 
+## 5c. Personality Mirror (`personality.py`)
+- Zenith **learns how you write** and mirrors your tone, formality, energy, humor, emoji use and detail level in its replies (auto, on by default)
+- Analyzer (cheap `openai/gpt-4o-mini` call) profiles your last 40 user messages; needs ≥5 messages; auto-refreshes every 15 min (first analysis is synchronous in `chats.py` so the very first reply can mirror; later refreshes run in background and apply to the next reply)
+- Injected into the system prompt via `build_system_prompt` (ai.py)
+- UI: Settings → System Prompt → Personality Mirror: on/off toggle, live profile chips, "Analyze now", "Reset profile"
+- Endpoints: `GET /api/personality/profile`, `POST /api/personality/settings`, `POST /api/personality/refresh`, `POST /api/personality/reset`; columns `personality_enabled/profile/updated_at`
+
 ## 6. Code Sandbox
 - Execute user code; auto-correct snippets; copy (`codeexec.py` + `codeexec.js`)
 

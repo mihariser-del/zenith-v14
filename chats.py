@@ -209,4 +209,12 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     web_search = body.get("web_search", False)
     research = body.get("research", False)
     factcheck = body.get("factcheck", False)
+    # Personality Mirror: auto-recompute the user's style profile after they send
+    # a message (first-time analytically synchronous so the reply can mirror;
+    # later refreshes are backgrounded and apply to the next reply).
+    try:
+        from personality import maybe_mirror_refresh
+        await maybe_mirror_refresh(user.id)
+    except Exception:
+        pass
     return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)

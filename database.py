@@ -99,6 +99,11 @@ class User(Base):
     pending_notification = Column(Text, default="")
     # Chosen helper — staff selected by the Owner to assist during shutdowns
     is_chosen = Column(Boolean, default=False)
+    # Personality Mirror: dynamically derived profile of how the user writes,
+    # used to make Zenith mirror their tone/formality/energy in replies.
+    personality_enabled = Column(Boolean, default=True)
+    personality_profile = Column(Text, default="")  # JSON profile from the analyzer
+    personality_updated_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -319,6 +324,9 @@ async def init_db():
             ("permissions", "TEXT DEFAULT ''"),
             ("pending_notification", "TEXT DEFAULT ''"),
             ("is_chosen", "BOOLEAN DEFAULT 0"),
+            ("personality_enabled", "BOOLEAN DEFAULT 1"),
+            ("personality_profile", "TEXT DEFAULT ''"),
+            ("personality_updated_at", "DATETIME"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

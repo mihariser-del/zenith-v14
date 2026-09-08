@@ -27,6 +27,7 @@ from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
 from personal_requests import router as personal_requests_router
+from personality import router as personality_router
 
 VERSION = "18.1"
 
@@ -40,6 +41,7 @@ USER_CHANGELOG = [
     "Just ask for an image: type something like 'generate a pic of...' and Zenith creates it automatically",
     "Changelog is now split — normal users see what affects them; staff see the deep technical notes",
     "Personal Requests: ask the admin for anything personally (a feature, a fix, a custom item) — they reply right here in the sidebar",
+    "Personality Mirror: Zenith studies how you write and matches your tone, energy and vibe in its replies (tunable in Settings → System Prompt)",
 ]
 
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
@@ -54,6 +56,7 @@ STAFF_CHANGELOG = [
     "auto image-gen: detectImageRequest() regex in chat prompts ('generate a pic of...', 'i want a pic of...')",
     "changelog endpoint returns user_changes + staff_changes; app shows per role",
     "personal requests: /api/requests (create/my/admin/respond/delete); UserRequest table; staff reply in the Request Inbox with badge, device push + Discord toast; users get reply popups",
+    "personality mirror: /api/personality (profile/settings/refresh/reset); analyzer openai/gpt-4o-mini on last 40 user msgs (>=5 to trigger), REFRESH_MINUTES=15; first analysis synchronous in chats.py hook, later refreshes backgrounded; injected into build_system_prompt; columns personality_enabled/profile/updated_at",
 ]
 
 
@@ -88,6 +91,7 @@ app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(global_controls_router)
 app.include_router(personal_requests_router)
+app.include_router(personality_router)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

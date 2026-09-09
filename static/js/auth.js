@@ -87,7 +87,36 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const username = $('forgot-username').value.trim();
                 const email = $('forgot-email').value.trim();
                 if (!username || !email) { $('forgot-msg').textContent = 'Fill all fields'; $('forgot-msg').className = 'auth-msg error'; return; }
+                // Show sending animation
+                $('forgot-step1').style.display = 'none';
+                const sendingDiv = document.createElement('div');
+                sendingDiv.id = 'forgot-sending';
+                sendingDiv.style.cssText = 'text-align:center; padding:30px 0;';
+                sendingDiv.innerHTML = `
+                    <div style="font-size:36px; margin-bottom:16px; animation:pulse 1.2s ease-in-out infinite;">&#9993;</div>
+                    <div style="font-size:16px; font-weight:600; color:var(--text); margin-bottom:8px;">Sending reset code...</div>
+                    <div style="font-size:13px; color:var(--text-secondary);">Check your inbox</div>
+                    <div style="margin-top:20px; display:flex; justify-content:center; gap:6px;">
+                        <div class="dot-loader"></div>
+                        <div class="dot-loader"></div>
+                        <div class="dot-loader"></div>
+                    </div>
+                `;
+                $('forgot-step1').parentNode.insertBefore(sendingDiv, $('forgot-step2'));
+                const style = document.createElement('style');
+                style.textContent = `
+                    @keyframes pulse { 0%,100%{transform:scale(1);opacity:1} 50%{transform:scale(1.15);opacity:.7} }
+                    .dot-loader { width:8px; height:8px; border-radius:50%; background:var(--accent-solid,#4CC9F0); animation:dotBounce 1.4s ease-in-out infinite; }
+                    .dot-loader:nth-child(2) { animation-delay:0.16s; }
+                    .dot-loader:nth-child(3) { animation-delay:0.32s; }
+                    @keyframes dotBounce { 0%,80%,100%{transform:scale(0.6);opacity:.4} 40%{transform:scale(1);opacity:1} }
+                `;
+                document.head.appendChild(style);
+
                 const res = await api('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username, email }) });
+                // Remove sending animation
+                const sending = $('forgot-sending');
+                if (sending) sending.remove();
                 $('forgot-msg').textContent = res.message + ' Enter the reset code below to continue.'; $('forgot-msg').className = 'auth-msg success';
                 goForgotStep2();
             } else {

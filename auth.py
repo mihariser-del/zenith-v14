@@ -102,6 +102,7 @@ def _client_ip(request: Request) -> str:
 def _send_reset_email(to_email: str, link: str) -> bool:
     host = os.getenv("SMTP_HOST", "").strip()
     if not host:
+        print("[forgot-password] SMTP_HOST not set — skipping email")
         return False
     port = int(os.getenv("SMTP_PORT", "587") or 587)
     user = os.getenv("SMTP_USER", "").strip()
@@ -116,6 +117,7 @@ def _send_reset_email(to_email: str, link: str) -> bool:
     msg = f"From: Zenith <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
     import smtplib
     try:
+        print(f"[forgot-password] Connecting to {host}:{port} as {user}...")
         if port == 465:
             with smtplib.SMTP_SSL(host, port, timeout=15) as s:
                 if user:
@@ -129,9 +131,10 @@ def _send_reset_email(to_email: str, link: str) -> bool:
                 if user:
                     s.login(user, pw)
                 s.sendmail(sender, [to_email], msg)
+        print(f"[forgot-password] Email sent successfully to {to_email}")
         return True
     except Exception as e:
-        print(f"[forgot-password] email delivery failed: {e}")
+        print(f"[forgot-password] email delivery FAILED: {type(e).__name__}: {e}")
         return False
 
 

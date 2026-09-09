@@ -1,4 +1,6 @@
 .env
+secret_key.txt
+*.key
 zenith.db
 __pycache__/
 *.pyc

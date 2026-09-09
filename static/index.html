@@ -83,17 +83,24 @@
 <div id="forgot-modal" class="modal" style="z-index:1600;">
     <div class="modal-content" style="max-width:400px; text-align:center;">
         <h3 style="color:#00ffff; margin-bottom:15px;">Reset Password</h3>
-        <p style="color:#888; font-size:13px; margin-bottom:15px;">Enter your username and email to verify, then set a new password.</p>
-        <input type="text" id="forgot-username" placeholder="Username" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
-        <input type="email" id="forgot-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
-        <div class="pw-wrap" style="margin-bottom:10px;">
-            <input type="password" id="forgot-newpw" placeholder="New password (min 6 chars)" style="width:100%; padding:12px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
-            <button type="button" class="pw-toggle" data-target="forgot-newpw" style="color:rgba(0,255,255,0.5);">&#128065;</button>
+        <div id="forgot-step1">
+            <p style="color:#888; font-size:13px; margin-bottom:15px;">Enter your username and email. We'll send you a secure reset code (expires in 30 minutes).</p>
+            <input type="text" id="forgot-username" placeholder="Username" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
+            <input type="email" id="forgot-email" placeholder="Email" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
+        </div>
+        <div id="forgot-step2" style="display:none;">
+            <p style="color:#888; font-size:13px; margin-bottom:15px;">Enter the reset code from the email, then choose a new password.</p>
+            <input type="text" id="forgot-token" placeholder="Reset code" style="width:100%; padding:12px; margin-bottom:10px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
+            <div class="pw-wrap" style="margin-bottom:10px;">
+                <input type="password" id="forgot-newpw" placeholder="New password (min 6 chars)" style="width:100%; padding:12px; background:rgba(0,0,0,0.5); border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:#fff; outline:none;">
+                <button type="button" class="pw-toggle" data-target="forgot-newpw" style="color:rgba(0,255,255,0.5);">&#128065;</button>
+            </div>
         </div>
         <div id="forgot-msg" class="auth-msg"></div>
         <div style="display:flex; gap:10px; justify-content:center;">
+            <button class="btn" id="forgot-back" style="display:none; border:1px solid var(--border); padding:10px 20px; border-radius:8px; background:transparent; color:var(--text);">Back</button>
             <button class="btn" id="forgot-cancel" style="border:1px solid var(--border); padding:10px 20px; border-radius:8px; background:transparent; color:var(--text);">Cancel</button>
-            <button class="btn primary" id="forgot-submit" style="padding:10px 20px; border-radius:8px; background:linear-gradient(135deg,#00ffff,#ff00cc); color:#fff; font-weight:700;">Reset Password</button>
+            <button class="btn primary" id="forgot-submit" style="padding:10px 20px; border-radius:8px; background:linear-gradient(135deg,#00ffff,#ff00cc); color:#fff; font-weight:700;">Send Reset Code</button>
         </div>
     </div>
 </div>

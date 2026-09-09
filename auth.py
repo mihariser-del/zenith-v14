@@ -1,4 +1,7 @@
 from datetime import datetime, timedelta, timezone
+import os
+import secrets
+import time
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -6,12 +9,25 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from jose import JWTError, jwt
 from pydantic import BaseModel
 
-from database import User, LoginHistory, get_db, settings
+from database import (
+    User,
+    LoginHistory,
+    get_db,
+    settings,
+    encrypt_pending_password,
+    decrypt_pending_password,
+    random_password,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 ALGORITHM = "HS256"
 TOKEN_EXPIRY_HOURS = 720  # 30 days
+
+# ---------------------------------------------------------------- passwords
+
+def generate_token(num_bytes: int = 32) -> str:
+    return secrets.token_urlsafe(num_bytes)
 
 
 def hash_password(password: str) -> str:
@@ -20,6 +36,95 @@ def hash_password(password: str) -> str:
 
 def verify_password(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+# ---------------------------------------------------------------- session cookie
+
+def set_auth_cookie(response: Response, token: str, request: Request = None):
+    """Set the zenith_token cookie with secure=True except on localhost dev."""
+    secure = True
+    if request is not None:
+        host = (request.url.hostname or "").lower()
+        if host in ("localhost", "127.0.0.1", "0.0.0.0", "::1"):
+            secure = False
+    response.set_cookie(
+        key="zenith_token",
+        value=token,
+        httponly=True,
+        samesite="lax",
+        secure=secure,
+        max_age=TOKEN_EXPIRY_HOURS * 3600,
+    )
+
+
+# ---------------------------------------------------------------- brute-force protection
+# In-memory sliding-window failure tracker (fine for a single-instance deploy on Railway).
+_rate: dict = {}
+_RATE_WINDOW = 600  # seconds
+
+
+def _prune(key: str, window: int):
+    now = time.time()
+    lst = _rate.setdefault(key, [])
+    while lst and now - lst[0] > window:
+        lst.pop(0)
+    return lst
+
+
+def _record_failure(key: str, window: int = _RATE_WINDOW):
+    _prune(key, window).append(time.time())
+
+
+def _clear_failures(key: str):
+    _rate.pop(key, None)
+
+
+def _raise_if_locked(key: str, limit: int, window: int = _RATE_WINDOW):
+    lst = _prune(key, window)
+    if len(lst) >= limit:
+        wait = max(1, int(window - (time.time() - lst[0])) + 1)
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many attempts. Try again in about {wait // 60} minute(s) {wait % 60}s.",
+            headers={"Retry-After": str(wait)},
+        )
+
+
+def _client_ip(request: Request) -> str:
+    fwd = request.headers.get("x-forwarded-for", "")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+# ---------------------------------------------------------------- password reset email
+
+def _send_reset_email(to_email: str, link: str) -> bool:
+    host = os.getenv("SMTP_HOST", "").strip()
+    if not host:
+        return False
+    port = int(os.getenv("SMTP_PORT", "587") or 587)
+    user = os.getenv("SMTP_USER", "").strip()
+    pw = os.getenv("SMTP_PASSWORD", "").strip()
+    sender = os.getenv("SMTP_FROM", "").strip() or user or "no-reply@zenith.local"
+    subject = "Zenith — password reset"
+    body = (
+        f"Someone requested a password reset for your Zenith account.\n\n"
+        f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
+        f"If you didn't request this, you can ignore this email."
+    )
+    msg = f"From: {sender}\r\nTo: {to_email}\r\nSubject: {subject}\r\n\r\n{body}"
+    import smtplib
+    try:
+        with smtplib.SMTP(host, port, timeout=15) as s:
+            s.starttls()
+            if user:
+                s.login(user, pw)
+            s.sendmail(sender, [to_email], msg)
+        return True
+    except Exception as e:
+        print(f"[forgot-password] email delivery failed: {e}")
+        return False
 
 
 class RegisterRequest(BaseModel):
@@ -36,6 +141,10 @@ class LoginRequest(BaseModel):
 class ForgotRequest(BaseModel):
     username: str
     email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
     new_password: str
 
 
@@ -141,7 +250,9 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
 
 
 @router.post("/register")
-async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
+async def register(req: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # Brute-force / abuse protection: per-IP, 10 registrations per hour.
+    _raise_if_locked(f"register:{_client_ip(request)}", limit=10, window=3600)
     # Respect global registration toggle
     try:
         from sqlalchemy import text
@@ -203,15 +314,21 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
 @router.post("/login")
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    ip = _client_ip(request)
+    user_key = f"login:user:{req.username.lower()}"
+    ip_key = f"login:ip:{ip}"
     result = await db.execute(select(User).where(User.username == req.username))
     user = result.scalar_one_or_none()
-    ip = request.client.host if request.client else ""
     ua = request.headers.get("user-agent", "")[:500]
 
     if not user or not verify_password(req.password, user.password_hash):
         if user:
             db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
             await db.commit()
+        _record_failure(user_key)
+        _record_failure(ip_key)
+        _raise_if_locked(user_key, limit=5)
+        _raise_if_locked(ip_key, limit=20)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     if getattr(user, 'is_deleted', False):
@@ -232,30 +349,74 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         except Exception:
             pass
 
+    # Successful login clears any accumulated failure counters.
+    _clear_failures(user_key)
+    _clear_failures(ip_key)
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     user.last_seen = datetime.now(timezone.utc)
     await db.commit()
 
     token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
-    response.set_cookie(
-        key="zenith_token",
-        value=token,
-        httponly=True,
-        samesite="lax",
-        max_age=TOKEN_EXPIRY_HOURS * 3600,
-    )
+    set_auth_cookie(response, token, request)
     return {"user": UserResponse.model_validate(user)}
 
 
 @router.post("/forgot-password")
-async def forgot_password(req: ForgotRequest, db: AsyncSession = Depends(get_db)):
+async def forgot_password(req: ForgotRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # SECURITY: no longer resets the password directly on username+email knowledge.
+    # A one-time token (with expiry) is issued and delivered via email (or server log
+    # when SMTP is not configured) — an attacker who knows only the username/email
+    # can no longer take the account over.
+    ip = _client_ip(request)
+    _raise_if_locked(f"forgot:ip:{ip}", limit=5, window=900)
+    _record_failure(f"forgot:ip:{ip}")
+    result = await db.execute(
+        select(User).where(User.username == req.username, User.email == req.email)
+    )
+    user = result.scalar_one_or_none()
+    # Generic reply regardless of whether the account exists (no account enumeration).
+    generic = "If an account matches, a password reset link has been sent to that email."
+    if not user:
+        return {"message": generic}
+    if getattr(user, "is_deleted", False):
+        return {"message": generic}
+    _raise_if_locked(f"forgot:user:{req.username.lower()}", limit=3, window=900)
+    _record_failure(f"forgot:user:{req.username.lower()}")
+    token = generate_token(32)
+    user.reset_token = token
+    user.reset_token_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
+    await db.commit()
+    host = request.base_url.hostname or "localhost"
+    scheme = request.url.scheme if request.url.scheme == "https" else ("https" if host not in ("localhost", "127.0.0.1") else "http")
+    link = f"{scheme}://{host}/?reset_token={token}"
+    sent = _send_reset_email(user.email, link)
+    if not sent:
+        print(f"[forgot-password] Reset link for '{user.username}' (no SMTP configured — relay it manually): {link}")
+    return {"message": generic}
+
+
+@router.post("/reset-password")
+async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
     if len(req.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
-    result = await db.execute(select(User).where(User.username == req.username, User.email == req.email))
+    if not req.token.strip():
+        raise HTTPException(status_code=400, detail="Reset token missing")
+    result = await db.execute(select(User).where(User.reset_token == req.token.strip()))
     user = result.scalar_one_or_none()
     if not user:
-        raise HTTPException(status_code=404, detail="No account found with that username and email")
+        raise HTTPException(status_code=400, detail="Invalid or already-used reset token")
+    expires = getattr(user, "reset_token_expires", None)
+    if not expires:
+        raise HTTPException(status_code=400, detail="Invalid or already-used reset token")
+    try:
+        exp = expires if expires.tzinfo else expires.replace(tzinfo=timezone.utc)
+    except Exception:
+        exp = expires
+    if datetime.now(timezone.utc) > exp:
+        raise HTTPException(status_code=400, detail="Reset token has expired. Request a new one.")
     user.password_hash = hash_password(req.new_password)
+    user.reset_token = ""
+    user.reset_token_expires = None
     await db.commit()
     return {"message": "Password reset successful. Please login with your new password."}
 
@@ -276,8 +437,32 @@ async def logout_all(request: Request, response: Response, db: AsyncSession = De
     await db.commit()
     # issue new token for current session so it stays valid
     new_token = create_token(user.id, user.username, user.is_admin, user.token_version, get_role(user))
-    response.set_cookie(key="zenith_token", value=new_token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
+    set_auth_cookie(response, new_token, request)
     return {"message": "Logged out of all other devices"}
+
+
+@router.post("/emergency-password")
+async def owner_emergency_password(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Owner panic button. If the owner password is leaked/compromised:
+    rotate it to a fresh random 13-char value, wipe any queued password reset,
+    and instantly invalidate every OTHER signed-in session (only this one
+    survives, by re-issuing a token with the new version)."""
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
+    new_pw = random_password(13)
+    user.password_hash = hash_password(new_pw)
+    user.pending_password = ""
+    user.pending_password_by = ""
+    user.reset_token = ""
+    user.reset_token_expires = None
+    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+    await db.commit()
+    # Re-issue a cookie with the NEW token version so THIS browser stays logged in
+    # while every other session (old version) is rejected on the next request.
+    new_token = create_token(user.id, user.username, user.is_admin, user.token_version, get_role(user))
+    set_auth_cookie(response, new_token, request)
+    return {"message": "Owner password rotated and all other sessions were signed out.", "new_password": new_pw}
 
 
 @router.get("/password-changed")
@@ -294,7 +479,15 @@ async def password_changed_view(request: Request, db: AsyncSession = Depends(get
     pending = getattr(user, "pending_password", "") or ""
     if not pending:
         raise HTTPException(status_code=404, detail="No pending password")
-    return {"password": pending}
+    pw = decrypt_pending_password(pending)
+    if not pw:
+        # Legacy plaintext stored before encryption was added — return it once.
+        pw = pending
+    # One-time view: clear immediately after retrieval.
+    user.pending_password = ""
+    user.pending_password_by = ""
+    await db.commit()
+    return {"password": pw}
 
 
 @router.post("/password-changed/dismiss")
@@ -313,7 +506,9 @@ class AdminRequest(BaseModel):
 
 
 @router.post("/guest")
-async def guest_login(response: Response, db: AsyncSession = Depends(get_db)):
+async def guest_login(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    # Abuse protection: cap guest account creation per IP (60/day).
+    _raise_if_locked(f"guest:{_client_ip(request)}", limit=60, window=86400)
     import uuid
     guest_name = f"guest_{uuid.uuid4().hex[:8]}"
     user = User(username=guest_name, email=f"{guest_name}@guest.local", password_hash=hash_password(uuid.uuid4().hex), is_admin=False)
@@ -321,18 +516,27 @@ async def guest_login(response: Response, db: AsyncSession = Depends(get_db)):
     await db.commit()
     await db.refresh(user)
     token = create_token(user.id, user.username, False, getattr(user, "token_version", 0) or 0, "user")
-    response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
+    set_auth_cookie(response, token, request)
     return {"user": UserResponse.model_validate(user), "guest": True}
 
 
 @router.post("/admin/login")
-async def admin_login(req: AdminRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def admin_login(req: AdminRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    ip = _client_ip(request)
+    user_key = f"adminlogin:user:{req.username.lower()}"
+    ip_key = f"adminlogin:ip:{ip}"
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
     if not user or not verify_password(req.password, user.password_hash):
+        _record_failure(user_key)
+        _record_failure(ip_key)
+        _raise_if_locked(user_key, limit=5)
+        _raise_if_locked(ip_key, limit=20)
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
+    _clear_failures(user_key)
+    _clear_failures(ip_key)
     token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
-    response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=TOKEN_EXPIRY_HOURS * 3600)
+    set_auth_cookie(response, token, request)
     return {"user": UserResponse.model_validate(user), "admin": True}
 
 
@@ -475,7 +679,8 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
     if target_role == "admin" and get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Reset option is disabled for fellow admins")
     target.password_hash = hash_password(req.new_password)
-    target.pending_password = req.new_password
+    # Store encrypted at rest; decrypted once on first view, then cleared.
+    target.pending_password = encrypt_pending_password(req.new_password)
     target.pending_password_by = get_role(admin)
     await db.commit()
     return {"message": f"Password reset for {target.username}"}

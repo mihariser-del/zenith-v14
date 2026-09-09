@@ -1,13 +1,13 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse
 
 import os
 os.makedirs("uploads", exist_ok=True)
 
-from database import init_db
-from auth import router as auth_router
+from database import init_db, get_db
+from auth import router as auth_router, get_current_user_from_cookie, is_owner
 from chats import router as chats_router
 from memories import router as memories_router
 from user_settings import router as settings_router
@@ -29,10 +29,11 @@ from global_controls import router as global_controls_router
 from personal_requests import router as personal_requests_router
 from personality import router as personality_router
 
-VERSION = "18.1"
+VERSION = "18.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Security hardening: password resets now use emailed one-time links, failed logins are rate-limited, and sessions use secure cookies",
     "Time-based limits: after heavy use your account takes a cooling break — from 1 hour up to 18 hours, tuned to your activity",
     "Media window: chats with lots of images/files get a 15-message allowance, then a long rest",
     "Voice: logged-in users get 30 minutes of voice chat per day, then it pauses until midnight (UTC)",
@@ -47,6 +48,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "SECURITY 18.2: code sandbox gated to Owner-only + shell execution removed; hardcoded admin/owner passwords removed (env-bootstrapped) + known-compromised creds auto-rotated on boot; SECRET_KEY auto-generated (persisted, never 'zenith-dev'); forgot-password now issues expiring emailed tokens (SMTP via SMTP_* env, link logged when unconfigured); new POST /api/auth/reset-password; brute-force protection (per-IP + per-username, 429 + Retry-After) on login/admin-login/guest/register/forgot; secure=True session cookies (except localhost); /api/debug/keys now Owner-only; pending_password encrypted at rest (Fernet) and shown once then cleared",
     "limits.py engine: cooldown_until column; dynamic free timer 60-1080 min from usage intensity (msgs today/1h/10m bounce + media volume); pro 10-30 min, 60 min on exploit",
     "chat media window: [Image xN]/[File: markers per chat; 15-msg allowance from 5th image/15th file; images+files logged as 'message' usage",
     "file_tool system: guests 403 on edit/document_gen; free logged-in 10/day combined upload+edit+gen then fixed 60-min cooldown",
@@ -97,11 +99,14 @@ app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 
 @app.get("/api/debug/keys")
-async def debug_keys():
+async def debug_keys(request: Request, db=Depends(get_db)):
+    # Owner-only; exposes key rotation state (prefixes only, never full keys).
+    user = await get_current_user_from_cookie(request, db)
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Owner only")
     from ai import _get_openrouter_keys
     keys = _get_openrouter_keys()
-    # don't leak full keys, just prefix and count
-    return {"count": len(keys), "prefixes": [k[:12] + "..." for k in keys], "has_fallback": any("752b37b" in k for k in keys)}
+    return {"count": len(keys), "prefixes": [k[:12] + "..." for k in keys]}
 
 @app.get("/api/changelog")
 async def get_changelog():

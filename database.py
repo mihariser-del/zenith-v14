@@ -22,6 +22,74 @@ class Settings(BaseSettings):
         return [k.strip() for k in raw.split(",") if k.strip()]
 
 
+def _resolve_secret_key() -> str:
+    """Return a strong SECRET_KEY, never a known-weak value from source.
+
+    Priority: SECRET_KEY env (unless it is the old dev default) >
+    SECRET_KEY_FILE > persisted secret_key.txt (on /data if writable) >
+    freshly generated. Fresh secrets are persisted so sessions survive restarts.
+    """
+    provided = os.getenv("SECRET_KEY", "").strip()
+    if provided and provided not in ("change-me", "zenith-dev", "secret"):
+        return provided
+    candidates = [p.strip() for p in (os.getenv("SECRET_KEY_FILE", ""), "/data/secret_key.txt", "secret_key.txt")]
+    for path in candidates:
+        if path and os.path.exists(path):
+            try:
+                content = open(path, "r", encoding="utf-8").read().strip()
+                if content:
+                    return content
+            except Exception as e:
+                print(f"[security] could not read {path}: {e}")
+    import secrets
+    new_key = secrets.token_urlsafe(48)
+    for path in candidates:
+        if not path:
+            continue
+        try:
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(new_key)
+            os.chmod(path, 0o600)
+            print(f"[security] Wrote a generated SECRET_KEY to {path} — keep this file safe.")
+            return new_key
+        except Exception as e:
+            print(f"[security] could not persist SECRET_KEY to {path}: {e}")
+    print("[WARNING] SECRET_KEY is generated per-boot (sessions won't survive restarts). Set SECRET_KEY or SECRET_KEY_FILE in production.")
+    return new_key
+
+
+def _fernet():
+    """Fernet cipher whose key is derived from SECRET_KEY (stable across restarts)."""
+    from cryptography.fernet import Fernet
+    import base64, hashlib
+    key = base64.urlsafe_b64encode(hashlib.sha256((settings.secret_key or "change-me").encode()).digest())
+    return Fernet(key)
+
+
+def random_password(length: int = 13) -> str:
+    """Generate a random password of letters+digits (used for first-run owner
+    and the Owner's emergency password rotation)."""
+    import secrets as _secrets
+    import string as _string
+    chars = _string.ascii_letters + _string.digits
+    return "".join(_secrets.choice(chars) for _ in range(length))
+
+
+def encrypt_pending_password(plaintext: str) -> str:
+    if not plaintext:
+        return ""
+    return _fernet().encrypt(plaintext.encode()).decode()
+
+
+def decrypt_pending_password(ciphertext: str) -> str:
+    if not ciphertext:
+        return ""
+    try:
+        return _fernet().decrypt(ciphertext.encode()).decode()
+    except Exception:
+        return ""
+
+
 def _can_write(path: str) -> bool:
     import os
     try:
@@ -54,6 +122,7 @@ def _resolve_db_url(env_url: str = "") -> str:
 
 settings = Settings()
 settings.database_url = _resolve_db_url(settings.database_url or os.getenv("DATABASE_URL", ""))
+settings.secret_key = _resolve_secret_key()
 engine = create_async_engine(settings.database_url, echo=False)
 async_session = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
@@ -104,6 +173,9 @@ class User(Base):
     personality_enabled = Column(Boolean, default=True)
     personality_profile = Column(Text, default="")  # JSON profile from the analyzer
     personality_updated_at = Column(DateTime, nullable=True)
+    # Password reset token (forgot-password) with expiry
+    reset_token = Column(String(64), default="")
+    reset_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -327,6 +399,8 @@ async def init_db():
             ("personality_enabled", "BOOLEAN DEFAULT 1"),
             ("personality_profile", "TEXT DEFAULT ''"),
             ("personality_updated_at", "DATETIME"),
+            ("reset_token", "VARCHAR(64) DEFAULT ''"),
+            ("reset_token_expires", "DATETIME"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
@@ -342,25 +416,21 @@ async def init_db():
             print(f"migration display_name: {e}")
     async with async_session() as session:
         from sqlalchemy import select
-        import bcrypt
-        result = await session.execute(select(User).where(User.username == "THE0NLYADMIN"))
-        existing_admin = result.scalar_one_or_none()
-        if not existing_admin:
-            hashed = bcrypt.hashpw("w.a.n.z.u.".encode(), bcrypt.gensalt()).decode()
-            admin = User(username="THE0NLYADMIN", email="admin@zenith.local", password_hash=hashed, is_admin=True)
-            session.add(admin)
-            await session.commit()
-        elif not existing_admin.is_admin:
-            existing_admin.is_admin = True
-            await session.commit()
-        # Ensure the OWNER account exists (supreme role)
-        owner_result = await session.execute(select(User).where(User.username == "WANZU-IBRAHIM"))
+        import bcrypt, os
+        # Bootstrap: only the OWNER account is auto-created (supreme role).
+        # Intentionally NO default admin account — admins are created/promoted by the owner.
+        owner_username = os.getenv("OWNER_USERNAME", "WANZU-IBRAHIM").strip()
+        owner_result = await session.execute(select(User).where(User.username == owner_username))
         owner = owner_result.scalar_one_or_none()
         if not owner:
-            owner_hash = bcrypt.hashpw("W.A.N.Z.U.".encode(), bcrypt.gensalt()).decode()
-            owner = User(username="WANZU-IBRAHIM", email="owner@zenith.local", password_hash=owner_hash, is_admin=True, role="owner")
+            # Owner password: OWNER_PASSWORD env, else W.A.N.Z.U. (current default for now).
+            # The vault > EMERGENCY tab can rotate it to a fresh random value anytime.
+            wanted = os.getenv("OWNER_PASSWORD", "").strip() or "W.A.N.Z.U."
+            owner = User(username=owner_username, email=f"{owner_username}@zenith.local",
+                         password_hash=bcrypt.hashpw(wanted.encode(), bcrypt.gensalt()).decode(), is_admin=True, role="owner")
             session.add(owner)
             await session.commit()
+            print(f"[bootstrap] Owner '{owner_username}' created (password from OWNER_PASSWORD env or the default).")
         else:
             owner.is_admin = True
             owner.role = "owner"
@@ -374,7 +444,7 @@ async def init_db():
             print(f"sync admin role: {e}")
         try:
             await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%:free' OR model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct' OR model='google/gemma-2-9b-it:free'")
+                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct'")
             )
             await session.commit()
         except Exception as e:
@@ -382,7 +452,7 @@ async def init_db():
         # Reset any free models back to OpenAI
         try:
             await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%:free' OR model LIKE '%free%'")
+                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%free%'")
             )
             await session.commit()
         except Exception as e:

@@ -1475,6 +1475,7 @@ const Vault = {
                 <div class="emergency-card" onclick="Vault.emAI()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🛑</div><div style="font-weight:700;color:#F59E0B;">Disable AI</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">AI responses turned off globally</div></div>
                 <div class="emergency-card" onclick="Vault.emBackup()"><div style="font-size:28px;margin-bottom:8px;">💾</div><div style="font-weight:700;color:#DDE4EE;">Emergency Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Snapshot entire database now</div></div>
                 <div class="emergency-card" onclick="Vault.restoreBackup()"><div style="font-size:28px;margin-bottom:8px;">🔄</div><div style="font-weight:700;color:#DDE4EE;">Restore Backup</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">Restore from last backup</div></div>
+                <div class="emergency-card" onclick="Vault.emRotateOwnerPassword()" style="border-color:#F59E0B;background:#F59E0B11;"><div style="font-size:28px;margin-bottom:8px;">🔑</div><div style="font-weight:700;color:#F59E0B;">Emergency Password Change</div><div style="font-size:11px;color:#8B949E;margin-top:4px;">My password got leaked? Rotate it to a fresh random one and sign out all other sessions</div></div>
             </div>`;
     },
 
@@ -1526,6 +1527,38 @@ const Vault = {
         const ok = await showConfirm('Create emergency backup?', 'This will snapshot the entire database right now.', true);
         if (!ok) return;
         try { await api('/api/admin/system/backup', { method: 'POST' }); showToast('Emergency backup created', 'success'); } catch (e) { showToast(e.message || 'Backup failed', 'error'); }
+    },
+
+    async emRotateOwnerPassword() {
+        const ok = await showConfirm('Emergency password change?', 'This rotates YOUR owner password to a fresh random 13-character one and signs out EVERY other session. You stay logged in here. Use this if you think your password leaked.', true);
+        if (!ok) return;
+        const ok2 = await showConfirm('FINAL CONFIRM', 'Make sure no one is watching your screen — your new password will be shown here once.', true);
+        if (!ok2) return;
+        try {
+            const r = await api('/api/auth/emergency-password', { method: 'POST' });
+            Vault._showNewPassword(r.new_password);
+            showToast('Password rotated. All other sessions signed out.', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    _showNewPassword(pw) {
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';
+        wrap.innerHTML = `
+            <div style="background:#111315;border:2px solid #F59E0B;border-radius:16px;padding:32px;max-width:480px;width:100%;text-align:center;box-shadow:0 0 40px #F59E0B33;">
+                <div style="font-size:40px;margin-bottom:12px;">🔑</div>
+                <div style="font-size:17px;font-weight:700;color:#F59E0B;margin-bottom:4px;letter-spacing:1px;">NEW OWNER PASSWORD</div>
+                <div style="font-size:12px;color:#8B949E;margin-bottom:16px;">Save it somewhere safe — this is shown only once.</div>
+                <div style="display:flex;gap:10px;align-items:center;justify-content:center;background:#0a0a0f;border:1px solid #1A1D21;border-radius:10px;padding:16px;margin-bottom:16px;">
+                    <code style="font-size:20px;color:#DDE4EE;letter-spacing:1px;user-select:all;word-break:break-all;">${pw}</code>
+                </div>
+                <button id="newpw-copy" style="padding:10px 28px;background:#F59E0B;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Copy</button>
+            </div>`;
+        wrap.querySelector('#newpw-copy').addEventListener('click', () => {
+            navigator.clipboard.writeText(pw).then(() => showToast('Copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
+        });
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        document.body.appendChild(wrap);
     },
 
     async demoteAdmin(userId, username) {

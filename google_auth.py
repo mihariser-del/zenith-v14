@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import httpx
 
 from database import User, get_db
-from auth import hash_password, create_token, get_role
+from auth import hash_password, create_token, get_role, set_auth_cookie
 import uuid
 
 router = APIRouter(prefix="/api/auth/google", tags=["google-auth"])
@@ -17,7 +17,7 @@ class GoogleAuthRequest(BaseModel):
     id_token: str
 
 @router.post("")
-async def google_auth(req: GoogleAuthRequest, response: Response, db: AsyncSession = Depends(get_db)):
+async def google_auth(req: GoogleAuthRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     if not req.id_token:
         raise HTTPException(status_code=400, detail="Missing id_token")
     # Verify with Google
@@ -61,5 +61,5 @@ async def google_auth(req: GoogleAuthRequest, response: Response, db: AsyncSessi
         await db.refresh(user)
     # Issue token
     token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
-    response.set_cookie(key="zenith_token", value=token, httponly=True, samesite="lax", max_age=720*3600)
+    set_auth_cookie(response, token, request)
     return {"user": {"id": user.id, "username": user.username, "email": user.email, "is_admin": user.is_admin, "role": get_role(user)}, "google": True}

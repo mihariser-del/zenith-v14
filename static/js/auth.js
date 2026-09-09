@@ -61,22 +61,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    $('forgot-link').addEventListener('click', () => { $('forgot-modal').style.display = 'flex'; $('forgot-msg').textContent = ''; });
+    function resetForgotModal() {
+        $('forgot-step1').style.display = 'block';
+        $('forgot-step2').style.display = 'none';
+        $('forgot-back').style.display = 'none';
+        $('forgot-submit').textContent = 'Send Reset Code';
+        $('forgot-msg').textContent = '';
+        $('forgot-msg').className = 'auth-msg';
+    }
+    function goForgotStep2() {
+        $('forgot-step1').style.display = 'none';
+        $('forgot-step2').style.display = 'block';
+        $('forgot-back').style.display = 'inline-block';
+        $('forgot-submit').textContent = 'Set New Password';
+    }
+    $('forgot-link').addEventListener('click', () => { $('forgot-modal').style.display = 'flex'; resetForgotModal(); if (urlToken) { $('forgot-token').value = urlToken; goForgotStep2(); } });
+    $('forgot-back').addEventListener('click', resetForgotModal);
     $('forgot-cancel').addEventListener('click', () => { $('forgot-modal').style.display = 'none'; });
     $('forgot-modal').addEventListener('click', e => { if (e.target === $('forgot-modal')) $('forgot-modal').style.display = 'none'; });
     $('forgot-submit').addEventListener('click', async () => {
-        const username = $('forgot-username').value.trim();
-        const email = $('forgot-email').value.trim();
-        const new_password = $('forgot-newpw').value;
-        if (!username || !email || !new_password) { $('forgot-msg').textContent = 'Fill all fields'; $('forgot-msg').className = 'auth-msg error'; return; }
+        const step2 = $('forgot-step2').style.display === 'block';
         $('forgot-submit').disabled = true;
         try {
-            const res = await api('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username, email, new_password }) });
-            $('forgot-msg').textContent = res.message; $('forgot-msg').className = 'auth-msg success';
-            setTimeout(() => { $('forgot-modal').style.display = 'none'; document.querySelector('.auth-tab[data-tab="login"]').click(); }, 1500);
+            if (!step2) {
+                const username = $('forgot-username').value.trim();
+                const email = $('forgot-email').value.trim();
+                if (!username || !email) { $('forgot-msg').textContent = 'Fill all fields'; $('forgot-msg').className = 'auth-msg error'; return; }
+                const res = await api('/api/auth/forgot-password', { method: 'POST', body: JSON.stringify({ username, email }) });
+                $('forgot-msg').textContent = res.message + ' Enter the reset code below to continue.'; $('forgot-msg').className = 'auth-msg success';
+                goForgotStep2();
+            } else {
+                const token = $('forgot-token').value.trim();
+                const new_password = $('forgot-newpw').value;
+                if (!token || !new_password) { $('forgot-msg').textContent = 'Enter the reset code and a new password'; $('forgot-msg').className = 'auth-msg error'; return; }
+                const res = await api('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, new_password }) });
+                $('forgot-msg').textContent = res.message; $('forgot-msg').className = 'auth-msg success';
+                setTimeout(() => { $('forgot-modal').style.display = 'none'; resetForgotModal(); document.querySelector('.auth-tab[data-tab="login"]').click(); }, 1500);
+            }
         } catch (e) { $('forgot-msg').textContent = e.message; $('forgot-msg').className = 'auth-msg error'; }
         finally { $('forgot-submit').disabled = false; }
     });
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('reset_token');
+    if (urlToken) {
+        setTimeout(() => {
+            $('forgot-modal').style.display = 'flex';
+            resetForgotModal();
+            $('forgot-token').value = urlToken;
+            goForgotStep2();
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }, 300);
+    }
 
     $('admin-crown').addEventListener('click', () => { $('admin-modal').style.display = 'flex'; });
     $('admin-cancel').addEventListener('click', () => { $('admin-modal').style.display = 'none'; });

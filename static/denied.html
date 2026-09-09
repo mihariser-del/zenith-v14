@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Can't View This Chat · Zenith</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background: #04060d; color: #eef2f9;
+            display: flex; align-items: center; justify-content: center;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+        }
+        .bg-anim {
+            position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(700px 500px at 15% 10%, rgba(76,201,240,.14), transparent 65%),
+                radial-gradient(800px 600px at 85% 20%, rgba(106,92,255,.14), transparent 65%),
+                radial-gradient(600px 500px at 50% 110%, rgba(245,197,24,.07), transparent 60%);
+            filter: blur(2px);
+            animation: drift 16s ease-in-out infinite alternate;
+        }
+        @keyframes drift { from { transform: translate(-2%, -1%) rotate(-1deg); } to { transform: translate(2%, 1%) rotate(1deg); } }
+        .card {
+            position: relative; z-index: 1;
+            width: 100%; max-width: 460px; margin: 24px 16px;
+            background: rgba(13,19,32,.78); border: 1px solid rgba(255,255,255,.1);
+            border-radius: 22px; padding: 44px 34px 32px; text-align: center;
+            backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px);
+            box-shadow: 0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+            animation: rise .5s ease-out; position: relative; overflow: hidden;
+        }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+        .ic-box {
+            width: 78px; height: 78px; margin: 0 auto 18px; border-radius: 24px;
+            display: flex; align-items: center; justify-content: center; font-size: 38px;
+        }
+        .ic-box.locked { background: rgba(245,197,24,.08); border: 1px solid rgba(245,197,24,.3); box-shadow: 0 12px 40px rgba(245,197,24,.25); }
+        .ic-box.gone { background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.3); box-shadow: 0 12px 40px rgba(248,81,73,.2); }
+        .tag-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+            padding: 7px 14px; border-radius: 100px; margin-bottom: 14px;
+        }
+        .tag-pill.login { color: var(--g, #F5C518); background: rgba(245,197,24,.08); border: 1px solid rgba(245,197,24,.28); }
+        .tag-pill.owner { color: #4CC9F0; background: rgba(76,201,240,.08); border: 1px solid rgba(76,201,240,.28); }
+        .tag-pill.gone { color: #f85149; background: rgba(248,81,73,.08); border: 1px solid rgba(248,81,73,.28); }
+        h1 { font-size: 23px; font-weight: 900; margin: 0 0 10px; letter-spacing: -.3px; }
+        p { color: #93a0b5; font-size: 14px; line-height: 1.7; margin: 0 0 8px; }
+        .link-id {
+            font-family: "SF Mono", Consolas, monospace; font-size: 12px; color: rgba(147,160,181,.7);
+            background: rgba(255,255,255,.03); border: 1px solid rgba(255,255,255,.08);
+            border-radius: 8px; padding: 6px 12px; display: inline-block; margin-top: 4px;
+            max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        }
+        .actions { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
+        a.btn {
+            display: inline-flex; align-items: center; gap: 8px;
+            padding: 13px 24px; border-radius: 13px; font-size: 14px; font-weight: 800;
+            text-decoration: none; transition: transform .15s ease, box-shadow .15s ease, background .15s ease;
+        }
+        a.btn.primary {
+            background: linear-gradient(135deg, #4CC9F0, #6A5CFF); color: #fff;
+            box-shadow: 0 12px 34px rgba(76,201,240,.35);
+        }
+        a.btn.primary:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(76,201,240,.5); }
+        a.btn.ghost {
+            border: 1px solid rgba(76,201,240,.4); color: #4CC9F0; background: transparent;
+        }
+        a.btn.ghost:hover { background: rgba(76,201,240,.1); }
+        .foot { margin-top: 18px; font-size: 11.5px; color: rgba(147,160,181,.5); letter-spacing: .3px; }
+    </style>
+</head>
+<body>
+<div class="bg-anim"></div>
+<div class="card" id="card">
+    <div class="ic-box" id="ic">🔒</div>
+    <div class="tag-pill" id="tag">ACCESS</div>
+    <h1 id="title">Chat Unavailable</h1>
+    <p id="desc"></p>
+    <span class="link-id" id="linkId"></span>
+    <div class="actions" id="actions"></div>
+    <div class="foot">✦ ZENITH AI ✦</div>
+</div>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const reason = params.get('reason') || 'unknown';
+    const link = params.get('link') || '';
+    if (link) document.getElementById('linkId').textContent = 'Chat link: …' + link.slice(-20);
+    else document.getElementById('linkId').style.display = 'none';
+
+    const cfgs = {
+        login: {
+            ic: '🔒',
+            icon: 'locked',
+            tag: 'Sign-in required',
+            tagCls: 'login',
+            title: 'You need to log in to view this chat',
+            desc: 'This chat lives inside the Zenith app, so we need to know who you are before showing it. Log in or create a free account — your chats stay private to you.',
+            actions: [
+                { label: '← Back to Zenith', href: '/', cls: 'ghost' },
+                { label: 'Log in / Sign up', href: '/', cls: 'primary' },
+            ],
+        },
+        notowner: {
+            ic: '👤',
+            icon: 'locked',
+            tag: 'Private chat',
+            tagCls: 'owner',
+            title: 'This chat belongs to another account',
+            desc: 'You\'re signed in, but this conversation isn\'t yours — chats are private to the account that created them. Open your own space below.',
+            actions: [
+                { label: 'Zenith home', href: '/', cls: 'ghost' },
+                { label: 'Open My App →', href: '/app', cls: 'primary' },
+            ],
+        },
+        notfound: {
+            ic: '🕳️',
+            icon: 'gone',
+            tag: 'Nothing here',
+            tagCls: 'gone',
+            title: 'This chat doesn\'t exist',
+            desc: 'The chat you linked to was deleted, or the link is misspelled. Nothing was lost — your own chats are safe in the app.',
+            actions: [
+                { label: 'Zenith home', href: '/', cls: 'ghost' },
+                { label: 'Open My App →', href: '/app', cls: 'primary' },
+            ],
+        },
+    };
+    const c = cfgs[reason] || cfgs.notfound;
+    document.getElementById('ic').textContent = c.ic;
+    document.getElementById('ic').className = 'ic-box ' + c.icon;
+    const tag = document.getElementById('tag');
+    tag.textContent = c.tag;
+    tag.className = 'tag-pill ' + c.tagCls;
+    document.getElementById('title').textContent = c.title;
+    document.getElementById('desc').textContent = c.desc;
+    document.getElementById('actions').innerHTML = c.actions.map(a =>
+        `<a class="btn ${a.cls}" href="${a.href}">${a.label}</a>`).join('');
+</script>
+</body>
+</html>

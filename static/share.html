@@ -111,6 +111,46 @@
             .m { padding:14px 14px; }
             .hero { padding-top:38px; }
         }
+
+        .nav { position:sticky; top:0; z-index:20; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); background:rgba(5,8,15,.72); border-bottom:1px solid rgba(28,39,64,.5); }
+        .nav .copy-link-btn { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:var(--accent); background:rgba(76,201,240,.08); border:1px solid rgba(76,201,240,.3); padding:8px 15px; border-radius:100px; cursor:pointer; transition:transform .15s ease, background .15s ease; font-family:inherit; }
+        .nav .copy-link-btn:hover { transform:translateY(-1px); background:rgba(76,201,240,.16); }
+
+        .chat-window { position:relative; z-index:1; max-width:780px; margin:26px auto 0; padding:0 16px; }
+        .chat-public-tag { display:flex; justify-content:center; margin-bottom:12px; }
+        .chat-public-tag span { display:inline-flex; align-items:center; gap:8px; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--accent); background:rgba(76,201,240,.07); border:1px solid rgba(76,201,240,.22); padding:6px 14px; border-radius:100px; }
+        .chat-public-tag .dot { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 10px var(--accent); animation:pulse 1.8s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+
+        .chat-head { display:flex; align-items:center; justify-content:space-between; gap:14px; background:var(--card); border:1px solid var(--line); border-bottom:1px dashed rgba(28,39,64,.6); border-radius:18px 18px 0 0; padding:16px 18px; }
+        .chat-head-left { display:flex; align-items:center; gap:12px; min-width:0; }
+        .head-ava { width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg,var(--accent2),var(--accent)); box-shadow:0 4px 16px rgba(0,102,255,.4); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:16px; flex-shrink:0; }
+        .head-title { font-weight:800; font-size:16px; line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .head-meta { font-size:12px; color:var(--muted); margin-top:3px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+        .who-owner { color:#8db4ff; font-weight:600; }
+        .head-copy { display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:700; color:#cfefff; background:linear-gradient(135deg,#0066ff,#4CC9F0); border:none; padding:10px 16px; border-radius:11px; cursor:pointer; box-shadow:0 6px 20px rgba(0,102,255,.35); transition:transform .15s ease, box-shadow .15s ease; font-family:inherit; white-space:nowrap; }
+        .head-copy:hover { transform:translateY(-1px); box-shadow:0 9px 26px rgba(0,102,255,.45); }
+
+        .thread { padding:0 0 90px; }
+        .thread .conv-card { border-radius:0 0 20px 20px; }
+
+        .m.user { flex-direction:row-reverse; }
+        .m.user .body { display:flex; flex-direction:column; align-items:flex-end; max-width:86%; text-align:right; }
+        .m.user .who { flex-direction:row-reverse; }
+        .m .content { padding:2px 14px; }
+        .m.ai .content { background:rgba(21,32,56,.55); border:1px solid rgba(28,39,64,.55); border-radius:4px 16px 16px 16px; }
+        .m.user .content { background:linear-gradient(135deg,#1a4f9e,#0e3a86); border:1px solid rgba(76,201,240,.25); border-radius:16px 4px 16px 16px; color:#e8f3ff; }
+        .m.user .content code { background:rgba(255,255,255,.12); }
+        .m.user .toolbar, .m.user .reacts { justify-content:flex-end; }
+        .m.user .toolbar button { background:rgba(255,255,255,.08); color:#cfe7ff; border-color:rgba(255,255,255,.16); }
+        .m.user .reacts { border-top-color:rgba(76,201,240,.25); }
+        .m.user .rlbl { color:#7fd9f5; }
+
+        @media (max-width:520px) {
+            .head-copy { font-size:12px; padding:9px 12px; }
+            .m.user .body { max-width:92%; }
+            .m { gap:10px; }
+        }
     </style>
 </head>
 <body>
@@ -121,7 +161,10 @@
         <div class="logo">Z</div>
         <span class="brand-name">Zenith<em>.ai</em></span>
     </a>
-    <span class="nav-badge">✦ Shared conversation</span>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button class="copy-link-btn" id="navCopy">🔗 Copy link</button>
+        <span class="nav-badge">✦ Shared conversation</span>
+    </div>
 </nav>
 
 <div id="loading" class="states">
@@ -131,22 +174,25 @@
 </div>
 
 <div id="content" style="display:none;">
-    <div class="hero">
-        <div class="tag"><span class="dot"></span> Shared with you</div>
-        <h1><span class="hl" id="title"></span></h1>
-        <div class="meta">
-            <span class="owner"><span class="ava" id="ownerAva">?</span><span id="owner"></span></span>
-            <span class="sep">·</span>
-            <span id="count"></span>
-            <span class="sep">·</span>
-            <span id="date"></span>
+    <div class="chat-window">
+        <div class="chat-public-tag"><span><span class="dot"></span> Public conversation</span></div>
+        <header class="chat-head">
+            <div class="chat-head-left">
+                <div class="head-ava" id="ownerAva">?</div>
+                <div style="min-width:0;">
+                    <div class="head-title" id="title"></div>
+                    <div class="head-meta">
+                        <span class="who-owner" id="owner"></span>
+                        <span>·</span><span id="count"></span>
+                        <span>·</span><span id="date"></span>
+                    </div>
+                </div>
+            </div>
+            <button class="head-copy" id="headCopy">🔗 Copy link</button>
+        </header>
+        <div class="thread">
+            <div class="conv-card" id="messages"></div>
         </div>
-    </div>
-    <div class="cta-wrap">
-        <a class="cta" href="/">Start your own conversation <span class="arr">→</span></a>
-    </div>
-    <div class="thread">
-        <div class="conv-card" id="messages"></div>
     </div>
     <div class="cta-wrap">
         <a class="cta" href="/">Join Zenith — it's free <span class="arr">→</span></a>
@@ -200,6 +246,12 @@
     }
 
     const EMOJIS = ['👍','❤️','😂','🔥','🎉','👏'];
+
+    const navCopy = document.getElementById('navCopy');
+    const headCopy = document.getElementById('headCopy');
+    [navCopy, headCopy].forEach(b => {
+        if (b) b.addEventListener('click', () => copyText(window.location.href, b));
+    });
     const storageKey = 'zx_reacts_' + shareId;
     let myReacts = {};
     try { myReacts = JSON.parse(sessionStorage.getItem(storageKey) || '{}'); } catch(e) {}

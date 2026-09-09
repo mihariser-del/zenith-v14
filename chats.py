@@ -87,11 +87,13 @@ async def get_chat_by_link(link_id: str, request: Request, db: AsyncSession = De
     """Resolve a chat by its unique link_id. Only the chat's owner can access it."""
     user = await get_current_user_from_cookie(request, db)
     result = await db.execute(
-        select(Chat).where(Chat.link_id == link_id, Chat.user_id == user.id)
+        select(Chat).where(Chat.link_id == link_id)
     )
     chat = result.scalar_one_or_none()
     if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+        raise HTTPException(status_code=404, detail="This chat does not exist or was deleted")
+    if chat.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You do not have access to this chat. It belongs to another account.")
     return {"chat": ChatResponse.model_validate(chat)}
 
 

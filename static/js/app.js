@@ -35,6 +35,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     try {
         ({ user } = await api('/api/auth/me'));
     } catch {
+        const pathMatch = window.location.pathname.match(/\/app\/c\/([0-9a-f]+)/i);
+        const qLink = new URLSearchParams(window.location.search).get('chat');
+        if (pathMatch || qLink) {
+            const link = pathMatch ? pathMatch[1] : String(qLink).toLowerCase();
+            window.location.replace(`/denied.html?reason=login&link=${encodeURIComponent(link || '')}`);
+            return;
+        }
         window.location.href = '/';
         return;
     }

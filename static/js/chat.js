@@ -61,7 +61,17 @@ const Chat = {
                     const { chat } = await api(`/api/chats/by-link/${encodeURIComponent(targetLink)}`);
                     this.chats[chat.id] = chat;
                     found = chat;
-                } catch (e) {}
+                } catch (e) {
+                    // Explain WHY the link can't be opened instead of silently
+                    // dropping the visitor onto their most recent chat.
+                    const msg = (e && e.message) || '';
+                    const clear = [['You do not have access to this chat', 'notowner'], ['does not exist', 'notfound']].find(([s]) => msg.includes(s));
+                    const reason = clear ? clear[1] : 'notfound';
+                    if (window.location.pathname.match(/\/app\/c\//i)) {
+                        window.location.replace(`/denied.html?reason=${reason}&link=${encodeURIComponent(targetLink)}`);
+                        return;
+                    }
+                }
             }
             if (found) {
                 this.activeId = found.id;
@@ -335,20 +345,23 @@ const Chat = {
     _refreshSharePanel(chat) {
         const overlay = $('share-export-modal');
         const linkBox = overlay.querySelector('#sx-link');
-        const statusEl = overlay.querySelector('#sx-share-status');
-        const unshareBtn = overlay.querySelector('#sx-unshare');
-        const shareBtn = overlay.querySelector('#sx-create-share');
+        const statusText = overlay.querySelector('#sx-status-text');
+        const statusDot = overlay.querySelector('#sx-status-dot');
+        const statusWrap = overlay.querySelector('#sx-share-status');
+        const createBlock = overlay.querySelector('#sx-create-block');
+        const manageBlock = overlay.querySelector('#sx-manage-block');
         const socials = overlay.querySelector('#sx-socials');
         const previewBtn = overlay.querySelector('#sx-preview');
         if (chat.share_id && chat.share_id !== '') {
             const url = window.location.origin + '/s/' + chat.share_id;
             linkBox.value = url;
-            statusEl.textContent = '🌍 Live publicly — anyone with the link can view.';
-            statusEl.style.color = '#4CC9F0';
-            shareBtn.style.display = 'none';
-            unshareBtn.style.display = 'inline-flex';
+            statusDot.style.background = '#4ADE80';
+            statusDot.style.boxShadow = '0 0 8px #4ADE80';
+            statusWrap.style.color = '#4ADE80';
+            statusText.textContent = 'Public — anyone with this link can view your chat.';
+            createBlock.style.display = 'none';
+            manageBlock.style.display = 'block';
             socials.style.display = 'flex';
-            previewBtn.style.display = 'inline-flex';
             previewBtn.onclick = () => window.open(url, '_blank');
             socials.querySelector('[data-soc="twitter"]').onclick = () => {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this chat on Zenith: ' + url)}`, '_blank', 'noopener,width=600,height=450');
@@ -364,19 +377,21 @@ const Chat = {
             };
         } else {
             linkBox.value = '';
-            linkBox.placeholder = 'Click "Create share link" to go live…';
-            statusEl.textContent = 'Share a read-only, beautifully presented copy of this chat.';
-            statusEl.style.color = 'var(--muted)';
-            shareBtn.style.display = 'inline-flex';
-            unshareBtn.style.display = 'none';
+            linkBox.placeholder = 'Click “Create share link” to go live…';
+            statusDot.style.background = 'var(--muted)';
+            statusDot.style.boxShadow = 'none';
+            statusWrap.style.color = 'var(--muted)';
+            statusText.textContent = 'Share a read-only, beautifully presented copy of this chat.';
+            createBlock.style.display = 'block';
+            manageBlock.style.display = 'none';
             socials.style.display = 'none';
-            previewBtn.style.display = 'none';
         }
         const copyBtn = overlay.querySelector('#sx-copy');
         copyBtn.onclick = () => {
             if (!linkBox.value) { showToast('Create a share link first', 'error'); return; }
             navigator.clipboard.writeText(linkBox.value).then(() => showToast('Link copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
         };
+        const shareBtn = overlay.querySelector('#sx-create-share');
         shareBtn.onclick = async () => {
             try {
                 const { link, share_id } = await api(`/api/chats/${chat.id}/share`, { method: 'POST' });
@@ -387,6 +402,7 @@ const Chat = {
                 showToast('Chat is now live!', 'success');
             } catch (err) { showToast(err.message || 'Failed', 'error'); }
         };
+        const unshareBtn = overlay.querySelector('#sx-unshare');
         unshareBtn.onclick = async () => {
             try {
                 await api(`/api/chats/${chat.id}/unshare`, { method: 'POST' });

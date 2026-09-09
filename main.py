@@ -40,6 +40,9 @@ VERSION = "19.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Shared links now explain themselves — if a linked chat is private, deleted or you're logged out, you get a clear message with the right way back, instead of a blank redirect",
+    "Shared-chat pages got a refresh: real chat bubbles with your name on it, a link you can copy straight from the top bar, and a cleaner conversation view",
+    "Share popup polished: a live 'Public' status pill, one-tap copy, prettier social buttons and a clearer preview of who can see your chat",
     "Invites are now one per device — once a device joins Zenith it can't use another invite link, and it gets a friendly 'already joined' page if it tries",
     "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
     "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
@@ -556,10 +559,23 @@ async def chat_app():
 
 
 @app.get("/app/c/{link_id}", response_class=HTMLResponse)
-async def chat_app_link(link_id: str):
+async def chat_app_link(link_id: str, request: Request, db=Depends(get_db)):
     """ChatGPT-style deep link to a specific chat (/app/c/<link_id>).
-    The frontend resolves the link_id and scopes it to the logged-in user."""
+    Logged-out visitors get a clear 'please log in' page instead of being silently
+    bounced to the welcome screen. Ownership is enforced client-side via by-link."""
+    try:
+        await get_current_user_from_cookie(request, db)
+    except HTTPException:
+        return RedirectResponse(
+            url=f"/denied.html?reason=login&link={link_id}",
+            status_code=302,
+        )
     return FileResponse("static/app.html")
+
+
+@app.get("/denied.html", response_class=HTMLResponse)
+async def denied_page():
+    return FileResponse("static/denied.html")
 
 
 @app.get("/admin", response_class=HTMLResponse)

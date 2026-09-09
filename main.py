@@ -36,10 +36,20 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "18.2"
+VERSION = "19.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
+    "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
+    "Unlimited invites are now single-use — an invite link is consumed the moment someone registers, so it can't be replayed",
+    "Invited friends land straight inside the app after creating their account (no extra login step)",
+    "Brand-new redesigned invite page — crisp, animated and ready to show off",
+    "Reminders: pick 'Today' for same-day alerts, plus the usual weekdays or next-day",
+    "Voice speed control: tune how fast Zenith speaks the replies out loud",
+    "Long replies get a friendly 'ready for you' nudge the moment they finish",
+    "Per-chat model picker: choose a different AI for each conversation without changing your global default",
+    "Share & export polished: one-tap social sharing, txt/md/pdf export and a cleaner shared-chat view",
     "Security hardening: password resets now use emailed one-time links, failed logins are rate-limited, and sessions use secure cookies",
     "Time-based limits: after heavy use your account takes a cooling break — from 1 hour up to 18 hours, tuned to your activity",
     "Media window: chats with lots of images/files get a 15-message allowance, then a long rest",
@@ -304,7 +314,13 @@ async def get_shared_chat(share_id: str):
             select(Message).where(Message.chat_id == chat.id).order_by(Message.id)
         )
         messages = [
-            {"role": m.role, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else ""}
+            {
+                "id": m.id,
+                "role": m.role,
+                "content": m.content,
+                "created_at": m.created_at.isoformat() if m.created_at else "",
+                "viewer_reactions": m.viewer_reactions or "{}",
+            }
             for m in msg_result.scalars().all()
         ]
         owner = await db.get(User, chat.user_id)
@@ -315,6 +331,44 @@ async def get_shared_chat(share_id: str):
             "owner": owner.username if owner else "Unknown",
             "messages": messages,
         }
+
+
+@app.post("/api/s/{share_id}/messages/{message_id}/react")
+async def react_shared_message(share_id: str, message_id: int, request: Request):
+    """Anonymous viewer reactions on a shared chat. Counts per emoji, capped to stop spam."""
+    import json
+    body = await request.json()
+    emoji = (body.get("emoji") or "").strip()[:8]
+    remove = bool(body.get("remove"))
+    if not emoji:
+        raise HTTPException(status_code=400, detail="Emoji required")
+    async with async_session() as db:
+        chat_result = await db.execute(
+            select(Chat).where(Chat.share_id == share_id)
+        )
+        chat = chat_result.scalar_one_or_none()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Shared chat not found")
+        msg_result = await db.execute(
+            select(Message).where(Message.id == message_id, Message.chat_id == chat.id)
+        )
+        msg = msg_result.scalar_one_or_none()
+        if not msg:
+            raise HTTPException(status_code=404, detail="Message not found")
+        try:
+            counts = json.loads(msg.viewer_reactions or "{}")
+        except Exception:
+            counts = {}
+        current = int(counts.get(emoji, 0))
+        if remove:
+            counts[emoji] = current - 1
+            if counts[emoji] <= 0:
+                counts.pop(emoji, None)
+        else:
+            counts[emoji] = min(current + 1, 99)
+        msg.viewer_reactions = json.dumps(counts)
+        await db.commit()
+        return {"viewer_reactions": counts}
 
 
 # ─────────────────────────────────────────────────────────────────────────────

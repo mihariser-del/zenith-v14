@@ -5,69 +5,166 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Join Zenith - You've Been Invited!</title>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+        * { box-sizing: border-box; }
+        :root {
+            --g-bg: #04060d; --g-text: #eef2f9; --g-muted: #93a0b5;
+            --g-accent: #4CC9F0; --g-accent2: #6A5CFF; --g-gold: #F5C518;
+            --g-line: rgba(255,255,255,.1); --g-card: rgba(13,19,32,.72);
+        }
         body {
             margin: 0; padding: 0; min-height: 100vh;
-            background: var(--bg); color: var(--text);
+            background: var(--g-bg); color: var(--g-text);
             display: flex; align-items: center; justify-content: center;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            overflow-x: hidden;
+        }
+        .bg-anim {
+            position: fixed; inset: -20%; z-index: 0; pointer-events: none;
+            background:
+                radial-gradient(700px 500px at 15% 10%, rgba(76,201,240,.16), transparent 65%),
+                radial-gradient(800px 600px at 85% 20%, rgba(106,92,255,.16), transparent 65%),
+                radial-gradient(600px 500px at 50% 110%, rgba(245,197,24,.08), transparent 60%);
+            filter: blur(2px);
+            animation: drift 16s ease-in-out infinite alternate;
+        }
+        @keyframes drift { from { transform: translate(-2%, -1%) rotate(-1deg); } to { transform: translate(2%, 1%) rotate(1deg); } }
+        .stars { position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5; }
+
+        .invite-wrap {
+            position: relative; z-index: 1; width: 100%; max-width: 460px; margin: 28px 16px;
+            perspective: 1200px;
         }
         .invite-card {
-            width: 100%; max-width: 420px; margin: 20px;
-            background: var(--card-bg, #161b22);
-            border: 1px solid var(--border, #30363d);
-            border-radius: 16px; padding: 40px 32px;
-            text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            background: var(--g-card);
+            border: 1px solid var(--g-line);
+            border-radius: 22px;
+            padding: 36px 30px 28px;
+            text-align: center;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18px);
+            box-shadow: 0 24px 70px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.06);
+            animation: fadeIn .5s ease-out;
+            position: relative; overflow: hidden;
         }
-        .invite-logo { font-size: 48px; margin-bottom: 8px; }
-        .invite-title { font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--text); }
-        .invite-subtitle { font-size: 14px; color: var(--text-secondary, #8b949e); margin: 0 0 24px; }
+        .invite-card::before {
+            content: ''; position: absolute; top: 0; left: 12%; right: 12%; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(16px) scale(.97); } to { opacity: 1; transform: none; } }
+
+        .orb {
+            width: 72px; height: 72px; margin: 0 auto 14px; border-radius: 22px;
+            background: linear-gradient(135deg, var(--g-accent2), var(--g-accent));
+            display: flex; align-items: center; justify-content: center;
+            font-size: 30px; font-weight: 900; color: #fff;
+            box-shadow: 0 12px 40px rgba(106,92,255,.5);
+            animation: bob 3.2s ease-in-out infinite;
+        }
+        @keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+
+        .tag-pill {
+            display: inline-flex; align-items: center; gap: 8px;
+            font-size: 11px; font-weight: 800; letter-spacing: 1.5px; text-transform: uppercase;
+            color: var(--g-gold);
+            background: rgba(245,197,24,.08); border: 1px solid rgba(245,197,24,.28);
+            padding: 7px 14px; border-radius: 100px; margin-bottom: 12px;
+        }
+        .tag-pill .ic { font-size: 13px; }
+
+        .invite-title { font-size: 24px; font-weight: 900; margin: 0 0 6px; letter-spacing: -.4px; }
+        .invite-subtitle { font-size: 14px; color: var(--g-muted); margin: 0 0 22px; line-height: 1.5; }
+
         .invite-by {
-            display: flex; align-items: center; gap: 12px; justify-content: center;
-            background: rgba(76, 201, 240, 0.08); border: 1px solid rgba(76, 201, 240, 0.2);
-            border-radius: 12px; padding: 12px 16px; margin-bottom: 28px;
+            display: flex; align-items: center; gap: 12px; justify-content: flex-start;
+            background: rgba(255,255,255,.03); border: 1px solid var(--g-line);
+            border-radius: 14px; padding: 12px 14px; margin-bottom: 22px;
+            text-align: left;
         }
         .invite-by .avatar {
-            width: 40px; height: 40px; border-radius: 50%;
-            background: var(--accent-solid, #4CC9F0); color: #06121a;
-            display: flex; align-items: center; justify-content: center;
-            font-size: 18px; font-weight: 700; flex-shrink: 0;
+            width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
+            background: linear-gradient(135deg, var(--g-accent), var(--g-accent2));
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-size: 17px; font-weight: 800;
+            box-shadow: 0 6px 18px rgba(76,201,240,.35);
         }
-        .invite-by .info { text-align: left; }
-        .invite-by .info .name { font-size: 14px; font-weight: 600; color: var(--text); }
-        .invite-by .info .label { font-size: 12px; color: var(--text-secondary, #8b949e); }
-        .invite-form { display: flex; flex-direction: column; gap: 14px; }
-        .invite-form input {
-            padding: 12px 14px; background: var(--input-bg, #0d1117);
-            border: 1px solid var(--border, #30363d); border-radius: 10px;
-            color: var(--text); font-size: 14px; outline: none; transition: border-color .2s;
+        .invite-by .info { min-width: 0; }
+        .invite-by .info .label { font-size: 11px; color: var(--g-muted); margin-bottom: 2px; }
+        .invite-by .info .name { font-size: 14px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .invite-form { display: flex; flex-direction: column; gap: 11px; }
+        .field { position: relative; text-align: left; }
+        .field input {
+            width: 100%; padding: 13px 14px;
+            background: rgba(255,255,255,.045);
+            border: 1px solid var(--g-line); border-radius: 12px;
+            color: var(--g-text); font-size: 14px; font-family: inherit;
+            outline: none; transition: border-color .2s, box-shadow .2s, background .2s;
         }
-        .invite-form input:focus { border-color: var(--accent-solid, #4CC9F0); }
-        .invite-form input::placeholder { color: var(--text-secondary, #8b949e); }
-        .invite-form button {
-            padding: 12px; border: none; border-radius: 10px;
-            background: var(--accent-solid, #4CC9F0); color: #06121a;
-            font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .2s;
+        .field input::placeholder { color: var(--g-muted); }
+        .field input:focus {
+            border-color: rgba(76,201,240,.6);
+            background: rgba(255,255,255,.06);
+            box-shadow: 0 0 0 3px rgba(76,201,240,.12);
         }
-        .invite-form button:hover { opacity: .9; }
-        .invite-form button:disabled { opacity: .5; cursor: not-allowed; }
-        .invite-msg { font-size: 13px; min-height: 18px; margin-top: 4px; }
+
+        .invite-form button[type="submit"] {
+            width: 100%; margin-top: 6px; padding: 14px;
+            border: none; border-radius: 13px;
+            background: linear-gradient(135deg, var(--g-accent), var(--g-accent2));
+            color: #fff; font-size: 15px; font-weight: 800; font-family: inherit;
+            cursor: pointer; letter-spacing: .2px;
+            box-shadow: 0 12px 34px rgba(76,201,240,.35);
+            transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+        }
+        .invite-form button[type="submit"]:hover { transform: translateY(-2px); box-shadow: 0 16px 40px rgba(76,201,240,.5); }
+        .invite-form button[type="submit"]:active { transform: translateY(0); }
+        .invite-form button[type="submit"]:disabled { opacity: .55; cursor: not-allowed; transform: none; }
+
+        .invite-msg { font-size: 13px; min-height: 18px; margin-top: 12px; font-weight: 600; }
         .invite-msg.error { color: #f85149; }
         .invite-msg.success { color: #3fb950; }
-        .invite-footer { margin-top: 20px; font-size: 12px; color: var(--text-secondary, #8b949e); }
-        .invite-footer a { color: var(--accent-solid, #4CC9F0); text-decoration: none; }
+
+        .perks { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+        .perk {
+            font-size: 11.5px; color: var(--g-muted);
+            border: 1px solid var(--g-line); border-radius: 100px;
+            padding: 6px 12px; background: rgba(255,255,255,.02);
+        }
+        .perk b { color: #b9c6dd; font-weight: 700; }
+
+        .invite-footer { margin-top: 18px; font-size: 12.5px; color: var(--g-muted); }
+        .invite-footer a { color: var(--g-accent); text-decoration: none; font-weight: 700; }
+        .invite-footer a:hover { text-decoration: underline; }
+
         .invite-expired { text-align: center; }
-        .invite-expired h2 { color: #f85149; margin-bottom: 8px; }
-        .invite-expired p { color: var(--text-secondary, #8b949e); font-size: 14px; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
-        .invite-card { animation: fadeIn .4s ease-out; }
+        .invite-expired .ic-box { font-size: 52px; margin-bottom: 10px; }
+        .invite-expired h2 { margin: 0 0 8px; font-weight: 900; font-size: 22px; }
+        .invite-expired p { color: var(--g-muted); font-size: 14px; margin: 0 0 8px; }
+        .invite-expired a.ghost {
+            display: inline-block; margin-top: 18px; padding: 12px 26px; border-radius: 13px;
+            border: 1px solid rgba(76,201,240,.4); color: var(--g-accent);
+            font-weight: 800; text-decoration: none; font-size: 14px;
+            transition: background .15s ease;
+        }
+        .invite-expired a.ghost:hover { background: rgba(76,201,240,.1); }
+
+        .powered { text-align: center; margin-top: 16px; font-size: 11.5px; color: rgba(147,160,181,.55); letter-spacing: .3px; }
+        @media (max-width:520px) {
+            .invite-card { padding: 30px 20px 24px; }
+        }
     </style>
 </head>
 <body>
+<div class="bg-anim"></div>
+<div class="invite-wrap">
     <div class="invite-card" id="invite-card">
-        <div class="invite-logo">Z</div>
+        <div class="orb">Z</div>
+        <div class="tag-pill"><span class="ic">🎟️</span> Exclusive invite</div>
         <h1 class="invite-title">Join Zenith</h1>
-        <p class="invite-subtitle">You've been invited to try Zenith AI</p>
+        <p class="invite-subtitle">The AI that chats, searches, and <b style="color:var(--g-text)">gets things done</b>. Your seat is reserved.</p>
         <div class="invite-by" id="invite-by" style="display:none;">
             <div class="avatar" id="inviter-avatar">?</div>
             <div class="info">
@@ -75,87 +172,99 @@
                 <div class="name" id="inviter-name">Someone</div>
             </div>
         </div>
-        <form class="invite-form" id="invite-form">
-            <input type="text" id="inv-username" placeholder="Username" required autocomplete="username">
-            <input type="email" id="inv-email" placeholder="Email" required autocomplete="email">
-            <input type="password" id="inv-password" placeholder="Password" required autocomplete="new-password">
-            <input type="password" id="inv-password-confirm" placeholder="Confirm password" required autocomplete="new-password">
+        <form class="invite-form" id="invite-form" novalidate>
+            <div class="field"><input type="text" id="inv-username" placeholder="Username" required autocomplete="username"></div>
+            <div class="field"><input type="email" id="inv-email" placeholder="Email" required autocomplete="email"></div>
+            <div class="field"><input type="password" id="inv-password" placeholder="Password" required autocomplete="new-password" minlength="6"></div>
+            <div class="field"><input type="password" id="inv-password-confirm" placeholder="Confirm password" required autocomplete="new-password"></div>
             <button type="submit" id="inv-submit">Create Account & Join</button>
         </form>
         <div class="invite-msg" id="invite-msg"></div>
+        <div class="perks">
+            <span class="perk">⚡ Instant chats</span>
+            <span class="perk">🎨 Image generation</span>
+            <span class="perk"><b>FREE</b>&nbsp;to start</span>
+        </div>
         <div class="invite-footer">
             Already have an account? <a href="/">Login here</a>
         </div>
     </div>
+
     <div class="invite-card invite-expired" id="invite-expired" style="display:none;">
+        <div class="ic-box">🔒</div>
         <h2>Link Expired</h2>
         <p>This invite link has already been used or is invalid.</p>
-        <p style="margin-top:16px;"><a href="/" style="color:#4CC9F0;">Go to Zenith</a></p>
+        <a class="ghost" href="/">Go to Zenith →</a>
     </div>
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const token = params.get('token');
-        const card = document.getElementById('invite-card');
-        const expired = document.getElementById('invite-expired');
-        const msg = document.getElementById('invite-msg');
 
-        if (!token) {
-            card.style.display = 'none';
-            expired.style.display = 'block';
-        } else {
-            fetch(`/api/referral/validate?token=${encodeURIComponent(token)}`)
-                .then(r => r.json())
-                .then(data => {
-                    if (data.error || data.detail || !data.referrer_name) {
-                        card.style.display = 'none';
-                        expired.style.display = 'block';
-                        return;
-                    }
-                    document.getElementById('inviter-name').textContent = data.referrer_name;
-                    document.getElementById('inviter-avatar').textContent = data.referrer_name[0].toUpperCase();
-                    document.getElementById('invite-by').style.display = 'flex';
-                })
-                .catch(() => {
+    <div class="powered">✦ ZENITH AI ✦</div>
+</div>
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    const card = document.getElementById('invite-card');
+    const expired = document.getElementById('invite-expired');
+    const msg = document.getElementById('invite-msg');
+
+    if (!token) {
+        card.style.display = 'none';
+        expired.style.display = 'block';
+    } else {
+        fetch(`/api/referral/validate?token=${encodeURIComponent(token)}`)
+            .then(r => r.json())
+            .then(data => {
+                if (data.error || data.detail || !data.referrer_name) {
                     card.style.display = 'none';
                     expired.style.display = 'block';
-                });
-        }
+                    return;
+                }
+                document.getElementById('inviter-name').textContent = data.referrer_name;
+                document.getElementById('inviter-avatar').textContent = data.referrer_name[0].toUpperCase();
+                document.getElementById('invite-by').style.display = 'flex';
+            })
+            .catch(() => {
+                card.style.display = 'none';
+                expired.style.display = 'block';
+            });
+    }
 
-        document.getElementById('invite-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const pw = document.getElementById('inv-password').value;
-            const confirm = document.getElementById('inv-password-confirm').value;
-            if (pw !== confirm) {
-                msg.textContent = 'Passwords do not match';
-                msg.className = 'invite-msg error';
-                return;
-            }
-            const btn = document.getElementById('inv-submit');
-            btn.disabled = true;
-            btn.textContent = 'Creating account...';
-            try {
-                const res = await fetch('/api/auth/register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        username: document.getElementById('inv-username').value.trim(),
-                        email: document.getElementById('inv-email').value.trim(),
-                        password: pw,
-                    }),
-                });
-                const data = await res.json();
-                if (!res.ok) throw new Error(data.detail || 'Registration failed');
-                msg.textContent = 'Account created! Redirecting...';
-                msg.className = 'invite-msg success';
-                setTimeout(() => { window.location.href = '/app'; }, 1500);
-            } catch (err) {
-                msg.textContent = err.message;
-                msg.className = 'invite-msg error';
-            } finally {
-                btn.disabled = false;
-                btn.textContent = 'Create Account & Join';
-            }
-        });
-    </script>
+    document.getElementById('invite-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = (id) => document.getElementById(id);
+        const username = input('inv-username').value.trim();
+        const email = input('inv-email').value.trim();
+        const pw = input('inv-password').value;
+        const confirm = input('inv-password-confirm').value;
+        if (username.length < 3) { fail('Username must be at least 3 characters.'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { fail('Please enter a valid email.'); return; }
+        if (pw.length < 6) { fail('Password must be at least 6 characters.'); return; }
+        if (pw !== confirm) { fail('Passwords do not match.'); return; }
+        const btn = input('inv-submit');
+        btn.disabled = true;
+        btn.textContent = 'Creating account...';
+        try {
+            const res = await fetch('/api/auth/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, email, password: pw, invite_token: token || '' }),
+            });
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.detail || 'Registration failed');
+            msg.textContent = 'Account created! Taking you in...';
+            msg.className = 'invite-msg success';
+            setTimeout(() => { window.location.href = '/app'; }, 1200);
+        } catch (err) {
+            fail(err.message || 'Registration failed');
+        } finally {
+            btn.disabled = false;
+            btn.textContent = 'Create Account & Join';
+        }
+    });
+
+    function fail(text) {
+        msg.textContent = text;
+        msg.className = 'invite-msg error';
+    }
+</script>
 </body>
 </html>

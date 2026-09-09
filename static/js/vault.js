@@ -7,6 +7,7 @@ const Vault = {
     _annInterval: null,
     _cache: {},
     _chosenHelpers: [],
+    _selected: new Set(),
 
     async init() {
         try {
@@ -703,9 +704,14 @@ const Vault = {
                     ${this.statCard('🤖','Guests',users.filter(u=>u.username.startsWith('guest_')).length,'','')}
                     ${this.statCard('👑','Admins',users.filter(u=>u.role==='admin'||u.role==='owner').length,'','info')}
                 </div>
+                <div class="vault-search" style="gap:10px;justify-content:flex-start;">
+                    <span id="user-sel-count" style="font-size:13px;color:#8B949E;"></span>
+                    <button class="vault-btn danger" id="user-bulk-delete" style="display:none;" onclick="Vault.bulkDeleteUsers()">🗑️ Delete selected</button>
+                    <button class="vault-btn" id="user-bulk-clear" style="display:none;" onclick="Vault.clearUserSelection()">Clear</button>
+                </div>
                 <div class="vault-card" style="overflow-x:auto;">
                     <table class="vault-table" id="users-table">
-                        <thead><tr><th>#</th><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Chats</th><th>Messages</th><th>Last Active</th><th>Actions</th></tr></thead>
+                        <thead><tr><th style="width:34px;"><input type="checkbox" id="user-select-all" onchange="Vault.toggleAllUsers(this.checked)"></th><th>#</th><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Chats</th><th>Messages</th><th>Last Active</th><th>Actions</th></tr></thead>
                         <tbody id="users-tbody"></tbody>
                     </table>
                 </div>`;
@@ -725,7 +731,9 @@ const Vault = {
             const isStaff = u.role === 'owner' || u.role === 'admin';
             const isMe = u.username === document.getElementById('vault-username')?.textContent;
             const canAct = (isOwner || !isStaff) && !(isMe && u.role === 'owner');
+            const canSelect = canAct;
             return `<tr>
+                <td><input type="checkbox" ${canSelect ? `onchange="Vault.toggleUser(${u.id}, this.checked)"` : 'disabled'} ${this._selected.has(u.id) ? 'checked' : ''}></td>
                 <td style="color:#8B949E;">${i + 1}</td>
                 <td><div style="font-weight:600;display:flex;align-items:center;">${u.username}${onlineDot}</div></td>
                 <td style="color:#8B949E;">${u.email}</td>
@@ -796,6 +804,67 @@ const Vault = {
         const ok = await showConfirm('Delete user?', 'Delete ' + username + '? This cannot be undone.', true);
         if (!ok) return;
         try { await api(`/api/auth/admin/users/${id}`, { method: 'DELETE' }); showToast('Deleted ' + username, 'success'); this.loadTab(this._currentTab); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    _canSelectUser(u) {
+        const isOwner = this._isOwner;
+        const isStaff = u.role === 'owner' || u.role === 'admin';
+        const isMe = u.username === document.getElementById('vault-username')?.textContent;
+        return (isOwner || !isStaff) && !(isMe && u.role === 'owner');
+    },
+
+    toggleUser(id, checked) {
+        if (checked) this._selected.add(id); else this._selected.delete(id);
+        this._updateBulkBar();
+    },
+
+    toggleAllUsers(checked) {
+        (this._cache.users || []).forEach(u => {
+            if (!this._canSelectUser(u)) return;
+            if (checked) this._selected.add(u.id); else this._selected.delete(u.id);
+        });
+        const all = document.getElementById('user-select-all');
+        if (all) all.checked = checked;
+        document.querySelectorAll('#users-table tbody input[type="checkbox"]').forEach(b => { b.checked = checked; });
+        this._updateBulkBar();
+    },
+
+    _updateBulkBar() {
+        const n = this._selected.size;
+        const count = document.getElementById('user-sel-count');
+        const del = document.getElementById('user-bulk-delete');
+        const clr = document.getElementById('user-bulk-clear');
+        if (count) count.textContent = n ? n + ' selected' : '';
+        if (del) del.style.display = n ? 'inline-block' : 'none';
+        if (clr) clr.style.display = n ? 'inline-block' : 'none';
+        const all = document.getElementById('user-select-all');
+        if (all) {
+            const selectable = (this._cache.users || []).filter(u => this._canSelectUser(u)).length;
+            all.checked = selectable > 0 && n >= selectable;
+            all.indeterminate = n > 0 && n < selectable;
+        }
+    },
+
+    clearUserSelection() {
+        this._selected.clear();
+        document.querySelectorAll('#users-table tbody input[type="checkbox"]').forEach(b => { b.checked = false; });
+        const all = document.getElementById('user-select-all');
+        if (all) { all.checked = false; all.indeterminate = false; }
+        this._updateBulkBar();
+    },
+
+    async bulkDeleteUsers() {
+        const n = this._selected.size;
+        if (!n) return;
+        const ok = await showConfirm('Bulk delete', `Delete ${n} user${n > 1 ? 's' : ''}? This cannot be undone. Admins and the Owner are kept safe.`, true);
+        if (!ok) return;
+        try {
+            const res = await api('/api/auth/admin/users/bulk-delete', { method: 'POST', body: JSON.stringify({ user_ids: Array.from(this._selected) }) });
+            showToast(res.message || 'Done', 'success');
+            this._selected.clear();
+            this._updateBulkBar();
+            this.loadTab(this._currentTab);
+        } catch (e) { showToast(e.message, 'error'); }
     },
 
     // ═══════════════════════════ CHATS ═══════════════════════════

@@ -557,12 +557,14 @@ const Chat = {
         messages.forEach(msg => {
             let reactions = null;
             try { reactions = JSON.parse(msg.reactions || '{}'); } catch (e) {}
-            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions);
+            let viewer = null;
+            try { viewer = JSON.parse(msg.viewer_reactions || '{}'); } catch (e2) {}
+            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer);
         });
         container.scrollTop = container.scrollHeight;
     },
 
-    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null) {
+    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null) {
         const container = $('chat-container');
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
@@ -636,8 +638,28 @@ const Chat = {
         wrapper.appendChild(bubble);
 
         if (role === 'assistant' && !streaming) {
-            const actions = document.createElement('div');
-            actions.className = 'msg-actions';
+            wrapper.appendChild(this._buildMsgActions('assistant', content, messageId, wrapper));
+        }
+
+        if (role === 'user' && !streaming) {
+            wrapper.appendChild(this._buildMsgActions('user', content, messageId, wrapper));
+        }
+
+        // Viewer reactions row (read-only): emojis left by people viewing your shared link.
+        if (messageId && !streaming) {
+            const rrow = this._buildViewerReactions(viewerReactions);
+            if (rrow) wrapper.appendChild(rrow);
+        }
+
+        container.appendChild(wrapper);
+        container.scrollTop = container.scrollHeight;
+        return bubble;
+    },
+
+    _buildMsgActions(role, content, messageId, wrapper) {
+        const actions = document.createElement('div');
+        actions.className = 'msg-actions';
+        if (role === 'assistant') {
             actions.innerHTML = `
                 <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                 <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>
@@ -666,12 +688,7 @@ const Chat = {
             actions.querySelector('[data-action="download-html"]').addEventListener('click', () => {
                 Chat.downloadAs(content, 'response', 'html');
             });
-            wrapper.appendChild(actions);
-        }
-
-        if (role === 'user' && !streaming) {
-            const actions = document.createElement('div');
-            actions.className = 'msg-actions';
+        } else {
             actions.innerHTML = `
                 <button data-action="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg> Edit</button>
                 <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
@@ -684,93 +701,63 @@ const Chat = {
                 Voice.speak(content);
             });
             actions.querySelector('[data-action="edit"]').addEventListener('click', () => {
+                if (!messageId) {
+                    Chat.renderMessages();
+                    return;
+                }
                 Chat.editMessage(messageId, content, wrapper);
             });
-            wrapper.appendChild(actions);
         }
-
-        // Reactions row (only when we know the message id and it's not streaming)
-        if (messageId && !streaming) {
-            const rrow = this._buildReactions(messageId, reactions);
-            if (rrow) wrapper.appendChild(rrow);
-        }
-
-        container.appendChild(wrapper);
-        container.scrollTop = container.scrollHeight;
-        return bubble;
+        return actions;
     },
 
-    _EMOJI_OPTS: ['👍', '❤️', '🔥', '👏', '🌟'],
-
-    _buildReactions(messageId, reactions) {
-        const self = this;
-        const row = document.createElement('div');
-        row.className = 'msg-reactions';
-        const store = reactions && typeof reactions === 'object' ? reactions : {};
-        const sorted = Object.entries(store).sort((a, b) => b[1].length - a[1].length);
-        const preview = document.createElement('div');
-        preview.className = 'msg-reaction-chips';
-        sorted.forEach(([emoji, users]) => {
-            const chip = document.createElement('button');
-            chip.className = 'reaction-chip';
-            chip.type = 'button';
-            chip.textContent = emoji + ' ' + users.length;
-            chip.title = (Array.isArray(users) ? users : []).join(', ');
-            chip.addEventListener('click', () => self._toggleReaction(messageId, emoji, chip));
-            preview.appendChild(chip);
-        });
-        const addBtn = document.createElement('div');
-        addBtn.className = 'reaction-add';
-        addBtn.title = 'React';
-        addBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h.01M15 10h.01M17.349 17.349a8 8 0 1 0-2.698 2.698"/><circle cx="12" cy="12" r="10"/></svg>';
-        const picker = document.createElement('div');
-        picker.className = 'reaction-picker';
-        const pick = (emoji) => () => {
-            picker.style.display = 'none';
-            addBtn.style.display = '';
-            self._toggleReaction(messageId, emoji, addBtn.closest('.msg-reactions'));
-        };
-        Object.keys(store).forEach(emoji => {
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = emoji;
-            b.addEventListener('click', pick(emoji));
-            picker.appendChild(b);
-        });
-        this._EMOJI_OPTS.forEach(emoji => {
-            if (store[emoji]) return;
-            const b = document.createElement('button');
-            b.type = 'button';
-            b.textContent = emoji;
-            b.addEventListener('click', pick(emoji));
-            picker.appendChild(b);
-        });
-        addBtn.appendChild(picker);
-        addBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const vis = picker.style.display === 'flex';
-            picker.style.display = vis ? 'none' : 'flex';
-            addBtn.style.display = vis ? '' : 'none';
-        });
-        row.appendChild(preview);
-        row.appendChild(addBtn);
-        return row;
-    },
-
-    async _toggleReaction(messageId, emoji, rowEl) {
+    async _postStreamSync(userWrapper, textToMatch) {
         try {
-            const { reactions } = await api(`/api/chats/${this.activeId}/messages/${messageId}/react`, {
-                method: 'POST',
-                body: JSON.stringify({ emoji }),
-            });
-            const row = rowEl || (document.querySelector('.msg-reactions'));
-            if (row && row.parentElement) {
-                const fresh = this._buildReactions(messageId, reactions);
-                row.parentElement.replaceChild(fresh, row);
+            const { messages } = await api(`/api/chats/${this.activeId}/messages`);
+            if (!messages.length) return;
+            const aiMsg = [...messages].reverse().find(m => m.role === 'assistant');
+            const userMsg = [...messages].reverse().find(m => m.role === 'user');
+            const assist = document.querySelector('.msg-wrapper.assistant:last-of-type');
+            if (assist && aiMsg) {
+                const old = assist.querySelector('.msg-actions');
+                if (old) old.remove();
+                const built = this._buildMsgActions('assistant', textToMatch, aiMsg.id, assist);
+                assist.appendChild(built);
+                let v = null;
+                try { v = JSON.parse(aiMsg.viewer_reactions || '{}'); } catch (e) {}
+                const rrow = this._buildViewerReactions(v);
+                if (rrow) assist.appendChild(rrow);
             }
-        } catch (e) {
-            showToast('Failed to react: ' + (e.message || 'Error'), 'error');
-        }
+            if (userWrapper && userMsg) {
+                const oldU = userWrapper.querySelector('.msg-actions');
+                if (oldU) oldU.remove();
+                userWrapper.appendChild(this._buildMsgActions('user', userMsg.content, userMsg.id, userWrapper));
+                let v = null;
+                try { v = JSON.parse(userMsg.viewer_reactions || '{}'); } catch (e2) {}
+                const rrowU = this._buildViewerReactions(v);
+                if (rrowU) userWrapper.appendChild(rrowU);
+            }
+        } catch (e) {}
+    },
+
+    _buildViewerReactions(viewer) {
+        if (!viewer) return null;
+        const entries = Object.entries(viewer).filter(([, n]) => Number(n) > 0);
+        if (!entries.length) return null;
+        const row = document.createElement('div');
+        row.className = 'msg-reactions viewer';
+        const badge = document.createElement('span');
+        badge.className = 'viewer-badge';
+        badge.title = 'Reactions from people viewing your shared link';
+        badge.textContent = '👥';
+        row.appendChild(badge);
+        entries.sort((a, b) => b[1] - a[1]).forEach(([emoji, n]) => {
+            const chip = document.createElement('span');
+            chip.className = 'reaction-chip static';
+            chip.textContent = emoji + ' ' + n;
+            row.appendChild(chip);
+        });
+        return row;
     },
 
     async editMessage(messageId, oldContent, wrapper) {
@@ -1030,7 +1017,8 @@ const Chat = {
         let displayText = text;
         const displayFiles = this.attachments.filter(a => a.type !== 'image');
         const displayImages = imageUrls.length > 0 ? imageUrls : sendImages;
-        this.appendMessage('user', displayText || (displayFiles.length ? '' : '(image)'), false, displayImages, displayFiles);
+        const userBubble = this.appendMessage('user', displayText || (displayFiles.length ? '' : '(image)'), false, displayImages, displayFiles);
+        const userWrapper = userBubble ? userBubble.parentElement : null;
         input.value = '';
         input.style.height = 'auto';
 
@@ -1154,21 +1142,12 @@ const Chat = {
                 if (fullResponse.length > 2400) {
                     showToast('✅ Done — a long reply is ready for you', 'success');
                 }
-                // Add action buttons
-                const actions = document.createElement('div');
-                actions.className = 'msg-actions';
-                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button><button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>`;
-                actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
-                    navigator.clipboard.writeText(fullResponse.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 [$2]'));
-                    showToast('Copied!', 'success');
-                });
-                actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
-                    Voice.speak(fullResponse);
-                });
-                actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
-                    Chat.downloadAs(fullResponse, 'response', 'md');
-                });
-                bubble.parentElement.appendChild(actions);
+                // Add action buttons (full set, same as after a reload — no refresh needed)
+                const aiWrapper = bubble.parentElement;
+                const old = aiWrapper.querySelector('.msg-actions');
+                if (old) old.remove();
+                aiWrapper.appendChild(this._buildMsgActions('assistant', fullResponse, null, aiWrapper));
+                this._postStreamSync(userWrapper, fullResponse);
             }
         } catch (err) {
             if (err.name === 'AbortError') {

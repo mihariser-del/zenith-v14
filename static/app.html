@@ -67,12 +67,6 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
             Reminders
         </button>
-        <div id="usage-meter" style="display:none; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:10px; background:rgba(76,201,240,.04); margin-top:2px;">
-            <div style="flex:1; height:6px; background:rgba(139,148,158,.18); border-radius:4px; overflow:hidden;">
-                <div class="um-fill" style="height:100%; width:0%; background:linear-gradient(90deg,#4CC9F0,#6A5CFF); border-radius:4px; transition:width .5s;"></div>
-            </div>
-            <span class="um-label" style="font-size:10.5px; color:var(--muted); white-space:nowrap;"></span>
-        </div>
         <button class="sidebar-tools-toggle" id="tools-toggle" title="More Tools">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
             More Tools
@@ -149,7 +143,8 @@
             <input id="reminder-text" placeholder="Remind me to…" style="width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid var(--border); background:var(--input-bg); color:var(--text); font-size:13px; outline:none;">
             <div style="display:flex; gap:8px; margin-top:10px; align-items:center; flex-wrap:wrap;">
                 <select id="reminder-day" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:8px; font-size:12px; outline:none;">
-                    <option value="">Next day</option>
+                    <option value="today">Today</option>
+                    <option value="">Tomorrow</option>
                     <option value="sun">Sunday</option>
                     <option value="mon">Monday</option>
                     <option value="tue">Tuesday</option>

@@ -196,6 +196,7 @@ class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
+    invite_token: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -315,7 +316,7 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
 
 
 @router.post("/register")
-async def register(req: RegisterRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     # Brute-force / abuse protection: per-IP, 10 registrations per hour.
     _raise_if_locked(f"register:{_client_ip(request)}", limit=10, window=3600)
     # Respect global registration toggle
@@ -376,67 +377,79 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
     await db.flush()  # Get user.id for referral tracking
 
     # ── Referral tracking via invite token ────────────────────────────────
-    invite_token = request.cookies.get("zenith_invite_token", "").strip()
+    # The token is consumed on EVERY registration that carries it — including
+    # self-referrals and registrations from a different device that already
+    # visited the link — so a single invite link can never be replayed to
+    # farm accounts.
+    from database import InviteToken, Referral
+    import secrets as _secrets
+    invite_token = (req.invite_token or "").strip()
+    if not invite_token:
+        invite_token = request.cookies.get("zenith_invite_token", "").strip()
+    invite = None
     if invite_token:
-        from database import InviteToken, Referral
         token_result = await db.execute(
             select(InviteToken).where(InviteToken.token == invite_token, InviteToken.used == False)
         )
         invite = token_result.scalar_one_or_none()
-        if invite and invite.referrer_id != user.id:
-            # Mark token as used
+        if invite:
             invite.used = True
             invite.used_by_user_id = user.id
             invite.used_by_username = user.username
             invite.used_at = datetime.now(timezone.utc)
-            # Create referral record
-            referral = Referral(
-                referrer_id=invite.referrer_id,
-                referred_username=user.username,
-                referred_user_id=user.id,
+    if invite and invite.referrer_id != user.id:
+        # Create referral record
+        referral = Referral(
+            referrer_id=invite.referrer_id,
+            referred_username=user.username,
+            referred_user_id=user.id,
+        )
+        db.add(referral)
+        await db.flush()
+        # Auto-generate new invite token for the referrer
+        new_token = InviteToken(
+            token=_secrets.token_urlsafe(32),
+            referrer_id=invite.referrer_id,
+        )
+        db.add(new_token)
+        # Check if referrer now has 5+ pending referrals → auto-grant Pro
+        from sqlalchemy import func, update as _update
+        ref_result = await db.execute(select(User).where(User.id == invite.referrer_id))
+        referrer = ref_result.scalar_one_or_none()
+        if referrer and not referrer.username.startswith("guest_"):
+            count_result = await db.execute(
+                select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
             )
-            db.add(referral)
-            await db.flush()
-            # Auto-generate new invite token for the referrer
-            import secrets
-            new_token = InviteToken(
-                token=secrets.token_urlsafe(32),
-                referrer_id=invite.referrer_id,
-            )
-            db.add(new_token)
-            # Check if referrer now has 5+ pending referrals → auto-grant Pro
-            from sqlalchemy import func
-            ref_result = await db.execute(select(User).where(User.id == invite.referrer_id))
-            referrer = ref_result.scalar_one_or_none()
-            if referrer and not referrer.username.startswith("guest_"):
-                count_result = await db.execute(
-                    select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
-                )
-                pending = count_result.scalar() or 0
-                if pending >= 5:
-                    now = datetime.now(timezone.utc)
-                    if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
-                        te = referrer.trial_end
-                        if te.tzinfo is None:
-                            te = te.replace(tzinfo=timezone.utc)
-                        if te > now:
-                            referrer.trial_end = te + timedelta(days=3)
-                        else:
-                            referrer.trial_end = now + timedelta(days=3)
+            pending = count_result.scalar() or 0
+            if pending >= 5:
+                now = datetime.now(timezone.utc)
+                if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
+                    te = referrer.trial_end
+                    if te.tzinfo is None:
+                        te = te.replace(tzinfo=timezone.utc)
+                    if te > now:
+                        referrer.trial_end = te + timedelta(days=3)
                     else:
-                        referrer.is_pro = True
-                        referrer.pro_plan = "referral_pro"
                         referrer.trial_end = now + timedelta(days=3)
-                    from sqlalchemy import update
-                    await db.execute(
-                        update(Referral).where(
-                            Referral.referrer_id == referrer.id,
-                            Referral.rewarded == False
-                        ).values(rewarded=True)
-                    )
+                else:
+                    referrer.is_pro = True
+                    referrer.pro_plan = "referral_pro"
+                    referrer.trial_end = now + timedelta(days=3)
+                await db.execute(
+                    _update(Referral).where(
+                        Referral.referrer_id == referrer.id,
+                        Referral.rewarded == False
+                    ).values(rewarded=True)
+                )
 
     await db.commit()
-    return {"message": "Account created"}
+
+    # Auto-login: sign the session in immediately so the invite flow lands
+    # straight inside the app instead of bouncing back to the landing page.
+    token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
+    set_auth_cookie(response, token, request)
+    response.delete_cookie("zenith_invite_token")
+    return {"message": "Account created", "user": UserResponse.model_validate(user)}
 
 
 @router.post("/login")
@@ -869,6 +882,47 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     target.deleted_by = get_role(admin)
     await db.commit()
     return {"message": "User deleted (soft)"}
+
+
+class BulkDeleteRequest(BaseModel):
+    user_ids: list[int] = []
+
+
+@router.post("/admin/users/bulk-delete")
+async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Soft-delete multiple users at once (Vault multi-select)."""
+    admin = await get_current_user_from_cookie(request, db)
+    if not is_staff(admin):
+        raise HTTPException(status_code=403, detail="Admin only")
+    if get_role(admin) == "admin":
+        import json
+        perms = {}
+        if admin.permissions:
+            try: perms = json.loads(admin.permissions)
+            except: pass
+        if not perms.get("delete_users", True):
+            raise HTTPException(status_code=403, detail="You do not have permission to delete users. Contact the Owner.")
+    admin_role = get_role(admin)
+    ids = [i for i in sorted(set(req.user_ids)) if i != admin.id]
+    if not ids:
+        raise HTTPException(status_code=400, detail="No valid users to delete")
+    result = await db.execute(select(User).where(User.id.in_(ids)))
+    targets = result.scalars().all()
+    deleted = 0
+    skipped = []
+    for target in targets:
+        t_role = get_role(target)
+        if t_role == "owner":
+            skipped.append(f"{target.username} (Owner)")
+            continue
+        if t_role == "admin" and admin_role != "owner":
+            skipped.append(f"{target.username} (admin)")
+            continue
+        target.is_deleted = True
+        target.deleted_by = admin_role
+        deleted += 1
+    await db.commit()
+    return {"message": f"Deleted {deleted} user(s)", "deleted": deleted, "skipped": skipped}
 
 
 @router.post("/admin/users/{user_id}/role")

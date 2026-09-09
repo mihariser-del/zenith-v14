@@ -229,6 +229,7 @@ class Message(Base):
     role = Column(String(20), nullable=False)  # user | assistant | system
     content = Column(Text, nullable=False)
     reactions = Column(Text, default="{}")
+    viewer_reactions = Column(Text, default="{}")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chat = relationship("Chat", back_populates="messages")
@@ -488,6 +489,10 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '{}'")
         except Exception as e:
             print(f"migration messages.reactions: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN viewer_reactions TEXT DEFAULT '{}'")
+        except Exception as e:
+            print(f"migration messages.viewer_reactions: {e}")
         try:
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

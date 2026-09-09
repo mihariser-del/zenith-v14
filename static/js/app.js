@@ -621,31 +621,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
 
-    // ── Usage meter + upgrade nudge ──────────────────────────────
-    async function refreshUsage() {
-        try {
-            const m = await api('/api/usage/meter');
-            const bar = $('usage-meter');
-            if (!bar) return;
-            bar.style.display = 'flex';
-            const pct = Math.min(100, Math.round((m.messages_today / (m.limit || 60)) * 100));
-            bar.querySelector('.um-fill').style.width = pct + '%';
-            const label = bar.querySelector('.um-label');
-            if (m.is_pro) {
-                label.textContent = `PRO · ${m.messages_today}/day`;
-                bar.style.opacity = '.9';
-            } else {
-                label.textContent = `${m.messages_today}/${m.limit} messages today`;
-                if (m.messages_today >= (m.limit || 60)) {
-                    label.textContent += ' · upgrade for more ✨';
-                    label.style.color = '#F59E0B';
-                    bar.classList.add('um-full');
-                }
-            }
-        } catch (e) {}
-    }
-    refreshUsage();
-
     // ── Reminders ────────────────────────────────────────────────
     (function reminders() {
         const modal = $('reminders-modal');
@@ -700,17 +675,25 @@ document.addEventListener('DOMContentLoaded', async () => {
             const now = new Date();
             const next = new Date(now);
             next.setHours(hh, mm, 0, 0);
-            const idx = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(day); // day=="" → -1
-            let target = next;
-            if (idx >= 0) {
+            const idx = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(day);
+            let target;
+            if (day === '') {
+                // "Tomorrow" — always tomorrow at the chosen time
+                target = new Date(now.getTime() + 24 * 3600 * 1000);
+                target.setHours(hh, mm, 0, 0);
+            } else if (idx >= 0) {
                 let diff = (idx - now.getDay() + 7) % 7;
                 if (diff === 0 && next <= now) diff = 7;
                 target = new Date(now);
                 target.setDate(now.getDate() + diff);
                 target.setHours(hh, mm, 0, 0);
-            } else if (next <= now) {
-                target = new Date(now.getTime() + 24 * 3600 * 1000);
-                target.setHours(hh, mm, 0, 0);
+            } else {
+                // "Today" — today at the chosen time, or tomorrow if it already passed
+                target = next;
+                if (target <= now) {
+                    target = new Date(now.getTime() + 24 * 3600 * 1000);
+                    target.setHours(hh, mm, 0, 0);
+                }
             }
             // client sends local ISO; server normalizes assumed-GMT? — server uses naive UTC. Convert to UTC ISO string.
             const iso = target.toISOString();

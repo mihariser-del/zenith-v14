@@ -530,6 +530,25 @@ body.admin-owner .sidebar .btn.info { color: #C0C7D1 !important; border-color: r
     gap: 6px;
     margin-top: 6px;
 }
+.msg-reactions.viewer .reaction-chip.static {
+    cursor: default;
+    pointer-events: none;
+    opacity: .95;
+}
+.viewer-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #4CC9F0, #6A5CFF);
+    color: #fff;
+    font-size: 11px;
+    flex-shrink: 0;
+    margin-right: 2px;
+    box-shadow: 0 0 8px rgba(76,201,240,.4);
+}
 .reaction-chip, .reaction-add {
     display: inline-flex;
     align-items: center;
@@ -674,13 +693,6 @@ body.admin-owner .sidebar .btn.info { color: #C0C7D1 !important; border-color: r
     color: #6b7280; margin-bottom: 5px; font-weight: 600;
 }
 .pdf-msg-body { font-size: 14px; line-height: 1.7; white-space: normal; }
-
-/* ── Usage meter ────────────────────────────────────────────────── */
-#usage-meter.um-full {
-    border-color: rgba(245,158,11,.45);
-    background: rgba(245,158,11,.07);
-}
-#usage-meter .um-fill { transition: width .5s; }
 
 /* ── Sidebar reminders button styling match ─────────────────────── */
 #reminders-open { color: #4CC9F0; }

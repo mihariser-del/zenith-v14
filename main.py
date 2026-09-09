@@ -1,9 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from pydantic import BaseModel
 
 import os
+import secrets
+from datetime import datetime, timezone, timedelta
 os.makedirs("uploads", exist_ok=True)
 
 from database import init_db, get_db
@@ -28,6 +31,9 @@ from analytics import router as analytics_router
 from global_controls import router as global_controls_router
 from personal_requests import router as personal_requests_router
 from personality import router as personality_router
+
+REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
+REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
 VERSION = "18.2"
 
@@ -94,6 +100,134 @@ app.include_router(analytics_router)
 app.include_router(global_controls_router)
 app.include_router(personal_requests_router)
 app.include_router(personality_router)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REFERRAL SYSTEM
+# ─────────────────────────────────────────────────────────────────────────────
+
+from database import User, Referral, async_session
+from sqlalchemy import select, func, update
+
+
+@app.post("/api/referral/generate")
+async def referral_generate(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot generate referral links")
+    if user.referral_code:
+        return {"code": user.referral_code}
+    for _ in range(10):
+        code = secrets.token_urlsafe(6)[:8].upper()
+        existing = await db.execute(select(User).where(User.referral_code == code))
+        if not existing.scalar_one_or_none():
+            break
+    else:
+        raise HTTPException(status_code=500, detail="Could not generate unique code")
+    user.referral_code = code
+    await db.commit()
+    return {"code": code}
+
+
+@app.get("/api/referral/stats")
+async def referral_stats(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot view referral stats")
+    if not user.referral_code:
+        code = secrets.token_urlsafe(6)[:8].upper()
+        user.referral_code = code
+        await db.commit()
+    result = await db.execute(
+        select(func.count()).where(Referral.referrer_id == user.id)
+    )
+    total = result.scalar() or 0
+    rewarded_result = await db.execute(
+        select(func.count()).where(Referral.referrer_id == user.id, Referral.rewarded == True)
+    )
+    rewarded = rewarded_result.scalar() or 0
+    pending = total - rewarded
+    reward_pending = pending >= REFERRAL_REQUIRED
+    referral_pro = getattr(user, "pro_plan", "") == "referral_pro" and getattr(user, "is_pro", False)
+    return {
+        "code": user.referral_code,
+        "total": total,
+        "rewarded": rewarded,
+        "pending": pending,
+        "required": REFERRAL_REQUIRED,
+        "reward_pending": reward_pending,
+        "referral_pro_active": referral_pro,
+        "pro_days": REFERRAL_PRO_DAYS,
+    }
+
+
+@app.post("/api/referral/claim")
+async def referral_claim(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot claim referral rewards")
+    result = await db.execute(
+        select(func.count()).where(Referral.referrer_id == user.id, Referral.rewarded == False)
+    )
+    pending = result.scalar() or 0
+    if pending < REFERRAL_REQUIRED:
+        raise HTTPException(status_code=400, detail=f"Need {REFERRAL_REQUIRED - pending} more referrals to claim")
+    now = datetime.now(timezone.utc)
+    if getattr(user, "is_pro", False) and getattr(user, "trial_end", None):
+        trial_end = user.trial_end
+        if trial_end.tzinfo is None:
+            trial_end = trial_end.replace(tzinfo=timezone.utc)
+        if trial_end > now:
+            user.trial_end = trial_end + timedelta(days=REFERRAL_PRO_DAYS)
+        else:
+            user.trial_end = now + timedelta(days=REFERRAL_PRO_DAYS)
+    else:
+        user.is_pro = True
+        user.pro_plan = "referral_pro"
+        user.trial_end = now + timedelta(days=REFERRAL_PRO_DAYS)
+    await db.execute(
+        update(Referral).where(
+            Referral.referrer_id == user.id,
+            Referral.rewarded == False
+        ).values(rewarded=True)
+    )
+    await db.commit()
+    return {"message": f"Pro activated for {REFERRAL_PRO_DAYS} days!", "trial_end": user.trial_end.isoformat()}
+
+
+@app.get("/api/referral/link")
+async def referral_link(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot get referral links")
+    if not user.referral_code:
+        code = secrets.token_urlsafe(6)[:8].upper()
+        user.referral_code = code
+        await db.commit()
+    host = request.base_url.hostname or "localhost"
+    scheme = "https" if host not in ("localhost", "127.0.0.1") else "http"
+    return {"link": f"{scheme}://{host}/invite/{user.referral_code}", "code": user.referral_code}
+
+
+@app.get("/invite/{code}")
+async def invite_redirect(code: str):
+    async with async_session() as db:
+        result = await db.execute(select(User).where(User.referral_code == code.upper()))
+        referrer = result.scalar_one_or_none()
+        if not referrer:
+            return RedirectResponse(url="/")
+    resp = RedirectResponse(url=f"/?ref={code.upper()}")
+    resp.set_cookie(
+        key="zenith_ref",
+        value=code.upper(),
+        httponly=True,
+        samesite="lax",
+        secure=True,
+        max_age=30 * 24 * 3600,
+    )
+    return resp
+
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 

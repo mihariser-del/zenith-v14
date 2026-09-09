@@ -113,14 +113,22 @@ def _send_reset_email(to_email: str, link: str) -> bool:
         f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
         f"If you didn't request this, you can ignore this email."
     )
-    msg = f"From: {sender}\r\nTo: {to_email}\r\nSubject: {subject}\r\n\r\n{body}"
+    msg = f"From: {sender}\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
     import smtplib
     try:
-        with smtplib.SMTP(host, port, timeout=15) as s:
-            s.starttls()
-            if user:
-                s.login(user, pw)
-            s.sendmail(sender, [to_email], msg)
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as s:
+                if user:
+                    s.login(user, pw)
+                s.sendmail(sender, [to_email], msg)
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as s:
+                s.ehlo()
+                s.starttls()
+                s.ehlo()
+                if user:
+                    s.login(user, pw)
+                s.sendmail(sender, [to_email], msg)
         return True
     except Exception as e:
         print(f"[forgot-password] email delivery failed: {e}")
@@ -308,6 +316,54 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
         password_hash=hash_password(req.password),
     )
     db.add(user)
+    await db.flush()  # Get user.id for referral tracking
+
+    # ── Referral tracking ─────────────────────────────────────────────────
+    ref_code = request.cookies.get("zenith_ref", "").strip().upper()
+    if ref_code and ref_code != user.referral_code:
+        # Find the referrer
+        from database import Referral
+        ref_result = await db.execute(select(User).where(User.referral_code == ref_code))
+        referrer = ref_result.scalar_one_or_none()
+        if referrer and referrer.id != user.id:
+            # Prevent self-referral
+            referral = Referral(
+                referrer_id=referrer.id,
+                referred_username=user.username,
+                referred_user_id=user.id,
+            )
+            db.add(referral)
+            await db.flush()
+            # Check if referrer now has 5+ pending referrals → auto-grant Pro
+            from sqlalchemy import func
+            count_result = await db.execute(
+                select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
+            )
+            pending = count_result.scalar() or 0
+            if pending >= 5 and not referrer.username.startswith("guest_"):
+                from datetime import datetime, timezone, timedelta
+                now = datetime.now(timezone.utc)
+                if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
+                    te = referrer.trial_end
+                    if te.tzinfo is None:
+                        te = te.replace(tzinfo=timezone.utc)
+                    if te > now:
+                        referrer.trial_end = te + timedelta(days=3)
+                    else:
+                        referrer.trial_end = now + timedelta(days=3)
+                else:
+                    referrer.is_pro = True
+                    referrer.pro_plan = "referral_pro"
+                    referrer.trial_end = now + timedelta(days=3)
+                # Mark all pending as rewarded
+                from sqlalchemy import update
+                await db.execute(
+                    update(Referral).where(
+                        Referral.referrer_id == referrer.id,
+                        Referral.rewarded == False
+                    ).values(rewarded=True)
+                )
+
     await db.commit()
     return {"message": "Account created"}
 

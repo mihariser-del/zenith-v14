@@ -176,6 +176,8 @@ class User(Base):
     # Password reset token (forgot-password) with expiry
     reset_token = Column(String(64), default="")
     reset_token_expires = Column(DateTime, nullable=True)
+    # Referral system — unique code for inviting others
+    referral_code = Column(String(10), unique=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -340,6 +342,20 @@ class UserRequest(Base):
     user = relationship("User", back_populates="requests")
 
 
+class Referral(Base):
+    __tablename__ = "referrals"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    referred_username = Column(String(50), nullable=False)
+    referred_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    rewarded = Column(Boolean, default=False)
+
+    referrer = relationship("User", foreign_keys=[referrer_id])
+    referred = relationship("User", foreign_keys=[referred_user_id])
+
+
 class StaffMessage(Base):
     __tablename__ = "staff_messages"
 
@@ -401,6 +417,7 @@ async def init_db():
             ("personality_updated_at", "DATETIME"),
             ("reset_token", "VARCHAR(64) DEFAULT ''"),
             ("reset_token_expires", "DATETIME"),
+            ("referral_code", "VARCHAR(10) DEFAULT NULL"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
@@ -414,6 +431,17 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE user_settings ADD COLUMN display_name VARCHAR(50) DEFAULT ''")
         except Exception as e:
             print(f"migration display_name: {e}")
+        try:
+            await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS referrals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                referred_username VARCHAR(50) NOT NULL,
+                referred_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                rewarded BOOLEAN DEFAULT 0
+            )""")
+        except Exception as e:
+            print(f"migration referrals: {e}")
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt, os

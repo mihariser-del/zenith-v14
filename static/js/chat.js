@@ -243,6 +243,8 @@ const Chat = {
             actions.innerHTML = `
                 <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
                 <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>
+                <button data-action="share-twitter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg> Share</button>
+                <button data-action="share-whatsapp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Share</button>
                 <button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>
                 <button data-action="download-html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .html</button>`;
             actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
@@ -251,6 +253,14 @@ const Chat = {
             });
             actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
                 Voice.speak(content);
+            });
+            actions.querySelector('[data-action="share-twitter"]').addEventListener('click', () => {
+                const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Zenith AI response:\n\n' + truncated + '\n\nTry Zenith AI: ' + window.location.origin)}`, '_blank');
+            });
+            actions.querySelector('[data-action="share-whatsapp"]').addEventListener('click', () => {
+                const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
+                window.open(`https://wa.me/?text=${encodeURIComponent('Zenith AI response:\n\n' + truncated + '\n\nTry Zenith AI: ' + window.location.origin)}`, '_blank');
             });
             actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
                 Chat.downloadAs(content, 'response', 'md');

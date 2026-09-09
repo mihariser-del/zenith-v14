@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Join Zenith - You've Been Invited!</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            margin: 0; padding: 0; min-height: 100vh;
+            background: var(--bg); color: var(--text);
+            display: flex; align-items: center; justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        .invite-card {
+            width: 100%; max-width: 420px; margin: 20px;
+            background: var(--card-bg, #161b22);
+            border: 1px solid var(--border, #30363d);
+            border-radius: 16px; padding: 40px 32px;
+            text-align: center; box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+        .invite-logo { font-size: 48px; margin-bottom: 8px; }
+        .invite-title { font-size: 22px; font-weight: 700; margin: 0 0 6px; color: var(--text); }
+        .invite-subtitle { font-size: 14px; color: var(--text-secondary, #8b949e); margin: 0 0 24px; }
+        .invite-by {
+            display: flex; align-items: center; gap: 12px; justify-content: center;
+            background: rgba(76, 201, 240, 0.08); border: 1px solid rgba(76, 201, 240, 0.2);
+            border-radius: 12px; padding: 12px 16px; margin-bottom: 28px;
+        }
+        .invite-by .avatar {
+            width: 40px; height: 40px; border-radius: 50%;
+            background: var(--accent-solid, #4CC9F0); color: #06121a;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; font-weight: 700; flex-shrink: 0;
+        }
+        .invite-by .info { text-align: left; }
+        .invite-by .info .name { font-size: 14px; font-weight: 600; color: var(--text); }
+        .invite-by .info .label { font-size: 12px; color: var(--text-secondary, #8b949e); }
+        .invite-form { display: flex; flex-direction: column; gap: 14px; }
+        .invite-form input {
+            padding: 12px 14px; background: var(--input-bg, #0d1117);
+            border: 1px solid var(--border, #30363d); border-radius: 10px;
+            color: var(--text); font-size: 14px; outline: none; transition: border-color .2s;
+        }
+        .invite-form input:focus { border-color: var(--accent-solid, #4CC9F0); }
+        .invite-form input::placeholder { color: var(--text-secondary, #8b949e); }
+        .invite-form button {
+            padding: 12px; border: none; border-radius: 10px;
+            background: var(--accent-solid, #4CC9F0); color: #06121a;
+            font-size: 15px; font-weight: 700; cursor: pointer; transition: opacity .2s;
+        }
+        .invite-form button:hover { opacity: .9; }
+        .invite-form button:disabled { opacity: .5; cursor: not-allowed; }
+        .invite-msg { font-size: 13px; min-height: 18px; margin-top: 4px; }
+        .invite-msg.error { color: #f85149; }
+        .invite-msg.success { color: #3fb950; }
+        .invite-footer { margin-top: 20px; font-size: 12px; color: var(--text-secondary, #8b949e); }
+        .invite-footer a { color: var(--accent-solid, #4CC9F0); text-decoration: none; }
+        .invite-expired { text-align: center; }
+        .invite-expired h2 { color: #f85149; margin-bottom: 8px; }
+        .invite-expired p { color: var(--text-secondary, #8b949e); font-size: 14px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .invite-card { animation: fadeIn .4s ease-out; }
+    </style>
+</head>
+<body>
+    <div class="invite-card" id="invite-card">
+        <div class="invite-logo">Z</div>
+        <h1 class="invite-title">Join Zenith</h1>
+        <p class="invite-subtitle">You've been invited to try Zenith AI</p>
+        <div class="invite-by" id="invite-by" style="display:none;">
+            <div class="avatar" id="inviter-avatar">?</div>
+            <div class="info">
+                <div class="label">Invited by</div>
+                <div class="name" id="inviter-name">Someone</div>
+            </div>
+        </div>
+        <form class="invite-form" id="invite-form">
+            <input type="text" id="inv-username" placeholder="Username" required autocomplete="username">
+            <input type="email" id="inv-email" placeholder="Email" required autocomplete="email">
+            <input type="password" id="inv-password" placeholder="Password" required autocomplete="new-password">
+            <input type="password" id="inv-password-confirm" placeholder="Confirm password" required autocomplete="new-password">
+            <button type="submit" id="inv-submit">Create Account & Join</button>
+        </form>
+        <div class="invite-msg" id="invite-msg"></div>
+        <div class="invite-footer">
+            Already have an account? <a href="/">Login here</a>
+        </div>
+    </div>
+    <div class="invite-card invite-expired" id="invite-expired" style="display:none;">
+        <h2>Link Expired</h2>
+        <p>This invite link has already been used or is invalid.</p>
+        <p style="margin-top:16px;"><a href="/" style="color:#4CC9F0;">Go to Zenith</a></p>
+    </div>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('token');
+        const card = document.getElementById('invite-card');
+        const expired = document.getElementById('invite-expired');
+        const msg = document.getElementById('invite-msg');
+
+        if (!token) {
+            card.style.display = 'none';
+            expired.style.display = 'block';
+        } else {
+            fetch(`/api/referral/validate?token=${encodeURIComponent(token)}`)
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        card.style.display = 'none';
+                        expired.style.display = 'block';
+                        return;
+                    }
+                    document.getElementById('inviter-name').textContent = data.referrer_name;
+                    document.getElementById('inviter-avatar').textContent = data.referrer_name[0].toUpperCase();
+                    document.getElementById('invite-by').style.display = 'flex';
+                })
+                .catch(() => {
+                    card.style.display = 'none';
+                    expired.style.display = 'block';
+                });
+        }
+
+        document.getElementById('invite-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pw = document.getElementById('inv-password').value;
+            const confirm = document.getElementById('inv-password-confirm').value;
+            if (pw !== confirm) {
+                msg.textContent = 'Passwords do not match';
+                msg.className = 'invite-msg error';
+                return;
+            }
+            const btn = document.getElementById('inv-submit');
+            btn.disabled = true;
+            btn.textContent = 'Creating account...';
+            try {
+                const res = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        username: document.getElementById('inv-username').value.trim(),
+                        email: document.getElementById('inv-email').value.trim(),
+                        password: pw,
+                    }),
+                });
+                const data = await res.json();
+                if (!res.ok) throw new Error(data.detail || 'Registration failed');
+                msg.textContent = 'Account created! Redirecting...';
+                msg.className = 'invite-msg success';
+                setTimeout(() => { window.location.href = '/app'; }, 1500);
+            } catch (err) {
+                msg.textContent = err.message;
+                msg.className = 'invite-msg error';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Create Account & Join';
+            }
+        });
+    </script>
+</body>
+</html>

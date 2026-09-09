@@ -108,25 +108,29 @@ app.include_router(personality_router)
 
 from database import User, Referral, async_session
 from sqlalchemy import select, func, update
+from database import InviteToken
+
+
+def _generate_token():
+    return secrets.token_urlsafe(32)
 
 
 @app.post("/api/referral/generate")
 async def referral_generate(request: Request, db=Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if user.username.startswith("guest_"):
-        raise HTTPException(status_code=403, detail="Guests cannot generate referral links")
-    if user.referral_code:
-        return {"code": user.referral_code}
-    for _ in range(10):
-        code = secrets.token_urlsafe(6)[:8].upper()
-        existing = await db.execute(select(User).where(User.referral_code == code))
-        if not existing.scalar_one_or_none():
-            break
-    else:
-        raise HTTPException(status_code=500, detail="Could not generate unique code")
-    user.referral_code = code
+        raise HTTPException(status_code=403, detail="Guests cannot generate invite links")
+    existing = await db.execute(
+        select(InviteToken).where(InviteToken.referrer_id == user.id, InviteToken.used == False)
+    )
+    active = existing.scalar_one_or_none()
+    if active:
+        return {"token": active.token, "created_at": active.created_at.isoformat()}
+    token = InviteToken(token=_generate_token(), referrer_id=user.id)
+    db.add(token)
     await db.commit()
-    return {"code": code}
+    await db.refresh(token)
+    return {"token": token.token, "created_at": token.created_at.isoformat()}
 
 
 @app.get("/api/referral/stats")
@@ -134,29 +138,24 @@ async def referral_stats(request: Request, db=Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if user.username.startswith("guest_"):
         raise HTTPException(status_code=403, detail="Guests cannot view referral stats")
-    if not user.referral_code:
-        code = secrets.token_urlsafe(6)[:8].upper()
-        user.referral_code = code
-        await db.commit()
-    result = await db.execute(
+    total_result = await db.execute(
         select(func.count()).where(Referral.referrer_id == user.id)
     )
-    total = result.scalar() or 0
+    total = total_result.scalar() or 0
     rewarded_result = await db.execute(
         select(func.count()).where(Referral.referrer_id == user.id, Referral.rewarded == True)
     )
     rewarded = rewarded_result.scalar() or 0
     pending = total - rewarded
-    reward_pending = pending >= REFERRAL_REQUIRED
-    referral_pro = getattr(user, "pro_plan", "") == "referral_pro" and getattr(user, "is_pro", False)
+    has_pro = getattr(user, "is_pro", False) and getattr(user, "pro_plan", "") == "referral_pro"
+    earned_from_referrals = has_pro or rewarded > 0
     return {
-        "code": user.referral_code,
         "total": total,
         "rewarded": rewarded,
         "pending": pending,
         "required": REFERRAL_REQUIRED,
-        "reward_pending": reward_pending,
-        "referral_pro_active": referral_pro,
+        "has_pro": has_pro,
+        "earned_from_referrals": earned_from_referrals,
         "pro_days": REFERRAL_PRO_DAYS,
     }
 
@@ -199,33 +198,68 @@ async def referral_claim(request: Request, db=Depends(get_db)):
 async def referral_link(request: Request, db=Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if user.username.startswith("guest_"):
-        raise HTTPException(status_code=403, detail="Guests cannot get referral links")
-    if not user.referral_code:
-        code = secrets.token_urlsafe(6)[:8].upper()
-        user.referral_code = code
+        raise HTTPException(status_code=403, detail="Guests cannot get invite links")
+    existing = await db.execute(
+        select(InviteToken).where(InviteToken.referrer_id == user.id, InviteToken.used == False)
+    )
+    active = existing.scalar_one_or_none()
+    if not active:
+        active = InviteToken(token=_generate_token(), referrer_id=user.id)
+        db.add(active)
         await db.commit()
+        await db.refresh(active)
     host = request.base_url.hostname or "localhost"
     scheme = "https" if host not in ("localhost", "127.0.0.1") else "http"
-    return {"link": f"{scheme}://{host}/invite/{user.referral_code}", "code": user.referral_code}
+    base = os.getenv("FRONTEND_URL", f"{scheme}://{host}")
+    return {"link": f"{base}/i/{active.token}", "token": active.token}
 
 
-@app.get("/invite/{code}")
-async def invite_redirect(code: str):
+@app.get("/i/{token}")
+async def invite_page(token: str):
     async with async_session() as db:
-        result = await db.execute(select(User).where(User.referral_code == code.upper()))
-        referrer = result.scalar_one_or_none()
+        result = await db.execute(
+            select(InviteToken).where(InviteToken.token == token)
+        )
+        invite = result.scalar_one_or_none()
+        if not invite or invite.used:
+            return RedirectResponse(url="/")
+        ref_result = await db.execute(
+            select(User).where(User.id == invite.referrer_id)
+        )
+        referrer = ref_result.scalar_one_or_none()
         if not referrer:
             return RedirectResponse(url="/")
-    resp = RedirectResponse(url=f"/?ref={code.upper()}")
+    resp = RedirectResponse(url=f"/invite.html?token={token}")
     resp.set_cookie(
-        key="zenith_ref",
-        value=code.upper(),
+        key="zenith_invite_token",
+        value=token,
         httponly=True,
         samesite="lax",
         secure=True,
-        max_age=30 * 24 * 3600,
+        max_age=7 * 24 * 3600,
     )
     return resp
+
+
+@app.get("/api/referral/validate")
+async def validate_invite_token(request: Request, db=Depends(get_db)):
+    token = request.query_params.get("token", "")
+    if not token:
+        raise HTTPException(status_code=400, detail="Token required")
+    result = await db.execute(
+        select(InviteToken).where(InviteToken.token == token)
+    )
+    invite = result.scalar_one_or_none()
+    if not invite or invite.used:
+        raise HTTPException(status_code=404, detail="Invalid or used invite link")
+    ref_result = await db.execute(
+        select(User).where(User.id == invite.referrer_id)
+    )
+    referrer = ref_result.scalar_one_or_none()
+    return {
+        "referrer_name": referrer.username if referrer else "Someone",
+        "created_at": invite.created_at.isoformat(),
+    }
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")

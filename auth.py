@@ -139,7 +139,6 @@ class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
-    device_id: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -319,52 +318,45 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
     db.add(user)
     await db.flush()  # Get user.id for referral tracking
 
-    # ── Referral tracking ─────────────────────────────────────────────────
-    ref_code = request.cookies.get("zenith_ref", "").strip().upper()
-    if ref_code and ref_code != user.referral_code:
-        from database import Referral
-        ref_result = await db.execute(select(User).where(User.referral_code == ref_code))
-        referrer = ref_result.scalar_one_or_none()
-        client_ip = _client_ip(request)
-        device_id = getattr(req, "device_id", "") or ""
-        if referrer and referrer.id != user.id:
-            # Prevent self-referral
-            # Prevent same device from farming referrals (check device ID first, fall back to IP)
-            blocked = False
-            if device_id:
-                device_check = await db.execute(
-                    select(Referral).where(
-                        Referral.referrer_id == referrer.id,
-                        Referral.referred_device == device_id
-                    )
-                )
-                blocked = device_check.scalar_one_or_none() is not None
-            if not blocked:
-                ip_check = await db.execute(
-                    select(Referral).where(
-                        Referral.referrer_id == referrer.id,
-                        Referral.referred_ip == client_ip
-                    )
-                )
-                blocked = ip_check.scalar_one_or_none() is not None
-            if not blocked:
-                referral = Referral(
-                    referrer_id=referrer.id,
-                    referred_username=user.username,
-                    referred_user_id=user.id,
-                    referred_ip=client_ip,
-                    referred_device=device_id,
-                )
-                db.add(referral)
-                await db.flush()
-                # Check if referrer now has 5+ pending referrals → auto-grant Pro
-                from sqlalchemy import func
+    # ── Referral tracking via invite token ────────────────────────────────
+    invite_token = request.cookies.get("zenith_invite_token", "").strip()
+    if invite_token:
+        from database import InviteToken, Referral
+        token_result = await db.execute(
+            select(InviteToken).where(InviteToken.token == invite_token, InviteToken.used == False)
+        )
+        invite = token_result.scalar_one_or_none()
+        if invite and invite.referrer_id != user.id:
+            # Mark token as used
+            invite.used = True
+            invite.used_by_user_id = user.id
+            invite.used_by_username = user.username
+            invite.used_at = datetime.now(timezone.utc)
+            # Create referral record
+            referral = Referral(
+                referrer_id=invite.referrer_id,
+                referred_username=user.username,
+                referred_user_id=user.id,
+            )
+            db.add(referral)
+            await db.flush()
+            # Auto-generate new invite token for the referrer
+            import secrets
+            new_token = InviteToken(
+                token=secrets.token_urlsafe(32),
+                referrer_id=invite.referrer_id,
+            )
+            db.add(new_token)
+            # Check if referrer now has 5+ pending referrals → auto-grant Pro
+            from sqlalchemy import func
+            ref_result = await db.execute(select(User).where(User.id == invite.referrer_id))
+            referrer = ref_result.scalar_one_or_none()
+            if referrer and not referrer.username.startswith("guest_"):
                 count_result = await db.execute(
                     select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
                 )
                 pending = count_result.scalar() or 0
-                if pending >= 5 and not referrer.username.startswith("guest_"):
-                    from datetime import datetime, timezone, timedelta
+                if pending >= 5:
                     now = datetime.now(timezone.utc)
                     if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
                         te = referrer.trial_end
@@ -378,7 +370,6 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
                         referrer.is_pro = True
                         referrer.pro_plan = "referral_pro"
                         referrer.trial_end = now + timedelta(days=3)
-                    # Mark all pending as rewarded
                     from sqlalchemy import update
                     await db.execute(
                         update(Referral).where(

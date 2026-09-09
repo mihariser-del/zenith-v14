@@ -367,6 +367,14 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
+    // Hide Invite button if user has earned Pro from referrals
+    try {
+        const refStats = await api('/api/referral/stats');
+        if (refStats.has_pro || refStats.earned_from_referrals) {
+            const inviteBtn = $('invite-btn');
+            if (inviteBtn) inviteBtn.style.display = 'none';
+        }
+    } catch (e) {}
     // Avatar click shows logout when in collapsed rail (901-1100px)
     const avatarEl = $('user-avatar');
     if (avatarEl) {
@@ -501,11 +509,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div id="invite-stats" style="display:flex;gap:12px;margin-bottom:20px;">
                     <div style="flex:1;text-align:center;padding:12px;background:rgba(76,201,240,0.06);border:1px solid rgba(76,201,240,0.15);border-radius:10px;">
                         <div id="invite-count" style="font-size:24px;font-weight:800;color:#4CC9F0;">0</div>
-                        <div style="font-size:11px;color:#8B949E;">Referrals</div>
+                        <div style="font-size:11px;color:#8B949E;">Joined</div>
                     </div>
                     <div style="flex:1;text-align:center;padding:12px;background:rgba(76,201,240,0.06);border:1px solid rgba(76,201,240,0.15);border-radius:10px;">
                         <div id="invite-pending" style="font-size:24px;font-weight:800;color:#FFD700;">0</div>
-                        <div style="font-size:11px;color:#8B949E;">Pending</div>
+                        <div style="font-size:11px;color:#8B949E;">Remaining</div>
                     </div>
                     <div style="flex:1;text-align:center;padding:12px;background:rgba(76,201,240,0.06);border:1px solid rgba(76,201,240,0.15);border-radius:10px;">
                         <div id="invite-rewarded" style="font-size:24px;font-weight:800;color:#10B981;">0</div>
@@ -521,9 +529,12 @@ document.addEventListener('DOMContentLoaded', async () => {
                         <div id="invite-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#4CC9F0,#06B6D4);border-radius:4px;transition:width 0.3s;"></div>
                     </div>
                 </div>
-                <div id="invite-link-box" style="display:flex;gap:8px;margin-bottom:16px;">
-                    <input id="invite-link" readonly style="flex:1;padding:10px 14px;background:rgba(0,0,0,0.3);border:1px solid rgba(76,201,240,0.2);border-radius:8px;color:#C0C7D1;font-size:13px;outline:none;" placeholder="Loading...">
-                    <button id="invite-copy" style="padding:10px 16px;background:rgba(76,201,240,0.15);border:1px solid rgba(76,201,240,0.3);border-radius:8px;color:#4CC9F0;font-size:13px;font-weight:600;cursor:pointer;">Copy</button>
+                <div style="background:rgba(76,201,240,0.06);border:1px solid rgba(76,201,240,0.15);border-radius:10px;padding:12px;margin-bottom:16px;">
+                    <div style="font-size:11px;color:#8B949E;margin-bottom:6px;">Your unique invite link (single-use, auto-refreshes)</div>
+                    <div id="invite-link-box" style="display:flex;gap:8px;">
+                        <input id="invite-link" readonly style="flex:1;padding:8px 12px;background:rgba(0,0,0,0.3);border:1px solid rgba(76,201,240,0.2);border-radius:6px;color:#C0C7D1;font-size:12px;outline:none;" placeholder="Loading...">
+                        <button id="invite-copy" style="padding:8px 14px;background:rgba(76,201,240,0.15);border:1px solid rgba(76,201,240,0.3);border-radius:6px;color:#4CC9F0;font-size:12px;font-weight:600;cursor:pointer;">Copy</button>
+                    </div>
                 </div>
                 <div style="display:flex;gap:8px;margin-bottom:16px;">
                     <button id="invite-twitter" style="flex:1;padding:10px;background:#1DA1F2;color:white;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Share on Twitter</button>
@@ -536,16 +547,21 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Load stats
         try {
-            const stats = await api('/api/referral/stats');
-            const link = await api('/api/referral/link');
+            const [stats, linkData] = await Promise.all([
+                api('/api/referral/stats'),
+                api('/api/referral/link')
+            ]);
             wrap.querySelector('#invite-count').textContent = stats.total;
-            wrap.querySelector('#invite-pending').textContent = stats.pending;
+            wrap.querySelector('#invite-pending').textContent = Math.max(0, stats.required - stats.total);
             wrap.querySelector('#invite-rewarded').textContent = stats.rewarded;
-            wrap.querySelector('#invite-link').value = link.link;
-            const pct = Math.min(100, (stats.pending / stats.required) * 100);
+            wrap.querySelector('#invite-link').value = linkData.link;
+            const pct = Math.min(100, (stats.total / stats.required) * 100);
             wrap.querySelector('#invite-progress-bar').style.width = pct + '%';
-            wrap.querySelector('#invite-progress-text').textContent = `${stats.pending}/${stats.required}`;
-            if (stats.reward_pending) {
+            wrap.querySelector('#invite-progress-text').textContent = `${stats.total}/${stats.required}`;
+            if (stats.has_pro) {
+                // Already earned Pro — hide claim, show message
+                wrap.querySelector('#invite-claim').style.display = 'none';
+            } else if (stats.total >= stats.required) {
                 const claimBtn = wrap.querySelector('#invite-claim');
                 claimBtn.style.display = 'block';
                 claimBtn.addEventListener('click', async () => {
@@ -553,14 +569,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                         const r = await api('/api/referral/claim', { method: 'POST' });
                         showToast(r.message, 'success');
                         claimBtn.style.display = 'none';
-                        // Refresh stats
-                        const s2 = await api('/api/referral/stats');
-                        wrap.querySelector('#invite-count').textContent = s2.total;
-                        wrap.querySelector('#invite-pending').textContent = s2.pending;
-                        wrap.querySelector('#invite-rewarded').textContent = s2.rewarded;
-                        const p2 = Math.min(100, (s2.pending / s2.required) * 100);
-                        wrap.querySelector('#invite-progress-bar').style.width = p2 + '%';
-                        wrap.querySelector('#invite-progress-text').textContent = `${s2.pending}/${s2.required}`;
+                        // Hide invite button entirely after claiming
+                        const inviteBtn = $('invite-btn');
+                        if (inviteBtn) inviteBtn.style.display = 'none';
                     } catch (e) { showToast(e.message, 'error'); }
                 });
             }
@@ -574,12 +585,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Twitter share
         wrap.querySelector('#invite-twitter').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out Zenith AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Zenith AI - your personal AI assistant! ' + link)}`, '_blank');
         });
         // WhatsApp share
         wrap.querySelector('#invite-whatsapp').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://wa.me/?text=${encodeURIComponent('Check out Zenith AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zenith AI - your personal AI assistant! ' + link)}`, '_blank');
         });
     });
     const composerBox = document.querySelector('.composer-box');

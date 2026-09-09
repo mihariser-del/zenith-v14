@@ -358,6 +358,21 @@ class Referral(Base):
     referred = relationship("User", foreign_keys=[referred_user_id])
 
 
+class InviteToken(Base):
+    __tablename__ = "invite_tokens"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token = Column(String(64), unique=True, nullable=False, index=True)
+    referrer_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    used = Column(Boolean, default=False)
+    used_by_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    used_by_username = Column(String(50), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    used_at = Column(DateTime, nullable=True)
+
+    referrer = relationship("User", foreign_keys=[referrer_id], backref="invite_tokens")
+
+
 class StaffMessage(Base):
     __tablename__ = "staff_messages"
 
@@ -454,6 +469,19 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE referrals ADD COLUMN referred_device VARCHAR(64) DEFAULT ''")
         except Exception as e:
             pass  # column already exists
+        try:
+            await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS invite_tokens (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                token VARCHAR(64) NOT NULL UNIQUE,
+                referrer_id INTEGER NOT NULL REFERENCES users.id ON DELETE CASCADE,
+                used BOOLEAN DEFAULT 0,
+                used_by_user_id INTEGER REFERENCES users.id ON DELETE SET NULL,
+                used_by_username VARCHAR(50) DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                used_at DATETIME
+            )""")
+        except Exception as e:
+            print(f"migration invite_tokens: {e}")
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt, os

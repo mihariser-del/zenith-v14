@@ -1291,7 +1291,7 @@ const Vault = {
                         return `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
                         <div style="width:36px;height:36px;border-radius:50%;background:${a.role === 'owner' ? 'linear-gradient(135deg,#DDE4EE,#8B949E)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;">${a.username[0].toUpperCase()}</div>
                         <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span>${isChosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div><div style="font-size:11px;color:#666;">${a.email}</div></div>
-                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn ${isChosen ? 'danger' : 'success'}" onclick="Vault.toggleChosen(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">${isChosen ? '✖ Remove Helper' : '⛑ Choose Helper'}</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
+                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.viewAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">👁 View</button><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn ${isChosen ? 'danger' : 'success'}" onclick="Vault.toggleChosen(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">${isChosen ? '✖ Remove Helper' : '⛑ Choose Helper'}</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
                     </div>`;
                     }).join('')}
                 </div>
@@ -1316,7 +1316,10 @@ const Vault = {
                     <div class="card-header"><span>➕ Create Admin</span></div>
                     <div style="display:flex;gap:8px;flex-wrap:wrap;">
                         <input class="vault-input" id="new-admin-user" placeholder="Username" style="flex:1;min-width:150px;">
-                        <input class="vault-input" id="new-admin-pass" placeholder="Password" type="password" style="flex:1;min-width:150px;">
+                        <div style="position:relative;flex:1;min-width:150px;">
+                            <input class="vault-input" id="new-admin-pass" placeholder="Password" type="password" style="width:100%;padding-right:40px;">
+                            <span id="new-admin-pass-eye" title="Show/hide password" onclick="Vault.togglePasswordView('new-admin-pass','new-admin-pass-eye')" style="position:absolute;right:10px;top:50%;transform:translateY(-50%);cursor:pointer;font-size:16px;user-select:none;">👁️</span>
+                        </div>
                         <button class="vault-btn primary" onclick="Vault.createAdmin()">Create Admin</button>
                     </div>
                 </div>` : ''}`;
@@ -1328,6 +1331,55 @@ const Vault = {
         const p = document.getElementById('new-admin-pass')?.value;
         if (!u || !p) return showToast('Fill both fields', 'error');
         try { await api('/api/auth/admin/users', { method: 'POST', body: JSON.stringify({ username: u, password: p }) }); showToast('Admin created', 'success'); this.renderAdmins(); } catch (e) { showToast(e.message, 'error'); }
+    },
+
+    togglePasswordView(inputId, eyeId) {
+        const inp = document.getElementById(inputId);
+        const eye = document.getElementById(eyeId);
+        if (!inp || !eye) return;
+        const show = inp.type === 'password';
+        inp.type = show ? 'text' : 'password';
+        eye.textContent = show ? '🙈' : '👁️';
+    },
+
+    async viewAdmin(userId, username) {
+        let u = null;
+        try {
+            const { users } = await api('/api/auth/admin/users');
+            u = users.find(x => x.id === userId);
+        } catch (e) { showToast(e.message, 'error'); return; }
+        if (!u) { showToast('Could not load account details', 'error'); return; }
+        const wrap = document.createElement('div');
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';
+        const row = (label, val, accent) => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #1A1D21;">
+                <span style="font-size:11px;color:#8B949E;letter-spacing:.5px;">${label}</span>
+                <span style="font-size:12.5px;color:${accent || '#DDE4EE'};font-weight:600;">${val || '—'}</span>
+            </div>`;
+        wrap.innerHTML = `
+            <div style="background:#111315;border:2px solid #FFD700;border-radius:16px;padding:28px;max-width:440px;width:100%;box-shadow:0 0 40px #FFD70022;">
+                <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
+                    <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#FFD700,#FF8C00);display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;font-size:20px;">${u.username[0].toUpperCase()}</div>
+                    <div>
+                        <div style="font-size:17px;font-weight:700;color:#DDE4EE;">${u.username}</div>
+                        <div><span class="badge badge-yellow">${(u.role || 'ADMIN').toUpperCase()}</span>${u.is_chosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div>
+                    </div>
+                </div>
+                ${row('ACCOUNT ID', '#' + u.id)}
+                ${row('EMAIL', u.email)}
+                ${row('CREATED', u.created_at)}
+                ${row('LAST ACTIVE', u.last_seen || 'Never', u.online ? '#10B981' : '')}
+                ${u.online ? row('STATUS', '● ONLINE', '#10B981') : ''}
+                ${row('CHATS', u.chat_count)}
+                ${row('MESSAGES', u.message_count)}
+                ${row('ACCOUNT TYPE', u.is_guest ? 'Guest' : 'Registered')}
+                <div style="display:flex;gap:8px;margin-top:18px;">
+                    <button id="viewadmin-close" style="flex:1;padding:10px;background:#1A1D21;color:#DDE4EE;border:1px solid #333;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
+                </div>
+            </div>`;
+        wrap.querySelector('#viewadmin-close').addEventListener('click', () => wrap.remove());
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
+        document.body.appendChild(wrap);
     },
 
     // ═══════════════════════════ GLOBAL CONTROLS ═══════════════════════════

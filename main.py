@@ -40,6 +40,7 @@ VERSION = "19.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Invites are now one per device — once a device joins Zenith it can't use another invite link, and it gets a friendly 'already joined' page if it tries",
     "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
     "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
     "Unlimited invites are now single-use — an invite link is consumed the moment someone registers, so it can't be replayed",
@@ -127,7 +128,7 @@ app.include_router(personality_router)
 
 from database import User, Referral, Chat, Message, Reminder, async_session
 from sqlalchemy import select, func, update
-from database import InviteToken
+from database import InviteToken, UsedDevice
 
 
 def _generate_token():
@@ -269,8 +270,24 @@ async def serve_invite_page():
 @app.get("/api/referral/validate")
 async def validate_invite_token(request: Request, db=Depends(get_db)):
     token = request.query_params.get("token", "")
+    device_id = request.query_params.get("device_id", "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="Token required")
+    # Device already joined Zenith → it can never use another invite link.
+    if device_id:
+        dev_result = await db.execute(
+            select(UsedDevice).where(UsedDevice.device_id == device_id)
+        )
+        used = dev_result.scalar_one_or_none()
+        if used:
+            user_result = await db.execute(select(User).where(User.id == used.user_id))
+            owner = user_result.scalar_one_or_none()
+            if owner and not owner.is_deleted:
+                return {
+                    "device_already_joined": True,
+                    "detail": "This device already joined Zenith",
+                    "username": owner.username,
+                }
     result = await db.execute(
         select(InviteToken).where(InviteToken.token == token)
     )

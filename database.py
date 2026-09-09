@@ -381,6 +381,19 @@ class InviteToken(Base):
     referrer = relationship("User", foreign_keys=[referrer_id], backref="invite_tokens")
 
 
+class UsedDevice(Base):
+    """Fingerprinted devices that have already joined Zenith (invite anti-farming)."""
+
+    __tablename__ = "used_devices"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    device_id = Column(String(64), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    username = Column(String(50), default="")
+    source = Column(String(16), default="")  # invite | landing | app
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class StaffMessage(Base):
     __tablename__ = "staff_messages"
 

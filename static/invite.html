@@ -197,6 +197,14 @@
         <a class="ghost" href="/">Go to Zenith →</a>
     </div>
 
+    <div class="invite-card invite-expired" id="invite-joined" style="display:none;">
+        <div class="ic-box">✅</div>
+        <h2>This device already joined Zenith</h2>
+        <p>This device is already connected to the account <b id="joined-username" style="color:var(--g-text);"></b>.</p>
+        <p style="font-size:12.5px; opacity:.85;">Invite links are one per device — each new Zenith account needs its own device.</p>
+        <a class="ghost" href="/app">Open Zenith →</a>
+    </div>
+
     <div class="powered">✦ ZENITH AI ✦</div>
 </div>
 <script>
@@ -204,15 +212,36 @@
     const token = params.get('token');
     const card = document.getElementById('invite-card');
     const expired = document.getElementById('invite-expired');
+    const joined = document.getElementById('invite-joined');
     const msg = document.getElementById('invite-msg');
+
+    function getDeviceId() {
+        let id = localStorage.getItem('zenith_device_id');
+        if (!id) {
+            id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+            try { localStorage.setItem('zenith_device_id', id); } catch (e) {}
+        }
+        return id;
+    }
+    const deviceId = getDeviceId();
+    const showJoined = (username) => {
+        card.style.display = 'none';
+        expired.style.display = 'none';
+        if (username) document.getElementById('joined-username').textContent = username;
+        joined.style.display = 'block';
+    };
 
     if (!token) {
         card.style.display = 'none';
         expired.style.display = 'block';
     } else {
-        fetch(`/api/referral/validate?token=${encodeURIComponent(token)}`)
+        fetch(`/api/referral/validate?token=${encodeURIComponent(token)}&device_id=${encodeURIComponent(deviceId)}`)
             .then(r => r.json())
             .then(data => {
+                if (data && data.device_already_joined) {
+                    showJoined(data.username);
+                    return;
+                }
                 if (data.error || data.detail || !data.referrer_name) {
                     card.style.display = 'none';
                     expired.style.display = 'block';
@@ -246,10 +275,13 @@
             const res = await fetch('/api/auth/register', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username, email, password: pw, invite_token: token || '' }),
+                body: JSON.stringify({ username, email, password: pw, invite_token: token || '', device_id: deviceId }),
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.detail || 'Registration failed');
+            if (!res.ok) {
+                if (data.detail && String(data.detail).includes('already joined')) { showJoined(); return; }
+                throw new Error(data.detail || 'Registration failed');
+            }
             msg.textContent = 'Account created! Taking you in...';
             msg.className = 'invite-msg success';
             setTimeout(() => { window.location.href = '/app'; }, 1200);

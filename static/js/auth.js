@@ -229,6 +229,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     username: $('reg-username').value.trim(),
                     email: $('reg-email').value.trim(),
                     password: pw,
+                    device_id: getDeviceId(),
                 }),
             });
             showToast('Account created! Please login.', 'success');
@@ -241,6 +242,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 });
+function getDeviceId() {
+    try {
+        let id = localStorage.getItem('zenith_device_id');
+        if (!id) {
+            id = 'dev-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 12);
+            localStorage.setItem('zenith_device_id', id);
+        }
+        return id;
+    } catch (e) { return ''; }
+}
+
 async function handleGoogleCredential(response) {
     try {
         const id_token = response.credential;

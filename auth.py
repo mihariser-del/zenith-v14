@@ -197,6 +197,7 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
     invite_token: str = ""
+    device_id: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -335,6 +336,18 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     if len(req.password) < 6:
         raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
 
+    from database import UsedDevice
+    device_id = (req.device_id or "").strip()
+    has_invite = bool((req.invite_token or "").strip() or request.cookies.get("zenith_invite_token", "").strip())
+    # A device that already joined Zenith can never consume another invite link.
+    if device_id and has_invite:
+        dev_result = await db.execute(
+            select(UsedDevice).where(UsedDevice.device_id == device_id)
+        )
+        prior = dev_result.scalar_one_or_none()
+        if prior:
+            raise HTTPException(status_code=403, detail="This device already joined Zenith")
+
     existing = await db.execute(
         select(User).where((User.username == req.username) | (User.email == req.email))
     )
@@ -375,6 +388,22 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     )
     db.add(user)
     await db.flush()  # Get user.id for referral tracking
+
+    # Record the fingerprint so this device can't farm future invite links.
+    # Keep the FIRST association — a device that later registers again normally
+    # (no invite) doesn't overwrite who the device is bound to.
+    if device_id:
+        from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+        await db.execute(
+            sqlite_insert(UsedDevice)
+            .values(
+                device_id=device_id,
+                user_id=user.id,
+                username=user.username,
+                source="invite" if has_invite else "landing",
+            )
+            .on_conflict_do_nothing(index_elements=["device_id"])
+        )
 
     # ── Referral tracking via invite token ────────────────────────────────
     # The token is consumed on EVERY registration that carries it — including

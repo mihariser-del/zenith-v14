@@ -15,6 +15,7 @@ router = APIRouter(prefix="/api/chats", tags=["chats"])
 class ChatResponse(BaseModel):
     id: int
     title: str
+    link_id: str
     created_at: datetime
     updated_at: datetime
 
@@ -61,10 +62,29 @@ async def create_chat(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Chat).where(Chat.user_id == user.id, Chat.title.like("New Chat%")))
     count = len(result.scalars().all())
     title = "New Chat" if count == 0 else f"New Chat {count + 1}"
-    chat = Chat(user_id=user.id, title=title)
+    chat = Chat(user_id=user.id, title=title, link_id=_new_link_id())
     db.add(chat)
     await db.commit()
     await db.refresh(chat)
+    return {"chat": ChatResponse.model_validate(chat)}
+
+
+def _new_link_id():
+    """Generate a unique, unguessable per-chat link id (like ChatGPT's /c/<uuid>)."""
+    import secrets
+    return secrets.token_hex(16)
+
+
+@router.get("/by-link/{link_id}")
+async def get_chat_by_link(link_id: str, request: Request, db: AsyncSession = Depends(get_db)):
+    """Resolve a chat by its unique link_id. Only the chat's owner can access it."""
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Chat).where(Chat.link_id == link_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
     return {"chat": ChatResponse.model_validate(chat)}
 
 

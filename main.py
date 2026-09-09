@@ -291,6 +291,13 @@ async def chat_app():
     return FileResponse("static/app.html")
 
 
+@app.get("/app/c/{link_id}", response_class=HTMLResponse)
+async def chat_app_link(link_id: str):
+    """ChatGPT-style deep link to a specific chat (/app/c/<link_id>).
+    The frontend resolves the link_id and scopes it to the logged-in user."""
+    return FileResponse("static/app.html")
+
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page():
     return FileResponse("static/admin.html")

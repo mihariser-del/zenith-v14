@@ -207,6 +207,7 @@ class Chat(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(100), default="New Chat")
+    link_id = Column(String(64), unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -448,6 +449,21 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE user_settings ADD COLUMN display_name VARCHAR(50) DEFAULT ''")
         except Exception as e:
             print(f"migration display_name: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE chats ADD COLUMN link_id VARCHAR(64)")
+        except Exception as e:
+            print(f"migration chats.link_id: {e}")
+        # Backfill link_id for any existing chats missing it
+        try:
+            import secrets
+            backfill_rows = await conn.exec_driver_sql("SELECT id FROM chats WHERE link_id IS NULL OR link_id = ''")
+            for row in backfill_rows.fetchall():
+                await conn.exec_driver_sql(
+                    "UPDATE chats SET link_id = ? WHERE id = ?",
+                    (secrets.token_hex(16), row[0]),
+                )
+        except Exception as e:
+            print(f"migration chats.link_id backfill: {e}")
         try:
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS referrals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

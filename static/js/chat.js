@@ -48,6 +48,29 @@ const Chat = {
         this.chats = {};
         chats.forEach(c => this.chats[c.id] = c);
 
+        // ChatGPT-style deep link: /app/c/<link_id> or ?chat=<link_id>
+        const pathMatch = window.location.pathname.match(/\/app\/c\/([0-9a-f]+)/i);
+        const queryMatch = new URLSearchParams(window.location.search).get('chat');
+        const targetLink = (pathMatch ? pathMatch[1] : null) || (queryMatch && queryMatch.toLowerCase()) || null;
+
+        if (targetLink) {
+            let found = Object.values(this.chats).find(c => (c.link_id || '').toLowerCase() === targetLink);
+            if (!found) {
+                // Linked chat not in the already-loaded list — fetch it directly
+                try {
+                    const { chat } = await api(`/api/chats/by-link/${encodeURIComponent(targetLink)}`);
+                    this.chats[chat.id] = chat;
+                    found = chat;
+                } catch (e) {}
+            }
+            if (found) {
+                this.activeId = found.id;
+                this.renderList();
+                this.renderMessages();
+                return;
+            }
+        }
+
         if (chats.length === 0) {
             await this.create();
         } else {
@@ -64,6 +87,7 @@ const Chat = {
             this.activeId = chat.id;
             this.renderList();
             await this.renderMessages();
+            this.syncUrl();
         } catch (e) {
             showToast('Failed to create chat: ' + (e.message || 'Unknown error'), 'error');
         }
@@ -111,12 +135,23 @@ const Chat = {
             div.innerHTML = `
                 <span class="title">${this.escapeHtml(chat.title)}</span>
                 <div class="actions">
+                    <button data-action="link" data-id="${chat.id}" title="Copy chat link">Link</button>
                     <button data-action="rename" data-id="${chat.id}">Edit</button>
                     <button data-action="delete" data-id="${chat.id}">Del</button>
                 </div>`;
             div.addEventListener('click', (e) => {
                 if (e.target.closest('[data-action]')) return;
                 this.switchTo(chat.id);
+            });
+            div.querySelector('[data-action="link"]').addEventListener('click', async () => {
+                const url = chat.link_id ? window.location.origin + '/app/c/' + chat.link_id : '';
+                if (!url) return;
+                try {
+                    await navigator.clipboard.writeText(url);
+                    showToast('Chat link copied!', 'success');
+                } catch (e) {
+                    showToast('Copy failed', 'error');
+                }
             });
             div.querySelector('[data-action="rename"]').addEventListener('click', async () => {
                 const newTitle = await showPrompt('Rename chat', chat.title);
@@ -134,6 +169,21 @@ const Chat = {
         this.activeId = id;
         this.renderList();
         this.renderMessages();
+        this.syncUrl();
+    },
+
+    syncUrl() {
+        // Keep the address bar in sync: https://<host>/app/c/<link_id>
+        const chat = this.activeId ? this.chats[this.activeId] : null;
+        const linkId = chat && chat.link_id ? chat.link_id : '';
+        try {
+            if (linkId) {
+                const url = window.location.origin + '/app/c/' + linkId;
+                window.history.replaceState({ chatId: this.activeId }, document.title, url);
+            } else {
+                window.history.replaceState({}, document.title, window.location.origin + '/app');
+            }
+        } catch (e) {}
     },
 
     renderWelcome() {

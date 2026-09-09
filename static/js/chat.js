@@ -127,47 +127,104 @@ const Chat = {
     renderList() {
         const list = $('chat-list');
         list.innerHTML = '';
-        const sorted = Object.values(this.chats).sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-        sorted.forEach(chat => {
-            const div = document.createElement('div');
-            div.className = `chat-item ${chat.id === this.activeId ? 'active' : ''}`;
-            div.title = chat.title;
-            div.innerHTML = `
+        const all = Object.values(this.chats).sort((a, b) => {
+            if ((a.pinned ? 1 : 0) !== (b.pinned ? 1 : 0)) return (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0);
+            return new Date(b.updated_at) - new Date(a.updated_at);
+        });
+        const pinned = all.filter(c => c.pinned);
+        const folders = {};
+        const unfiled = [];
+        all.filter(c => !c.pinned).forEach(c => {
+            const f = (c.folder || '').trim();
+            if (f) (folders[f] = folders[f] || []).push(c);
+            else unfiled.push(c);
+        });
+        const renderGroup = (groupEl, items) => {
+            items.forEach(chat => {
+                const div = document.createElement('div');
+                div.className = `chat-item ${chat.id === this.activeId ? 'active' : ''}`;
+                div.title = chat.title;
+                div.innerHTML = `
                 <span class="title">${this.escapeHtml(chat.title)}</span>
                 <div class="actions">
-                    <button data-action="link" data-id="${chat.id}" title="Copy chat link">Link</button>
-                    <button data-action="rename" data-id="${chat.id}">Edit</button>
-                    <button data-action="delete" data-id="${chat.id}">Del</button>
+                    <button data-action="pin" data-id="${chat.id}" title="${chat.pinned ? 'Unpin' : 'Pin chat'}">${chat.pinned ? '📌' : '📍'}</button>
+                    <button data-action="share" data-id="${chat.id}" title="Share or export this chat">🔗</button>
+                    <button data-action="folder" data-id="${chat.id}" title="Move to folder">🗂️</button>
+                    <button data-action="rename" data-id="${chat.id}" title="Rename">✏️</button>
+                    <button data-action="delete" data-id="${chat.id}" title="Delete">🗑️</button>
                 </div>`;
-            div.addEventListener('click', (e) => {
-                if (e.target.closest('[data-action]')) return;
-                this.switchTo(chat.id);
+                div.addEventListener('click', (e) => {
+                    if (e.target.closest('[data-action]')) return;
+                    this.switchTo(chat.id);
+                });
+                div.querySelector('[data-action="pin"]').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    try {
+                        const { chat: c } = await api(`/api/chats/${chat.id}/prefs`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ pinned: !chat.pinned }),
+                        });
+                        this.chats[chat.id] = c;
+                        this.renderList();
+                        showToast(c.pinned ? 'Chat pinned' : 'Chat unpinned', 'success');
+                    } catch (err) { showToast(err.message || 'Failed', 'error'); }
+                });
+                div.querySelector('[data-action="folder"]').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const name = await showPrompt('Move to folder', chat.folder || '', 'Folder name (leave empty to remove)');
+                    if (name === null) return;
+                    try {
+                        const { chat: c } = await api(`/api/chats/${chat.id}/prefs`, {
+                            method: 'PATCH',
+                            body: JSON.stringify({ folder: name.trim() }),
+                        });
+                        this.chats[chat.id] = c;
+                        this.renderList();
+                    } catch (err) { showToast(err.message || 'Failed', 'error'); }
+                });
+                div.querySelector('[data-action="share"]').addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    this.showShareExport(chat);
+                });
+                div.querySelector('[data-action="rename"]').addEventListener('click', async () => {
+                    const newTitle = await showPrompt('Rename chat', chat.title);
+                    if (newTitle && newTitle.trim()) this.rename(chat.id, newTitle.trim());
+                });
+                div.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+                    const ok = await showConfirm('Delete chat?', 'This will permanently delete this conversation.', true);
+                    if (ok) this.remove(chat.id);
+                });
+                groupEl.appendChild(div);
             });
-            div.querySelector('[data-action="link"]').addEventListener('click', async () => {
-                const url = chat.link_id ? window.location.origin + '/app/c/' + chat.link_id : '';
-                if (!url) return;
-                try {
-                    await navigator.clipboard.writeText(url);
-                    showToast('Chat link copied!', 'success');
-                } catch (e) {
-                    showToast('Copy failed', 'error');
-                }
-            });
-            div.querySelector('[data-action="rename"]').addEventListener('click', async () => {
-                const newTitle = await showPrompt('Rename chat', chat.title);
-                if (newTitle && newTitle.trim()) this.rename(chat.id, newTitle.trim());
-            });
-            div.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-                const ok = await showConfirm('Delete chat?', 'This will permanently delete this conversation.', true);
-                if (ok) this.remove(chat.id);
-            });
-            list.appendChild(div);
+        };
+        if (pinned.length) {
+            const sec = document.createElement('div');
+            sec.className = 'chat-group';
+            sec.innerHTML = `<div class="chat-group-tag">📌 Pinned</div>`;
+            const inner = document.createElement('div');
+            renderGroup(inner, pinned);
+            sec.appendChild(inner);
+            list.appendChild(sec);
+        }
+        Object.keys(folders).sort().forEach(f => {
+            const sec = document.createElement('div');
+            sec.className = 'chat-group';
+            sec.innerHTML = `<div class="chat-group-tag">🗂️ ${this.escapeHtml(f)}</div>`;
+            const inner = document.createElement('div');
+            renderGroup(inner, folders[f]);
+            sec.appendChild(inner);
+            list.appendChild(sec);
         });
+        if (unfiled.length || (!pinned.length && !Object.keys(folders).length)) {
+            renderGroup(list, unfiled);
+        }
     },
 
     async switchTo(id) {
         this.activeId = id;
         this.renderList();
+        this.renderHeader();
+        this._wireHeader();
         this.renderMessages();
         this.syncUrl();
     },
@@ -186,35 +243,326 @@ const Chat = {
         } catch (e) {}
     },
 
+    renderHeader() {
+        const header = $('chat-header');
+        if (!header) return;
+        const chat = this.activeId ? this.chats[this.activeId] : null;
+        if (!chat) {
+            header.style.display = 'none';
+            return;
+        }
+        header.style.display = 'flex';
+        $('chat-header-title').textContent = chat.title || 'Chat';
+        const modelSel = $('chat-model-select');
+        if (modelSel && modelSel.value !== (chat.model || '')) {
+            modelSel.value = chat.model || '';
+        }
+        const pinBtn = $('chat-pin-btn');
+        if (pinBtn) {
+            pinBtn.textContent = chat.pinned ? '📌' : '📍';
+            pinBtn.style.background = chat.pinned ? 'rgba(76,201,240,.18)' : 'transparent';
+        }
+        const shareBtn = $('chat-share-btn');
+        if (shareBtn) shareBtn.textContent = chat.share_id ? '🔗 Shared' : 'Share';
+    },
+
+    _wireHeader() {
+        if (this._headerWired) return;
+        this._headerWired = true;
+        const createTarget = () => this.activeId;
+        $('chat-pin-btn').addEventListener('click', async () => {
+            const id = createTarget();
+            if (!id) return;
+            const chat = this.chats[id];
+            if (!chat) return;
+            try {
+                const { chat: c } = await api(`/api/chats/${id}/prefs`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ pinned: !chat.pinned }),
+                });
+                this.chats[id] = c;
+                this.renderList();
+                this.renderHeader();
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        });
+        $('chat-share-btn').addEventListener('click', () => {
+            const id = createTarget();
+            if (!id) return;
+            this.showShareExport(this.chats[id]);
+        });
+        $('chat-model-select').addEventListener('change', async (e) => {
+            const id = createTarget();
+            if (!id) return;
+            const val = e.target.value;
+            try {
+                const { chat: c } = await api(`/api/chats/${id}/prefs`, {
+                    method: 'PATCH',
+                    body: JSON.stringify({ model: val }),
+                });
+                this.chats[id] = c;
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        });
+    },
+
+    // Beautiful Share & Export modal (per-chat)
+    showShareExport(chat) {
+        const overlay = $('share-export-modal');
+        if (!overlay) {
+            showToast('Share & export unavailable', 'error');
+            return;
+        }
+        const close = () => { overlay.style.display = 'none'; document.body.style.overflow = ''; };
+        const titleEl = overlay.querySelector('.sx-title');
+        const tabs = overlay.querySelectorAll('.sx-tab');
+        const panels = { share: overlay.querySelector('#sx-share-panel'), export: overlay.querySelector('#sx-export-panel') };
+        titleEl.textContent = chat.title || 'Chat';
+        const setTab = (name) => {
+            tabs.forEach(t => { t.classList.toggle('active', t.dataset.tab === name); });
+            panels.share.style.display = name === 'share' ? 'block' : 'none';
+            panels.export.style.display = name === 'export' ? 'block' : 'none';
+            if (name === 'share') this._refreshSharePanel(chat);
+        };
+        tabs.forEach(t => t.onclick = () => setTab(t.dataset.tab));
+        overlay.querySelectorAll('[data-close]').forEach(b => b.onclick = close);
+        overlay.querySelector('#sx-export-txt').onclick = () => this.exportChat(chat, 'txt');
+        overlay.querySelector('#sx-export-md').onclick = () => this.exportChat(chat, 'md');
+        overlay.querySelector('#sx-export-pdf').onclick = () => this.exportChatPDF(chat);
+        overlay.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+        setTab('share');
+    },
+
+    _refreshSharePanel(chat) {
+        const overlay = $('share-export-modal');
+        const linkBox = overlay.querySelector('#sx-link');
+        const statusEl = overlay.querySelector('#sx-share-status');
+        const unshareBtn = overlay.querySelector('#sx-unshare');
+        const shareBtn = overlay.querySelector('#sx-create-share');
+        const socials = overlay.querySelector('#sx-socials');
+        const previewBtn = overlay.querySelector('#sx-preview');
+        if (chat.share_id && chat.share_id !== '') {
+            const url = window.location.origin + '/s/' + chat.share_id;
+            linkBox.value = url;
+            statusEl.textContent = '🌍 Live publicly — anyone with the link can view.';
+            statusEl.style.color = '#4CC9F0';
+            shareBtn.style.display = 'none';
+            unshareBtn.style.display = 'inline-flex';
+            socials.style.display = 'flex';
+            previewBtn.style.display = 'inline-flex';
+            previewBtn.onclick = () => window.open(url, '_blank');
+            socials.querySelector('[data-soc="twitter"]').onclick = () => {
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this chat on Zenith: ' + url)}`, '_blank', 'noopener,width=600,height=450');
+            };
+            socials.querySelector('[data-soc="whatsapp"]').onclick = () => {
+                window.open(`https://wa.me/?text=${encodeURIComponent('Check out this chat on Zenith: ' + url)}`, '_blank', 'noopener');
+            };
+            socials.querySelector('[data-soc="telegram"]').onclick = () => {
+                window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Check out this chat on Zenith')}`, '_blank', 'noopener');
+            };
+            socials.querySelector('[data-soc="facebook"]').onclick = () => {
+                window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'noopener');
+            };
+        } else {
+            linkBox.value = '';
+            linkBox.placeholder = 'Click "Create share link" to go live…';
+            statusEl.textContent = 'Share a read-only, beautifully presented copy of this chat.';
+            statusEl.style.color = 'var(--muted)';
+            shareBtn.style.display = 'inline-flex';
+            unshareBtn.style.display = 'none';
+            socials.style.display = 'none';
+            previewBtn.style.display = 'none';
+        }
+        const copyBtn = overlay.querySelector('#sx-copy');
+        copyBtn.onclick = () => {
+            if (!linkBox.value) { showToast('Create a share link first', 'error'); return; }
+            navigator.clipboard.writeText(linkBox.value).then(() => showToast('Link copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
+        };
+        shareBtn.onclick = async () => {
+            try {
+                const { link, share_id } = await api(`/api/chats/${chat.id}/share`, { method: 'POST' });
+                this.chats[chat.id].share_id = share_id;
+                linkBox.value = link;
+                this._refreshSharePanel(this.chats[chat.id]);
+                this.renderHeader();
+                showToast('Chat is now live!', 'success');
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        };
+        unshareBtn.onclick = async () => {
+            try {
+                await api(`/api/chats/${chat.id}/unshare`, { method: 'POST' });
+                this.chats[chat.id].share_id = null;
+                this._refreshSharePanel(this.chats[chat.id]);
+                this.renderHeader();
+                showToast('Share link removed', 'success');
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        };
+    },
+
+    async exportChat(chat, format) {
+        try {
+            const res = await fetch(`/api/chats/${chat.id}/export?format=${format}`, { credentials: 'same-origin' });
+            if (!res.ok) {
+                let detail = '';
+                try { const j = await res.json(); detail = (j && j.detail) || ''; } catch (e) {}
+                showToast('Export failed: ' + detail, 'error');
+                return;
+            }
+            const blob = await res.blob();
+            const a = document.createElement('a');
+            const safe = (chat.title || 'chat').replace(/[\\/:*?"<>|]+/g, '_').slice(0, 60);
+            a.href = URL.createObjectURL(blob);
+            a.download = `${safe}.${format}`;
+            a.click();
+            URL.revokeObjectURL(a.href);
+            showToast('Exported as ' + format.toUpperCase(), 'success');
+        } catch (e) { showToast('Export failed: ' + e.message, 'error'); }
+    },
+
+    exportChatPDF(chat) {
+        const overlay = $('pdf-export-modal');
+        if (!overlay) { showToast('PDF export unavailable', 'error'); return; }
+        (async () => {
+            try {
+                const { messages } = await api(`/api/chats/${chat.id}/messages`);
+                const review = overlay.querySelector('#pdf-preview');
+                review.innerHTML = `<div class="pdf-doc">
+                    <div class="pdf-brand"><span class="pdf-logo">Z</span> Zenith · ${this.escapeHtml(chat.title || 'Chat')}</div>
+                    ${messages.map((m, i) => {
+                        const isUser = m.role === 'user';
+                        return `<div class="pdf-msg ${isUser ? 'is-user' : ''}">
+                            <div class="pdf-msg-role">${isUser ? 'You' : 'Zenith'}</div>
+                            <div class="pdf-msg-body">${this.escapeHtml(m.content).replace(/\n/g, '<br>')}</div>
+                        </div>`;
+                    }).join('')}
+                </div>`;
+                document.body.style.overflow = 'hidden';
+                overlay.style.display = 'flex';
+                overlay.querySelector('#pdf-close').onclick = () => { overlay.style.display = 'none'; document.body.style.overflow = ''; };
+                overlay.querySelector('#pdf-print').onclick = () => {
+                    const printWin = window.open('', '_blank', 'width=900,height=1000');
+                    if (!printWin) { showToast('Popup blocked — allow popups to print', 'error'); return; }
+                    const html = `<html><head><title>${(chat.title || 'Zenith Chat')} — Export</title>
+                        <style>
+                            body{font-family:Georgia,'Times New Roman',serif;max-width:800px;margin:40px auto;padding:0 24px;color:#1a1a1a;line-height:1.7;}
+                            .b{display:flex;align-items:center;gap:12px;border-bottom:2px solid #4CC9F0;padding-bottom:12px;margin-bottom:28px;}
+                            .l{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#4CC9F0,#6A5CFF);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;}
+                            h1{font-size:26px;margin:0;}
+                            .m{margin:18px 0;padding:14px 18px;border-radius:12px;background:#f4f6f8;}
+                            .m.u{background:#eef7fd;border-left:3px solid #4CC9F0;}
+                            .r{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px;}
+                            .c{white-space:pre-wrap;}
+                        </style></head><body>
+                        <div class="b"><div class="l">Z</div><h1>${this.escapeHtml(chat.title || 'Zenith Chat')}</h1></div>
+                        ${messages.map(m => `<div class="m ${m.role === 'user' ? 'u' : ''}"><div class="r">${m.role === 'user' ? 'You' : 'Zenith'}</div><div class="c">${this.escapeHtml(m.content)}</div></div>`).join('')}
+                        <div style="margin-top:30px;font-size:11px;color:#9ca3af;text-align:center;">Exported from Zenith — ${new Date().toLocaleString()}</div>
+                        </body></html>`;
+                    printWin.document.write(html);
+                    printWin.document.close();
+                    printWin.focus();
+                    setTimeout(() => printWin.print(), 400);
+                };
+            } catch (e) { showToast('Failed to load chat: ' + e.message, 'error'); }
+        })();
+    },
+
     renderWelcome() {
+        if (Object.keys(this.chats).length > 0 && this.activeId) {
+            // Not a brand-new user — keep the classic welcome
+            return `
+            <div class="welcome-message">
+                <div class="welcome-z-logo">Z</div>
+                <h2>Hello! I'm <span>Zenith.</span></h2>
+                <p class="welcome-sub">How can I help you today?</p>
+            </div>`;
+        }
         return `
         <div class="welcome-message">
             <div class="welcome-z-logo">Z</div>
             <h2>Hello! I'm <span>Zenith.</span></h2>
-            <p class="welcome-sub">How can I help you today?</p>
+            <p class="welcome-sub">Pick a starting point or ask anything below.</p>
+            <div class="template-grid" id="template-grid">
+                <button class="template-card" data-tpl="1">
+                    <div class="tpl-ic">✍️</div>
+                    <div class="tpl-t">Write a poem<small>Rhyming verse on any topic</small></div>
+                </button>
+                <button class="template-card" data-tpl="2">
+                    <div class="tpl-ic">🐞</div>
+                    <div class="tpl-t">Debug my code<small>Paste code, find the bug</small></div>
+                </button>
+                <button class="template-card" data-tpl="3">
+                    <div class="tpl-ic">🌍</div>
+                    <div class="tpl-t">Translate<small>Any language, naturally</small></div>
+                </button>
+                <button class="template-card" data-tpl="4">
+                    <div class="tpl-ic">💡</div>
+                    <div class="tpl-t">Brainstorm<small>Ideas for my project</small></div>
+                </button>
+                <button class="template-card" data-tpl="5">
+                    <div class="tpl-ic">📚</div>
+                    <div class="tpl-t">Summarize<small>TL;DR of anything</small></div>
+                </button>
+                <button class="template-card" data-tpl="6">
+                    <div class="tpl-ic">📧</div>
+                    <div class="tpl-t">Write an email<small>Professional or casual</small></div>
+                </button>
+            </div>
         </div>`;
+    },
+
+    initTemplates() {
+        const grid = document.getElementById('template-grid');
+        if (!grid) return;
+        const prompts = {
+            1: "Write a poem about ",
+            2: "Help me debug this code:\n```\n<PASTE CODE HERE>\n```",
+            3: "Translate the following text into English:\n\n<PASTE TEXT HERE>",
+            4: "Give me a list of creative ideas for my project. Project: ",
+            5: "Summarize the key points of this:\n\n<PASTE TEXT HERE>",
+            6: "Draft a professional email about ",
+        };
+        grid.querySelectorAll('[data-tpl]').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const tpl = prompts[btn.dataset.tpl] || '';
+                const input = document.getElementById('user-input');
+                if (input) {
+                    input.focus();
+                    // Prefill the prompt so the user can complete it or just press Send
+                    const last = tpl.split('\n').pop().replace('<PASTE TEXT HERE>', '').replace('<PASTE CODE HERE>', '');
+                    if (last) input.value = last;
+                }
+            });
+        });
     },
 
     async renderMessages() {
         const container = $('chat-container');
         if (!this.activeId) {
             container.innerHTML = this.renderWelcome();
+            this.initTemplates();
+            this.renderHeader();
             return;
         }
 
         const { messages } = await api(`/api/chats/${this.activeId}/messages`);
         container.innerHTML = '';
+        this.renderHeader();
+        this._wireHeader();
 
         if (messages.length === 0) {
             container.innerHTML = this.renderWelcome();
+            this.initTemplates();
             return;
         }
 
-        messages.forEach(msg => this.appendMessage(msg.role, msg.content, false, [], [], msg.id));
+        messages.forEach(msg => {
+            let reactions = null;
+            try { reactions = JSON.parse(msg.reactions || '{}'); } catch (e) {}
+            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions);
+        });
         container.scrollTop = container.scrollHeight;
     },
 
-    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null) {
+    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null) {
         const container = $('chat-container');
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
@@ -341,9 +689,88 @@ const Chat = {
             wrapper.appendChild(actions);
         }
 
+        // Reactions row (only when we know the message id and it's not streaming)
+        if (messageId && !streaming) {
+            const rrow = this._buildReactions(messageId, reactions);
+            if (rrow) wrapper.appendChild(rrow);
+        }
+
         container.appendChild(wrapper);
         container.scrollTop = container.scrollHeight;
         return bubble;
+    },
+
+    _EMOJI_OPTS: ['👍', '❤️', '🔥', '👏', '🌟'],
+
+    _buildReactions(messageId, reactions) {
+        const self = this;
+        const row = document.createElement('div');
+        row.className = 'msg-reactions';
+        const store = reactions && typeof reactions === 'object' ? reactions : {};
+        const sorted = Object.entries(store).sort((a, b) => b[1].length - a[1].length);
+        const preview = document.createElement('div');
+        preview.className = 'msg-reaction-chips';
+        sorted.forEach(([emoji, users]) => {
+            const chip = document.createElement('button');
+            chip.className = 'reaction-chip';
+            chip.type = 'button';
+            chip.textContent = emoji + ' ' + users.length;
+            chip.title = (Array.isArray(users) ? users : []).join(', ');
+            chip.addEventListener('click', () => self._toggleReaction(messageId, emoji, chip));
+            preview.appendChild(chip);
+        });
+        const addBtn = document.createElement('div');
+        addBtn.className = 'reaction-add';
+        addBtn.title = 'React';
+        addBtn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.828 14.828a4 4 0 0 1-5.656 0M9 10h.01M15 10h.01M17.349 17.349a8 8 0 1 0-2.698 2.698"/><circle cx="12" cy="12" r="10"/></svg>';
+        const picker = document.createElement('div');
+        picker.className = 'reaction-picker';
+        const pick = (emoji) => () => {
+            picker.style.display = 'none';
+            addBtn.style.display = '';
+            self._toggleReaction(messageId, emoji, addBtn.closest('.msg-reactions'));
+        };
+        Object.keys(store).forEach(emoji => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = emoji;
+            b.addEventListener('click', pick(emoji));
+            picker.appendChild(b);
+        });
+        this._EMOJI_OPTS.forEach(emoji => {
+            if (store[emoji]) return;
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.textContent = emoji;
+            b.addEventListener('click', pick(emoji));
+            picker.appendChild(b);
+        });
+        addBtn.appendChild(picker);
+        addBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const vis = picker.style.display === 'flex';
+            picker.style.display = vis ? 'none' : 'flex';
+            addBtn.style.display = vis ? '' : 'none';
+        });
+        row.appendChild(preview);
+        row.appendChild(addBtn);
+        return row;
+    },
+
+    async _toggleReaction(messageId, emoji, rowEl) {
+        try {
+            const { reactions } = await api(`/api/chats/${this.activeId}/messages/${messageId}/react`, {
+                method: 'POST',
+                body: JSON.stringify({ emoji }),
+            });
+            const row = rowEl || (document.querySelector('.msg-reactions'));
+            if (row && row.parentElement) {
+                const fresh = this._buildReactions(messageId, reactions);
+                row.parentElement.replaceChild(fresh, row);
+            }
+        } catch (e) {
+            showToast('Failed to react: ' + (e.message || 'Error'), 'error');
+        }
     },
 
     async editMessage(messageId, oldContent, wrapper) {
@@ -722,6 +1149,10 @@ const Chat = {
                             n.onclick = () => { window.focus(); n.close(); };
                         }
                     } catch {}
+                }
+                // Long-reply nudge while the app is open (attraction feature)
+                if (fullResponse.length > 2400) {
+                    showToast('✅ Done — a long reply is ready for you', 'success');
                 }
                 // Add action buttons
                 const actions = document.createElement('div');

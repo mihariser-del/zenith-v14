@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex">
+    <title>Zenith Status</title>
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <meta name="theme-color" content="#0066ff">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        body { background: #0a0f1a; color: #E6EDF3; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .st-card { width: 100%; max-width: 460px; background: #0d1420; border: 1px solid rgba(139,148,158,.2); border-radius: 16px; padding: 36px; text-align: center; }
+        .st-logo { width: 52px; height: 52px; border-radius: 14px; background: linear-gradient(135deg,#0066ff,#00c2ff); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; font-size: 26px; font-weight: 800; color: #fff; }
+        .st-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; }
+        .st-sub { font-size: 13px; color: #8B949E; margin-bottom: 24px; }
+        .st-row { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid rgba(139,148,158,.1); font-size: 14px; }
+        .st-row:last-child { border-bottom: none; }
+        .st-label { color: #8B949E; }
+        .st-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 8px; }
+        .ok .st-dot { background: #3fb950; box-shadow: 0 0 8px rgba(63,185,80,.6); }
+        .bad .st-dot { background: #f85149; box-shadow: 0 0 8px rgba(248,81,73,.6); }
+        .warn .st-dot { background: #d29922; box-shadow: 0 0 8px rgba(210,153,34,.6); }
+        .st-version { margin-top: 20px; font-size: 11px; color: #6e7681; }
+    </style>
+</head>
+<body>
+<div class="st-card">
+    <div class="st-logo">Z</div>
+    <h1 class="st-title">Zenith Status</h1>
+    <p class="st-sub" id="st-sub">Checking...</p>
+    <div id="st-rows"></div>
+    <div class="st-version" id="st-version"></div>
+</div>
+<script>
+    const appEl = document.getElementById('st-version');
+    function row(label, ok) {
+        return `<div class="st-row ${ok === true ? 'ok' : ok === null ? 'warn' : 'bad'}">
+            <span class="st-label">${label}</span>
+            <span><span class="st-dot"></span>${ok === true ? 'Operational' : ok === null ? 'Degraded' : 'Down'}</span></div>`;
+    }
+    (async () => {
+        try {
+            const res = await fetch('/api/status');
+            const d = await res.json();
+            appEl.textContent = 'Zenith v' + (d.version || '');
+            document.getElementById('st-sub').textContent = 'Updated ' + new Date(d.time).toLocaleString();
+            const box = document.getElementById('st-rows');
+            box.innerHTML =
+                row('Application', d.app === 'ok') +
+                row('Database', d.database === 'ok') +
+                row('AI service', d.ai === 'ok' ? true : (d.ai === 'unconfigured' ? null : false)) +
+                row('AI enabled', d.ai_enabled !== 'off');
+        } catch (e) {
+            appEl.textContent = '';
+            document.getElementById('st-sub').textContent = 'Status unavailable';
+            document.getElementById('st-rows').innerHTML = row('Status service', false);
+        }
+    })();
+</script>
+</body>
+</html>

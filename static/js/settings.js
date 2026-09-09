@@ -5,6 +5,7 @@ const Settings = {
         msgSpacing: 'cozy',
         markdown: true,
         speechLang: 'en-GB',
+        speechRate: 1,
     },
     serverSettings: null,
 
@@ -52,6 +53,17 @@ const Settings = {
         $('msg-spacing').value = s.msgSpacing;
         $('markdown-toggle').value = String(s.markdown);
         $('speech-lang').value = s.speechLang;
+        const rateEl = $('speech-rate');
+        if (rateEl) {
+            rateEl.value = s.speechRate || 1;
+            const lbl = $('speech-rate-label');
+            if (lbl) lbl.textContent = (s.speechRate || 1) + '×';
+            rateEl.oninput = () => {
+                const s2 = { ...this.getLocal(), speechRate: parseFloat(rateEl.value) };
+                this.saveLocal(s2);
+                if (lbl) lbl.textContent = s2.speechRate + '×';
+            };
+        }
         $('settings-modal').style.display = 'flex';
     },
 
@@ -121,6 +133,7 @@ const Settings = {
             msgSpacing: $('msg-spacing').value,
             markdown: $('markdown-toggle').value === 'true',
             speechLang: $('speech-lang').value,
+            speechRate: parseFloat($('speech-rate') ? $('speech-rate').value : 1) || 1,
         };
         this.saveLocal(localSettings);
 

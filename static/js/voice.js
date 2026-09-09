@@ -280,7 +280,7 @@ const Voice = {
         const utterance = new SpeechSynthesisUtterance(clean);
         const accent = Settings.getLocal().speechLang || 'en-GB';
         utterance.lang = accent;
-        utterance.rate = 1;
+        utterance.rate = parseFloat(Settings.getLocal().speechRate) || 1;
         utterance.pitch = 1;
         const voices = window.speechSynthesis.getVoices();
         if (voices.length) {

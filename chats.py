@@ -16,6 +16,11 @@ class ChatResponse(BaseModel):
     id: int
     title: str
     link_id: str
+    share_id: str | None = None
+    shared_at: datetime | None = None
+    pinned: bool = False
+    folder: str = ""
+    model: str = ""
     created_at: datetime
     updated_at: datetime
 
@@ -26,6 +31,7 @@ class MessageResponse(BaseModel):
     id: int
     role: str
     content: str
+    reactions: str = "{}"
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -86,6 +92,149 @@ async def get_chat_by_link(link_id: str, request: Request, db: AsyncSession = De
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     return {"chat": ChatResponse.model_validate(chat)}
+
+
+def _public_base(request: Request) -> str:
+    base = __import__("os").getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if not base:
+        base = str(request.base_url).rstrip("/")
+    return base
+
+
+@router.post("/{chat_id}/share")
+async def share_chat(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    import secrets
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guests cannot share chats")
+    result = await db.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    if not chat.share_id:
+        chat.share_id = secrets.token_hex(16)
+        chat.shared_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(chat)
+    return {"link": f"{_public_base(request)}/s/{chat.share_id}", "share_id": chat.share_id}
+
+
+@router.post("/{chat_id}/unshare")
+async def unshare_chat(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    chat.share_id = None
+    chat.shared_at = None
+    await db.commit()
+    return {"message": "Unshared"}
+
+
+class ChatPrefsRequest(BaseModel):
+    pinned: bool | None = None
+    folder: str | None = None
+    model: str | None = None
+
+
+@router.patch("/{chat_id}/prefs")
+async def update_chat_prefs(chat_id: int, req: ChatPrefsRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    if req.pinned is not None:
+        chat.pinned = req.pinned
+    if req.folder is not None:
+        chat.folder = (req.folder or "").strip()[:50]
+    if req.model is not None:
+        chat.model = (req.model or "").strip()[:100]
+    chat.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(chat)
+    return {"chat": ChatResponse.model_validate(chat)}
+
+
+@router.get("/{chat_id}/export")
+async def export_chat(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi.responses import PlainTextResponse
+    fmt = request.query_params.get("format", "txt")
+    if fmt not in ("txt", "md"):
+        raise HTTPException(status_code=400, detail="format must be txt or md")
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    msg_result = await db.execute(
+        select(Message).where(Message.chat_id == chat.id).order_by(Message.id)
+    )
+    lines = [f"# {chat.title}", ""]
+    for m in msg_result.scalars().all():
+        label = "You" if m.role == "user" else ("Zenith" if m.role == "assistant" else m.role)
+        stamp = m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""
+        if fmt == "md":
+            lines.append(f"### {label} — {stamp}\n{m.content}\n")
+        else:
+            lines.append(f"[{label} - {stamp}]\n{m.content}\n")
+    content = "\n".join(lines)
+    ext = "md" if fmt == "md" else "txt"
+    safe = "".join(c for c in chat.title if c.isalnum() or c in " _-") or "chat"
+    return PlainTextResponse(
+        content,
+        headers={"Content-Disposition": f'attachment; filename="{safe[:60]}.{ext}"'},
+    )
+
+
+class ReactRequest(BaseModel):
+    emoji: str
+
+
+@router.post("/{chat_id}/messages/{message_id}/react")
+async def react_message(chat_id: int, message_id: int, req: ReactRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    import json
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+    )
+    chat = result.scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    msg_result = await db.execute(
+        select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
+    )
+    msg = msg_result.scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    emoji = (req.emoji or "").strip()[:8]
+    if not emoji:
+        raise HTTPException(status_code=400, detail="Emoji required")
+    try:
+        reactions = json.loads(msg.reactions or "{}")
+    except Exception:
+        reactions = {}
+    names = reactions.get(emoji, [])
+    username = user.username
+    if username in names:
+        names.remove(username)
+        if not names:
+            reactions.pop(emoji, None)
+    else:
+        names.append(username)
+        reactions[emoji] = names
+    msg.reactions = json.dumps(reactions)
+    await db.commit()
+    return {"reactions": reactions}
 
 
 @router.patch("/{chat_id}")

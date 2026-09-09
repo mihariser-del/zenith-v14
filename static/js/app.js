@@ -76,6 +76,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     let _lastHandled = '';
     function _handlePendingNotification(n) {
         if (_lastHandled === n) return false;
+        if (typeof n === 'string' && n.startsWith('⏰ ')) {
+            _lastHandled = n;
+            const text = n.slice(2).trim();
+            if (typeof window.__handlePendingReminder === 'function') window.__handlePendingReminder(text);
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
+        }
         if (n === 'promoted') {
             _lastHandled = ''; _showRoleNotificationPopup(true);
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
@@ -613,6 +620,121 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('info-btn').addEventListener('click', () => { $('about-modal').style.display = 'flex'; closeSidebar(); });
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
     $('mic-btn').addEventListener('click', () => Voice.toggle());
+
+    // ── Usage meter + upgrade nudge ──────────────────────────────
+    async function refreshUsage() {
+        try {
+            const m = await api('/api/usage/meter');
+            const bar = $('usage-meter');
+            if (!bar) return;
+            bar.style.display = 'flex';
+            const pct = Math.min(100, Math.round((m.messages_today / (m.limit || 60)) * 100));
+            bar.querySelector('.um-fill').style.width = pct + '%';
+            const label = bar.querySelector('.um-label');
+            if (m.is_pro) {
+                label.textContent = `PRO · ${m.messages_today}/day`;
+                bar.style.opacity = '.9';
+            } else {
+                label.textContent = `${m.messages_today}/${m.limit} messages today`;
+                if (m.messages_today >= (m.limit || 60)) {
+                    label.textContent += ' · upgrade for more ✨';
+                    label.style.color = '#F59E0B';
+                    bar.classList.add('um-full');
+                }
+            }
+        } catch (e) {}
+    }
+    refreshUsage();
+
+    // ── Reminders ────────────────────────────────────────────────
+    (function reminders() {
+        const modal = $('reminders-modal');
+        if (!modal) return;
+        let _shown = false;
+        async function renderReminders() {
+            try {
+                const { reminders } = await api('/api/reminders');
+                const list = $('reminder-list');
+                list.innerHTML = '';
+                if (!reminders.length) {
+                    list.innerHTML = `<div style="color:var(--muted); font-size:13px; text-align:center; padding:18px;">No reminders yet. Zenith will pop them here for you.</div>`;
+                    return;
+                }
+                reminders.sort((a, b) => new Date(a.next_run_at) - new Date(b.next_run_at));
+                reminders.forEach(r => {
+                    const d = new Date(r.next_run_at);
+                    const weekday = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'][d.getDay()];
+                    const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const row = document.createElement('div');
+                    row.style.cssText = 'display:flex; align-items:center; gap:10px; padding:10px; border:1px solid var(--border); border-radius:10px; margin-bottom:8px;';
+                    row.innerHTML = `
+                        <div style="flex:1; min-width:0;">
+                            <div style="font-size:13px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${Chat.escapeHtml(r.text)}</div>
+                            <div style="font-size:11px; color:var(--muted); margin-top:2px;">⏰ ${weekday} · ${time}${r.repeat_days ? ' · repeats' : ''}</div>
+                        </div>
+                        <button class="rem-del" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:14px;" title="Delete">🗑</button>`;
+                    row.querySelector('.rem-del').addEventListener('click', async () => {
+                        try {
+                            await api(`/api/reminders/${r.id}/delete`, { method: 'POST' });
+                            renderReminders();
+                        } catch (e) { showToast('Failed to delete', 'error'); }
+                    });
+                    list.appendChild(row);
+                });
+            } catch (e) { /* auth or offline — ignore */ }
+        }
+        $('reminders-open').addEventListener('click', () => {
+            modal.style.display = 'flex';
+            renderReminders();
+            closeSidebar();
+        });
+        $('reminders-close').addEventListener('click', () => { modal.style.display = 'none'; });
+        $('reminder-add').addEventListener('click', async () => {
+            const text = $('reminder-text').value.trim();
+            const day = $('reminder-day').value;
+            const time = $('reminder-time').value;
+            const repeat = $('reminder-repeat').checked;
+            if (!text) { showToast('Enter reminder text', 'error'); return; }
+            if (!time) { showToast('Pick a time', 'error'); return; }
+            const [hh, mm] = time.split(':').map(Number);
+            const now = new Date();
+            const next = new Date(now);
+            next.setHours(hh, mm, 0, 0);
+            const idx = ['sun','mon','tue','wed','thu','fri','sat'].indexOf(day); // day=="" → -1
+            let target = next;
+            if (idx >= 0) {
+                let diff = (idx - now.getDay() + 7) % 7;
+                if (diff === 0 && next <= now) diff = 7;
+                target = new Date(now);
+                target.setDate(now.getDate() + diff);
+                target.setHours(hh, mm, 0, 0);
+            } else if (next <= now) {
+                target = new Date(now.getTime() + 24 * 3600 * 1000);
+                target.setHours(hh, mm, 0, 0);
+            }
+            // client sends local ISO; server normalizes assumed-GMT? — server uses naive UTC. Convert to UTC ISO string.
+            const iso = target.toISOString();
+            try {
+                await api('/api/reminders', {
+                    method: 'POST',
+                    body: JSON.stringify({ text, run_at: iso, repeat_days: repeat ? 1 : 0 }),
+                });
+                $('reminder-text').value = '';
+                $('reminder-repeat').checked = false;
+                renderReminders();
+                showToast('Reminder set!', 'success');
+            } catch (e) { showToast(e.message || 'Failed', 'error'); }
+        });
+        // Live pop when a due reminder arrives via the pending-notification channel
+        const origNotif = window.__handlePendingReminder;
+        window.__handlePendingReminder = (msg) => {
+            showToast('⏰ ' + msg, 'success', 6000);
+            if (typeof Notification === 'function' && Notification.permission === 'granted') {
+                try { new Notification('Zenith reminder', { body: msg, icon: '/favicon.ico' }); } catch (e) {}
+            }
+        };
+        void origNotif;
+    })();
 
     $('memory-btn').addEventListener('click', () => { if (!requireLogin()) return; Memory.open(); closeSidebar(); });
     $('close-memory').addEventListener('click', () => Memory.close());

@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 import os
 import secrets
+import asyncio
 from datetime import datetime, timezone, timedelta
 os.makedirs("uploads", exist_ok=True)
 
@@ -74,7 +75,15 @@ async def lifespan(app: FastAPI):
         await init_db()
     except Exception as e:
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
-    yield
+    reminder_task = asyncio.create_task(_reminder_loop())
+    try:
+        yield
+    finally:
+        reminder_task.cancel()
+        try:
+            await reminder_task
+        except asyncio.CancelledError:
+            pass
 
 
 app = FastAPI(title="Zenith AI", version=VERSION, lifespan=lifespan)
@@ -106,7 +115,7 @@ app.include_router(personality_router)
 # REFERRAL SYSTEM
 # ─────────────────────────────────────────────────────────────────────────────
 
-from database import User, Referral, async_session
+from database import User, Referral, Chat, Message, Reminder, async_session
 from sqlalchemy import select, func, update
 from database import InviteToken
 
@@ -265,6 +274,184 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC CHAT SHARES
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/s/{share_id}", response_class=HTMLResponse)
+async def shared_chat_page(share_id: str):
+    return FileResponse("static/share.html")
+
+
+@app.get("/api/s/{share_id}")
+async def get_shared_chat(share_id: str):
+    """Public read-only view of a shared conversation (no auth)."""
+    async with async_session() as db:
+        result = await db.execute(
+            select(Chat).where(Chat.share_id == share_id)
+        )
+        chat = result.scalar_one_or_none()
+        if not chat:
+            raise HTTPException(status_code=404, detail="Shared chat not found")
+        msg_result = await db.execute(
+            select(Message).where(Message.chat_id == chat.id).order_by(Message.id)
+        )
+        messages = [
+            {"role": m.role, "content": m.content, "created_at": m.created_at.isoformat() if m.created_at else ""}
+            for m in msg_result.scalars().all()
+        ]
+        owner = await db.get(User, chat.user_id)
+        return {
+            "title": chat.title,
+            "shared_at": chat.shared_at.isoformat() if chat.shared_at else "",
+            "message_count": len(messages),
+            "owner": owner.username if owner else "Unknown",
+            "messages": messages,
+        }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# USAGE METER (free-tier nudge)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/api/usage/meter")
+async def usage_meter(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    chat_ids = (await db.execute(select(Chat.id).where(Chat.user_id == user.id))).scalars().all()
+    if chat_ids:
+        msg_count = (await db.execute(
+            select(func.count()).where(Message.chat_id.in_(chat_ids), Message.created_at >= today_start)
+        )).scalar() or 0
+    else:
+        msg_count = 0
+    is_pro = bool(getattr(user, "is_pro", False) or getattr(user, "is_ultimate", False))
+    limit = None if is_pro else 60
+    cooldown_until = getattr(user, "cooldown_until", None)
+    return {
+        "messages_today": msg_count,
+        "limit": limit,
+        "is_pro": is_pro,
+        "cooldown_until": cooldown_until.isoformat() if cooldown_until else None,
+    }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# REMINDERS (scheduled in-app push, in-process loop)
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ReminderRequest(BaseModel):
+    text: str
+    run_at: str  # ISO datetime
+    repeat_days: int = 0
+
+
+@app.get("/api/reminders")
+async def list_reminders(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Reminder).where(Reminder.user_id == user.id).order_by(Reminder.next_run_at)
+    )
+    return {"reminders": [
+        {"id": r.id, "text": r.text, "next_run_at": r.next_run_at.isoformat(), "repeat_days": r.repeat_days}
+        for r in result.scalars().all()
+    ]}
+
+
+@app.post("/api/reminders")
+async def create_reminder(req: ReminderRequest, request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    text = (req.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Reminder text required")
+    try:
+        next_run = datetime.fromisoformat(req.run_at.replace("Z", "+00:00"))
+        if next_run.tzinfo is None:
+            next_run = next_run.replace(tzinfo=timezone.utc)
+        next_run = next_run.astimezone(timezone.utc)
+    except Exception:
+        raise HTTPException(status_code=400, detail="run_at must be ISO datetime")
+    if next_run < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail="run_at must be in the future")
+    reminder = Reminder(user_id=user.id, text=text[:500], next_run_at=next_run, repeat_days=max(0, int(req.repeat_days)))
+    db.add(reminder)
+    await db.commit()
+    await db.refresh(reminder)
+    return {"message": "Reminder scheduled", "id": reminder.id}
+
+
+@app.post("/api/reminders/{reminder_id}/delete")
+async def delete_reminder(reminder_id: int, request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    result = await db.execute(
+        select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user.id)
+    )
+    rem = result.scalar_one_or_none()
+    if not rem:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    await db.delete(rem)
+    await db.commit()
+    return {"message": "Reminder deleted"}
+
+
+async def _reminder_loop():
+    """Checks due reminders every 30s and pushes them as in-app notifications."""
+    while True:
+        try:
+            async with async_session() as db:
+                now = datetime.now(timezone.utc)
+                due = await db.execute(select(Reminder).where(Reminder.next_run_at <= now))
+                for rem in due.scalars().all():
+                    user = await db.get(User, rem.user_id)
+                    if user:
+                        existing = getattr(user, "pending_notification", "")
+                        entry = f"⏰ Reminder: {rem.text}"
+                        user.pending_notification = (existing + "\n" + entry).strip()
+                    if rem.repeat_days > 0:
+                        nxt = now + timedelta(days=rem.repeat_days)
+                        rem.next_run_at = nxt
+                        rem.last_run_at = now
+                    else:
+                        await db.delete(rem)
+                await db.commit()
+        except Exception as e:
+            print(f"reminder loop: {e}")
+        await asyncio.sleep(30)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PUBLIC STATUS PAGE
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/status", response_class=HTMLResponse)
+async def status_page():
+    return FileResponse("static/status.html")
+
+
+@app.get("/api/status")
+async def api_status(request: Request, db=Depends(get_db)):
+    status = {"app": "ok", "version": VERSION, "time": datetime.now(timezone.utc).isoformat(), "database": "ok"}
+    try:
+        from sqlalchemy import text as _text
+        await db.execute(_text("SELECT 1"))
+    except Exception:
+        status["database"] = "error"
+    try:
+        from ai import _get_openrouter_keys
+        status["ai_keys"] = len(_get_openrouter_keys())
+        status["ai"] = "ok" if status["ai_keys"] else "unconfigured"
+    except Exception:
+        status["ai"] = "error"
+    try:
+        from sqlalchemy import text as _text
+        res = await db.execute(_text("SELECT value FROM system_settings WHERE key='ai_enabled'"))
+        row = res.fetchone()
+        status["ai_enabled"] = (row[0] if row else "on")
+    except Exception:
+        pass
+    return status
 
 
 @app.get("/api/debug/keys")

@@ -3,10 +3,44 @@ from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 
-from database import get_db, User, Chat, Message, LoginHistory
+from database import get_db, User, Chat, Message, LoginHistory, Referral
 from auth import get_current_user_from_cookie, is_staff, get_role
 
 router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"])
+
+
+@router.get("/referrals")
+async def referral_analytics(request: Request, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    now = datetime.now(timezone.utc)
+    total = (await db.execute(select(func.count()).select_from(Referral))).scalar() or 0
+    rewarded = (await db.execute(select(func.count()).select_from(Referral).where(Referral.rewarded == True))).scalar() or 0
+    distinct_referrers = (await db.execute(select(func.count(func.distinct(Referral.referrer_id))).select_from(Referral))).scalar() or 0
+    # Signups via referral per day (last 14 days)
+    days = []
+    for i in range(13, -1, -1):
+        d = (now - timedelta(days=i)).replace(hour=0, minute=0, second=0, microsecond=0)
+        d_next = d + timedelta(days=1)
+        count = (await db.execute(select(func.count()).select_from(Referral).where(Referral.created_at >= d, Referral.created_at < d_next))).scalar() or 0
+        days.append({"date": d.strftime("%Y-%m-%d"), "count": count})
+    # Top referrers
+    rows = await db.execute(
+        select(Referral.referrer_id, Referral.rewarded, User.username)
+        .join(User, User.id == Referral.referrer_id)
+        .order_by(Referral.referrer_id)
+    )
+    tally = {}
+    for rid, rew, uname in rows.all():
+        t = tally.setdefault(uname, {"total": 0, "rewarded": 0})
+        t["total"] += 1
+        if rew:
+            t["rewarded"] += 1
+    top = [{"username": k, "total": v["total"], "rewarded": v["rewarded"]} for k, v in tally.items()]
+    top.sort(key=lambda x: x["total"], reverse=True)
+    return {"total": total, "rewarded": rewarded, "distinct_referrers": distinct_referrers, "days": days, "top": top[:20]}
 
 
 @router.get("/overview")

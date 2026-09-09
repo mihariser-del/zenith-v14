@@ -259,6 +259,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             user_model = user_settings_obj.model
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
+        # Per-chat model override (set from the chat header selector)
+        if chat.model:
+            user_model = chat.model
 
     has_images = bool(images)
 

@@ -193,9 +193,9 @@ const Vault = {
 
     loadTab(tab) {
         this._currentTab = tab;
-        const labels = { dashboard:'DASHBOARD', users:'USERS', chats:'CHATS', messages:'MESSAGES', bans:'BANS', deleted:'DELETED', security:'SECURITY', logs:'LOGS & AUDIT', backups:'BACKUPS', settings:'SETTINGS', owner:'OWNER COMMAND', admins:'ADMIN MANAGEMENT', global:'GLOBAL CONTROLS', emergency:'EMERGENCY' };
+        const labels = { dashboard:'DASHBOARD', users:'USERS', chats:'CHATS', messages:'MESSAGES', referrals:'REFERRALS', bans:'BANS', deleted:'DELETED', security:'SECURITY', logs:'LOGS & AUDIT', backups:'BACKUPS', settings:'SETTINGS', owner:'OWNER COMMAND', admins:'ADMIN MANAGEMENT', global:'GLOBAL CONTROLS', emergency:'EMERGENCY' };
         document.getElementById('vault-section-label').textContent = labels[tab] || tab.toUpperCase();
-        const fn = { dashboard:'renderDashboard', users:'renderUsers', chats:'renderChats', messages:'renderMessages', bans:'renderBans', deleted:'renderDeleted', security:'renderSecurity', logs:'renderLogs', backups:'renderBackups', settings:'renderSettings', owner:'renderOwner', admins:'renderAdmins', global:'renderGlobal', emergency:'renderEmergency' };
+        const fn = { dashboard:'renderDashboard', users:'renderUsers', chats:'renderChats', messages:'renderMessages', referrals:'renderReferrals', bans:'renderBans', deleted:'renderDeleted', security:'renderSecurity', logs:'renderLogs', backups:'renderBackups', settings:'renderSettings', owner:'renderOwner', admins:'renderAdmins', global:'renderGlobal', emergency:'renderEmergency' };
         if (fn[tab]) this[fn[tab]]();
         this._renderedTab = tab;
     },
@@ -913,6 +913,56 @@ const Vault = {
         let msgs = this._cache.messages || [];
         if (q) msgs = msgs.filter(m => (m.content || '').toLowerCase().includes(q) || m.chat_title.toLowerCase().includes(q) || m.role.includes(q));
         this.renderMsgsTable(msgs);
+    },
+
+    // ═══════════════════════════ REFERRALS ═══════════════════════════
+    async renderReferrals() {
+        const el = document.getElementById('vault-content');
+        el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading referrals...</div>';
+        try {
+            const d = await api('/api/auth/admin/analytics/referrals');
+            const maxDay = Math.max(1, ...d.days.map(x => x.count));
+            const globalTotal = d.total;
+            el.innerHTML = `
+                <div class="vault-stats" style="padding:0 0 12px;">
+                    ${this.statCard('🎁','Total Referrals',d.total,'','')}
+                    ${this.statCard('⭐','Rewarded',d.rewarded,'','success')}
+                    ${this.statCard('👥','Distinct Referrers',d.distinct_referrers,'','info')}
+                </div>
+                <div class="vault-card">
+                    <div style="font-weight:600;margin-bottom:12px;">Signups via referral — last 14 days</div>
+                    <div style="display:flex;align-items:flex-end;gap:4px;height:110px;overflow-x:auto;padding-bottom:4px;">
+                        ${d.days.map(x => `
+                            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;min-width:34px;">
+                                <span style="font-size:10px;color:#8B949E;">${x.count || ''}</span>
+                                <div style="width:22px;height:${Math.max(3, Math.round((x.count / maxDay) * 80) || 3)}px;background:linear-gradient(180deg,#4CC9F0,#6A5CFF);border-radius:4px 4px 0 0;" title="${x.date}"></div>
+                                <span style="font-size:9px;color:#5c6470;white-space:nowrap;">${x.date.slice(5)}</span>
+                            </div>`).join('')}
+                    </div>
+                </div>
+                <div class="vault-card" style="margin-top:12px;">
+                    <div style="font-weight:600;margin-bottom:12px;">Top referrers</div>
+                    <table class="vault-table">
+                        <thead><tr><th>#</th><th>Username</th><th>Referrals</th><th>Rewarded</th><th>% Converted</th></tr></thead>
+                        <tbody>${d.top.length ? d.top.map((r, i) => {
+                            const conv = r.total ? Math.round((r.rewarded / r.total) * 100) : 0;
+                            return `<tr>
+                                <td style="color:#8B949E;">${i + 1}</td>
+                                <td style="font-weight:600;">${this.esc(r.username)}</td>
+                                <td>${r.total}</td>
+                                <td><span class="badge ${r.rewarded ? 'badge-green' : 'badge-gray'}">${r.rewarded}</span></td>
+                                <td style="color:#8B949E;">${conv}%</td>
+                            </tr>`;
+                        }).join('') : `<tr><td colspan="5" class="vault-empty">No referrals yet — share the invite link!</td></tr>`}</tbody>
+                    </table>
+                </div>`;
+        } catch (e) {
+            if (this._user && !this._user.is_admin && !this._isOwner) {
+                el.innerHTML = '<div style="padding:20px;color:#8B949E;">Referrals analytics requires admin access.</div>';
+            } else {
+                el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + this.esc(e.message || 'Failed to load refere') + '</div>';
+            }
+        }
     },
 
     // ═══════════════════════════ BANS ═══════════════════════════

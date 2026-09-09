@@ -208,6 +208,11 @@ class Chat(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String(100), default="New Chat")
     link_id = Column(String(64), unique=True, index=True, nullable=True)
+    share_id = Column(String(64), unique=True, index=True, nullable=True)
+    shared_at = Column(DateTime, nullable=True)
+    pinned = Column(Boolean, default=False)
+    folder = Column(String(50), default="")
+    model = Column(String(100), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -220,9 +225,10 @@ class Message(Base):
     __tablename__ = "messages"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False)
-    role = Column(String(20), nullable=False)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    role = Column(String(20), nullable=False)  # user | assistant | system
     content = Column(Text, nullable=False)
+    reactions = Column(Text, default="{}")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chat = relationship("Chat", back_populates="messages")
@@ -400,6 +406,20 @@ class Announcement(Base):
     user = relationship("User")
 
 
+class Reminder(Base):
+    __tablename__ = "reminders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    text = Column(Text, nullable=False)
+    next_run_at = Column(DateTime, nullable=False, index=True)
+    repeat_days = Column(Integer, default=0)  # 0 = once, else repeat every N days
+    last_run_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User")
+
+
 async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:
@@ -453,6 +473,33 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE chats ADD COLUMN link_id VARCHAR(64)")
         except Exception as e:
             print(f"migration chats.link_id: {e}")
+        for _col, _ddl in [
+            ("share_id", "VARCHAR(64)"),
+            ("shared_at", "DATETIME"),
+            ("pinned", "BOOLEAN DEFAULT 0"),
+            ("folder", "VARCHAR(50) DEFAULT ''"),
+            ("model", "VARCHAR(100) DEFAULT ''"),
+        ]:
+            try:
+                await conn.exec_driver_sql(f"ALTER TABLE chats ADD COLUMN {_col} {_ddl}")
+            except Exception as e:
+                print(f"migration chats.{_col}: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '{}'")
+        except Exception as e:
+            print(f"migration messages.reactions: {e}")
+        try:
+            await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS reminders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users.id ON DELETE CASCADE,
+                text TEXT NOT NULL,
+                next_run_at DATETIME NOT NULL,
+                repeat_days INTEGER DEFAULT 0,
+                last_run_at DATETIME,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )""")
+        except Exception as e:
+            print(f"migration reminders: {e}")
         # Backfill link_id for any existing chats missing it
         try:
             import secrets

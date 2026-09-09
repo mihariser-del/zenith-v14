@@ -155,11 +155,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-submit').addEventListener('click', async () => {
         const username = $('admin-username').value.trim();
         const password = $('admin-password').value;
-        const secret = $('admin-secret').value.trim();
         if (!username || !password) { $('admin-msg').textContent = 'Username and password required'; $('admin-msg').className = 'auth-msg error'; return; }
         $('admin-submit').disabled = true;
         try {
-            await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password, secret }) });
+            await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
             window.location.href = '/app';
         } catch (e) { $('admin-msg').textContent = e.message; $('admin-msg').className = 'auth-msg error'; }
         finally { $('admin-submit').disabled = false; }

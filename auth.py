@@ -113,7 +113,7 @@ def _send_reset_email(to_email: str, link: str) -> bool:
         f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
         f"If you didn't request this, you can ignore this email."
     )
-    msg = f"From: {sender}\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
+    msg = f"From: Zenith <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
     import smtplib
     try:
         if port == 465:

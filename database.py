@@ -391,6 +391,8 @@ class UsedDevice(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     username = Column(String(50), default="")
     source = Column(String(16), default="")  # invite | landing | app
+    ip = Column(String(45), default="", index=True)
+    ip_fp = Column(String(64), default="", index=True)  # sha256(ip + user-agent)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -506,6 +508,11 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN viewer_reactions TEXT DEFAULT '{}'")
         except Exception as e:
             print(f"migration messages.viewer_reactions: {e}")
+        for _col in ["ip", "ip_fp"]:
+            try:
+                await conn.exec_driver_sql(f"ALTER TABLE used_devices ADD COLUMN {_col} VARCHAR(64) DEFAULT ''")
+            except Exception as e:
+                print(f"migration used_devices.{_col}: {e}")
         try:
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,

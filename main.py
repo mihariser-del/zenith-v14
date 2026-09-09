@@ -11,7 +11,7 @@ from datetime import datetime, timezone, timedelta
 os.makedirs("uploads", exist_ok=True)
 
 from database import init_db, get_db
-from auth import router as auth_router, get_current_user_from_cookie, is_owner
+from auth import router as auth_router, get_current_user_from_cookie, is_owner, _server_fingerprint
 from chats import router as chats_router
 from memories import router as memories_router
 from user_settings import router as settings_router
@@ -40,6 +40,7 @@ VERSION = "19.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Invite links are now locked to the device AND the network — incognito, clearing site data or swapping browsers won't let the same person farm multiple invites, so the 5-friend Pro reward stays honest",
     "Shared links now explain themselves — if a linked chat is private, deleted or you're logged out, you get a clear message with the right way back, instead of a blank redirect",
     "Shared-chat pages got a refresh: real chat bubbles with your name on it, a link you can copy straight from the top bar, and a cleaner conversation view",
     "Share popup polished: a live 'Public' status pill, one-tap copy, prettier social buttons and a clearer preview of who can see your chat",
@@ -277,6 +278,9 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
     if not token:
         raise HTTPException(status_code=400, detail="Token required")
     # Device already joined Zenith → it can never use another invite link.
+    # Client device_ids are spoofable, so the server-side network fingerprint
+    # (IP + User-Agent) counts too — same network that already joined via an
+    # invite gets the same "already joined" treatment even after incognito.
     if device_id:
         dev_result = await db.execute(
             select(UsedDevice).where(UsedDevice.device_id == device_id)
@@ -284,6 +288,24 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
         used = dev_result.scalar_one_or_none()
         if used:
             user_result = await db.execute(select(User).where(User.id == used.user_id))
+            owner = user_result.scalar_one_or_none()
+            if owner and not owner.is_deleted:
+                return {
+                    "device_already_joined": True,
+                    "detail": "This device already joined Zenith",
+                    "username": owner.username,
+                }
+    net_fp = _server_fingerprint(request)
+    if net_fp:
+        net_result = await db.execute(
+            select(UsedDevice).where(
+                UsedDevice.ip_fp == net_fp,
+                UsedDevice.source == "invite",
+            )
+        )
+        used_net = net_result.scalar_one_or_none()
+        if used_net:
+            user_result = await db.execute(select(User).where(User.id == used_net.user_id))
             owner = user_result.scalar_one_or_none()
             if owner and not owner.is_deleted:
                 return {

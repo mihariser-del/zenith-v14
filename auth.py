@@ -97,6 +97,18 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _server_fingerprint(request: Request) -> str:
+    """Server-side device fingerprint that farming can't dodge by clearing
+    localStorage/incognito. Client-supplied device_ids are optional and fully
+    spoofable, so an invite registration is ALWAYS pinned to the network it came
+    from (IP + User-Agent). Same network reusing a second invite link is blocked."""
+    import hashlib
+    ip = _client_ip(request)
+    ua = request.headers.get("user-agent", "") or ""
+    raw = f"{ip}|{ua.strip().lower()}"
+    return "net_" + hashlib.sha256(raw.encode("utf-8", "ignore")).hexdigest()[:40]
+
+
 # ---------------------------------------------------------------- password reset email
 
 def _send_email_brevo(to_email: str, link: str) -> bool:
@@ -340,13 +352,28 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     device_id = (req.device_id or "").strip()
     has_invite = bool((req.invite_token or "").strip() or request.cookies.get("zenith_invite_token", "").strip())
     # A device that already joined Zenith can never consume another invite link.
-    if device_id and has_invite:
-        dev_result = await db.execute(
-            select(UsedDevice).where(UsedDevice.device_id == device_id)
-        )
-        prior = dev_result.scalar_one_or_none()
-        if prior:
-            raise HTTPException(status_code=403, detail="This device already joined Zenith")
+    # The client-supplied device_id is easy to spoof/rotate (incognito, cleared
+    # storage), so we ALSO pin the network fingerprint server-side — a second
+    # invite registration from the same network/IP+UA is blocked regardless.
+    if has_invite:
+        if device_id:
+            dev_result = await db.execute(
+                select(UsedDevice).where(UsedDevice.device_id == device_id)
+            )
+            prior = dev_result.scalar_one_or_none()
+            if prior:
+                raise HTTPException(status_code=403, detail="This device already joined Zenith")
+        net_fp = _server_fingerprint(request)
+        if net_fp:
+            net_result = await db.execute(
+                select(UsedDevice).where(
+                    UsedDevice.ip_fp == net_fp,
+                    UsedDevice.source == "invite",
+                )
+            )
+            prior_net = net_result.scalar_one_or_none()
+            if prior_net:
+                raise HTTPException(status_code=403, detail="This network already joined Zenith")
 
     existing = await db.execute(
         select(User).where((User.username == req.username) | (User.email == req.email))
@@ -389,18 +416,20 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     db.add(user)
     await db.flush()  # Get user.id for referral tracking
 
-    # Record the fingerprint so this device can't farm future invite links.
+    # Record the fingerprint so this device/network can't farm future invite links.
     # Keep the FIRST association — a device that later registers again normally
     # (no invite) doesn't overwrite who the device is bound to.
-    if device_id:
+    if device_id or has_invite:
         from sqlalchemy.dialects.sqlite import insert as sqlite_insert
         await db.execute(
             sqlite_insert(UsedDevice)
             .values(
-                device_id=device_id,
+                device_id=(device_id or _server_fingerprint(request)),
                 user_id=user.id,
                 username=user.username,
                 source="invite" if has_invite else "landing",
+                ip=_client_ip(request),
+                ip_fp=_server_fingerprint(request),
             )
             .on_conflict_do_nothing(index_elements=["device_id"])
         )

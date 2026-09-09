@@ -1,7 +1,12 @@
 document.addEventListener('DOMContentLoaded', async () => {
+    const _hasResetToken = new URLSearchParams(window.location.search).get('reset_token');
     try {
         const { user } = await api('/api/auth/me');
-        if (user) { window.location.href = '/app'; return; }
+        if (user && !_hasResetToken) { window.location.href = '/app'; return; }
+        if (user && _hasResetToken) {
+            // Logged in but opening a reset link — sign out so reset applies cleanly
+            try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+        }
     } catch (e) { /* not logged in */ }
 
     // Check maintenance/locked status

@@ -99,7 +99,50 @@ def _client_ip(request: Request) -> str:
 
 # ---------------------------------------------------------------- password reset email
 
+def _send_email_brevo(to_email: str, link: str) -> bool:
+    """Send via Brevo (Sendinblue) REST API over HTTPS (port 443).
+    Works on Railway, unlike direct SMTP which is blocked."""
+    api_key = os.getenv("BREVO_API_KEY", "").strip()
+    if not api_key:
+        print("[forgot-password] BREVO_API_KEY not set")
+        return False
+    import urllib.request
+    import json
+    sender = os.getenv("SMTP_FROM", "").strip() or "wanzu934@gmail.com"
+    payload = {
+        "sender": {"name": "Zenith", "email": sender},
+        "to": [{"email": to_email}],
+        "subject": "Zenith — password reset",
+        "textContent": (
+            f"Someone requested a password reset for your Zenith account.\n\n"
+            f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
+            f"If you didn't request this, you can ignore this email."
+        ),
+    }
+    req = urllib.request.Request(
+        "https://api.brevo.com/v3/smtp/email",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Content-Type": "application/json",
+            "api-key": api_key,
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            status = resp.getcode()
+            print(f"[forgot-password] Brevo email sent to {to_email} (status {status})")
+            return status == 201
+    except Exception as e:
+        print(f"[forgot-password] Brevo email FAILED: {type(e).__name__}: {e}")
+        return False
+
+
 def _send_reset_email(to_email: str, link: str) -> bool:
+    # Prefer Brevo (HTTPS) — Railway blocks outbound SMTP (port 587/465).
+    if _send_email_brevo(to_email, link):
+        return True
+
     host = os.getenv("SMTP_HOST", "").strip()
     if not host:
         print("[forgot-password] SMTP_HOST not set — skipping email")

@@ -116,6 +116,15 @@ def _send_reset_email(to_email: str, link: str) -> bool:
     )
     msg = f"From: Zenith <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
     import smtplib
+    import socket
+    # Force IPv4: Railway containers have no IPv6 route, so Python's default
+    # getaddrinfo (which prefers IPv6) fails with "Network is unreachable".
+    orig_getaddrinfo = socket.getaddrinfo
+    def _ipv4_getaddrinfo(*args, **kwargs):
+        args = list(args)
+        args[2] = socket.AF_INET
+        return orig_getaddrinfo(*args, **kwargs)
+    socket.getaddrinfo = _ipv4_getaddrinfo
     try:
         print(f"[forgot-password] Connecting to {host}:{port} as {user}...")
         if port == 465:
@@ -136,6 +145,8 @@ def _send_reset_email(to_email: str, link: str) -> bool:
     except Exception as e:
         print(f"[forgot-password] email delivery FAILED: {type(e).__name__}: {e}")
         return False
+    finally:
+        socket.getaddrinfo = orig_getaddrinfo
 
 
 class RegisterRequest(BaseModel):
@@ -464,7 +475,7 @@ async def forgot_password(req: ForgotRequest, request: Request, db: AsyncSession
     link = f"{scheme}://{host}/?reset_token={token}"
     sent = _send_reset_email(user.email, link)
     if not sent:
-        print(f"[forgot-password] Reset link for '{user.username}' (no SMTP configured — relay it manually): {link}")
+        print(f"[forgot-password] Reset link for '{user.username}' (email delivery failed - relay it manually): {link}")
     return {"message": generic}
 
 

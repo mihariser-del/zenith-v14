@@ -106,7 +106,7 @@
             fetch(`/api/referral/validate?token=${encodeURIComponent(token)}`)
                 .then(r => r.json())
                 .then(data => {
-                    if (data.error) {
+                    if (data.error || data.detail || !data.referrer_name) {
                         card.style.display = 'none';
                         expired.style.display = 'block';
                         return;

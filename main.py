@@ -208,14 +208,15 @@ async def referral_link(request: Request, db=Depends(get_db)):
         db.add(active)
         await db.commit()
         await db.refresh(active)
-    host = request.base_url.hostname or "localhost"
-    scheme = "https" if host not in ("localhost", "127.0.0.1") else "http"
-    base = os.getenv("FRONTEND_URL", f"{scheme}://{host}")
+    base = os.getenv("FRONTEND_URL", "").strip().rstrip("/")
+    if not base:
+        # Build from the incoming request so scheme + host + port are correct
+        base = str(request.base_url).rstrip("/")
     return {"link": f"{base}/i/{active.token}", "token": active.token}
 
 
 @app.get("/i/{token}")
-async def invite_page(token: str):
+async def invite_page(token: str, request: Request):
     async with async_session() as db:
         result = await db.execute(
             select(InviteToken).where(InviteToken.token == token)
@@ -235,7 +236,7 @@ async def invite_page(token: str):
         value=token,
         httponly=True,
         samesite="lax",
-        secure=True,
+        secure=(request.url.scheme == "https"),
         max_age=7 * 24 * 3600,
     )
     return resp

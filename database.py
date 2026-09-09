@@ -350,6 +350,7 @@ class Referral(Base):
     referred_username = Column(String(50), nullable=False)
     referred_user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     referred_ip = Column(String(45), default="")
+    referred_device = Column(String(64), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     rewarded = Column(Boolean, default=False)
 
@@ -439,6 +440,7 @@ async def init_db():
                 referred_username VARCHAR(50) NOT NULL,
                 referred_user_id INTEGER REFERENCES users.id ON DELETE SET NULL,
                 referred_ip VARCHAR(45) DEFAULT '',
+                referred_device VARCHAR(64) DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 rewarded BOOLEAN DEFAULT 0
             )""")
@@ -446,6 +448,10 @@ async def init_db():
             print(f"migration referrals: {e}")
         try:
             await conn.exec_driver_sql("ALTER TABLE referrals ADD COLUMN referred_ip VARCHAR(45) DEFAULT ''")
+        except Exception as e:
+            pass  # column already exists
+        try:
+            await conn.exec_driver_sql("ALTER TABLE referrals ADD COLUMN referred_device VARCHAR(64) DEFAULT ''")
         except Exception as e:
             pass  # column already exists
     async with async_session() as session:

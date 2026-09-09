@@ -139,6 +139,7 @@ class RegisterRequest(BaseModel):
     username: str
     email: str
     password: str
+    device_id: str = ""
 
 
 class LoginRequest(BaseModel):
@@ -325,21 +326,34 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
         ref_result = await db.execute(select(User).where(User.referral_code == ref_code))
         referrer = ref_result.scalar_one_or_none()
         client_ip = _client_ip(request)
+        device_id = getattr(req, "device_id", "") or ""
         if referrer and referrer.id != user.id:
             # Prevent self-referral
-            # Prevent same device/IP from farming referrals
-            ip_check = await db.execute(
-                select(Referral).where(
-                    Referral.referrer_id == referrer.id,
-                    Referral.referred_ip == client_ip
+            # Prevent same device from farming referrals (check device ID first, fall back to IP)
+            blocked = False
+            if device_id:
+                device_check = await db.execute(
+                    select(Referral).where(
+                        Referral.referrer_id == referrer.id,
+                        Referral.referred_device == device_id
+                    )
                 )
-            )
-            if not ip_check.scalar_one_or_none():
+                blocked = device_check.scalar_one_or_none() is not None
+            if not blocked:
+                ip_check = await db.execute(
+                    select(Referral).where(
+                        Referral.referrer_id == referrer.id,
+                        Referral.referred_ip == client_ip
+                    )
+                )
+                blocked = ip_check.scalar_one_or_none() is not None
+            if not blocked:
                 referral = Referral(
                     referrer_id=referrer.id,
                     referred_username=user.username,
                     referred_user_id=user.id,
                     referred_ip=client_ip,
+                    referred_device=device_id,
                 )
                 db.add(referral)
                 await db.flush()

@@ -104,6 +104,38 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const urlParams = new URLSearchParams(window.location.search);
     const urlToken = urlParams.get('reset_token');
+    const refCode = urlParams.get('ref');
+
+    // ── Referral: store referrer code + device ID in localStorage ──────
+    if (refCode) {
+        try {
+            let deviceId = localStorage.getItem('zenith_device_id');
+            if (!deviceId) {
+                // Generate device fingerprint from canvas + screen + timezone
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                ctx.textBaseline = 'top';
+                ctx.font = '14px Arial';
+                ctx.fillText('Zenith device fingerprint', 2, 2);
+                const canvasData = canvas.toDataURL();
+                const raw = canvasData + '|' + screen.width + 'x' + screen.height + '|' + screen.colorDepth + '|' + Intl.DateTimeFormat().resolvedOptions().timeZone + '|' + navigator.language + '|' + navigator.hardwareConcurrency;
+                // Hash it
+                let hash = 0;
+                for (let i = 0; i < raw.length; i++) {
+                    const chr = raw.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + chr;
+                    hash |= 0;
+                }
+                deviceId = 'dev_' + Math.abs(hash).toString(36) + '_' + Date.now().toString(36);
+                localStorage.setItem('zenith_device_id', deviceId);
+            }
+            localStorage.setItem('zenith_ref_code', refCode.toUpperCase());
+            localStorage.setItem('zenith_ref_device', deviceId);
+        } catch (e) {}
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     if (urlToken) {
         setTimeout(() => {
             $('forgot-modal').style.display = 'flex';
@@ -189,12 +221,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         const btn = $('register-btn');
         btn.disabled = true;
         try {
+            const refDevice = localStorage.getItem('zenith_ref_device') || '';
             await api('/api/auth/register', {
                 method: 'POST',
                 body: JSON.stringify({
                     username: $('reg-username').value.trim(),
                     email: $('reg-email').value.trim(),
                     password: pw,
+                    device_id: refDevice,
                 }),
             });
             showToast('Account created! Please login.', 'success');

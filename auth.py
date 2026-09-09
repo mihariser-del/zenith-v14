@@ -321,48 +321,57 @@ async def register(req: RegisterRequest, request: Request, db: AsyncSession = De
     # ── Referral tracking ─────────────────────────────────────────────────
     ref_code = request.cookies.get("zenith_ref", "").strip().upper()
     if ref_code and ref_code != user.referral_code:
-        # Find the referrer
         from database import Referral
         ref_result = await db.execute(select(User).where(User.referral_code == ref_code))
         referrer = ref_result.scalar_one_or_none()
+        client_ip = _client_ip(request)
         if referrer and referrer.id != user.id:
             # Prevent self-referral
-            referral = Referral(
-                referrer_id=referrer.id,
-                referred_username=user.username,
-                referred_user_id=user.id,
-            )
-            db.add(referral)
-            await db.flush()
-            # Check if referrer now has 5+ pending referrals → auto-grant Pro
-            from sqlalchemy import func
-            count_result = await db.execute(
-                select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
-            )
-            pending = count_result.scalar() or 0
-            if pending >= 5 and not referrer.username.startswith("guest_"):
-                from datetime import datetime, timezone, timedelta
-                now = datetime.now(timezone.utc)
-                if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
-                    te = referrer.trial_end
-                    if te.tzinfo is None:
-                        te = te.replace(tzinfo=timezone.utc)
-                    if te > now:
-                        referrer.trial_end = te + timedelta(days=3)
-                    else:
-                        referrer.trial_end = now + timedelta(days=3)
-                else:
-                    referrer.is_pro = True
-                    referrer.pro_plan = "referral_pro"
-                    referrer.trial_end = now + timedelta(days=3)
-                # Mark all pending as rewarded
-                from sqlalchemy import update
-                await db.execute(
-                    update(Referral).where(
-                        Referral.referrer_id == referrer.id,
-                        Referral.rewarded == False
-                    ).values(rewarded=True)
+            # Prevent same device/IP from farming referrals
+            ip_check = await db.execute(
+                select(Referral).where(
+                    Referral.referrer_id == referrer.id,
+                    Referral.referred_ip == client_ip
                 )
+            )
+            if not ip_check.scalar_one_or_none():
+                referral = Referral(
+                    referrer_id=referrer.id,
+                    referred_username=user.username,
+                    referred_user_id=user.id,
+                    referred_ip=client_ip,
+                )
+                db.add(referral)
+                await db.flush()
+                # Check if referrer now has 5+ pending referrals → auto-grant Pro
+                from sqlalchemy import func
+                count_result = await db.execute(
+                    select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
+                )
+                pending = count_result.scalar() or 0
+                if pending >= 5 and not referrer.username.startswith("guest_"):
+                    from datetime import datetime, timezone, timedelta
+                    now = datetime.now(timezone.utc)
+                    if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
+                        te = referrer.trial_end
+                        if te.tzinfo is None:
+                            te = te.replace(tzinfo=timezone.utc)
+                        if te > now:
+                            referrer.trial_end = te + timedelta(days=3)
+                        else:
+                            referrer.trial_end = now + timedelta(days=3)
+                    else:
+                        referrer.is_pro = True
+                        referrer.pro_plan = "referral_pro"
+                        referrer.trial_end = now + timedelta(days=3)
+                    # Mark all pending as rewarded
+                    from sqlalchemy import update
+                    await db.execute(
+                        update(Referral).where(
+                            Referral.referrer_id == referrer.id,
+                            Referral.rewarded == False
+                        ).values(rewarded=True)
+                    )
 
     await db.commit()
     return {"message": "Account created"}

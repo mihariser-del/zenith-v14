@@ -35,8 +35,6 @@
         </div>
         <input type="text" id="gold-username" class="admin-gold-input" placeholder="Admin username" autocomplete="username">
         <input type="password" id="gold-password" class="admin-gold-input" placeholder="Admin password" autocomplete="current-password">
-        <input type="text" id="gold-secret" class="admin-gold-input" placeholder="Secret key (for new admin only)" style="font-size: 12px;">
-        <p style="color: rgba(255,215,0,0.4); font-size: 11px; margin: 8px 0 12px;">Leave secret empty to login. Fill it to create.</p>
         <div id="gold-msg" class="auth-msg"></div>
         <button class="admin-gold-btn" id="gold-login">ENTER VAULT</button>
         <a class="admin-back" id="gold-back">&larr; Back to Zenith</a>
@@ -48,13 +46,12 @@
         document.getElementById('gold-login').addEventListener('click', async () => {
             const username = document.getElementById('gold-username').value.trim();
             const password = document.getElementById('gold-password').value;
-            const secret = document.getElementById('gold-secret').value.trim();
             const msg = document.getElementById('gold-msg');
             const btn = document.getElementById('gold-login');
             if (!username || !password) { msg.textContent = 'Username and password required'; msg.className = 'auth-msg error'; return; }
             btn.disabled = true; btn.textContent = 'VERIFYING...';
             try {
-                await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password, secret }) });
+                await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
                 msg.textContent = 'Access granted. Redirecting...'; msg.className = 'auth-msg success';
                 setTimeout(() => window.location.href = '/app', 800);
             } catch (e) { msg.textContent = e.message; msg.className = 'auth-msg error'; btn.disabled = false; btn.textContent = 'ENTER VAULT'; }

@@ -251,6 +251,11 @@ async def invite_page(token: str, request: Request):
     return resp
 
 
+@app.get("/invite.html", response_class=HTMLResponse)
+async def serve_invite_page():
+    return FileResponse("static/invite.html")
+
+
 @app.get("/api/referral/validate")
 async def validate_invite_token(request: Request, db=Depends(get_db)):
     token = request.query_params.get("token", "")

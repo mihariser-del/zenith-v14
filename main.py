@@ -644,7 +644,11 @@ async def changelog_seen(request: Request, db=Depends(get_db)):
     body = await request.json()
     which = body.get("list", "user")
     if which == "staff":
+        # The staff list includes the user entries (user_changes + extras), so
+        # acknowledging it must clear both watermarks or the user block would
+        # keep reappearing on every reload for staff.
         user.changelog_seen_staff = len(STAFF_CHANGELOG)
+        user.changelog_seen_user = len(USER_CHANGELOG)
     else:
         user.changelog_seen_user = len(USER_CHANGELOG)
     await db.commit()

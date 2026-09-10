@@ -1,3 +1,46 @@
+const fileIcon = (name) => {
+    const e = (name || '').split('.').pop().toLowerCase();
+    const M = {
+        // Images
+        png:'\uD83D\uDDBC\uFE0F', jpg:'\uD83D\uDDBC\uFE0F', jpeg:'\uD83D\uDDBC\uFE0F', gif:'\uD83C\uDFA8', bmp:'\uD83D\uDDBC\uFE0F', svg:'\uD83C\uDFA8', webp:'\uD83D\uDDBC\uFE0F', tiff:'\uD83D\uDDBC\uFE0F', tif:'\uD83D\uDDBC\uFE0F', ico:'\uD83D\uDDBC\uFE0F',heic:'\uD83D\uDDBC\uFE0F',
+        // Video
+        mp4:'\uD83C\uDFAC', mov:'\uD83C\uDFAC', avi:'\uD83C\uDFAC', mkv:'\uD83C\uDFAC', webm:'\uD83C\uDFAC', wmv:'\uD83C\uDFAC', flv:'\uD83C\uDFAC', m4v:'\uD83C\uDFAC', mpg:'\uD83C\uDFAC', mpeg:'\uD83C\uDFAC', '3gp':'\uD83C\uDFAC',ts:'\uD83C\uDFAC',
+        // Audio
+        mp3:'\uD83C\uDFB5', wav:'\uD83C\uDFB5', ogg:'\uD83C\uDFB5', flac:'\uD83C\uDFB5', aac:'\uD83C\uDFB5', wma:'\uD83C\uDFB5', m4a:'\uD83C\uDFB5', opus:'\uD83C\uDFB5',mid:'\uD83C\uDFB5',midi:'\uD83C\uDFB5',
+        // Docs
+        pdf:'\uD83D\uDCD5', doc:'\uD83D\uDCC3', docx:'\uD83D\uDCC3', rtf:'\uD83D\uDCC3', odt:'\uD83D\uDCC3', pages:'\uD83D\uDCC3',
+        // Sheets
+        xls:'\uD83D\uDCCA', xlsx:'\uD83D\uDCCA', csv:'\uD83D\uDCCA', ods:'\uD83D\uDCCA', numbers:'\uD83D\uDCCA',tsv:'\uD83D\uDCCA',
+        // Slides
+        ppt:'\uD83D\uDCCA', pptx:'\uD83D\uDCCA', odp:'\uD83D\uDCCA', key:'\uD83D\uDCCA',
+        // Archives
+        zip:'\uD83D\uDCE6', rar:'\uD83D\uDCE6', '7z':'\uD83D\uDCE6', tar:'\uD83D\uDCE6', gz:'\uD83D\uDCE6', bz2:'\uD83D\uDCE6',xz:'\uD83D\uDCE6',
+        // Code
+        js:'\uD83D\uDCBB', jsx:'\uD83D\uDCBB', ts:'\uD83D\uDCBB', tsx:'\uD83D\uDCBB', py:'\uD83D\uDCBB', pyw:'\uD83D\uDCBB', rb:'\uD83D\uDCBB', go:'\uD83D\uDCBB', rs:'\uD83D\uDCBB', java:'\uD83D\uDCBB', c:'\uD83D\uDCBB', cpp:'\uD83D\uDCBB', h:'\uD83D\uDCBB', hpp:'\uD83D\uDCBB', cs:'\uD83D\uDCBB', swift:'\uD83D\uDCBB', kt:'\uD83D\uDCBB', php:'\uD83D\uDCBB', lua:'\uD83D\uDCBB', r:'\uD83D\uDCBB', scala:'\uD83D\uDCBB', dart:'\uD83D\uDCBB', el:'\uD83D\uDCBB', ex:'\uD83D\uDCBB', exs:'\uD83D\uDCBB',clj:'\uD83D\uDCBB',
+        // Web
+        html:'\uD83C\uDF10', htm:'\uD83C\uDF10', css:'\uD83C\uDF10', scss:'\uD83C\uDF10', less:'\uD83C\uDF10', xml:'\uD83C\uDF10', rss:'\uD83C\uDF10',md:'\uD83C\uDF10',markdown:'\uD83C\uDF10',
+        // Config / data
+        json:'\u2328\uFE0F', yaml:'\u2328\uFE0F', yml:'\u2328\uFE0F', toml:'\u2328\uFE0F', ini:'\u2328\uFE0F', cfg:'\u2328\uFE0F', conf:'\u2328\uFE0F', env:'\u2328\uFE0F',sql:'\u2328\uFE0F',
+        // Executables / installers
+        exe:'\u2699\uFE0F', msi:'\u2699\uFE0F', bat:'\u2699\uFE0F', cmd:'\u2699\uFE0F', ps1:'\u2699\uFE0F', sh:'\u2699\uFE0F', bash:'\u2699\uFE0F', zsh:'\u2699\uFE0F', app:'\u2699\uFE0F', dmg:'\u2699\uFE0F',deb:'\u2699\uFE0F',rpm:'\u2699\uFE0F',apk:'\u2699\uFE0F',snap:'\u2699\uFE0F',
+        // Disk images / containers
+        iso:'\uD83D\uDCC1', img:'\uD83D\uDCC1', vmdk:'\uD83D\uDCC1',vdi:'\uD83D\uDCC1',vhd:'\uD83D\uDCC1',
+        // Fonts
+        ttf:'\uD83D\uDD24', otf:'\uD83D\uDD24', woff:'\uD83D\uDD24', woff2:'\uD83D\uDD24',eot:'\uD83D\uDD24',
+        // Books / docs
+        epub:'\uD83D\uDCDA', mobi:'\uD83D\uDCDA', azw:'\uD83D\uDCDA', fb2:'\uD83D\uDCDA',djvu:'\uD83D\uDCDA',tex:'\uD83D\uDCDA',latex:'\uD83D\uDCDA',
+        // CAD / 3D
+        dwg:'\uD83D\uDCD0', dxf:'\uD83D\uDCD0', stl:'\uD83D\uDCD0', obj:'\uD83D\uDCD0', fbx:'\uD83D\uDCD0',blend:'\uD83D\uDCD0',
+        // Design
+        psd:'\uD83C\uDFA8', ai:'\uD83C\uDFA8', sketch:'\uD83C\uDFA8', fig:'\uD83C\uDFA8', xd:'\uD83C\uDFA8',indd:'\uD83C\uDFA8',afdesign:'\uD83C\uDFA8',afphoto:'\uD83C\uDFA8',
+        // Crypto / certs
+        pem:'\uD83D\uDD11', crt:'\uD83D\uDD11', cer:'\uD83D\uDD11', der:'\uD83D\uDD11', p12:'\uD83D\uDD11', pfx:'\uD83D\uDD11', jks:'\uD83D\uDD11',
+        // Misc
+        log:'\uD83D\uDCDD', txt:'\uD83D\uDCDD', text:'\uD83D\uDCDD', dat:'\uD83D\uDCC2',bak:'\uD83D\uDCC2',tmp:'\uD83D\uDCC2',swp:'\uD83D\uDCC2',cache:'\uD83D\uDCC2',torrent:'\uD83D\uDCB0',
+    };
+    return M[e] || '\uD83D\uDCC4';
+};
+
 const Chat = {
     chats: {},
     activeId: null,
@@ -619,16 +662,7 @@ const Chat = {
                 allFiles.forEach(f => {
                     const pill = document.createElement('div');
                     const lower = f.name.toLowerCase();
-                    let icon = '\uD83D\uDCC4';
-                    if (lower.endsWith('.pdf')) icon = '\uD83D\uDCD5';
-                    else if (lower.endsWith('.docx') || lower.endsWith('.doc')) icon = '\uD83D\uDCC3';
-                    else if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv')) icon = '\uD83D\uDCCA';
-                    else if (lower.endsWith('.zip') || lower.endsWith('.rar') || lower.endsWith('.7z')) icon = '\uD83D\uDCE6';
-                    else if (lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.avi')) icon = '\uD83C\uDFAC';
-                    else if (lower.endsWith('.mp3') || lower.endsWith('.wav') || lower.endsWith('.ogg')) icon = '\uD83C\uDFB5';
-                    else if (lower.endsWith('.html') || lower.endsWith('.htm')) icon = '\uD83C\uDF10';
-                    else if (lower.endsWith('.json')) icon = '{ }';
-                    else if (lower.endsWith('.js') || lower.endsWith('.py') || lower.endsWith('.ts')) icon = '\uD83D\uDCBB';
+                    const icon = fileIcon(lower);
                     pill.style.cssText = 'display:flex; align-items:center; gap:10px; background:#2a2a2a; border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px; margin-bottom:8px;';
                     pill.innerHTML = `<div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text);">${this.escapeHtml(f.name)}</div><div style="font-size:11px; color:#888;">File</div></div>`;
                     bubble.appendChild(pill);
@@ -1409,7 +1443,7 @@ const Chat = {
                 div.innerHTML = `<img src="${att.data}" alt="${att.name}"><button class="remove-att" data-i="${i}">\u2715</button>`;
             } else {
                 const isHtml = att.name.toLowerCase().endsWith('.html');
-                const icon = isHtml ? '\uD83C\uDF10' : '\uD83D\uDCC4';
+                const icon = fileIcon(att.name);
                 div.innerHTML = `<div class="file-chip" style="display:flex; align-items:center; gap:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px;"><div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.escapeHtml(att.name)}</div><div style="font-size:11px; color:#888;">File</div></div><button class="remove-att" data-i="${i}" style="position:static; background:transparent; color:#888; border:none; font-size:16px; cursor:pointer; flex-shrink:0;">\u2715</button></div>`;
             }
             div.querySelector('.remove-att').addEventListener('click', () => {

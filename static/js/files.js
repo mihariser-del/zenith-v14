@@ -23,7 +23,7 @@ const Files = {
                 : (f.file_size / 1024).toFixed(1) + ' KB';
             const isImage = f.mime_type.startsWith('image/');
             const isPdf = f.mime_type === 'application/pdf';
-            const icon = isImage ? '&#128247;' : isPdf ? '&#128196;' : '&#128196;';
+            const icon = fileIcon(f.filename);
             div.innerHTML = `
                 <span style="font-size:24px;">${icon}</span>
                 <div style="flex:1; overflow:hidden;">

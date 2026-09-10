@@ -95,7 +95,9 @@ const Settings = {
         // Accent picker drives the whole vibrant look (solids + gradients). The owner's
         // picker is hidden, so they keep the neon defaults instead of a stale value.
         if (!isOwner) {
-            const safe = /^#[0-9a-fA-F]{6}$/.test(s.accent || '') ? s.accent : '#a855f7';
+            const _a = (s.accent || '').trim();
+            const _gold = /^#(?:ffd23f|ffd700|ff8c00)$/i.test(_a);
+            const safe = (!_gold && /^#[0-9a-fA-F]{6}$/.test(_a)) ? _a : '#a855f7';
             document.documentElement.style.setProperty('--accent-solid', safe);
             document.documentElement.style.setProperty('--accent-hover', safe);
             document.documentElement.style.setProperty('--accent', `linear-gradient(135deg, ${safe}, #8b5cf6)`);

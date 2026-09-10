@@ -396,81 +396,140 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; box-shadow: 
     #voice-transcript { font-size: 14px !important; max-width: 90vw !important; }
     #attention-modal .modal-content { width: 95% !important; max-width: 95% !important; }
 }
-/* ---- OWNER THEME (Titanium Core) - brushed titanium, silver glows, frosted panels ---- */
+/* ---- OWNER THEME (Vibrant Titanium) — shimmering silver, icy glows, frosted panels ---- */
 body.admin-owner {
-    --bg: #111315;
-    --sidebar: #14171a;
-    --surface: #1A1D21;
-    --cards: #22262B;
+    --bg: #101216;
+    --sidebar: #14171b;
+    --surface: #1A1D22;
+    --cards: #232730;
     --text: #C0C7D1;
-    --input-bg: #1A1D21;
-    --border: #2a2f36;
-    --hover-bg: #22262B;
-    --accent: linear-gradient(135deg, #DDE4EE, #8B949E);
-    --accent-solid: #C0C7D1;
-    --accent-hover: #DDE4EE;
-    --user-msg: linear-gradient(135deg, #3b424b, #262b31);
+    --input-bg: #1A1D22;
+    --border: #2b313b;
+    --hover-bg: #232730;
+    --accent: linear-gradient(135deg, #f4f8ff, #ffffff 30%, #8B949E 60%, #dfe7f5 90%, #f4f8ff);
+    --accent-solid: #dfe7f5;
+    --accent-hover: #ffffff;
+    --user-msg: linear-gradient(135deg, #dfe7f5, #8B949E);
     --ai-msg: #191d21;
     --code-bg: #171a1e;
 }
+body.admin-owner .z-logo,
+body.admin-owner .welcome-z-logo,
+body.admin-owner .user-profile-bar .user-avatar,
+body.admin-owner #send-btn,
+body.admin-owner .btn.primary {
+    background: linear-gradient(135deg, #ffffff, #dfe7f5 35%, #8B949E 65%, #eef4ff 90%);
+    background-size: 220% 220%;
+    animation: gradientShift 4s ease infinite;
+}
 body.admin-owner .z-logo {
-    background: linear-gradient(135deg, #DDE4EE, #8B949E);
-    color: #111315;
-    box-shadow: 0 0 14px rgba(221,228,238,0.15);
-    border: 1px solid rgba(221,228,238,0.35);
+    color: #0f1216;
+    border: 1px solid rgba(223,231,245,.5);
+    box-shadow: 0 0 20px rgba(223,231,245,.45), 0 4px 18px rgba(139,148,158,.35);
+}
+body.admin-owner .welcome-z-logo {
+    color: #0f1216;
+    box-shadow: 0 8px 32px rgba(139,148,158,.4), 0 0 46px rgba(223,231,245,.4);
 }
 body.admin-owner .brand h2 {
-    color: #DDE4EE;
+    color: #eef4ff;
+    text-shadow: 0 0 12px rgba(223,231,245,.45);
 }
 body.admin-owner .sidebar {
-    background: linear-gradient(180deg, #14171a, #111315);
-    border-right: 1px solid rgba(221,228,238,0.08);
+    background: linear-gradient(180deg, #14171b, #101216);
+    border-right: 1px solid rgba(223,231,245,.1);
 }
 body.admin-owner .btn.primary {
-    background: linear-gradient(135deg, #8B949E, #5d666f);
-    color: #f4f6f8;
-    border: 1px solid rgba(221,228,238,0.25);
+    color: #11151a;
+    border: 1px solid rgba(223,231,245,.35);
+    box-shadow: 0 0 14px rgba(223,231,245,.25);
+}
+body.admin-owner .btn.primary:hover {
+    box-shadow: 0 0 22px rgba(223,231,245,.45);
 }
 body.admin-owner .chat-item.active,
 body.admin-owner .chat-item:hover {
-    background: #22262B;
-    border-left: 2px solid #C0C7D1;
+    background: #232730;
+    border-left: 2px solid #dfe7f5;
+    box-shadow: inset 0 0 14px rgba(223,231,245,.08);
 }
-body.admin-owner #admin-panel-modal .modal-content,
-body.admin-owner #feedback-admin-modal .modal-content {
-    background: linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20);
-    border: 1px solid rgba(221,228,238,0.18);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 14px rgba(221,228,238,0.12);
+body.admin-owner .user-profile-bar .uname {
+    color: #eef4ff;
+    text-shadow: 0 0 10px rgba(223,231,245,.5);
+}
+body.admin-owner .msg-actions button:hover {
+    color: #ffffff;
+    border-color: #dfe7f5;
+    text-shadow: 0 0 10px rgba(223,231,245,.7);
+    box-shadow: 0 0 14px rgba(223,231,245,.25);
+}
+body.admin-owner .btn.info {
+    color: #dfe7f5;
+    text-shadow: 0 0 10px rgba(223,231,245,.5);
+}
+body.admin-owner .composer-icon.active {
+    color: #ffffff;
+    background: rgba(223,231,245,.16);
+    box-shadow: 0 0 14px rgba(223,231,245,.35);
+}
+body.admin-owner .composer-icon:hover {
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(223,231,245,.6);
+}
+body.admin-owner #send-btn {
+    color: #11151a;
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 0 18px rgba(223,231,245,.4);
+}
+body.admin-owner .thinking-text {
+    color: #dfe7f5;
+    text-shadow: 0 0 10px rgba(223,231,245,.6);
+}
+body.admin-owner .streaming-cursor::after {
+    background: #ffffff;
+    box-shadow: 0 0 10px rgba(255,255,255,.8);
+}
+body.admin-owner .composer-box:focus-within {
+    border-color: #dfe7f5;
+    box-shadow: 0 0 0 1px rgba(223,231,245,.25), 0 0 20px rgba(223,231,245,.3);
+}
+body.admin-owner .welcome-message h2 span {
+    background: linear-gradient(90deg, #ffffff, #dfe7f5 30%, #8B949E 55%, #ffffff 80%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradientShift 4s ease infinite;
+    filter: drop-shadow(0 0 10px rgba(223,231,245,.45));
 }
 body.admin-owner #admin-panel-modal h3 {
-    color: #DDE4EE;
-    text-shadow: none;
+    color: #eef4ff;
+    text-shadow: 0 0 12px rgba(223,231,245,.4);
     letter-spacing: 3px;
     font-weight: 600;
 }
-body.admin-owner .user-profile-bar .uname {
-    color: #C0C7D1;
-}
 body.admin-owner #admin-stats > div {
-    background: #22262B;
+    background: #232730;
     border: 1px solid #2c3238;
+    box-shadow: inset 0 0 14px rgba(223,231,245,.06);
 }
-/* Owner — kill all gold, force Titanium */
-body.admin-owner #admin-panel-modal .modal-content h3 { color: #DDE4EE !important; text-shadow: none !important; }
-body.admin-owner #admin-panel-modal .modal-content { background: linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20) !important; border: 1px solid rgba(221,228,238,0.18) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 14px rgba(221,228,238,0.12) !important; }
-body.admin-owner #admin-panel-modal .modal-content input { background: rgba(0,0,0,0.35) !important; border-color: rgba(221,228,238,0.25) !important; color: #DDE4EE !important; }
-body.admin-owner #admin-panel-modal .modal-content input::placeholder { color: rgba(221,228,238,0.45) !important; }
-body.admin-owner #admin-panel-modal .modal-content input:focus { border-color: #C0C7D1 !important; box-shadow: 0 0 12px rgba(221,228,238,0.12) !important; }
+/* Owner — kill all gold, force Vibrant Titanium */
+body.admin-owner #admin-panel-modal .modal-content h3 { color: #eef4ff !important; text-shadow: 0 0 12px rgba(223,231,245,.4) !important; }
+body.admin-owner #admin-panel-modal .modal-content { background: linear-gradient(160deg, #1A1D22, #232730 70%, #171b20) !important; border: 1px solid rgba(223,231,245,.22) !important; box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 0 20px rgba(223,231,245,.16) !important; }
+body.admin-owner #admin-panel-modal .modal-content input { background: rgba(0,0,0,0.35) !important; border-color: rgba(223,231,245,.3) !important; color: #eef4ff !important; }
+body.admin-owner #admin-panel-modal .modal-content input::placeholder { color: rgba(223,231,245,.45) !important; }
+body.admin-owner #admin-panel-modal .modal-content input:focus { border-color: #dfe7f5 !important; box-shadow: 0 0 14px rgba(223,231,245,.25) !important; }
 body.admin-owner #admin-panel-modal .btn,
 body.admin-owner #admin-panel-modal #admin-refresh,
-body.admin-owner #admin-panel-modal #close-admin-panel { color: #C0C7D1 !important; border-color: rgba(221,228,238,0.3) !important; }
-body.admin-owner #admin-panel-modal .btn:hover { background: rgba(221,228,238,0.08) !important; }
-body.admin-owner #admin-filter-buttons button { border-color: rgba(221,228,238,0.25) !important; color: #8B949E !important; }
+body.admin-owner #admin-panel-modal #close-admin-panel { color: #dfe7f5 !important; border-color: rgba(223,231,245,.35) !important; text-shadow: 0 0 10px rgba(223,231,245,.35); }
+body.admin-owner #admin-panel-modal .btn:hover { background: rgba(223,231,245,.1) !important; }
+body.admin-owner #admin-filter-buttons button { border-color: rgba(223,231,245,.28) !important; color: #8B949E !important; }
 body.admin-owner #admin-filter-buttons button[style*="border-color: rgb(255, 215, 0)"],
-body.admin-owner #admin-filter-buttons button[style*="#FFD700"] { border-color: #C0C7D1 !important; color: #DDE4EE !important; background: rgba(221,228,238,0.15) !important; }
-body.admin-owner #admin-users-list [data-action="reset"] { border-color: rgba(221,228,238,0.4) !important; color: #C0C7D1 !important; }
+body.admin-owner #admin-filter-buttons button[style*="#FFD700"] { border-color: #dfe7f5 !important; color: #eef4ff !important; background: rgba(223,231,245,.16) !important; }
+body.admin-owner #admin-users-list [data-action="reset"] { border-color: rgba(223,231,245,.45) !important; color: #dfe7f5 !important; }
 body.admin-owner #admin-users-list [data-action="ban"] { border-color: rgba(255,77,77,0.35) !important; }
-body.admin-owner .sidebar .btn.info { color: #C0C7D1 !important; border-color: rgba(221,228,238,0.15) !important; }
+body.admin-owner .sidebar .btn.info { color: #dfe7f5 !important; border-color: rgba(223,231,245,.18) !important; text-shadow: 0 0 10px rgba(223,231,245,.3); }
 
 /* ---- Generic modal mobile responsiveness ---- */
 .modal-content {

@@ -1,7 +1,7 @@
 const Settings = {
     defaults: {
         theme: 'dark',
-        accent: '#0066ff',
+        accent: '#8b5cf6',
         msgSpacing: 'cozy',
         markdown: true,
         speechLang: 'en-GB',
@@ -74,43 +74,53 @@ const Settings = {
     async apply() {
         const s = this.getLocal();
         document.body.classList.toggle('light-theme', s.theme === 'light');
-        document.documentElement.style.setProperty('--accent-solid', s.accent);
-        document.documentElement.style.setProperty('--accent-hover', s.accent);
-        // Admin gold: keep gold default but allow accent to override logo color
+        let isOwner = false;
+        let isAdminUser = false;
         try {
             const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
             if (r.ok) {
                 const d = await r.json();
                 if (d.user && d.user.is_admin) {
-                    const isOwner = d.user.role === 'owner' || d.user.username === 'WANZU-IBRAHIM';
+                    isAdminUser = true;
+                    isOwner = d.user.role === 'owner' || d.user.username === 'WANZU-IBRAHIM';
                     if (isOwner) {
                         document.body.classList.remove('admin-gold');
                         document.body.classList.add('admin-owner');
                     } else {
                         document.body.classList.add('admin-gold');
                     }
-                    if (!isOwner) {
-                        const accent = (s.accent || '').toLowerCase();
-                        const isGold = accent === '#ffd700' || accent === '#ff8c00';
-                        if (!isGold && s.accent) {
-                            document.documentElement.style.setProperty('--accent-solid', s.accent);
-                            document.documentElement.style.setProperty('--accent-hover', s.accent);
-                            document.body.style.setProperty('--accent-solid', s.accent);
-                            document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
-                                el.style.background = `linear-gradient(135deg, #FFD700, ${s.accent})`;
-                                el.style.backgroundImage = '';
-                            });
-                        } else {
-                            document.body.style.removeProperty('--accent-solid');
-                            document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
-                                el.style.background = '';
-                                el.style.backgroundImage = '';
-                            });
-                        }
-                    }
                 }
             }
         } catch {}
+        // Accent picker drives the whole vibrant look (solids + gradients). The owner's
+        // picker is hidden, so they keep the neon defaults instead of a stale value.
+        if (!isOwner) {
+            const safe = /^#[0-9a-fA-F]{6}$/.test(s.accent || '') ? s.accent : '#a855f7';
+            document.documentElement.style.setProperty('--accent-solid', safe);
+            document.documentElement.style.setProperty('--accent-hover', safe);
+            document.documentElement.style.setProperty('--accent', `linear-gradient(135deg, ${safe}, #8b5cf6)`);
+            document.documentElement.style.setProperty('--user-msg', `linear-gradient(135deg, ${safe}, #ff3db4)`);
+        }
+        // Admin gold: non-owner admins keep the gold-badged look but allow accent to tint the logo
+        if (isAdminUser && !isOwner) {
+            const accent = (s.accent || '').toLowerCase();
+            const isGold = accent === '#ffd700' || accent === '#ff8c00';
+            if (!isGold && s.accent) {
+                document.documentElement.style.setProperty('--accent-solid', s.accent);
+                document.documentElement.style.setProperty('--accent-hover', s.accent);
+                document.body.style.setProperty('--accent-solid', s.accent);
+                document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                    el.style.background = `linear-gradient(135deg, #FFD700, ${s.accent})`;
+                    el.style.backgroundImage = '';
+                });
+            } else {
+                document.body.style.removeProperty('--accent-solid');
+                document.querySelectorAll('.z-logo, .welcome-z-logo').forEach(el => {
+                    el.style.background = '';
+                    el.style.backgroundImage = '';
+                });
+            }
+        }
         const container = $('chat-container');
         if (container) {
             container.style.gap = s.msgSpacing === 'compact' ? '10px' : s.msgSpacing === 'spacious' ? '30px' : '20px';

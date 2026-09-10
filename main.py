@@ -40,6 +40,10 @@ VERSION = "19.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "What's New finally stops repeating itself — you now only see features that were freshly added since the last time you checked",
+    "Used invite links get their own flashy page: a spinning neon ticket portal that tells you the seat's already taken",
+    "The invite page now scrolls smoothly on short screens instead of clipping its content",
+    "The whole app got the vibrant neon makeover — deep purple, cyan and pink-gold gradients across the board, and your Theme & Accent settings now drive that look (owners keep the signature neon)",
     "Invite links are now locked to the device AND the network — incognito, clearing site data or swapping browsers won't let the same person farm multiple invites, so the 5-friend Pro reward stays honest",
     "Shared links now explain themselves — if a linked chat is private, deleted or you're logged out, you get a clear message with the right way back, instead of a blank redirect",
     "Shared-chat pages got a refresh: real chat bubbles with your name on it, a link you can copy straight from the top bar, and a cleaner conversation view",
@@ -70,6 +74,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "changelog is now per-user 'seen' (users.changelog_seen_user/changelog_seen_staff); GET /api/changelog returns only newly-added entries (unseen prefix) when authed, POST /api/changelog/seen marks them; guests fall back to a local counter in app.js",
+    "TEMPORARY owner tool: POST /api/referral/admin/reset {username} wipes a user's referral progress (deletes Referral rows + revokes referral_pro); exposed as a dashed button inside the owner's Invite Friends modal — remove in a later version",
     "SECURITY 18.2: code sandbox gated to Owner-only + shell execution removed; hardcoded admin/owner passwords removed (env-bootstrapped) + known-compromised creds auto-rotated on boot; SECRET_KEY auto-generated (persisted, never 'zenith-dev'); forgot-password now issues expiring emailed tokens (SMTP via SMTP_* env, link logged when unconfigured); new POST /api/auth/reset-password; brute-force protection (per-IP + per-username, 429 + Retry-After) on login/admin-login/guest/register/forgot; secure=True session cookies (except localhost); /api/debug/keys now Owner-only; pending_password encrypted at rest (Fernet) and shown once then cleared",
     "limits.py engine: cooldown_until column; dynamic free timer 60-1080 min from usage intensity (msgs today/1h/10m bounce + media volume); pro 10-30 min, 60 min on exploit",
     "chat media window: [Image xN]/[File: markers per chat; 15-msg allowance from 5th image/15th file; images+files logged as 'message' usage",
@@ -131,7 +137,7 @@ app.include_router(personality_router)
 # ─────────────────────────────────────────────────────────────────────────────
 
 from database import User, Referral, Chat, Message, Reminder, async_session
-from sqlalchemy import select, func, update
+from sqlalchemy import select, func, update, delete
 from database import InviteToken, UsedDevice
 
 
@@ -182,6 +188,36 @@ async def referral_stats(request: Request, db=Depends(get_db)):
         "earned_from_referrals": earned_from_referrals,
         "pro_days": REFERRAL_PRO_DAYS,
     }
+
+
+@app.post("/api/referral/admin/reset")
+async def referral_admin_reset(request: Request, db=Depends(get_db)):
+    """TEMPORARY owner tool: wipe a user's referral progress so they can earn the
+    invite-friends reward again. Owner-only; removed in a later version."""
+    user = await get_current_user_from_cookie(request, db)
+    if not (user.role == "owner" or user.username == "WANZU-IBRAHIM"):
+        raise HTTPException(status_code=403, detail="Owner only")
+    body = await request.json()
+    target_name = (body.get("username") or "").strip()
+    if not target_name:
+        raise HTTPException(status_code=400, detail="username required")
+    tgt = (
+        await db.execute(select(User).where(User.username == target_name))
+    ).scalar_one_or_none()
+    if not tgt:
+        raise HTTPException(status_code=404, detail="User not found")
+    deleted = (
+        await db.execute(
+            select(func.count()).where(Referral.referrer_id == tgt.id)
+        )
+    ).scalar() or 0
+    await db.execute(delete(Referral).where(Referral.referrer_id == tgt.id))
+    if getattr(tgt, "pro_plan", "") == "referral_pro":
+        tgt.is_pro = False
+        tgt.pro_plan = ""
+        tgt.trial_end = None
+    await db.commit()
+    return {"message": f"Reset invite progress for {target_name}", "deleted": deleted}
 
 
 @app.post("/api/referral/claim")
@@ -317,8 +353,10 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
         select(InviteToken).where(InviteToken.token == token)
     )
     invite = result.scalar_one_or_none()
-    if not invite or invite.used:
-        raise HTTPException(status_code=404, detail="Invalid or used invite link")
+    if invite and invite.used:
+        raise HTTPException(status_code=410, detail="This invite link has already been used")
+    if not invite:
+        raise HTTPException(status_code=404, detail="Invite link not found or invalid")
     ref_result = await db.execute(
         select(User).where(User.id == invite.referrer_id)
     )
@@ -566,8 +604,51 @@ async def debug_keys(request: Request, db=Depends(get_db)):
     return {"count": len(keys), "prefixes": [k[:12] + "..." for k in keys]}
 
 @app.get("/api/changelog")
-async def get_changelog():
-    return {"version": VERSION, "changes": USER_CHANGELOG, "user_changes": USER_CHANGELOG, "staff_changes": STAFF_CHANGELOG}
+async def get_changelog(request: Request, db=Depends(get_db)):
+    """Returns only NEWLY-ADDED changelog entries for the logged-in user (prepended
+    to the top since their last 'seen' watermark), so older releases' features stop
+    repeating. Guests/anon get the full lists and the app falls back to local tracking."""
+    try:
+        user = await get_current_user_from_cookie(request, db)
+    except HTTPException:
+        user = None
+    if user and not user.username.startswith("guest_"):
+        seen_user = getattr(user, "changelog_seen_user", 0) or 0
+        seen_staff = getattr(user, "changelog_seen_staff", 0) or 0
+        u_new = max(0, len(USER_CHANGELOG) - seen_user)
+        user_changes = USER_CHANGELOG[:u_new]
+        # STAFF list = user entries + staff extras; staff extras prepend within their block.
+        extras = STAFF_CHANGELOG[len(USER_CHANGELOG):]
+        extras_seen = max(0, seen_staff - len(USER_CHANGELOG))
+        extra_new = max(0, len(extras) - extras_seen)
+        staff_changes = user_changes + extras[:extra_new]
+        authed = True
+    else:
+        user_changes = USER_CHANGELOG
+        staff_changes = STAFF_CHANGELOG
+        authed = False
+    return {
+        "version": VERSION,
+        "changes": user_changes,
+        "user_changes": user_changes,
+        "staff_changes": staff_changes,
+        "authed": authed,
+    }
+
+
+@app.post("/api/changelog/seen")
+async def changelog_seen(request: Request, db=Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        return {"ok": True}
+    body = await request.json()
+    which = body.get("list", "user")
+    if which == "staff":
+        user.changelog_seen_staff = len(STAFF_CHANGELOG)
+    else:
+        user.changelog_seen_user = len(USER_CHANGELOG)
+    await db.commit()
+    return {"ok": True}
 
 
 @app.get("/", response_class=HTMLResponse)

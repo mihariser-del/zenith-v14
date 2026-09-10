@@ -607,6 +607,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             const link = wrap.querySelector('#invite-link').value;
             window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zenith AI - your personal AI assistant! ' + link)}`, '_blank');
         });
+
+        // TEMPORARY owner tool: reset any user's invite/referral progress
+        if (isOwner) {
+            const rbtn = document.createElement('button');
+            rbtn.textContent = '♻ Reset a user\'s invite progress (owner)';
+            rbtn.style.cssText = 'width:100%;margin-top:12px;padding:10px;background:rgba(255,61,180,.10);border:1px dashed rgba(255,61,180,.5);border-radius:10px;color:#ff8fd0;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,box-shadow .15s;';
+            rbtn.addEventListener('mouseenter', () => { rbtn.style.background = 'rgba(255,61,180,.18)'; rbtn.style.boxShadow = '0 0 16px rgba(255,61,180,.35)'; });
+            rbtn.addEventListener('mouseleave', () => { rbtn.style.background = 'rgba(255,61,180,.10)'; rbtn.style.boxShadow = 'none'; });
+            rbtn.addEventListener('click', async () => {
+                const who = prompt('Reset invite progress for which username?');
+                if (!who || !who.trim()) return;
+                try {
+                    const r = await api('/api/referral/admin/reset', { method: 'POST', body: JSON.stringify({ username: who.trim() }) });
+                    showToast(r.message, 'success');
+                } catch (e) { showToast(e.message, 'error'); }
+            });
+            wrap.querySelector('#invite-stats').insertAdjacentElement('afterend', rbtn);
+        }
     });
     const composerBox = document.querySelector('.composer-box');
     const toolsExpandBtn = $('tools-expand-btn');
@@ -937,24 +955,35 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 
     // --- Changelog popup ---
-    // "Seen version" is tracked PER-USER so a new account on a device that already saw the
-    // latest version still receives the changelog (it isn't suppressed by the previous account).
-    // Normal users see the user-facing entries; owners & admins get the deep technical notes too.
-    const _chgKey = 'zenith_version_' + user.username;
+    // Only NEWLY-ADDED features are shown (the server slices by each user's "seen"
+    // watermark), so older releases' features never repeat. Guests fall back to a
+    // per-account local counter. Acknowledging marks the entries as seen.
+    const _chgKey = 'zenith_chgcnt_' + user.username;
     (async () => {
         try {
             const data = await api('/api/changelog');
-            const seen = localStorage.getItem(_chgKey);
-            if (seen !== data.version) {
-                const staffView = isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
-                const changes = staffView ? (data.staff_changes || data.changes) : (data.user_changes || data.changes);
-                $('changelog-title').textContent = `What's New — v${data.version}`;
-                $('changelog-version').textContent = `Version ${data.version}`;
-                $('changelog-list').innerHTML = changes.map(c => `<li>${c}</li>`).join('');
-                $('changelog-modal').style.display = 'flex';
-                $('close-changelog').onclick = () => { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; };
-                $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) { localStorage.setItem(_chgKey, data.version); $('changelog-modal').style.display = 'none'; } });
+            const staffView = isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
+            const changes = staffView ? (data.staff_changes || data.changes || []) : (data.user_changes || data.changes || []);
+            let listToShow = changes || [];
+            if (!data.authed) {
+                const seen = parseInt(localStorage.getItem(_chgKey) || '0', 10);
+                listToShow = changes.length > seen ? changes.slice(0, changes.length - seen) : [];
             }
+            if (!listToShow.length) return;
+            $('changelog-title').textContent = `What's New — v${data.version}`;
+            $('changelog-version').textContent = `Version ${data.version}`;
+            $('changelog-list').innerHTML = listToShow.map(c => `<li>${c}</li>`).join('');
+            $('changelog-modal').style.display = 'flex';
+            const markSeen = () => {
+                $('changelog-modal').style.display = 'none';
+                if (data.authed) {
+                    api('/api/changelog/seen', { method: 'POST', body: JSON.stringify({ list: staffView ? 'staff' : 'user' }) }).catch(() => {});
+                } else {
+                    localStorage.setItem(_chgKey, String(changes.length));
+                }
+            };
+            $('close-changelog').onclick = markSeen;
+            $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) markSeen(); });
         } catch (e) {}
     })();
 

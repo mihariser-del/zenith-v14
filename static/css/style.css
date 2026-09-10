@@ -1,16 +1,17 @@
 :root {
-    --bg: #0a0a0a; --sidebar: #111; --text: #e5e5e5; --input-bg: #1a1a1a;
-    --border: #2a2a2a; --accent: linear-gradient(135deg, #0066ff, #8b5cf6);
-    --accent-solid: #0066ff; --accent-hover: #0052cc;
-    --user-msg: linear-gradient(135deg, #0044aa, #6b21a8);
-    --ai-msg: #161616; --error: #ff4d4d; --hover-bg: #222;
-    --code-bg: #282c34;
+    --bg: #0a0316; --sidebar: #12082b; --text: #f2edff; --input-bg: #1d1040;
+    --border: #2f1f5c; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6, #22d3ee);
+    --accent-solid: #a855f7; --accent-hover: #9333ea;
+    --user-msg: linear-gradient(135deg, #6d28d9, #ff3db4);
+    --ai-msg: #170b35; --error: #ff4d4d; --hover-bg: #241640;
+    --code-bg: #17112e;
 }
 .light-theme {
-    --bg: #f4f6f8; --sidebar: #ffffff; --text: #1a1a1a; --input-bg: #e9ecef;
-    --border: #dee2e6; --accent: linear-gradient(135deg, #0066ff, #8b5cf6);
-    --accent-solid: #0066ff; --user-msg: linear-gradient(135deg, #0066ff, #8b5cf6);
-    --ai-msg: #ffffff; --hover-bg: #f0f0f0; --code-bg: #f0f0f0;
+    --bg: #f6f2ff; --sidebar: #ffffff; --text: #221235; --input-bg: #eee8f8;
+    --border: #dcd0ee; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6);
+    --accent-solid: #8b5cf6; --accent-hover: #7c3aed;
+    --user-msg: linear-gradient(135deg, #8b5cf6, #ff3db4);
+    --ai-msg: #ffffff; --hover-bg: #f0eafa; --code-bg: #f4effa;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; scrollbar-width: thin; scrollbar-color: #333 #0a0a0a; }
 svg { display: block; flex-shrink: 0; width: 1em; height: 1em; }

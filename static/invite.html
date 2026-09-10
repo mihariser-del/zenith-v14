@@ -18,9 +18,9 @@
         body {
             margin: 0; padding: 0; min-height: 100vh;
             background: var(--g-bg); color: var(--g-text);
-            display: flex; align-items: center; justify-content: center;
+            display: flex;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            overflow-x: hidden;
+            overflow-x: hidden; overflow-y: auto;
         }
         .bg-anim {
             position: fixed; inset: -20%; z-index: 0; pointer-events: none;
@@ -41,7 +41,8 @@
         @keyframes twinkle { 0%,100% { opacity: .2; transform: scale(.8) rotate(0deg); } 50% { opacity: 1; transform: scale(1.15) rotate(20deg); } }
 
         .invite-wrap {
-            position: relative; z-index: 1; width: 100%; max-width: 460px; margin: 28px 16px;
+            position: relative; z-index: 1; width: 100%; max-width: 460px; margin: auto;
+            padding: 28px 16px;
             perspective: 1200px;
         }
         .invite-card {
@@ -181,6 +182,43 @@
         }
         .invite-expired a.ghost:hover { background: rgba(255,61,180,.1); box-shadow: 0 0 18px rgba(255,61,180,.3); }
 
+        .invite-used { text-align: center; }
+        .portal {
+            width: 92px; height: 92px; margin: 0 auto 16px; position: relative;
+            filter: drop-shadow(0 0 22px rgba(255,61,180,.55));
+        }
+        .portal-ring {
+            position: absolute; inset: 0; border-radius: 50%;
+            background: conic-gradient(from 0deg, #22d3ee, #ff3db4, #ffd23f, #8b5cf6, #22d3ee);
+            -webkit-mask: radial-gradient(circle, transparent 60%, #000 64%);
+            mask: radial-gradient(circle, transparent 60%, #000 64%);
+            animation: portalSpin 3.5s linear infinite;
+        }
+        .portal-ring::before {
+            content: ''; position: absolute; inset: 0; border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(34,211,238,.6), transparent 45%),
+                        radial-gradient(circle at 70% 70%, rgba(255,61,180,.6), transparent 45%);
+        }
+        .portal-core {
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            font-size: 30px; animation: bob 3s ease-in-out infinite;
+        }
+        @keyframes portalSpin { to { transform: rotate(360deg); } }
+        .invite-used h2 {
+            margin: 0 0 8px; font-weight: 900; font-size: 22px;
+            background: linear-gradient(90deg, var(--g-pink), var(--g-gold) 60%, var(--g-cyan));
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+            filter: drop-shadow(0 2px 14px rgba(255,210,63,.25));
+        }
+        .invite-used p { color: var(--g-muted); font-size: 14px; margin: 0 0 6px; line-height: 1.5; }
+        .invite-used .stamp {
+            display: inline-block; margin: 10px 0 4px; padding: 5px 14px;
+            border: 2px solid rgba(255,61,180,.7); color: var(--g-pink);
+            font-size: 11px; font-weight: 900; letter-spacing: 2px; text-transform: uppercase;
+            border-radius: 8px; transform: rotate(-6deg);
+            box-shadow: 0 0 18px rgba(255,61,180,.4); background: rgba(255,61,180,.08);
+        }
+
         .powered { text-align: center; margin-top: 16px; font-size: 11.5px; color: rgba(255,210,63,.6); letter-spacing: .3px; text-shadow: 0 0 12px rgba(255,210,63,.5); }
         @media (max-width:520px) {
             .invite-card { padding: 30px 20px 24px; }
@@ -228,6 +266,15 @@
         <a class="ghost" href="/">Go to Zenith →</a>
     </div>
 
+    <div class="invite-card invite-used" id="invite-used" style="display:none;">
+        <div class="portal"><div class="portal-ring"></div><div class="portal-core">🎟️</div></div>
+        <h2>This invite has been claimed</h2>
+        <p>This one-use ticket already found its passenger — invite links work exactly once.</p>
+        <div class="stamp">Already used</div>
+        <p style="font-size:12.5px; opacity:.85;">Ask your friend for a fresh invite link, or just create your own account.</p>
+        <a class="ghost" href="/" style="border-color:rgba(255,210,63,.5); color:var(--g-gold);">Go to Zenith →</a>
+    </div>
+
     <div class="invite-card invite-expired" id="invite-joined" style="display:none;">
         <div class="ic-box">✅</div>
         <h2>This device already joined Zenith</h2>
@@ -243,6 +290,7 @@
     const token = params.get('token');
     const card = document.getElementById('invite-card');
     const expired = document.getElementById('invite-expired');
+    const used = document.getElementById('invite-used');
     const joined = document.getElementById('invite-joined');
     const msg = document.getElementById('invite-msg');
 
@@ -258,24 +306,30 @@
     const showJoined = (username) => {
         card.style.display = 'none';
         expired.style.display = 'none';
+        used.style.display = 'none';
         if (username) document.getElementById('joined-username').textContent = username;
         joined.style.display = 'block';
     };
+    const showDead = (which) => {
+        card.style.display = 'none';
+        joined.style.display = 'none';
+        expired.style.display = 'none';
+        used.style.display = 'none';
+        which.style.display = 'block';
+    };
 
     if (!token) {
-        card.style.display = 'none';
-        expired.style.display = 'block';
+        showDead(expired);
     } else {
         fetch(`/api/referral/validate?token=${encodeURIComponent(token)}&device_id=${encodeURIComponent(deviceId)}`)
-            .then(r => r.json())
-            .then(data => {
+            .then(r => r.json().then(data => ({ status: r.status, ok: r.ok, data })))
+            .then(({ status, ok, data }) => {
                 if (data && data.device_already_joined) {
                     showJoined(data.username);
                     return;
                 }
-                if (data.error || data.detail || !data.referrer_name) {
-                    card.style.display = 'none';
-                    expired.style.display = 'block';
+                if (!ok || data.error || data.detail || !data.referrer_name) {
+                    showDead(status === 410 ? used : expired);
                     return;
                 }
                 document.getElementById('inviter-name').textContent = data.referrer_name;
@@ -283,8 +337,7 @@
                 document.getElementById('invite-by').style.display = 'flex';
             })
             .catch(() => {
-                card.style.display = 'none';
-                expired.style.display = 'block';
+                showDead(expired);
             });
     }
 

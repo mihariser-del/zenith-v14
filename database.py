@@ -178,6 +178,10 @@ class User(Base):
     reset_token_expires = Column(DateTime, nullable=True)
     # Referral system — unique code for inviting others
     referral_code = Column(String(10), unique=True, nullable=True)
+    # Changelog "seen" watermark: count of entries already acknowledged. New
+    # entries are prepended to the top, so unseen = list[: len - seen].
+    changelog_seen_user = Column(Integer, default=0)
+    changelog_seen_staff = Column(Integer, default=0)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -472,6 +476,8 @@ async def init_db():
             ("reset_token", "VARCHAR(64) DEFAULT ''"),
             ("reset_token_expires", "DATETIME"),
             ("referral_code", "VARCHAR(10) DEFAULT NULL"),
+            ("changelog_seen_user", "INTEGER DEFAULT 0"),
+            ("changelog_seen_staff", "INTEGER DEFAULT 0"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

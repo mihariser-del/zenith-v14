@@ -1059,6 +1059,22 @@ const Chat = {
         for (const att of this.attachments) {
             const uploaded = await this.uploadToServer(att);
             if (uploaded) uploadedFiles.push(uploaded);
+            // Binary attachments (pdf/docx/xlsx/pptx/audio/video/code) aren't readable
+            // client-side — pull the server-extracted content so the AI can actually
+            // read, edit and replicate the file.
+            if (att.type === 'file' && uploaded && uploaded.id) {
+                try {
+                    const rr = await fetch(`/api/files/${uploaded.id}/read`, { credentials: 'same-origin' });
+                    if (!rr.ok) continue;
+                    const jj = await rr.json();
+                    if (jj.type !== 'image' && jj.content) {
+                        fullContent += `\n\n[File content: ${att.name}]\n${jj.content.slice(0, 12000)}`;
+                    }
+                    if (jj.frames && jj.frames.length) {
+                        jj.frames.slice(0, 4).forEach(fr => images.push(fr));
+                    }
+                } catch (e) { /* non-fatal: file still attaches as metadata */ }
+            }
         }
         const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
         const imageUrls = uploadedFiles.filter(f => f.is_image).map(f => `/uploads/${f.stored_name}`);

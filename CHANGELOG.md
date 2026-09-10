@@ -1,5 +1,16 @@
 # Changelog
 
+## 19.5 — AI reads every file
+
+- **The AI can now read your files**: uploading a PDF, Word, Excel, PowerPoint, audio or video makes the content (extracted server-side) available to Zenith so it can summarize, answer questions, edit, replicate and rewrite what you send
+- **Wider upload support**: more MIME types + extension fallbacks — Office docs, spreadsheets, slides, audio (mp3/wav/m4a/ogg/opus/flac/aac), video (mp4/webm/mov/avi/mkv) and common code/text formats
+- **Office extraction**: docx → paragraphs + tables (`python-docx`), xlsx → per-sheet cell text (`openpyxl`), pptx → per-slide text (`python-pptx`)
+- **Audio**: metadata (duration/bitrate/format) via `mutagen` + Whisper-compatible transcription when `WHISPER_API_KEY`/`OPENAI_API_KEY` is set (`WHISPER_BASE_URL`/`WHISPER_MODEL` overrides)
+- **Video**: duration probe + up to 3 key frames extracted (`imageio_ffmpeg`, bundled ffmpeg) sent to the vision model, plus audio-track transcription when a key is configured
+- **Chat integration**: `chat.js` now auto-fetches `/api/files/{id}/read` for binary attachments and embeds the extracted content + video frames into the model context (capped ~12k chars/file)
+- All optional libraries are import-guarded so the server degrades gracefully (marker text) instead of crashing when a dependency is missing
+- New env knobs: `WHISPER_API_KEY`, `WHISPER_BASE_URL`, `WHISPER_MODEL`
+
 ## 18.2 — Security hardening
 
 - **Code sandbox locked down**: arbitrary server code execution (`/api/code/execute`) now requires Owner login; shell/bash execution removed entirely; secrets (OpenRouter keys, SECRET_KEY) stripped from the subprocess environment

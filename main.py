@@ -36,10 +36,14 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "19.0"
+VERSION = "19.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "Files finally open up to the AI: upload a PDF, Word, Excel, PowerPoint, audio or video and Zenith actually reads it — it can summarize, answer questions about, edit, replicate and rewrite whatever you send",
+    "Way more file types are welcome: Office docs, spreadsheets, slides, audio files, videos and code files all upload and get read",
+    "Videos get processed too — Zenith grabs key frames from the video so it can describe what's on screen, plus audio transcription when a transcription key is configured",
+    "Audio files report their metadata (duration, bitrate, format) and transcribe their speech when a Whisper-compatible key is set",
     "What's New finally stops repeating itself — you now only see features that were freshly added since the last time you checked",
     "Used invite links get their own flashy page: a spinning neon ticket portal that tells you the seat's already taken",
     "The invite page now scrolls smoothly on short screens instead of clipping its content",
@@ -74,6 +78,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "19.5 file-read pipeline: files.py extractors (docx/xlsx/pptx via python-docx/openpyxl/python-pptx, audio metadata via mutagen, video frames via imageio_ffmpeg, whisper-compatible transcription via WHISPER_API_KEY/WHISPER_BASE_URL/WHISPER_MODEL env); ALLOWED_TYPES + EXT_ALLOWLIST widened; chat.js auto-fetches /api/files/{id}/read for binary attachments and embeds content + video frames into the model context; each optional lib is import-guarded so the server keeps running without them",
     "changelog is now per-user 'seen' (users.changelog_seen_user/changelog_seen_staff); GET /api/changelog returns only newly-added entries (unseen prefix) when authed, POST /api/changelog/seen marks them; guests fall back to a local counter in app.js",
     "TEMPORARY owner tool: POST /api/referral/admin/reset {username} wipes a user's referral progress (deletes Referral rows + revokes referral_pro); exposed as a dashed button inside the owner's Invite Friends modal — remove in a later version",
     "SECURITY 18.2: code sandbox gated to Owner-only + shell execution removed; hardcoded admin/owner passwords removed (env-bootstrapped) + known-compromised creds auto-rotated on boot; SECRET_KEY auto-generated (persisted, never 'zenith-dev'); forgot-password now issues expiring emailed tokens (SMTP via SMTP_* env, link logged when unconfigured); new POST /api/auth/reset-password; brute-force protection (per-IP + per-username, 429 + Retry-After) on login/admin-login/guest/register/forgot; secure=True session cookies (except localhost); /api/debug/keys now Owner-only; pending_password encrypted at rest (Fernet) and shown once then cleared",

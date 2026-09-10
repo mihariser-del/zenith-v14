@@ -663,8 +663,8 @@ const Chat = {
                     const pill = document.createElement('div');
                     const lower = f.name.toLowerCase();
                     const icon = fileIcon(lower);
-                    pill.style.cssText = 'display:flex; align-items:center; gap:10px; background:#2a2a2a; border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px; margin-bottom:8px;';
-                    pill.innerHTML = `<div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--text);">${this.escapeHtml(f.name)}</div><div style="font-size:11px; color:#888;">File</div></div>`;
+                    pill.className = 'file-pill msgb';
+                    pill.innerHTML = `<div class="fp-ic">${icon}</div><div class="fp-info"><div class="fp-name">${this.escapeHtml(f.name)}</div><div class="fp-sub">File</div></div>`;
                     bubble.appendChild(pill);
                 });
             }
@@ -838,7 +838,7 @@ const Chat = {
         if (bubble) {
             const textDiv = bubble.querySelector('div');
             if (textDiv && bubble.childElementCount === 1) textDiv.textContent = trimmed;
-            else if (!bubble.querySelector('.file-chip') && !bubble.querySelector('img')) bubble.textContent = trimmed;
+            else if (!bubble.querySelector('.file-pill') && !bubble.querySelector('img')) bubble.textContent = trimmed;
         }
         this.isStreaming = true;
         const sendBtn = $('send-btn');
@@ -1458,11 +1458,11 @@ const Chat = {
             if (att.type === 'image') {
                 div.innerHTML = `<img src="${att.data}" alt="${att.name}"><button class="remove-att" data-i="${i}">\u2715</button>`;
             } else {
-                const isHtml = att.name.toLowerCase().endsWith('.html');
                 const icon = fileIcon(att.name);
-                div.innerHTML = `<div class="file-chip" style="display:flex; align-items:center; gap:10px; background:var(--input-bg); border:1px solid var(--border); border-radius:12px; padding:8px 12px; min-width:180px; max-width:260px;"><div style="width:36px; height:36px; border-radius:8px; background:var(--hover-bg); display:flex; align-items:center; justify-content:center; font-size:16px; flex-shrink:0;">${icon}</div><div style="flex:1; min-width:0;"><div style="font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${this.escapeHtml(att.name)}</div><div style="font-size:11px; color:#888;">File</div></div><button class="remove-att" data-i="${i}" style="position:static; background:transparent; color:#888; border:none; font-size:16px; cursor:pointer; flex-shrink:0;">\u2715</button></div>`;
+                div.innerHTML = `<div class="file-pill"><div class="fp-ic">${icon}</div><div class="fp-info"><div class="fp-name">${this.escapeHtml(att.name)}</div><div class="fp-sub">File</div></div><button class="fp-x" data-i="${i}" title="Remove">\u2715</button></div>`;
             }
-            div.querySelector('.remove-att').addEventListener('click', () => {
+            const rmBtn = div.querySelector('.remove-att') || div.querySelector('.fp-x');
+            rmBtn.addEventListener('click', () => {
                 this.attachments.splice(i, 1);
                 this.renderAtts();
             });

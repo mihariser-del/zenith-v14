@@ -547,7 +547,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <div style="background:rgba(23,10,51,.6);border:1px solid rgba(139,92,246,.35);border-radius:12px;padding:12px;margin-bottom:16px;">
                     <div style="font-size:11px;color:#b6a8e0;margin-bottom:6px;">🌟 Your unique invite link <span style="color:#ffd23f;">(single-use, auto-refreshes)</span></div>
                     <div id="invite-link-box" style="display:flex;gap:8px;">
-                        <input id="invite-link" readonly style="flex:1;padding:9px 12px;background:rgba(10,3,22,.7);border:1px solid rgba(34,211,238,.4);border-radius:8px;color:#c4d7f5;font-size:12px;outline:none;" placeholder="Loading...">
+                        <input id="invite-link" readonly style="flex:1;min-width:0;padding:9px 12px;background:rgba(10,3,22,.7);border:1px solid rgba(34,211,238,.4);border-radius:8px;color:#c4d7f5;font-size:12px;outline:none;" placeholder="Loading...">
                         <button id="invite-copy" style="padding:9px 16px;background:linear-gradient(135deg,#22d3ee,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(34,211,238,.4);">Copy</button>
                     </div>
                 </div>

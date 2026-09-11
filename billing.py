@@ -25,7 +25,7 @@ PESAPAL_CONSUMER_SECRET = os.getenv("PESAPAL_CONSUMER_SECRET", "")
 PESAPAL_BASE_URL = os.getenv("PESAPAL_BASE_URL", "https://pay.pesapal.com/v3")
 PESAPAL_SANDBOX = os.getenv("PESAPAL_SANDBOX", "").lower() in ("1", "true", "yes")
 PESAPAL_CURRENCY = os.getenv("PESAPAL_CURRENCY", "USD")
-PESAPAL_HOSTED_PAGE = os.getenv("PESAPAL_HOSTED_PAGE", "https://store.pesapal.com/zelpoph")
+PESAPAL_HOSTED_PAGE = os.getenv("PESAPAL_HOSTED_PAGE", "https://store.pesapal.com/zelpophaiai")
 if PESAPAL_SANDBOX:
     PESAPAL_BASE_URL = "https://cybqa.pesapal.com/pesapalv3"
 

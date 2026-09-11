@@ -36,13 +36,14 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "19.8"
+VERSION = "20.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
-    "Files finally open up to the AI: upload a PDF, Word, Excel, PowerPoint, audio or video and Zenith actually reads it — it can summarize, answer questions about, edit, replicate and rewrite whatever you send",
+    "20.0 Quolvex: everything you loved is still here — same features, same chats — under a brand-new name. Say hello to Quolvex!",
+    "Files finally open up to the AI: upload a PDF, Word, Excel, PowerPoint, audio or video and Quolvex actually reads it — it can summarize, answer questions about, edit, replicate and rewrite whatever you send",
     "Way more file types are welcome: Office docs, spreadsheets, slides, audio files, videos and code files all upload and get read",
-    "Videos get processed too — Zenith grabs key frames from the video so it can describe what's on screen, plus audio transcription when a transcription key is configured",
+    "Videos get processed too — Quolvex grabs key frames from the video so it can describe what's on screen, plus audio transcription when a transcription key is configured",
     "Audio files report their metadata (duration, bitrate, format) and transcribe their speech when a Whisper-compatible key is set",
     "What's New finally stops repeating itself — you now only see features that were freshly added since the last time you checked",
     "Used invite links get their own flashy page: a spinning neon ticket portal that tells you the seat's already taken",
@@ -52,7 +53,7 @@ USER_CHANGELOG = [
     "Shared links now explain themselves — if a linked chat is private, deleted or you're logged out, you get a clear message with the right way back, instead of a blank redirect",
     "Shared-chat pages got a refresh: real chat bubbles with your name on it, a link you can copy straight from the top bar, and a cleaner conversation view",
     "Share popup polished: a live 'Public' status pill, one-tap copy, prettier social buttons and a clearer preview of who can see your chat",
-    "Invites are now one per device — once a device joins Zenith it can't use another invite link, and it gets a friendly 'already joined' page if it tries",
+    "Invites are now one per device — once a device joins Quolvex it can't use another invite link, and it gets a friendly 'already joined' page if it tries",
     "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
     "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
     "Unlimited invites are now single-use — an invite link is consumed the moment someone registers, so it can't be replayed",
@@ -60,7 +61,7 @@ USER_CHANGELOG = [
     "Invited friends land straight inside the app after creating their account (no extra login step)",
     "Brand-new redesigned invite page — crisp, animated and ready to show off",
     "Reminders: pick 'Today' for same-day alerts, plus the usual weekdays or next-day",
-    "Voice speed control: tune how fast Zenith speaks the replies out loud",
+    "Voice speed control: tune how fast Quolvex speaks the replies out loud",
     "Long replies get a friendly 'ready for you' nudge the moment they finish",
     "Per-chat model picker: choose a different AI for each conversation without changing your global default",
     "Share & export polished: one-tap social sharing, txt/md/pdf export and a cleaner shared-chat view",
@@ -70,17 +71,19 @@ USER_CHANGELOG = [
     "Voice: logged-in users get 30 minutes of voice chat per day, then it pauses until midnight (UTC)",
     "Files & documents: logged-in users can create/edit up to 10 files a day, then a 1-hour break — guests need to log in first",
     "Clear countdown popups: whenever a limit kicks in you'll see exactly how long to wait",
-    "Just ask for an image: type something like 'generate a pic of...' and Zenith creates it automatically",
+    "Just ask for an image: type something like 'generate a pic of...' and Quolvex creates it automatically",
     "Changelog is now split — normal users see what affects them; staff see the deep technical notes",
     "Personal Requests: ask the admin for anything personally (a feature, a fix, a custom item) — they reply right here in the sidebar",
-    "Personality Mirror: Zenith studies how you write and matches your tone, energy and vibe in its replies (tunable in Settings → System Prompt)",
-    "19.6 busy-proof downloads: if Zenith is busy when you ask for a file/doc generation, you get a test file you can still download (choose md/docx/pdf/pptx/xlsx/csv) to verify downloads work",
+    "Personality Mirror: Quolvex studies how you write and matches your tone, energy and vibe in its replies (tunable in Settings → System Prompt)",
+    "19.6 busy-proof downloads: if Quolvex is busy when you ask for a file/doc generation, you get a test file you can still download (choose md/docx/pdf/pptx/xlsx/csv) to verify downloads work",
     "19.7 vibrant upgrade & guest login: the upgrade plans popup got a neon makeover; guests are told instantly why invites/sharing are off-limits with a colorful login prompt that never hides behind other popups",
 ]
 
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "20.0 Quolvex rebrand: user-visible 'Zenith' branding replaced with Quolvex (titles, headers, meta/og tags, About text, share/invite/status pages); functional identifiers unchanged (zenith_token cookie, zenith_device_id localStorage, DB filename, Railway domain) so sessions/logins keep working; VERSION -> 20.0",
+    "20.0 billing fix: clicking an upgrade option in dev mode (PesaPal unconfigured) no longer hard-reloads the page — billing.js now honors res.mock (success toast + close modal) and only navigates on a real PesaPal redirect_url; plan buttons show 'Processing…' and re-enable on failure; create-checkout wraps auth/IPN/order failures as 502 with a clear detail instead of a bare 500 'Internal Server Error'",
     "19.7 upgrade/login vibrancy: billing.showUpgrade() fully restyled (zp-* scoped classes, gradient title/glows/top bar, plan cards cyan vs gold with POPULAR/SAVE 17%/ONE-TIME badges, animated gradient buttons, grid auto-fit for mobile) and modal z-index bumped 500→10000 so guest popups never sit behind the share (700) / invite (9999) modals; chat-share-btn and invite-btn now gate guests up-front to Billing.showUpgrade('Guest ...'); guest branch shows a bobbing rocket + vibrant Login/Register; limit popup (api.js) guest login button switched to cyan→violet→magenta animated gradient with limitDrift keyframes",
     "19.8 PesaPal billing: replaced Stripe with PesaPal API 3.0 (auth token caching, IPN webhook registration per order, SubmitOrderRequest with subscription_details for monthly/yearly, GetTransactionStatus verification); env vars PESAPAL_CONSUMER_KEY/PESAPAL_CONSUMER_SECRET/PESAPAL_SANDBOX; mock mode when unconfigured; stripe.py removed from requirements.txt; supports Visa/Mastercard/AMEX + MTN/Airtel mobile money in Uganda",
     "19.6 busy fallback: chat.js detects a streamed busy/too-many-requests error AND a generation-like user message (_looksLikeGenerationRequest regex) then _renderBusyFallback() injects the busy note + a .file-pill.ftest card with 6 format download buttons (md/docx/pdf/pptx/xlsx/csv) calling downloadAs() → /api/generate/document; .fp-dls styles in style.css (wraps full-width under 480px); also applied on regenerate()",
@@ -118,7 +121,7 @@ async def lifespan(app: FastAPI):
             pass
 
 
-app = FastAPI(title="Zenith AI", version=VERSION, lifespan=lifespan)
+app = FastAPI(title="Quolvex", version=VERSION, lifespan=lifespan)
 
 app.include_router(auth_router)
 app.include_router(chats_router)
@@ -324,7 +327,7 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
     device_id = request.query_params.get("device_id", "").strip()
     if not token:
         raise HTTPException(status_code=400, detail="Token required")
-    # Device already joined Zenith → it can never use another invite link.
+    # Device already joined Quolvex → it can never use another invite link.
     # Client device_ids are spoofable, so the server-side network fingerprint
     # (IP + User-Agent) counts too — same network that already joined via an
     # invite gets the same "already joined" treatment even after incognito.
@@ -339,7 +342,7 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
             if owner and not owner.is_deleted:
                 return {
                     "device_already_joined": True,
-                    "detail": "This device already joined Zenith",
+                    "detail": "This device already joined Quolvex",
                     "username": owner.username,
                 }
     net_fp = _server_fingerprint(request)
@@ -357,7 +360,7 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
             if owner and not owner.is_deleted:
                 return {
                     "device_already_joined": True,
-                    "detail": "This device already joined Zenith",
+                    "detail": "This device already joined Quolvex",
                     "username": owner.username,
                 }
     result = await db.execute(

@@ -27,16 +27,16 @@ def _is_exhausted(status_code: int, body: str) -> bool:
     low = body.lower()
     return "in_flight_budget" in low or "available credits" in low or "rate limit" in low
 
-DEFAULT_SYSTEM_PROMPT = "You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully."
+DEFAULT_SYSTEM_PROMPT = "You are Quolvex, created by Wanzu Ibrahim. Answer accurately and helpfully."
 
 DEFAULT_THINK_PROMPT = (
-    "You are Zenith, created by Wanzu Ibrahim. "
+    "You are Quolvex, created by Wanzu Ibrahim. "
     "Think step-by-step before answering. "
     "Show your reasoning process clearly, then provide your final answer."
 )
 
 RESEARCH_PROMPT = (
-    "You are Zenith, a deep research assistant created by Wanzu Ibrahim. "
+    "You are Quolvex, a deep research assistant created by Wanzu Ibrahim. "
     "When given a research query, provide a comprehensive, well-structured analysis. "
     "Include multiple perspectives, cite web sources where available, and clearly state "
     "what is known vs what is uncertain. Structure your response with clear headings. "
@@ -44,7 +44,7 @@ RESEARCH_PROMPT = (
 )
 
 FACTCHECK_PROMPT = (
-    "You are Zenith, a fact-checking assistant created by Wanzu Ibrahim. "
+    "You are Quolvex, a fact-checking assistant created by Wanzu Ibrahim. "
     "When given a claim to verify, analyze it thoroughly. For each claim: "
     "1) State whether it is TRUE, FALSE, PARTIALLY TRUE, or UNVERIFIED. "
     "2) Provide evidence and reasoning. "
@@ -191,13 +191,13 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         except: pass
 
     if is_owner:
-        base = "You are Zenith, created by Wanzu Ibrahim. This user is THE OWNER and supreme creator of Zenith - treat them with absolute highest priority, they have no restrictions, remember everything about them for life, and always be at their service with maximum detail and brilliance."
+        base = "You are Quolvex, created by Wanzu Ibrahim. This user is THE OWNER and supreme creator of Quolvex - treat them with absolute highest priority, they have no restrictions, remember everything about them for life, and always be at their service with maximum detail and brilliance."
         if research:
-            base = RESEARCH_PROMPT + " The user is THE OWNER of Zenith - deliver the most elite quality research."
+            base = RESEARCH_PROMPT + " The user is THE OWNER of Quolvex - deliver the most elite quality research."
         elif factcheck:
             base = FACTCHECK_PROMPT
     elif is_admin:
-        base = "You are Zenith, created by Wanzu Ibrahim. This user is an ADMIN of Zenith - treat them with highest priority, remember their preferences for life, and be extra helpful and detailed."
+        base = "You are Quolvex, created by Wanzu Ibrahim. This user is an ADMIN of Quolvex - treat them with highest priority, remember their preferences for life, and be extra helpful and detailed."
         if research:
             base = RESEARCH_PROMPT + " The user is an ADMIN - provide the highest quality research."
         elif factcheck:
@@ -339,7 +339,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             try:
                 keys = _get_openrouter_keys()
                 if not keys:
-                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                    yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                     return
                 last_err = ""
                 last_status = 0
@@ -406,7 +406,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                                     yield "data: [DONE]\n\n"
                                                     return
                                     except: pass
-                                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                                    yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                                 else:
                                     yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err[:300]}'})}\n\n"
                                 return
@@ -452,7 +452,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                         raise
                 if not success and last_err:
                     if _is_exhausted(last_status, last_err):
-                        yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                        yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                     else:
                         yield f"data: {json.dumps({'error': f'API error {last_status}: {last_err[:300]}'})}\n\n"
                     return
@@ -463,7 +463,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         # Normal streaming path (no web or has images) - with key rotation on 402/429
         keys = _get_openrouter_keys()
         if not keys:
-            yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+            yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
             return
         else:
             last_error_body = ""
@@ -508,7 +508,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                                     yield "data: [DONE]\n\n"
                                                     return
                                     except: pass
-                                    yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                                    yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                                 else:
                                     yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
                                 return
@@ -543,7 +543,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 # loop exhausted without break (no key succeeded) but not returned above - fallback
                 if not streamed and last_error_body:
                     if _is_exhausted(last_status, last_error_body):
-                        yield f"data: {json.dumps({'error': 'Zenith is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
+                        yield f"data: {json.dumps({'error': 'Quolvex is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                     else:
                         yield f"data: {json.dumps({'error': f'API error {last_status}: {last_error_body[:300]}'})}\n\n"
                     return

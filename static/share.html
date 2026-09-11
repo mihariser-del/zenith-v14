@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <meta property="og:title" id="og-title" content="Zenith — Shared Chat">
-    <meta property="og:description" content="View a shared conversation on Zenith AI.">
+    <meta property="og:title" id="og-title" content="Quolvex — Shared Chat">
+    <meta property="og:description" content="View a shared conversation on Quolvex.">
     <meta property="og:image" content="https://zenithai.up.railway.app/static/og-default.png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:type" content="website">
     <meta name="theme-color" content="#0a0316">
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <meta name="description" content="Zenith AI shared conversation">
-    <title>Shared Chat · Zenith</title>
+    <meta name="description" content="Quolvex shared conversation">
+    <title>Shared Chat · Quolvex</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
@@ -143,8 +143,8 @@
 
 <nav class="nav">
     <a class="brand" href="/">
-        <div class="logo">Z</div>
-        <span class="brand-name">Zenith<em>.ai</em></span>
+        <div class="logo">Q</div>
+        <span class="brand-name">Quolvex<em>.ai</em></span>
     </a>
     <span class="nav-badge">✦ Shared conversation</span>
 </nav>
@@ -174,7 +174,7 @@
         <div class="conv-card" id="messages"></div>
     </div>
     <div class="cta-wrap">
-        <a class="cta" href="/">Join Zenith — it's free <span class="arr">→</span></a>
+        <a class="cta" href="/">Join Quolvex — it's free <span class="arr">→</span></a>
     </div>
 </div>
 
@@ -182,7 +182,7 @@
     <div class="ic">🔒</div>
     <h2>This shared chat isn't available</h2>
     <p>It may have been unshared or the link is invalid.</p>
-    <a href="/" style="color:var(--accent); font-weight:700;">Go to Zenith →</a>
+    <a href="/" style="color:var(--accent); font-weight:700;">Go to Quolvex →</a>
 </div>
 
 <footer class="footer">
@@ -300,10 +300,10 @@
             if (data.detail) throw new Error('nf');
 
             const title = data.title || 'Shared Chat';
-            document.title = title + ' · Zenith';
-            document.getElementById('og-title').content = title + ' — shared on Zenith';
+            document.title = title + ' · Quolvex';
+            document.getElementById('og-title').content = title + ' — shared on Quolvex';
             document.getElementById('title').textContent = title;
-            document.getElementById('og-title').setAttribute('content', title + ' — shared on Zenith');
+            document.getElementById('og-title').setAttribute('content', title + ' — shared on Quolvex');
             const owner = data.owner || 'someone';
             document.getElementById('owner').textContent = owner;
             document.getElementById('ownerAva').textContent = (owner[0]||'?').toUpperCase();
@@ -332,7 +332,7 @@
                 div.innerHTML = `
                     <div class="ava">${isUser(m) ? 'YOU' : 'Z'}</div>
                     <div class="body">
-                        <div class="who">${isUser(m) ? 'You' : 'Zenith'}<span class="lbl">${isUser(m) ? 'Human' : 'AI'}</span></div>
+                        <div class="who">${isUser(m) ? 'You' : 'Quolvex'}<span class="lbl">${isUser(m) ? 'Human' : 'AI'}</span></div>
                     </div>`;
                 div.querySelector('.body').appendChild(inner);
                 div.querySelector('.body').appendChild(toolbar);

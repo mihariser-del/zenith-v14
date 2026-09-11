@@ -1,5 +1,11 @@
 # Changelog
 
+## 20.0 — Quolvex rebrand & billing fix
+
+- **Quolvex is here** — the app is now called **Quolvex**. Same features, same chats, same account.
+- **Fixed an upgrade-button bug**: in dev/test mode (no payment provider configured) clicking a plan used to reload the page with no confirmation; it now shows a clear "Plan activated (dev mode)" success toast and closes cleanly. Real PesaPal checkouts still redirect to the payment page as before.
+- Payment provider errors now show a clear message instead of a generic "Internal Server Error".
+
 ## 19.8 — PesaPal billing (Uganda-ready)
 
 - **Billing switched from Stripe to PesaPal** — works in Uganda with Visa, Mastercard, AMEX and mobile money (MTN/Airtel)
@@ -14,13 +20,13 @@
 
 ## 19.6 — Busy-proof downloads
 
-- If Zenith is busy (too many requests at once) right when you ask for a file/document generation, instead of an empty error you get a friendly note and a **test file** you can still download
+- If Quolvex is busy (too many requests at once) right when you ask for a file/document generation, instead of an empty error you get a friendly note and a **test file** you can still download
 - The test file preview card has one-click download buttons for every supported format: **.md, .docx, .pdf, .pptx, .xlsx, .csv** — so you can verify the download pipeline works even while the AI is unavailable
 - Also applies when regenerating a previous answer
 
 ## 19.5 — AI reads every file
 
-- **The AI can now read your files**: uploading a PDF, Word, Excel, PowerPoint, audio or video makes the content (extracted server-side) available to Zenith so it can summarize, answer questions, edit, replicate and rewrite what you send
+- **The AI can now read your files**: uploading a PDF, Word, Excel, PowerPoint, audio or video makes the content (extracted server-side) available to Quolvex so it can summarize, answer questions, edit, replicate and rewrite what you send
 - **Wider upload support**: more MIME types + extension fallbacks — Office docs, spreadsheets, slides, audio (mp3/wav/m4a/ogg/opus/flac/aac), video (mp4/webm/mov/avi/mkv) and common code/text formats
 - **Office extraction**: docx → paragraphs + tables (`python-docx`), xlsx → per-sheet cell text (`openpyxl`), pptx → per-slide text (`python-pptx`)
 - **Audio**: metadata (duration/bitrate/format) via `mutagen` + Whisper-compatible transcription when `WHISPER_API_KEY`/`OPENAI_API_KEY` is set (`WHISPER_BASE_URL`/`WHISPER_MODEL` overrides)
@@ -61,7 +67,7 @@
   (`LIMIT REACHED`) with a **Login/Register** button for guests (image-limit
   follow-up) and **Upgrade for more** for logged-in users
 - **Auto image generation**: type "generate a pic of..." / "i want a pic of..." and
-  Zenith generates the image automatically (persisted in the chat)
+  Quolvex generates the image automatically (persisted in the chat)
 - **Changelog split**: normal users see what affects them; owners & admins see the
   deep technical notes (vault too)
 - New `User.cooldown_until` column (auto-migrated); `generate.py` now enforces the
@@ -96,7 +102,7 @@
 - New Feedback system — send feedback to admins and view replies as a comment thread
 - Changelog popup — see what's new once per version (localStorage version check)
 - Favicon updated — rounded design with gradient glow (border-radius 12px effect)
-- Document title updated to Zenith AI (was Zenith)
+- Document title updated to Quolvex (was Zenith AI)
 
 ## 14.0 — Previous
 

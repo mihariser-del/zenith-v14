@@ -153,7 +153,7 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
     try:
         notification_id = _pesapal_register_ipn(ipn_url)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PesaPal IPN error: {e}")
+        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (IPN setup): {e}")
 
     plan = PLANS[req.plan_id]
     merchant_ref = f"{user.id}_{req.plan_id}_{int(time.time())}"
@@ -163,7 +163,7 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
         "id": merchant_ref,
         "currency": "USD",
         "amount": plan["price"],
-        "description": f"Zenith AI - {plan['name']}",
+        "description": f"Quolvex - {plan['name']}",
         "callback_url": req.success_url or f"{base}/app?checkout=success",
         "cancellation_url": req.cancel_url or f"{base}/app?checkout=cancel",
         "notification_id": notification_id,
@@ -192,9 +192,9 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
 
     try:
         result = _pesapal_submit_order(order_data)
-        return {"url": result["redirect_url"], "mock": False}
+        return {"url": result["redirect_url"], "mock": False, "plan": plan}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PesaPal error: {e}")
+        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
 
 
 @router.post("/trial/start")

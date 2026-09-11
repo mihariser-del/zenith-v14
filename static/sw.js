@@ -23,7 +23,7 @@ const URLS = [
   '/static/icons/icon-512.png'
 ];
 self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : { title: 'Zenith', body: 'New notification' };
+  const data = e.data ? e.data.json() : { title: 'Quolvex', body: 'New notification' };
   e.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png', tag: data.tag || 'zenith', requireInteraction: true, renotify: true, silent: false }));
 });
 self.addEventListener('notificationclick', e => {

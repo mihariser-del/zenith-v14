@@ -184,7 +184,7 @@ async def export_chat(chat_id: int, request: Request, db: AsyncSession = Depends
     )
     lines = [f"# {chat.title}", ""]
     for m in msg_result.scalars().all():
-        label = "You" if m.role == "user" else ("Zenith" if m.role == "assistant" else m.role)
+        label = "You" if m.role == "user" else ("Quolvex" if m.role == "assistant" else m.role)
         stamp = m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""
         if fmt == "md":
             lines.append(f"### {label} — {stamp}\n{m.content}\n")

@@ -169,7 +169,7 @@ class User(Base):
     # Chosen helper — staff selected by the Owner to assist during shutdowns
     is_chosen = Column(Boolean, default=False)
     # Personality Mirror: dynamically derived profile of how the user writes,
-    # used to make Zenith mirror their tone/formality/energy in replies.
+    # used to make Quolvex mirror their tone/formality/energy in replies.
     personality_enabled = Column(Boolean, default=True)
     personality_profile = Column(Text, default="")  # JSON profile from the analyzer
     personality_updated_at = Column(DateTime, nullable=True)
@@ -257,7 +257,7 @@ class UserSettings(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
-    system_prompt = Column(Text, default="You are Zenith, created by Wanzu Ibrahim. Answer accurately and helpfully.")
+    system_prompt = Column(Text, default="You are Quolvex, created by Wanzu Ibrahim. Answer accurately and helpfully.")
     personality = Column(String(50), default="default")
     model = Column(String(100), default="openai/gpt-4o-mini")
     max_tokens = Column(Integer, default=2048)
@@ -386,7 +386,7 @@ class InviteToken(Base):
 
 
 class UsedDevice(Base):
-    """Fingerprinted devices that have already joined Zenith (invite anti-farming)."""
+    """Fingerprinted devices that have already joined Quolvex (invite anti-farming)."""
 
     __tablename__ = "used_devices"
 

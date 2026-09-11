@@ -143,12 +143,29 @@ const Billing = {
             modal.querySelectorAll('[data-plan]').forEach(btn=>{
                 btn.addEventListener('click', async ()=>{
                     const planId = btn.dataset.plan;
+                    btn.disabled = true;
+                    const oldTxt = btn.textContent;
+                    btn.textContent = 'Processing…';
                     try {
                         const res = await api('/api/billing/create-checkout', {method:'POST', body:JSON.stringify({plan_id:planId, success_url: window.location.href, cancel_url: window.location.href})});
-                        if(res.url) window.location.href = res.url;
-                        else { showToast('Plan activated (dev mode)', ''); modal.remove(); }
-                        modal.remove();
-                    } catch(e){ showToast(e.message,'error'); }
+                        if (res.mock) {
+                            // Dev mode — plan granted server-side. Don't navigate anywhere.
+                            showToast(res.message || 'Plan activated (dev mode)', 'success');
+                            window.__modalOpen = false;
+                            setTimeout(()=>modal.remove(), 900);
+                        } else if (res.url) {
+                            // Real PesaPal checkout URL — navigate away.
+                            window.location.href = res.url;
+                        } else {
+                            showToast('Checkout did not return a URL', 'error');
+                            window.__modalOpen = false;
+                            modal.remove();
+                        }
+                    } catch(e){
+                        showToast(e && e.message ? e.message : 'Billing error', 'error');
+                        btn.disabled = false;
+                        btn.textContent = oldTxt;
+                    }
                 });
             });
         };

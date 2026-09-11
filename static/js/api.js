@@ -104,7 +104,7 @@ function showLimitPopup(detail) {
         close();
         try {
             if (window.Billing && typeof window.Billing.showUpgrade === 'function') {
-                await window.Billing.showUpgrade('Unlock more on Zenith');
+                await window.Billing.showUpgrade('Unlock more on Quolvex');
             } else {
                 window.location.href = '/';
             }

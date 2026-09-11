@@ -126,7 +126,7 @@ async def auto_extract(request: Request, db: AsyncSession = Depends(get_db)):
     extract_prompt = f"""Analyze the following conversations and extract important facts about the user that should be remembered for future conversations. Return ONLY a JSON array of strings, each being a fact. Examples:
 - "User's name is John"
 - "User prefers Python over JavaScript"
-- "User is building a chatbot called Zenith"
+- "User is building a chatbot called Quolvex"
 
 Existing memories (avoid duplicates):
 {existing_text}

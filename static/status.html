@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="robots" content="noindex">
-    <title>Zenith Status</title>
+    <title>Quolvex Status</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <meta name="theme-color" content="#0066ff">
     <link rel="stylesheet" href="/static/css/style.css">
@@ -26,8 +26,8 @@
 </head>
 <body>
 <div class="st-card">
-    <div class="st-logo">Z</div>
-    <h1 class="st-title">Zenith Status</h1>
+    <div class="st-logo">Q</div>
+    <h1 class="st-title">Quolvex Status</h1>
     <p class="st-sub" id="st-sub">Checking...</p>
     <div id="st-rows"></div>
     <div class="st-version" id="st-version"></div>
@@ -43,7 +43,7 @@
         try {
             const res = await fetch('/api/status');
             const d = await res.json();
-            appEl.textContent = 'Zenith v' + (d.version || '');
+            appEl.textContent = 'Quolvex v' + (d.version || '');
             document.getElementById('st-sub').textContent = 'Updated ' + new Date(d.time).toLocaleString();
             const box = document.getElementById('st-rows');
             box.innerHTML =

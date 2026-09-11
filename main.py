@@ -36,7 +36,7 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "20.1"
+VERSION = "20.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -57,7 +57,7 @@ USER_CHANGELOG = [
     "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
     "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
     "Unlimited invites are now single-use — an invite link is consumed the moment someone registers, so it can't be replayed",
-    "Billing now uses PesaPal instead of Stripe — works in Uganda with Visa, Mastercard, AMEX and mobile money (MTN/Airtel)",
+    "Billing back on Stripe — global card payments (Visa, Mastercard, AMEX) with automatic currency handling",
     "Invited friends land straight inside the app after creating their account (no extra login step)",
     "Brand-new redesigned invite page — crisp, animated and ready to show off",
     "Reminders: pick 'Today' for same-day alerts, plus the usual weekdays or next-day",
@@ -82,6 +82,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "20.2 Stripe billing restored: reverted PesaPal -> Stripe Checkout (stripe==12.5.0 re-added to requirements.txt); env vars STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_PRO_MONTHLY etc/APP_BASE_URL; create-checkout returns {url,mock,plan}; mock mode when stripe unconfigured; webhook processes checkout.session.completed (checkout.session.completed) + customer.subscription.deleted; keep OfflineDirectory untouched; VERSION -> 20.2",
+    "20.1 Zelpophai AI rebrand: user-affecting 'Quolvex/Quolvex AI' branding replaced with 'Zelpophai AI' (titles, headers, meta/og tags, About text, share/invite/status pages, AI prompts); functional identifiers unchanged (zenith_token cookie, zenith_device_id localStorage, DB filename, Railway domain) so sessions/logins keep working; window.QuolvexDirectory -> window.ZelpophaiDirectory; VERSION -> 20.1",
     "20.0 Zelpophai AI rebrand: user-visible 'Zenith' branding replaced with Zelpophai (titles, headers, meta/og tags, About text, share/invite/status pages); functional identifiers unchanged (zenith_token cookie, zenith_device_id localStorage, DB filename, Railway domain) so sessions/logins keep working; VERSION -> 20.0",
     "20.0 billing fix: clicking an upgrade option in dev mode (PesaPal unconfigured) no longer hard-reloads the page — billing.js now honors res.mock (success toast + close modal) and only navigates on a real PesaPal redirect_url; plan buttons show 'Processing…' and re-enable on failure; create-checkout wraps auth/IPN/order failures as 502 with a clear detail instead of a bare 500 'Internal Server Error'",
     "19.7 upgrade/login vibrancy: billing.showUpgrade() fully restyled (zp-* scoped classes, gradient title/glows/top bar, plan cards cyan vs gold with POPULAR/SAVE 17%/ONE-TIME badges, animated gradient buttons, grid auto-fit for mobile) and modal z-index bumped 500→10000 so guest popups never sit behind the share (700) / invite (9999) modals; chat-share-btn and invite-btn now gate guests up-front to Billing.showUpgrade('Guest ...'); guest branch shows a bobbing rocket + vibrant Login/Register; limit popup (api.js) guest login button switched to cyan→violet→magenta animated gradient with limitDrift keyframes",

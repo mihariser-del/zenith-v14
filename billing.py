@@ -1,5 +1,4 @@
-﻿import os, time, uuid
-import httpx as _httpx
+﻿import os
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
@@ -20,84 +19,23 @@ PLANS = {
     "ultimate_lifetime": {"id": "ultimate_lifetime", "name": "Ultimate Lifetime", "price": 400.00, "interval": "lifetime", "savings": "One-time"},
 }
 
-PESAPAL_CONSUMER_KEY = os.getenv("PESAPAL_CONSUMER_KEY", "")
-PESAPAL_CONSUMER_SECRET = os.getenv("PESAPAL_CONSUMER_SECRET", "")
-PESAPAL_BASE_URL = os.getenv("PESAPAL_BASE_URL", "https://pay.pesapal.com/v3")
-PESAPAL_SANDBOX = os.getenv("PESAPAL_SANDBOX", "").lower() in ("1", "true", "yes")
-PESAPAL_CURRENCY = os.getenv("PESAPAL_CURRENCY", "USD")
-PESAPAL_HOSTED_PAGE = os.getenv("PESAPAL_HOSTED_PAGE", "https://store.pesapal.com/zelpophaiai")
-if PESAPAL_SANDBOX:
-    PESAPAL_BASE_URL = "https://cybqa.pesapal.com/pesapalv3"
-
-if PESAPAL_SANDBOX:
-    PESAPAL_CONSUMER_KEY = PESAPAL_CONSUMER_KEY or os.getenv("PESAPAL_SANDBOX_KEY", "")
-    PESAPAL_CONSUMER_SECRET = PESAPAL_CONSUMER_SECRET or os.getenv("PESAPAL_SANDBOX_SECRET", "")
-
-_token_cache = {"token": None, "expires": 0}
+STRIPE_SECRET = os.getenv("STRIPE_SECRET_KEY", "")
+STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+STRIPE_PRICE_IDS = {
+    "pro_monthly": os.getenv("STRIPE_PRICE_PRO_MONTHLY", ""),
+    "pro_annual": os.getenv("STRIPE_PRICE_PRO_ANNUAL", ""),
+    "ultimate_monthly": os.getenv("STRIPE_PRICE_ULTIMATE_MONTHLY", ""),
+    "ultimate_annual": os.getenv("STRIPE_PRICE_ULTIMATE_ANNUAL", ""),
+    "pro_lifetime": os.getenv("STRIPE_PRICE_PRO_LIFETIME", ""),
+    "ultimate_lifetime": os.getenv("STRIPE_PRICE_ULTIMATE_LIFETIME", ""),
+}
+APP_BASE = os.getenv("APP_BASE_URL", "https://zenithai.up.railway.app")
 
 
-def _pesapal_auth():
-    if _token_cache["token"] and time.time() < _token_cache["expires"]:
-        return _token_cache["token"]
-    r = _httpx.post(
-        f"{PESAPAL_BASE_URL}/api/Auth/RequestToken",
-        json={"consumer_key": PESAPAL_CONSUMER_KEY, "consumer_secret": PESAPAL_CONSUMER_SECRET},
-        headers={"Accept": "application/json", "Content-Type": "application/json"},
-        timeout=15,
-    )
-    r.raise_for_status()
-    d = r.json()
-    if d.get("error"):
-        raise Exception(f"PesaPal auth failed: {d.get('message', d)}")
-    _token_cache["token"] = d["token"]
-    _token_cache["expires"] = time.time() + 270
-    return d["token"]
-
-
-def _pesapal_headers():
-    return {"Authorization": f"Bearer {_pesapal_auth()}", "Accept": "application/json", "Content-Type": "application/json"}
-
-
-def _pesapal_register_ipn(ipn_url, notification_type="POST"):
-    r = _httpx.post(
-        f"{PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN",
-        json={"url": ipn_url, "ipn_notification_type": notification_type},
-        headers=_pesapal_headers(),
-        timeout=15,
-    )
-    r.raise_for_status()
-    d = r.json()
-    if d.get("error") or d.get("status") != "200":
-        raise Exception(f"PesaPal IPN registration failed: {d.get('error') or d}")
-    ipn_id = d.get("ipn_id") or d.get("notification_id")
-    if not ipn_id:
-        raise Exception(f"PesaPal IPN registration returned no ID: {d}")
-    return ipn_id
-
-
-def _pesapal_submit_order(order_data):
-    r = _httpx.post(
-        f"{PESAPAL_BASE_URL}/api/Transactions/SubmitOrderRequest",
-        json=order_data,
-        headers=_pesapal_headers(),
-        timeout=15,
-    )
-    r.raise_for_status()
-    d = r.json()
-    if d.get("status") != "200" or not d.get("redirect_url"):
-        raise Exception(f"PesaPal order failed: {d}")
-    return d
-
-
-def _pesapal_get_status(order_tracking_id):
-    r = _httpx.get(
-        f"{PESAPAL_BASE_URL}/api/Transactions/GetTransactionStatus",
-        params={"orderTrackingId": order_tracking_id},
-        headers=_pesapal_headers(),
-        timeout=15,
-    )
-    r.raise_for_status()
-    return r.json()
+class CheckoutRequest(BaseModel):
+    plan_id: str
+    success_url: str = ""
+    cancel_url: str = ""
 
 
 def _apply_plan(user, plan_id):
@@ -109,12 +47,6 @@ def _apply_plan(user, plan_id):
         user.is_pro = True
         user.is_ultimate = True
         user.pro_plan = plan_id
-
-
-class CheckoutRequest(BaseModel):
-    plan_id: str
-    success_url: str = ""
-    cancel_url: str = ""
 
 
 @router.get("/plans")
@@ -134,7 +66,16 @@ async def get_status(request: Request, db: AsyncSession = Depends(get_db)):
         "pro_plan": user.pro_plan,
         "trial_end": user.trial_end.isoformat() if user.trial_end else None,
         "trial_active": trial_active,
+        "stripe_customer_id": getattr(user, "stripe_customer_id", "") or "",
     }
+
+
+def _need_stripe():
+    try:
+        import stripe
+        return stripe
+    except ImportError:
+        raise HTTPException(status_code=500, detail="Stripe SDK not installed — pip install stripe or wait for redeploy.")
 
 
 @router.post("/create-checkout")
@@ -143,73 +84,44 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
     if req.plan_id not in PLANS:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
-    if not PESAPAL_CONSUMER_KEY or not PESAPAL_CONSUMER_SECRET:
+    if not STRIPE_SECRET or not STRIPE_PRICE_IDS.get(req.plan_id):
         _apply_plan(user, req.plan_id)
         await db.commit()
         return {
             "url": req.success_url or "/app?checkout=mock",
             "mock": True,
-            "message": "PesaPal not configured — plan granted in dev mode. Set PESAPAL_CONSUMER_KEY and PESAPAL_CONSUMER_SECRET on Railway for real billing.",
+            "message": "Stripe not configured — plan granted in dev mode. Set STRIPE_SECRET_KEY and STRIPE_PRICE_* on Railway for real billing.",
             "plan": PLANS[req.plan_id],
         }
 
-    base = str(request.base_url).rstrip("/")
-    ipn_url = f"{base}/api/billing/webhook"
+    stripe = _need_stripe()
+    stripe.api_key = STRIPE_SECRET
     try:
-        notification_id = _pesapal_register_ipn(ipn_url)
+        price_id = STRIPE_PRICE_IDS[req.plan_id]
+        customer_id = getattr(user, "stripe_customer_id", "") or ""
+        if not customer_id:
+            customer = stripe.Customer.create(
+                email=user.email,
+                metadata={"user_id": str(user.id), "username": user.username},
+            )
+            customer_id = customer.id
+            user.stripe_customer_id = customer_id
+            await db.commit()
+        is_lifetime = req.plan_id in ("pro_lifetime", "ultimate_lifetime")
+        success_url = req.success_url or f"{APP_BASE}/app?checkout=success"
+        cancel_url = req.cancel_url or f"{APP_BASE}/app?checkout=cancel"
+        session = stripe.checkout.Session.create(
+            customer=customer_id,
+            payment_method_types=["card"],
+            line_items=[{"price": price_id, "quantity": 1}],
+            mode="payment" if is_lifetime else "subscription",
+            success_url=success_url,
+            cancel_url=cancel_url,
+            metadata={"user_id": str(user.id), "plan_id": req.plan_id},
+        )
+        return {"url": session.url, "mock": False, "plan": PLANS[req.plan_id]}
     except Exception as e:
-        err_str = str(e).lower()
-        if "404" in err_str:
-            raise HTTPException(status_code=502, detail="PesaPal IPN endpoint not found. Check that your PesaPal account is active and IPN is enabled in your merchant dashboard.")
-        else:
-            raise HTTPException(status_code=502, detail=f"Payment provider unavailable (IPN setup): {e}")
-
-    plan = PLANS[req.plan_id]
-    merchant_ref = f"{user.id}_{req.plan_id}_{int(time.time())}"
-    is_lifetime = req.plan_id in ("pro_lifetime", "ultimate_lifetime")
-
-    order_data = {
-        "id": merchant_ref,
-        "currency": PESAPAL_CURRENCY,
-        "amount": plan["price"],
-        "description": f"Zelpophai AI - {plan['name']}",
-        "callback_url": req.success_url or f"{base}/app?checkout=success",
-        "cancellation_url": req.cancel_url or f"{base}/app?checkout=cancel",
-        "notification_id": notification_id,
-        "billing_address": {
-            "email_address": user.email,
-            "first_name": user.username,
-            "country_code": "UG",
-        },
-        "account_number": str(user.id),
-    }
-
-    if not is_lifetime:
-        freq_map = {"month": "MONTHLY", "year": "YEARLY"}
-        interval = plan.get("interval", "month")
-        freq = freq_map.get(interval, "MONTHLY")
-        now = datetime.now(timezone.utc)
-        if interval == "year":
-            end = now + timedelta(days=365)
-        else:
-            end = now + timedelta(days=30)
-        order_data["subscription_details"] = {
-            "start_date": now.strftime("%d-%m-%Y"),
-            "end_date": end.strftime("%d-%m-%Y"),
-            "frequency": freq,
-        }
-
-    try:
-        result = _pesapal_submit_order(order_data)
-        return {"url": result["redirect_url"], "mock": False, "plan": plan}
-    except Exception as e:
-        err_str = str(e).lower()
-        if "amount_exceeds" in err_str or "contractual_error" in err_str:
-            raise HTTPException(status_code=502, detail="This plan's price exceeds your PesaPal account limit. Contact PesaPal support to increase your transaction limit, or try a lower-priced plan.")
-        elif "invalid" in err_str and "currency" in err_str:
-            raise HTTPException(status_code=502, detail=f"Currency '{PESAPAL_CURRENCY}' is not supported by your PesaPal account. Set PESAPAL_CURRENCY env var (e.g. USD, UGX, KES).")
-        else:
-            raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
+        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
 
 
 @router.post("/trial/start")
@@ -230,56 +142,57 @@ async def start_trial(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/webhook")
-async def pesapal_webhook(request: Request, db: AsyncSession = Depends(get_db)):
-    try:
-        body = await request.json()
-    except Exception:
+async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
+    sig_header = request.headers.get("stripe-signature", "")
+    if not STRIPE_WEBHOOK_SECRET or not sig_header:
         try:
-            body = dict(request.query_params)
-        except Exception:
-            return {"received": True}
+            data = await request.json()
+            user_id = data.get("user_id")
+            plan_id = data.get("plan_id")
+            if not user_id or not plan_id:
+                return {"received": True, "mock": True}
+            result = await db.execute(select(User).where(User.id == int(user_id)))
+            user = result.scalar_one_or_none()
+            if not user:
+                return {"error": "user not found"}
+            _apply_plan(user, plan_id)
+            await db.commit()
+            return {"received": True, "mock": True}
+        except Exception as e:
+            return {"error": str(e)}
 
-    order_tracking_id = body.get("OrderTrackingId") or body.get("orderTrackingId")
-    merchant_ref = body.get("OrderMerchantReference") or body.get("orderMerchantReference")
-
-    if not order_tracking_id:
-        return {"received": True}
-
-    if not PESAPAL_CONSUMER_KEY or not PESAPAL_CONSUMER_SECRET:
-        if merchant_ref and "_" in merchant_ref:
-            parts = merchant_ref.split("_")
-            if len(parts) >= 2:
-                try:
-                    uid = int(parts[0])
-                    plan_id = parts[1]
-                    result = await db.execute(select(User).where(User.id == uid))
-                    user = result.scalar_one_or_none()
-                    if user:
-                        _apply_plan(user, plan_id)
-                        await db.commit()
-                except Exception:
-                    pass
-        return {"received": True, "mock": True}
-
+    payload = await request.body()
     try:
-        status_data = _pesapal_get_status(order_tracking_id)
-        payment_status = (status_data.get("payment_status_description") or "").lower()
-        sub_info = status_data.get("subscription_transaction_info") or {}
-        correlation_id = sub_info.get("correlation_id")
-
-        if merchant_ref and "_" in merchant_ref:
-            parts = merchant_ref.split("_")
-            if len(parts) >= 2:
-                uid = int(parts[0])
-                plan_id = parts[1]
-                result = await db.execute(select(User).where(User.id == uid))
+        stripe = _need_stripe()
+        stripe.api_key = STRIPE_SECRET
+        event = stripe.Webhook.construct_event(payload, sig_header, STRIPE_WEBHOOK_SECRET)
+        if event["type"] == "checkout.session.completed":
+            session = event["data"]["object"]
+            user_id = session.get("metadata", {}).get("user_id")
+            plan_id = session.get("metadata", {}).get("plan_id")
+            customer_id = session.get("customer")
+            subscription_id = session.get("subscription")
+            if user_id and plan_id:
+                result = await db.execute(select(User).where(User.id == int(user_id)))
                 user = result.scalar_one_or_none()
-                if user and payment_status == "completed":
+                if user:
                     _apply_plan(user, plan_id)
-                    user.stripe_customer_id = merchant_ref
-                    if correlation_id:
-                        user.stripe_subscription_id = str(correlation_id)
+                    if plan_id == "pro_trial":
+                        user.trial_end = datetime.now(timezone.utc) + timedelta(days=5)
+                    user.stripe_customer_id = customer_id or getattr(user, "stripe_customer_id", "") or ""
+                    user.stripe_subscription_id = subscription_id or getattr(user, "stripe_subscription_id", "") or ""
                     await db.commit()
-        return {"received": True, "status": payment_status}
+        elif event["type"] == "customer.subscription.deleted":
+            subscription = event["data"]["object"]
+            customer_id = subscription.get("customer")
+            result = await db.execute(select(User).where(User.stripe_customer_id == customer_id))
+            user = result.scalar_one_or_none()
+            if user:
+                user.is_pro = False
+                user.is_ultimate = False
+                user.pro_plan = ""
+                user.stripe_subscription_id = ""
+                await db.commit()
+        return {"received": True}
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")

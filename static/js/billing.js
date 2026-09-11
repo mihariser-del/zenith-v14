@@ -154,7 +154,7 @@ const Billing = {
                             window.__modalOpen = false;
                             setTimeout(()=>modal.remove(), 900);
                         } else if (res.url) {
-                            // Real PesaPal checkout URL — navigate away.
+                            // Real checkout URL — navigate away.
                             window.location.href = res.url;
                         } else {
                             showToast('Checkout did not return a URL', 'error');

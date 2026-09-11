@@ -1,48 +1,37 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
   <defs>
-    <!-- Dark purple background gradient -->
     <radialGradient id="bg" cx="50%" cy="45%" r="65%">
       <stop offset="0%" stop-color="#1e1040"/>
       <stop offset="100%" stop-color="#0a0520"/>
     </radialGradient>
-    <!-- Blue-purple gradient for the Q -->
-    <linearGradient id="qgrad" x1="0.3" y1="0" x2="0.7" y2="1">
+    <linearGradient id="zgrad" x1="0.3" y1="0" x2="0.7" y2="1">
       <stop offset="0%" stop-color="#0066ff"/>
       <stop offset="40%" stop-color="#6366f1"/>
       <stop offset="100%" stop-color="#8b5cf6"/>
     </linearGradient>
-    <!-- Cyan glow for stars -->
     <filter id="glow">
       <feGaussianBlur stdDeviation="2" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <!-- Strong glow for the Q -->
-    <filter id="qglow">
+    <filter id="zglow">
       <feGaussianBlur stdDeviation="6" result="blur"/>
       <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <!-- Subtle vignette -->
     <radialGradient id="vignette" cx="50%" cy="50%" r="50%">
       <stop offset="60%" stop-color="transparent"/>
       <stop offset="100%" stop-color="rgba(0,0,0,0.4)"/>
     </radialGradient>
   </defs>
 
-  <!-- Background -->
   <rect width="512" height="512" rx="90" ry="90" fill="url(#bg)"/>
   <rect width="512" height="512" rx="90" ry="90" fill="url(#vignette)"/>
-  <!-- Thin border glow -->
   <rect x="2" y="2" width="508" height="508" rx="88" ry="88" fill="none" stroke="rgba(0,255,136,0.15)" stroke-width="2"/>
 
-  <!-- Stars - scattered, varying sizes, cyan/blue palette -->
-  <!-- Large stars -->
   <polygon points="105,95 109,108 123,108 112,116 116,129 105,121 94,129 98,116 87,108 101,108" fill="#00e5ff" opacity="0.9" filter="url(#glow)"/>
   <polygon points="380,80 384,93 398,93 387,101 391,114 380,106 369,114 373,101 362,93 376,93" fill="#00b8d4" opacity="0.85"/>
   <polygon points="430,200 433,210 443,210 435,216 438,226 430,220 422,226 425,216 417,210 427,210" fill="#00e5ff" opacity="0.8" filter="url(#glow)"/>
   <polygon points="80,310 84,323 98,323 87,331 91,344 80,336 69,344 73,331 62,323 76,323" fill="#00bcd4" opacity="0.75"/>
   <polygon points="420,370 423,380 433,380 425,386 428,396 420,390 412,396 415,386 407,380 417,380" fill="#00e5ff" opacity="0.85"/>
-
-  <!-- Medium stars -->
   <polygon points="175,60 178,69 187,69 180,74 182,83 175,78 168,83 170,74 163,69 172,69" fill="#00e5ff" opacity="0.7"/>
   <polygon points="310,50 312,57 319,57 314,61 316,68 310,64 304,68 306,61 301,57 308,57" fill="#4dd0e1" opacity="0.65"/>
   <polygon points="60,190 63,199 72,199 65,204 67,213 60,208 53,213 55,204 48,199 57,199" fill="#00bcd4" opacity="0.6"/>
@@ -50,51 +39,21 @@
   <polygon points="140,420 143,429 152,429 145,434 147,443 140,438 133,443 135,434 128,429 137,429" fill="#4dd0e1" opacity="0.6"/>
   <polygon points="350,430 352,437 359,437 354,441 356,448 350,444 344,448 346,441 341,437 348,437" fill="#00bcd4" opacity="0.65"/>
   <polygon points="200,460 202,467 209,467 204,471 206,478 200,474 194,478 196,471 191,467 198,467" fill="#00e5ff" opacity="0.55"/>
-
-  <!-- Small stars -->
   <polygon points="250,35 252,41 258,41 253,44 255,50 250,47 245,50 247,44 242,41 248,41" fill="#80deea" opacity="0.5"/>
   <polygon points="55,120 57,126 63,126 58,129 60,135 55,132 50,135 52,129 47,126 53,126" fill="#00e5ff" opacity="0.45"/>
   <polygon points="470,280 472,286 478,286 473,289 475,295 470,292 465,295 467,289 462,286 468,286" fill="#4dd0e1" opacity="0.5"/>
   <polygon points="90,380 92,386 98,386 93,389 95,395 90,392 85,395 87,389 82,386 88,386" fill="#00bcd4" opacity="0.45"/>
   <polygon points="320,470 322,476 328,476 323,479 325,485 320,482 315,485 317,479 312,476 318,476" fill="#80deea" opacity="0.4"/>
   <polygon points="440,450 442,455 447,455 443,458 445,463 440,460 435,463 437,458 433,455 438,455" fill="#00e5ff" opacity="0.35"/>
-
-  <!-- One silver/white star (the accent star from original) -->
   <polygon points="400,260 403,270 413,270 405,276 408,286 400,280 392,286 395,276 387,270 397,270" fill="#cfd8dc" opacity="0.7" filter="url(#glow)"/>
 
-  <!-- The Q - ornate, warm golden gradient with neon glow -->
-  <g filter="url(#qglow)" transform="translate(256,240)">
-    <!-- Q body - elegant serif Q -->
-    <path d="
-      M -75,-100
-      C -75,-155 -25,-190 25,-190
-      C 75,-190 125,-155 125,-100
-      C 125,-45 75,-5 25,5
-      L 55,110
-      C 55,110 60,125 45,130
-      L 30,135
-      C 15,140 5,130 5,120
-      L -25,15
-      C -80,5 -75,-45 -75,-100 Z
-    " fill="url(#qgrad)" stroke="#FFD700" stroke-width="1.5" stroke-opacity="0.3"/>
-
-    <!-- Inner cutout of Q -->
-    <ellipse cx="25" cy="-90" rx="52" ry="65" fill="url(#bg)"/>
-
-    <!-- Q tail - ornate curl -->
-    <path d="
-      M 45,100
-      C 65,130 90,145 100,135
-      C 110,125 95,110 80,105
-      C 65,100 55,108 60,120
-      C 65,132 75,135 80,128
-    " fill="none" stroke="url(#qgrad)" stroke-width="10" stroke-linecap="round"/>
-
-    <!-- Small decorative curl at tail end -->
-    <path d="
-      M 80,128
-      C 85,122 82,115 76,115
-      C 70,115 68,122 72,126
-    " fill="none" stroke="url(#qgrad)" stroke-width="5" stroke-linecap="round"/>
+  <!-- The Z -->
+  <g filter="url(#zglow)" transform="translate(256,256)">
+    <!-- Top bar -->
+    <rect x="-110" y="-130" width="220" height="28" rx="6" fill="url(#zgrad)"/>
+    <!-- Diagonal -->
+    <polygon points="90,-130 -90,102 -90,130 90,-102" fill="url(#zgrad)"/>
+    <!-- Bottom bar -->
+    <rect x="-110" y="102" width="220" height="28" rx="6" fill="url(#zgrad)"/>
   </g>
 </svg>

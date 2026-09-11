@@ -125,7 +125,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 $('forgot-msg').textContent = res.message + ' Enter the reset code below to continue.'; $('forgot-msg').className = 'auth-msg success';
                 goForgotStep2();
             } else {
-                const token = $('forgot-token').value.trim();
+                const token = $('forgot-token').value.trim().toUpperCase();
                 const new_password = $('forgot-newpw').value;
                 if (!token || !new_password) { $('forgot-msg').textContent = 'Enter the reset code and a new password'; $('forgot-msg').className = 'auth-msg error'; return; }
                 const res = await api('/api/auth/reset-password', { method: 'POST', body: JSON.stringify({ token, new_password }) });

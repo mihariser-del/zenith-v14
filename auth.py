@@ -111,7 +111,14 @@ def _server_fingerprint(request: Request) -> str:
 
 # ---------------------------------------------------------------- password reset email
 
-def _send_email_brevo(to_email: str, link: str) -> bool:
+_RESET_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # no 0/O, 1/I
+
+def generate_reset_code(length: int = 7) -> str:
+    """Short human-friendly reset code (no link). E.g. 'K4TQ2XM'."""
+    return "".join(secrets.choice(_RESET_CODE_ALPHABET) for _ in range(length))
+
+
+def _send_email_brevo(to_email: str, code: str) -> bool:
     """Send via Brevo (Sendinblue) REST API over HTTPS (port 443).
     Works on Railway, unlike direct SMTP which is blocked."""
     api_key = os.getenv("BREVO_API_KEY", "").strip()
@@ -124,10 +131,13 @@ def _send_email_brevo(to_email: str, link: str) -> bool:
     payload = {
         "sender": {"name": "Zelpophai AI", "email": sender},
         "to": [{"email": to_email}],
-        "subject": "Zelpophai AI — password reset",
+        "subject": "Zelpophai AI — your password reset code",
         "textContent": (
             f"Someone requested a password reset for your Zelpophai AI account.\n\n"
-            f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
+            f"Your reset code is:\n\n"
+            f"{code}\n\n"
+            f"Enter this code on the login page to choose a new password. "
+            f"It expires in 30 minutes.\n\n"
             f"If you didn't request this, you can ignore this email."
         ),
     }
@@ -150,9 +160,9 @@ def _send_email_brevo(to_email: str, link: str) -> bool:
         return False
 
 
-def _send_reset_email(to_email: str, link: str) -> bool:
+def _send_reset_email(to_email: str, code: str) -> bool:
     # Prefer Brevo (HTTPS) — Railway blocks outbound SMTP (port 587/465).
-    if _send_email_brevo(to_email, link):
+    if _send_email_brevo(to_email, code):
         return True
 
     host = os.getenv("SMTP_HOST", "").strip()
@@ -163,10 +173,13 @@ def _send_reset_email(to_email: str, link: str) -> bool:
     user = os.getenv("SMTP_USER", "").strip()
     pw = os.getenv("SMTP_PASSWORD", "").strip()
     sender = os.getenv("SMTP_FROM", "").strip() or user or "no-reply@zenith.local"
-    subject = "Zelpophai AI — password reset"
+    subject = "Zelpophai AI — your password reset code"
     body = (
         f"Someone requested a password reset for your Zelpophai AI account.\n\n"
-        f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
+        f"Your reset code is:\n\n"
+        f"{code}\n\n"
+        f"Enter this code on the login page to choose a new password. "
+        f"It expires in 30 minutes.\n\n"
         f"If you didn't request this, you can ignore this email."
     )
     msg = f"From: Zelpophai AI <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
@@ -580,16 +593,13 @@ async def forgot_password(req: ForgotRequest, request: Request, db: AsyncSession
         return {"message": generic}
     _raise_if_locked(f"forgot:user:{req.username.lower()}", limit=3, window=900)
     _record_failure(f"forgot:user:{req.username.lower()}")
-    token = generate_token(32)
-    user.reset_token = token
+    code = generate_reset_code(7)
+    user.reset_token = code
     user.reset_token_expires = datetime.now(timezone.utc) + timedelta(minutes=30)
     await db.commit()
-    host = request.base_url.hostname or "localhost"
-    scheme = request.url.scheme if request.url.scheme == "https" else ("https" if host not in ("localhost", "127.0.0.1") else "http")
-    link = f"{scheme}://{host}/?reset_token={token}"
-    sent = _send_reset_email(user.email, link)
+    sent = _send_reset_email(user.email, code)
     if not sent:
-        print(f"[forgot-password] Reset link for '{user.username}' (email delivery failed - relay it manually): {link}")
+        print(f"[forgot-password] Reset code for '{user.username}' (email delivery failed - relay it manually): {code}")
     return {"message": generic}
 
 
@@ -599,7 +609,7 @@ async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncS
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     if not req.token.strip():
         raise HTTPException(status_code=400, detail="Reset token missing")
-    result = await db.execute(select(User).where(User.reset_token == req.token.strip()))
+    result = await db.execute(select(User).where(User.reset_token == req.token.strip().upper()))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(status_code=400, detail="Invalid or already-used reset token")

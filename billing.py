@@ -56,18 +56,21 @@ def _pesapal_headers():
     return {"Authorization": f"Bearer {_pesapal_auth()}", "Accept": "application/json", "Content-Type": "application/json"}
 
 
-def _pesapal_register_ipn(ipn_url, notification_type="IPNCHANGE"):
+def _pesapal_register_ipn(ipn_url, notification_type="POST"):
     r = _httpx.post(
-        f"{PESAPAL_BASE_URL}/api/IPN/RegisterIPN",
+        f"{PESAPAL_BASE_URL}/api/URLSetup/RegisterIPN",
         json={"url": ipn_url, "ipn_notification_type": notification_type},
         headers=_pesapal_headers(),
         timeout=15,
     )
     r.raise_for_status()
     d = r.json()
-    if d.get("status") != "200" or not d.get("notification_id"):
-        raise Exception(f"PesaPal IPN registration failed: {d}")
-    return d["notification_id"]
+    if d.get("error") or d.get("status") != "200":
+        raise Exception(f"PesaPal IPN registration failed: {d.get('error') or d}")
+    ipn_id = d.get("ipn_id") or d.get("notification_id")
+    if not ipn_id:
+        raise Exception(f"PesaPal IPN registration returned no ID: {d}")
+    return ipn_id
 
 
 def _pesapal_submit_order(order_data):

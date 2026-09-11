@@ -172,8 +172,13 @@ body.auth-page { display: block; }
 .file-pill .fp-sub { font-size: 11px; color: #888; }
 .file-pill .fp-x { flex-shrink: 0; background: transparent; color: #888; border: none; font-size: 16px; cursor: pointer; padding: 0; line-height: 1; }
 .file-pill .fp-x:hover { color: #fff; }
+.file-pill.ftest { width: 100%; max-width: 420px; }
+.file-pill .fp-dls { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+.fp-dls .fp-dl { background: rgba(76,201,240,.12); border: 1px solid rgba(76,201,240,.4); color: #7df0ff; border-radius: 7px; padding: 5px 8px; font-size: 11px; font-weight: 700; cursor: pointer; transition: all .15s; }
+.fp-dls .fp-dl:hover { background: rgba(76,201,240,.22); color: #fff; }
 @media (max-width: 480px) {
-    .file-pill { max-width: 100%; width: 100%; }
+    .file-pill, .file-pill.ftest { max-width: 100%; width: 100%; }
+    .file-pill .fp-dls { justify-content: flex-start; width: 100%; }
 }
 .msg-image { max-width: 280px; border-radius: 12px; margin-bottom: 8px; display: block; border: 1px solid var(--border); }
 .input-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }

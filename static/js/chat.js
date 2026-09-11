@@ -1176,9 +1176,13 @@ const Chat = {
                             }
                         }
                         if (parsed.error) {
-                            showToast(parsed.error, 'error');
-                            bubble.textContent = 'Error: ' + parsed.error;
-                            bubble.classList.remove('streaming-cursor');
+                            if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(text)) {
+                                this._renderBusyFallback(bubble);
+                            } else {
+                                showToast(parsed.error, 'error');
+                                bubble.textContent = 'Error: ' + parsed.error;
+                                bubble.classList.remove('streaming-cursor');
+                            }
                         }
                     } catch (e) {}
                 }
@@ -1274,6 +1278,39 @@ const Chat = {
             this._clearLimitBanner();
             if (typeof showToast === 'function') showToast('Could not send: ' + d, 'error');
         }
+    },
+
+    _isBusyError(detail) {
+        const d = String(detail || '');
+        return /busy|too many requests/i.test(d);
+    },
+
+    _looksLikeGenerationRequest(text) {
+        if (!text) return false;
+        const t = String(text).toLowerCase();
+        const saysGenerate = /\b(generate|create|make|write|produce|build|draft|compile|compose)\b/.test(t);
+        const wantsFile = /\b(doc|docs|document|docx|ppt|pptx|slides|spreadsheet|sheet|xlsx|xl|csv|pdf|file|report|resume|cover[ -]?letter|essay|notes|invoice)\b/.test(t);
+        return saysGenerate && wantsFile;
+    },
+
+    _renderBusyFallback(bubble) {
+        const note = "The AI is currently busy, so I can't give you the exact context of your request. Use this test file as a simple test to see if you can download the file.";
+        const formats = ['md', 'docx', 'pdf', 'pptx', 'xlsx', 'csv'];
+        bubble.classList.remove('streaming-cursor');
+        bubble.innerHTML =
+            `<div style="margin-bottom:10px;">${this.escapeHtml(note)}</div>` +
+            `<div class="file-pill ftest" style="margin-bottom:0;">` +
+                `<div class="fp-ic">&#128196;</div>` +
+                `<div class="fp-info"><div class="fp-name">test-file</div><div class="fp-sub">Test file &middot; pick a format</div></div>` +
+                `<div class="fp-dls">` +
+                    formats.map(f => `<button class="fp-dl" data-fmt="${f}">${f}</button>`).join('') +
+                `</div>` +
+            `</div>`;
+        bubble.querySelectorAll('.fp-dl').forEach(btn => {
+            btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(76,201,240,.22)'; btn.style.color = '#fff'; });
+            btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(76,201,240,.12)'; btn.style.color = '#7df0ff'; });
+            btn.addEventListener('click', () => this.downloadAs(note, 'test-file', btn.dataset.fmt));
+        });
     },
 
     _showLimitBanner(secs, isGuest, rawDetail) {
@@ -1389,7 +1426,13 @@ const Chat = {
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.error) {
-                            showToast(parsed.error, 'error');
+                            if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(lastUserMsg.content)) {
+                                this._renderBusyFallback(bubble);
+                            } else {
+                                showToast(parsed.error, 'error');
+                                if (!fullResponse) bubble.textContent = 'Error: ' + parsed.error;
+                                bubble.classList.remove('streaming-cursor');
+                            }
                         }
                     } catch (e) {}
                 }

@@ -36,7 +36,7 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "19.5"
+VERSION = "19.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -73,11 +73,13 @@ USER_CHANGELOG = [
     "Changelog is now split — normal users see what affects them; staff see the deep technical notes",
     "Personal Requests: ask the admin for anything personally (a feature, a fix, a custom item) — they reply right here in the sidebar",
     "Personality Mirror: Zenith studies how you write and matches your tone, energy and vibe in its replies (tunable in Settings → System Prompt)",
+    "19.6 busy-proof downloads: if Zenith is busy when you ask for a file/doc generation, you get a test file you can still download (choose md/docx/pdf/pptx/xlsx/csv) to verify downloads work",
 ]
 
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "19.6 busy fallback: chat.js detects a streamed busy/too-many-requests error AND a generation-like user message (_looksLikeGenerationRequest regex) then _renderBusyFallback() injects the busy note + a .file-pill.ftest card with 6 format download buttons (md/docx/pdf/pptx/xlsx/csv) calling downloadAs() → /api/generate/document; .fp-dls styles in style.css (wraps full-width under 480px); also applied on regenerate()",
     "19.5 file-read pipeline: files.py extractors (docx/xlsx/pptx via python-docx/openpyxl/python-pptx, audio metadata via mutagen, video frames via imageio_ffmpeg, whisper-compatible transcription via WHISPER_API_KEY/WHISPER_BASE_URL/WHISPER_MODEL env); ALLOWED_TYPES + EXT_ALLOWLIST widened; chat.js auto-fetches /api/files/{id}/read for binary attachments and embeds content + video frames into the model context; each optional lib is import-guarded so the server keeps running without them",
     "changelog is now per-user 'seen' (users.changelog_seen_user/changelog_seen_staff); GET /api/changelog returns only newly-added entries (unseen prefix) when authed, POST /api/changelog/seen marks them; guests fall back to a local counter in app.js",
     "TEMPORARY owner tool: POST /api/referral/admin/reset {username} wipes a user's referral progress (deletes Referral rows + revokes referral_pro); exposed as a dashed button inside the owner's Invite Friends modal — remove in a later version",

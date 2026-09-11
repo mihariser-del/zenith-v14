@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.6 — Busy-proof downloads
+
+- If Zenith is busy (too many requests at once) right when you ask for a file/document generation, instead of an empty error you get a friendly note and a **test file** you can still download
+- The test file preview card has one-click download buttons for every supported format: **.md, .docx, .pdf, .pptx, .xlsx, .csv** — so you can verify the download pipeline works even while the AI is unavailable
+- Also applies when regenerating a previous answer
+
 ## 19.5 — AI reads every file
 
 - **The AI can now read your files**: uploading a PDF, Word, Excel, PowerPoint, audio or video makes the content (extracted server-side) available to Zenith so it can summarize, answer questions, edit, replicate and rewrite what you send

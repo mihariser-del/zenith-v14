@@ -1,4 +1,4 @@
-const CACHE = 'zenith-v24';
+﻿const CACHE = 'zenith-v24';
 const URLS = [
   '/',
   '/app',
@@ -23,7 +23,7 @@ const URLS = [
   '/static/icons/icon-512.png'
 ];
 self.addEventListener('push', e => {
-  const data = e.data ? e.data.json() : { title: 'Quolvex AI', body: 'New notification' };
+  const data = e.data ? e.data.json() : { title: 'Zelpophai AI', body: 'New notification' };
   e.waitUntil(self.registration.showNotification(data.title, { body: data.body, icon: '/static/icons/icon-192.png', badge: '/static/icons/icon-192.png', tag: data.tag || 'zenith', requireInteraction: true, renotify: true, silent: false }));
 });
 self.addEventListener('notificationclick', e => {

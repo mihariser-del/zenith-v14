@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+﻿from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 from sqlalchemy import select
@@ -126,7 +126,7 @@ async def auto_extract(request: Request, db: AsyncSession = Depends(get_db)):
     extract_prompt = f"""Analyze the following conversations and extract important facts about the user that should be remembered for future conversations. Return ONLY a JSON array of strings, each being a fact. Examples:
 - "User's name is John"
 - "User prefers Python over JavaScript"
-- "User is building a chatbot called Quolvex AI"
+- "User is building a chatbot called Zelpophai AI"
 
 Existing memories (avoid duplicates):
 {existing_text}

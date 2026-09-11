@@ -1,4 +1,4 @@
-const $ = id => document.getElementById(id);
+﻿const $ = id => document.getElementById(id);
 
 // Canonical showToast — loaded on every page via api.js (single source of truth).
 // Reuses an existing #toast element (app) or builds its own container (vault).
@@ -104,7 +104,7 @@ function showLimitPopup(detail) {
         close();
         try {
             if (window.Billing && typeof window.Billing.showUpgrade === 'function') {
-                await window.Billing.showUpgrade('Unlock more on Quolvex AI');
+                await window.Billing.showUpgrade('Unlock more on Zelpophai AI');
             } else {
                 window.location.href = '/';
             }

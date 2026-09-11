@@ -1,4 +1,4 @@
-// Auto image generation: detects when a message clearly asks for an image
+﻿// Auto image generation: detects when a message clearly asks for an image
 // ("generate a pic of...", "i want a pic of...", etc.) and extracts the prompt.
 function detectImageRequest(text) {
     const t = String(text || '').trim();
@@ -245,7 +245,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 <button onclick="var p=document.getElementById('maint-note-popup');if(p)p.remove();window.location.href='/app';" style="background:#10B981;color:#04120b;border:none;padding:13px 40px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Continue ▶</button>
             </div>`;
         document.body.appendChild(wrap);
-        try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Quolvex AI — Back Online', { body: note.slice(0, 120), icon: '/static/icons/icon-192.png', tag: 'maint-note', requireInteraction: true }); } catch (e) {}
+        try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Zelpophai AI — Back Online', { body: note.slice(0, 120), icon: '/static/icons/icon-192.png', tag: 'maint-note', requireInteraction: true }); } catch (e) {}
         return true;
     }
     // legacy fallback if old structure
@@ -271,12 +271,12 @@ document.addEventListener('DOMContentLoaded', async () => {
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     // In-app + real device/browser push (OS notification center + mobile panel), uses showDiscordToast
     async function devicePush(title, body, tag) {
-        try { showDiscordToast('Quolvex AI', title.replace('Quolvex AI','').replace('—','').trim() || title, body, title.charAt(0)); } catch {}
-        // Real OS notification: works whenever the Quolvex AI tab is open even if the user is on
+        try { showDiscordToast('Zelpophai AI', title.replace('Zelpophai AI','').replace('—','').trim() || title, body, title.charAt(0)); } catch {}
+        // Real OS notification: works whenever the Zelpophai AI tab is open even if the user is on
         // another website/window — shows in the Windows action center / mobile notification panel.
         try {
             if ('Notification' in window && Notification.permission === 'granted') {
-                const n = new Notification('Quolvex AI — ' + (title || 'Quolvex AI'), { body: String(body || '').slice(0, 200), icon: '/static/icons/icon-192.png', tag: tag || 'zenith', requireInteraction: true });
+                const n = new Notification('Zelpophai AI — ' + (title || 'Zelpophai AI'), { body: String(body || '').slice(0, 200), icon: '/static/icons/icon-192.png', tag: tag || 'zenith', requireInteraction: true });
                 n.onclick = () => { try { window.focus(); n.close(); } catch (e) {} };
             }
         } catch (e) {}
@@ -604,12 +604,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Twitter share
         wrap.querySelector('#invite-twitter').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Quolvex AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Zelpophai AI - your personal AI assistant! ' + link)}`, '_blank');
         });
         // WhatsApp share
         wrap.querySelector('#invite-whatsapp').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Quolvex AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zelpophai AI - your personal AI assistant! ' + link)}`, '_blank');
         });
 
         // TEMPORARY owner tool: reset any user's invite/referral progress
@@ -662,7 +662,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const list = $('reminder-list');
                 list.innerHTML = '';
                 if (!reminders.length) {
-                    list.innerHTML = `<div style="color:var(--muted); font-size:13px; text-align:center; padding:18px;">No reminders yet. Quolvex AI will pop them here for you.</div>`;
+                    list.innerHTML = `<div style="color:var(--muted); font-size:13px; text-align:center; padding:18px;">No reminders yet. Zelpophai AI will pop them here for you.</div>`;
                     return;
                 }
                 reminders.sort((a, b) => new Date(a.next_run_at) - new Date(b.next_run_at));
@@ -743,7 +743,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.__handlePendingReminder = (msg) => {
             showToast('⏰ ' + msg, 'success', 6000);
             if (typeof Notification === 'function' && Notification.permission === 'granted') {
-                try { new Notification('Quolvex AI reminder', { body: msg, icon: '/favicon.ico' }); } catch (e) {}
+                try { new Notification('Zelpophai AI reminder', { body: msg, icon: '/favicon.ico' }); } catch (e) {}
             }
         };
         void origNotif;
@@ -1002,7 +1002,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unanswered > 0) {
                 feedbackBadge.textContent = unanswered;
                 feedbackBadge.style.display = 'block';
-                if (unanswered > lastFeedbackCount) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Quolvex AI Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Quolvex AI', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
+                if (unanswered > lastFeedbackCount) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zelpophai AI Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Zelpophai AI', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
             } else feedbackBadge.style.display = 'none';
             lastFeedbackCount = unanswered;
             localStorage.setItem('zenith_last_feedback_unanswered', String(unanswered));
@@ -1031,8 +1031,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         fbPopup.innerHTML = `<div style="width:100%; max-width:520px; background:linear-gradient(160deg,#1A1D21,#22262B); border:1px solid ${col}44; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;"><span style="font-weight:700; color:${col};">Feedback Reply</span><span style="font-size:10px; background:${col}22; color:${col}; padding:2px 6px; border-radius:4px;">${who}</span></div><div style="font-size:13px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px; border-left:3px solid ${col}; white-space:pre-wrap;">${safe(latest.response)}</div><button id="fb-reply-dismiss" style="margin-top:14px; width:100%; padding:12px; background:${byOwner?'linear-gradient(135deg,#8B949E,#5d666f)':'#FFD700'}; color:${byOwner?'#f4f6f8':'#000'}; border:none; border-radius:10px; font-weight:700; cursor:pointer;">DISMISS</button></div>`;
                         fbPopup.querySelector('#fb-reply-dismiss').addEventListener('click', ()=>{ fbPopup.remove(); localStorage.setItem('zenith_feedback_seen', String(replied)); feedbackBadge.style.display='none'; });
                         document.body.appendChild(fbPopup);
-                        devicePush('Quolvex AI Feedback Reply — ' + who, latest.response, 'feedback-reply');
-                        showDiscordToast('Quolvex AI', who, latest.response.slice(0,80), who.charAt(0));
+                        devicePush('Zelpophai AI Feedback Reply — ' + who, latest.response, 'feedback-reply');
+                        showDiscordToast('Zelpophai AI', who, latest.response.slice(0,80), who.charAt(0));
                     }
                 }
             }
@@ -1053,7 +1053,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (unanswered > 0) {
                 requestBadge.textContent = unanswered;
                 requestBadge.style.display = 'block';
-                if (unanswered > lastRequestCount) { showToast(`New personal request: ${unanswered} awaiting reply`, ''); devicePush('Quolvex AI Personal Request', `${unanswered} new request awaiting reply`, 'request-admin'); showDiscordToast('Quolvex AI', 'New Personal Request', `${unanswered} awaiting reply`, 'R'); }
+                if (unanswered > lastRequestCount) { showToast(`New personal request: ${unanswered} awaiting reply`, ''); devicePush('Zelpophai AI Personal Request', `${unanswered} new request awaiting reply`, 'request-admin'); showDiscordToast('Zelpophai AI', 'New Personal Request', `${unanswered} awaiting reply`, 'R'); }
             } else requestBadge.style.display = 'none';
             lastRequestCount = unanswered;
             localStorage.setItem('zenith_last_requests_unanswered', String(unanswered));
@@ -1081,8 +1081,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         rp.innerHTML = `<div style="width:100%; max-width:520px; background:linear-gradient(160deg,#0d1a2a,#102a3a); border:1px solid ${col}44; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;"><span style="font-weight:700; color:${col};">Request Reply</span><span style="font-size:10px; background:${col}22; color:${col}; padding:2px 6px; border-radius:4px;">${who}</span></div><div style="font-size:13px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px; border-left:3px solid ${col}; white-space:pre-wrap;">${rSafe(latest.reply)}</div><button id="request-reply-dismiss" style="margin-top:14px; width:100%; padding:12px; background:${col}; color:#06121a; border:none; border-radius:10px; font-weight:700; cursor:pointer;">DISMISS</button></div>`;
                         rp.querySelector('#request-reply-dismiss').addEventListener('click', ()=>{ rp.remove(); localStorage.setItem('zenith_requests_seen', String(repliedCount)); requestBadge.style.display='none'; });
                         document.body.appendChild(rp);
-                        devicePush('Quolvex AI Request Reply — ' + who, latest.reply, 'request-reply');
-                        showDiscordToast('Quolvex AI', who, latest.reply.slice(0,80), who.charAt(0));
+                        devicePush('Zelpophai AI Request Reply — ' + who, latest.reply, 'request-reply');
+                        showDiscordToast('Zelpophai AI', who, latest.reply.slice(0,80), who.charAt(0));
                     }
                 }
             } else requestBadge.style.display = 'none';
@@ -1155,8 +1155,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                         _annMarkDone(a);
                         seen = Math.max(seen, ts);
                         showBroadcastPopup(a);
-                        try { devicePush('Quolvex AI Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); } catch (e) {}
-                        try { showDiscordToast('Quolvex AI', a.username + ' — Broadcast', a.content.slice(0, 80), a.username); } catch (e) {}
+                        try { devicePush('Zelpophai AI Broadcast — ' + a.username, a.content, 'broadcast-' + a.id); } catch (e) {}
+                        try { showDiscordToast('Zelpophai AI', a.username + ' — Broadcast', a.content.slice(0, 80), a.username); } catch (e) {}
                     }
                     localStorage.setItem(_annSeenKey, String(seen));
                 }
@@ -1258,13 +1258,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                 setTimeout(() => { window.location.href = '/'; }, 30000);
             } else if (t === 'unlock-all') {
                 window.showEmergencyPopup('unlock-all');
-                try { devicePush('Quolvex AI — Unlocked', 'All accounts have been unlocked by the Owner.', 'unlock-all'); } catch (e) {}
+                try { devicePush('Zelpophai AI — Unlocked', 'All accounts have been unlocked by the Owner.', 'unlock-all'); } catch (e) {}
                 _persistentScreen = '';
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
             } else {
                 window.showEmergencyPopup(t);
-                try { devicePush('Quolvex AI — ' + (t === 'registrations' ? 'Registrations Closed' : t === 'messaging' ? 'Messaging Disabled' : t === 'ai' ? 'AI Disabled' : 'System Update'), a.content.replace(/^\[EMERGENCY:\w+\]\s*/, ''), 'emergency-' + t); } catch (e) {}
+                try { devicePush('Zelpophai AI — ' + (t === 'registrations' ? 'Registrations Closed' : t === 'messaging' ? 'Messaging Disabled' : t === 'ai' ? 'AI Disabled' : 'System Update'), a.content.replace(/^\[EMERGENCY:\w+\]\s*/, ''), 'emergency-' + t); } catch (e) {}
             }
             return;
         }
@@ -1334,14 +1334,14 @@ document.addEventListener('DOMContentLoaded', async () => {
                 newMsgs.forEach(m=>{
                     if (m.username === user.username) return; // don't notify self
                     devicePush('Staff Live Chat — ' + m.username, m.content.slice(0,120), 'livechat-'+m.id);
-                    showDiscordToast('Quolvex AI', m.username, m.content.slice(0,80), m.username);
+                    showDiscordToast('Zelpophai AI', m.username, m.content.slice(0,80), m.username);
                     // WhatsApp-style sound
                     try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
                 });
             } else if (newMsgs.length && _lastStaffId === 0 && messages.length) {
                 // offline queue — show latest if not yet dismissed
                 const latest = messages[messages.length - 1];
-                if (latest.username !== user.username) { showDiscordToast('Quolvex AI', latest.username, latest.content.slice(0,80), latest.username); devicePush('Staff Live Chat — ' + latest.username, latest.content.slice(0,120), 'livechat-'+latest.id); try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {} }
+                if (latest.username !== user.username) { showDiscordToast('Zelpophai AI', latest.username, latest.content.slice(0,80), latest.username); devicePush('Staff Live Chat — ' + latest.username, latest.content.slice(0,120), 'livechat-'+latest.id); try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {} }
             }
             if (maxId > _lastStaffId) { _lastStaffId = maxId; localStorage.setItem('zenith_last_staff_id', String(maxId)); }
         } catch {}
@@ -1538,7 +1538,7 @@ function showBannedScreen(reason, bannedBy) {
     const banTitle = isOwnerBan ? 'BANNED BY THE OWNER' : 'ACCOUNT BANNED';
     const banIntensity = isOwnerBan ? '0 0 60px rgba(255,77,77,0.45)' : '0 20px 60px rgba(255,77,77,0.25)';
     const banLine = isOwnerBan
-        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your access to Quolvex AI has been revoked, effective immediately.'
+        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your access to Zelpophai AI has been revoked, effective immediately.'
         : 'Your account has been suspended by an administrator.';
     div.innerHTML = `
         <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:${banIntensity}; animation:faceIn 0.4s ease;">
@@ -1621,12 +1621,12 @@ function openOfflineChat() {
         input.value = '';
         // Try math engine first
         let answer = null;
-        if (window.QuolvexDirectory && window.QuolvexDirectory.solveMath) {
-            answer = window.QuolvexDirectory.solveMath(q);
+        if (window.ZelpophaiDirectory && window.ZelpophaiDirectory.solveMath) {
+            answer = window.ZelpophaiDirectory.solveMath(q);
         }
         // Fall back to keyword directory
-        if (!answer && window.QuolvexDirectory) {
-            answer = window.QuolvexDirectory.match(q);
+        if (!answer && window.ZelpophaiDirectory) {
+            answer = window.ZelpophaiDirectory.match(q);
         }
         setTimeout(() => {
             if (answer) {
@@ -1705,7 +1705,7 @@ function showDeletedScreen(deletedBy) {
     const glow = isOwner ? '0 20px 60px rgba(221,228,238,0.18)' : '0 20px 60px rgba(136,136,136,0.25)';
     const line = isOwner
         ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your account has been permanently deleted.'
-        : 'Your account has been deleted by an administrator. You can no longer access Quolvex AI.';
+        : 'Your account has been deleted by an administrator. You can no longer access Zelpophai AI.';
     div.innerHTML = `
         <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:40px 24px; box-shadow:${glow};">
             <div style="width:72px; height:72px; margin:0 auto 16px; background:${accent}22; border:2px solid ${accent}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:40px;">&#128465;</div>

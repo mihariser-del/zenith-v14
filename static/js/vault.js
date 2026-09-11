@@ -1,4 +1,4 @@
-const Vault = {
+﻿const Vault = {
     _isOwner: false,
     _currentTab: 'dashboard',
     _renderedTab: '',
@@ -1256,7 +1256,7 @@ const Vault = {
     exportConfig() {
         const config = {
             version: '17.0',
-            platform: 'Quolvex AI',
+            platform: 'Zelpophai AI',
             owner: 'WANZU-IBRAHIM',
             themes: { owner: 'Titanium Core', admin: 'Gold' },
             ai: { provider: 'OpenRouter', default_model: 'openai/gpt-4o-mini', temperature: 0.7, max_tokens: 2048 },
@@ -1283,7 +1283,7 @@ const Vault = {
         el.innerHTML = `
             <div class="vault-card" style="margin-bottom:16px;">
                 <div class="card-header"><span>🏷️ General</span></div>
-                <div class="vault-setting-row"><span class="vault-setting-label">Platform Name</span><span class="vault-setting-value">Quolvex AI</span></div>
+                <div class="vault-setting-row"><span class="vault-setting-label">Platform Name</span><span class="vault-setting-value">Zelpophai AI</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Version</span><span class="vault-setting-value">18.1</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Owner</span><span class="vault-setting-value">WANZU-IBRAHIM</span></div>
                 <div class="vault-setting-row"><span class="vault-setting-label">Timezone</span><span class="vault-setting-value">UTC</span></div>

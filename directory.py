@@ -1,9 +1,9 @@
-"""Quolvex AI Basic Knowledge Directory.
+﻿"""Zelpophai AI Basic Knowledge Directory.
 
 A lightweight, offline-capable Q&A store used for two things:
 1. Offline Mode — users without a connection get instant answers from this local
-   directory so Quolvex AI stays useful without the network.
-2. Online credit saving — before calling the paid AI, Quolvex AI checks whether the
+   directory so Zelpophai AI stays useful without the network.
+2. Online credit saving — before calling the paid AI, Zelpophai AI checks whether the
    user's question matches a directory entry and answers from it directly,
    reducing OpenRouter credit usage.
 
@@ -28,22 +28,22 @@ def _resolve_answer(entry, query):
 
 DIRECTORY = [
     {
-        "keywords": ["who created you", "who made you", "who built you", "your creator", "who is wanzu", "who created quolvex ai"],
-        "answer": "I'm Quolvex AI, created by Wanzu Ibrahim. He designed me to be a helpful, accurate and loyal AI assistant ready to help with anything — chat, files, documents, images, code and more."
+        "keywords": ["who created you", "who made you", "who built you", "your creator", "who is wanzu", "who created Zelpophai AI"],
+        "answer": "I'm Zelpophai AI, created by Wanzu Ibrahim. He designed me to be a helpful, accurate and loyal AI assistant ready to help with anything — chat, files, documents, images, code and more."
     },
     {
-        "keywords": ["what is quolvex ai", "who are you", "what are you", "about yourself", "tell me about yourself", "are you ai", "are you real"],
+        "keywords": ["what is Zelpophai AI", "who are you", "what are you", "about yourself", "tell me about yourself", "are you ai", "are you real"],
         "answers": [
-            "I'm Quolvex AI — an AI assistant created by Wanzu Ibrahim. I can chat, write code, generate documents, edit files, create images, search the web and more. Ask me anything!",
-            "I'm Quolvex AI, an AI built by Wanzu Ibrahim to be helpful, accurate and loyal. I can handle chat, files, code, documents, images and web search — what do you need?",
-            "Quolvex AI at your service! A capable AI assistant created by Wanzu Ibrahim. Chat, code, documents, images, memory and more — that's me."
+            "I'm Zelpophai AI — an AI assistant created by Wanzu Ibrahim. I can chat, write code, generate documents, edit files, create images, search the web and more. Ask me anything!",
+            "I'm Zelpophai AI, an AI built by Wanzu Ibrahim to be helpful, accurate and loyal. I can handle chat, files, code, documents, images and web search — what do you need?",
+            "Zelpophai AI at your service! A capable AI assistant created by Wanzu Ibrahim. Chat, code, documents, images, memory and more — that's me."
         ]
     },
     {
         "keywords": ["hello", "hi", "hey", "good morning", "good afternoon", "good evening", "howdy"],
         "answers": [
-            "Hello! I'm Quolvex AI. How can I help you today?",
-            "Hi there! Quolvex AI here — what can I do for you?",
+            "Hello! I'm Zelpophai AI. How can I help you today?",
+            "Hi there! Zelpophai AI here — what can I do for you?",
             "Hey! Good to see you. What would you like to do?"
         ]
     },
@@ -59,7 +59,7 @@ DIRECTORY = [
         "keywords": ["what can you do", "help", "capabilities", "what are your capabilities", "features", "what do you do"],
         "answers": [
             "Here's what I can do:\n\n- **Chat** — answer questions, have conversations\n- **Files** — upload, edit and manage documents\n- **Code** — write, run and explain code\n- **Documents** — generate formatted documents\n- **Images** — create images from descriptions\n- **Web search** — browse the internet for current info\n- **Memory** — remember things you tell me\n- **Knowledge bases** — learn from your custom data\n\nJust ask!",
-            "I'm Quolvex AI and I handle a lot: chatting, writing code, editing files, generating documents and images, knowledge bases, memory and web search. Anything you need — just ask!",
+            "I'm Zelpophai AI and I handle a lot: chatting, writing code, editing files, generating documents and images, knowledge bases, memory and web search. Anything you need — just ask!",
             "Short version: chat about anything, write and run code, create documents and images, search the web, and learn from your own knowledge bases and memories. What can I start with?"
         ]
     },
@@ -77,19 +77,19 @@ DIRECTORY = [
     },
     {
         "keywords": ["what is your name", "your name", "what are you called", "who are you called"],
-        "answer": "My name is **Quolvex AI**! Created by Wanzu Ibrahim."
+        "answer": "My name is **Zelpophai AI**! Created by Wanzu Ibrahim."
     },
     {
         "keywords": ["are you free", "are you paid", "how much does it cost", "is this free", "cost", "pricing", "price"],
-        "answer": "Quolvex AI has a free tier to get started. For extra power and features there are **Pro** and **Ultimate** plans — you can check them from the upgrade button in the sidebar for full details."
+        "answer": "Zelpophai AI has a free tier to get started. For extra power and features there are **Pro** and **Ultimate** plans — you can check them from the upgrade button in the sidebar for full details."
     },
     {
         "keywords": ["what is pro", "pro plan", "upgrade", "ultimate", "lifetime", "subscription"],
-        "answer": "Quolvex AI offers **Pro** and **Ultimate** plans (monthly, yearly or lifetime) with more features and higher limits. Tap the upgrade button in the sidebar to see all the details."
+        "answer": "Zelpophai AI offers **Pro** and **Ultimate** plans (monthly, yearly or lifetime) with more features and higher limits. Tap the upgrade button in the sidebar to see all the details."
     },
     {
         "keywords": ["where is my data stored", "privacy", "is my data safe", "security", "data stored"],
-        "answer": "Your chats, files and memories are stored by Quolvex AI securely. You can delete chats at any time, and your data is only used to serve you better. For specifics, reach out to the platform owner."
+        "answer": "Your chats, files and memories are stored by Zelpophai AI securely. You can delete chats at any time, and your data is only used to serve you better. For specifics, reach out to the platform owner."
     },
     {
         "keywords": ["i love you", "i hate you", "you are great", "you are the best", "you are smart"],
@@ -112,8 +112,8 @@ DIRECTORY = [
         "answer": "Loud and clear! I'm listening — go ahead."
     },
     {
-        "keywords": ["who is wanzu ibrahim", "who is wanzu", "who owns quolvex ai", "who runs quolvex ai", "wanzu ibrahim"],
-        "answer": "Wanzu Ibrahim is the creator and owner of Quolvex AI. He built me to be a helpful, accurate and loyal AI assistant."
+        "keywords": ["who is wanzu ibrahim", "who is wanzu", "who owns Zelpophai AI", "who runs Zelpophai AI", "wanzu ibrahim"],
+        "answer": "Wanzu Ibrahim is the creator and owner of Zelpophai AI. He built me to be a helpful, accurate and loyal AI assistant."
     },
     {
         "keywords": ["contact support", "contact admin", "talk to admin", "report a problem", "get help from admin", "report bug", "report a bug"],
@@ -366,8 +366,8 @@ DIRECTORY = [
     {"keywords": ["what is python", "is python good", "learn python"], "answer": "**Python** is a beginner-friendly, high-level programming language used for web apps, data science, AI, and automation. It's known for its clear and readable syntax."},
     {"keywords": ["what is javascript", "js language"], "answer": "**JavaScript** is the language of the web — it runs in browsers to make pages interactive, and with Node.js it can also run on servers. It's one of the most-used languages in the world."},
     {"keywords": ["how to send you an image", "can you see my image", "image"], "answer": "Yes! You can attach images to your chat and I'll read/describe them. If you're offline, upload still works and I'll answer about the file the moment I can process it."},
-    {"keywords": ["do you remember our chat", "do you remember me", "do you have memory"], "answer": "Yes, Quolvex AI has **memory** across sessions (when enabled). Each chat conversation is stored, so I can pick up where we left off."},
-    {"keywords": ["are you safe to use", "is quolvex ai safe", "can you hack"], "answer": "Quolvex AI is designed to be **safe and privacy-conscious**. I can't hack devices or access things you haven't shared with me. Use common sense and never share sensitive passwords with any AI."},
+    {"keywords": ["do you remember our chat", "do you remember me", "do you have memory"], "answer": "Yes, Zelpophai AI has **memory** across sessions (when enabled). Each chat conversation is stored, so I can pick up where we left off."},
+    {"keywords": ["are you safe to use", "is Zelpophai AI safe", "can you hack"], "answer": "Zelpophai AI is designed to be **safe and privacy-conscious**. I can't hack devices or access things you haven't shared with me. Use common sense and never share sensitive passwords with any AI."},
     {"keywords": ["what can i ask you", "what should i ask", "give me example questions"], "answer": "You can ask me almost anything — homework & math, writing, code, definitions, general knowledge, jokes, or defaults like capitals and science facts. Try: 'what is 25*4', 'capital of Ghana', or 'tell me a joke'."},
     {"keywords": ["help me", "i need help", "can you help me"], "answer": "Of course! Tell me what you need help with — a homework question, math, writing, code, or general knowledge — and I'll do my best to help right away."},
     {"keywords": ["what do you mean", "explain that", "i don't understand"], "answer": "I can explain things in **simpler terms**. Just tell me which part confused you, and I'll rephrase it with an example so it's clearer."},
@@ -392,8 +392,8 @@ DIRECTORY = [
     {"keywords": ["what should i drink for health", "healthy drinks", "benefits of water"], "answer": "**Water** is the healthiest drink — aim for about **2 liters (8 glasses) a day**. Limit sugary drinks and excess caffeine. Herbal tea counts toward your fluids too."},
     {"keywords": ["spell beautiful", "how do you spell beautiful", "spell the word"], "answer": "**B-E-A-U-T-I-F-U-L**. If you meant a different word, just tell me and I'll spell it out!"},
     {"keywords": ["text me under a minute", "short reply", "reply fast"], "answer": "Consider it done — instant reply right here, no wait needed. ⚡"},
-    {"keywords": ["who is the cat", "why is that the name", "what does quolvex ai mean"], "answer": "**Quolvex AI** is a completely made-up name — no dictionary entry, no quiz-def history to tie it down. It's the first chapter of its own story, and the name means whatever we make it mean. 🚀"},
-    {"keywords": ["what is chatgpt", "are you chatgpt", "who made chatgpt"], "answer": "**ChatGPT** is an AI chatbot made by OpenAI. I'm **Quolvex AI**, a different AI created by Wanzu Ibrahim — not ChatGPT."},
+    {"keywords": ["who is the cat", "why is that the name", "what does Zelpophai AI mean"], "answer": "**Zelpophai AI** is a completely made-up name — no dictionary entry, no quiz-def history to tie it down. It's the first chapter of its own story, and the name means whatever we make it mean. 🚀"},
+    {"keywords": ["what is chatgpt", "are you chatgpt", "who made chatgpt"], "answer": "**ChatGPT** is an AI chatbot made by OpenAI. I'm **Zelpophai AI**, a different AI created by Wanzu Ibrahim — not ChatGPT."},
     {"keywords": ["who is elon musk", "elon musk"], "answer": "**Elon Musk** is a billionaire entrepreneur known for founding SpaceX, co-founding Tesla, and acquiring Twitter (now X). He's one of the world's richest people."},
     {"keywords": ["who is mark zuckerberg", "zuckerberg"], "answer": "**Mark Zuckerberg** is the co-founder and CEO of Meta (formerly Facebook). He launched Facebook in 2004 from Harvard and built it into a global social media giant."},
     {"keywords": ["what is nollywood", "nigerian movies", "nollywood meaning"], "answer": "**Nollywood** is Nigeria's film industry — the second largest by volume in the world (after Bollywood). It produces thousands of movies annually, mainly in English, Yoruba, Hausa, and Igbo."},

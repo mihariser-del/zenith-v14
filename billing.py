@@ -1,4 +1,4 @@
-import os, time, uuid
+﻿import os, time, uuid
 import httpx as _httpx
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Request, HTTPException
@@ -171,7 +171,7 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
         "id": merchant_ref,
         "currency": PESAPAL_CURRENCY,
         "amount": plan["price"],
-        "description": f"Quolvex AI - {plan['name']}",
+        "description": f"Zelpophai AI - {plan['name']}",
         "callback_url": req.success_url or f"{base}/app?checkout=success",
         "cancellation_url": req.cancel_url or f"{base}/app?checkout=cancel",
         "notification_id": notification_id,

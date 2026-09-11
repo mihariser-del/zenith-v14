@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+﻿from datetime import datetime, timedelta, timezone
 import os
 import secrets
 import time
@@ -122,11 +122,11 @@ def _send_email_brevo(to_email: str, link: str) -> bool:
     import json
     sender = os.getenv("SMTP_FROM", "").strip() or "wanzu934@gmail.com"
     payload = {
-        "sender": {"name": "Quolvex AI", "email": sender},
+        "sender": {"name": "Zelpophai AI", "email": sender},
         "to": [{"email": to_email}],
-        "subject": "Quolvex AI — password reset",
+        "subject": "Zelpophai AI — password reset",
         "textContent": (
-            f"Someone requested a password reset for your Quolvex AI account.\n\n"
+            f"Someone requested a password reset for your Zelpophai AI account.\n\n"
             f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
             f"If you didn't request this, you can ignore this email."
         ),
@@ -163,13 +163,13 @@ def _send_reset_email(to_email: str, link: str) -> bool:
     user = os.getenv("SMTP_USER", "").strip()
     pw = os.getenv("SMTP_PASSWORD", "").strip()
     sender = os.getenv("SMTP_FROM", "").strip() or user or "no-reply@zenith.local"
-    subject = "Quolvex AI — password reset"
+    subject = "Zelpophai AI — password reset"
     body = (
-        f"Someone requested a password reset for your Quolvex AI account.\n\n"
+        f"Someone requested a password reset for your Zelpophai AI account.\n\n"
         f"Open this link to choose a new password (expires in 30 minutes):\n{link}\n\n"
         f"If you didn't request this, you can ignore this email."
     )
-    msg = f"From: Quolvex AI <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
+    msg = f"From: Zelpophai AI <{sender}>\r\nTo: {to_email}\r\nSubject: {subject}\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n{body}"
     import smtplib
     import socket
     # Force IPv4: Railway containers have no IPv6 route, so Python's default
@@ -351,7 +351,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     from database import UsedDevice
     device_id = (req.device_id or "").strip()
     has_invite = bool((req.invite_token or "").strip() or request.cookies.get("zenith_invite_token", "").strip())
-    # A device that already joined Quolvex AI can never consume another invite link.
+    # A device that already joined Zelpophai AI can never consume another invite link.
     # The client-supplied device_id is easy to spoof/rotate (incognito, cleared
     # storage), so we ALSO pin the network fingerprint server-side — a second
     # invite registration from the same network/IP+UA is blocked regardless.
@@ -362,7 +362,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
             )
             prior = dev_result.scalar_one_or_none()
             if prior:
-                raise HTTPException(status_code=403, detail="This device already joined Quolvex AI")
+                raise HTTPException(status_code=403, detail="This device already joined Zelpophai AI")
         net_fp = _server_fingerprint(request)
         if net_fp:
             net_result = await db.execute(
@@ -373,7 +373,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
             )
             prior_net = net_result.scalar_one_or_none()
             if prior_net:
-                raise HTTPException(status_code=403, detail="This network already joined Quolvex AI")
+                raise HTTPException(status_code=403, detail="This network already joined Zelpophai AI")
 
     existing = await db.execute(
         select(User).where((User.username == req.username) | (User.email == req.email))

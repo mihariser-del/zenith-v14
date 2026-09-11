@@ -1,4 +1,4 @@
-const fileIcon = (name) => {
+﻿const fileIcon = (name) => {
     const e = (name || '').split('.').pop().toLowerCase();
     const M = {
         // Images
@@ -411,13 +411,13 @@ const Chat = {
             socials.style.display = 'flex';
             previewBtn.onclick = () => window.open(url, '_blank');
             socials.querySelector('[data-soc="twitter"]').onclick = () => {
-                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this chat on Quolvex AI: ' + url)}`, '_blank', 'noopener,width=600,height=450');
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this chat on Zelpophai AI: ' + url)}`, '_blank', 'noopener,width=600,height=450');
             };
             socials.querySelector('[data-soc="whatsapp"]').onclick = () => {
-                window.open(`https://wa.me/?text=${encodeURIComponent('Check out this chat on Quolvex AI: ' + url)}`, '_blank', 'noopener');
+                window.open(`https://wa.me/?text=${encodeURIComponent('Check out this chat on Zelpophai AI: ' + url)}`, '_blank', 'noopener');
             };
             socials.querySelector('[data-soc="telegram"]').onclick = () => {
-                window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Check out this chat on Quolvex AI')}`, '_blank', 'noopener');
+                window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent('Check out this chat on Zelpophai AI')}`, '_blank', 'noopener');
             };
             socials.querySelector('[data-soc="facebook"]').onclick = () => {
                 window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'noopener');
@@ -489,11 +489,11 @@ const Chat = {
                 const { messages } = await api(`/api/chats/${chat.id}/messages`);
                 const review = overlay.querySelector('#pdf-preview');
                 review.innerHTML = `<div class="pdf-doc">
-                    <div class="pdf-brand"><span class="pdf-logo">Q</span> Quolvex AI ·${this.escapeHtml(chat.title || 'Chat')}</div>
+                    <div class="pdf-brand"><span class="pdf-logo">Q</span> Zelpophai AI ·${this.escapeHtml(chat.title || 'Chat')}</div>
                     ${messages.map((m, i) => {
                         const isUser = m.role === 'user';
                         return `<div class="pdf-msg ${isUser ? 'is-user' : ''}">
-                            <div class="pdf-msg-role">${isUser ? 'You' : 'Quolvex AI'}</div>
+                            <div class="pdf-msg-role">${isUser ? 'You' : 'Zelpophai AI'}</div>
                             <div class="pdf-msg-body">${this.escapeHtml(m.content).replace(/\n/g, '<br>')}</div>
                         </div>`;
                     }).join('')}
@@ -504,7 +504,7 @@ const Chat = {
                 overlay.querySelector('#pdf-print').onclick = () => {
                     const printWin = window.open('', '_blank', 'width=900,height=1000');
                     if (!printWin) { showToast('Popup blocked — allow popups to print', 'error'); return; }
-                    const html = `<html><head><title>${(chat.title || 'Quolvex AI Chat')} — Export</title>
+                    const html = `<html><head><title>${(chat.title || 'Zelpophai AI Chat')} — Export</title>
                         <style>
                             body{font-family:Georgia,'Times New Roman',serif;max-width:800px;margin:40px auto;padding:0 24px;color:#1a1a1a;line-height:1.7;}
                             .b{display:flex;align-items:center;gap:12px;border-bottom:2px solid #4CC9F0;padding-bottom:12px;margin-bottom:28px;}
@@ -515,9 +515,9 @@ const Chat = {
                             .r{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px;}
                             .c{white-space:pre-wrap;}
                         </style></head><body>
-                        <div class="b"><div class="l">Q</div><h1>${this.escapeHtml(chat.title || 'Quolvex AI Chat')}</h1></div>
-                        ${messages.map(m => `<div class="m ${m.role === 'user' ? 'u' : ''}"><div class="r">${m.role === 'user' ? 'You' : 'Quolvex AI'}</div><div class="c">${this.escapeHtml(m.content)}</div></div>`).join('')}
-                        <div style="margin-top:30px;font-size:11px;color:#9ca3af;text-align:center;">Exported from Quolvex AI — ${new Date().toLocaleString()}</div>
+                        <div class="b"><div class="l">Q</div><h1>${this.escapeHtml(chat.title || 'Zelpophai AI Chat')}</h1></div>
+                        ${messages.map(m => `<div class="m ${m.role === 'user' ? 'u' : ''}"><div class="r">${m.role === 'user' ? 'You' : 'Zelpophai AI'}</div><div class="c">${this.escapeHtml(m.content)}</div></div>`).join('')}
+                        <div style="margin-top:30px;font-size:11px;color:#9ca3af;text-align:center;">Exported from Zelpophai AI — ${new Date().toLocaleString()}</div>
                         </body></html>`;
                     printWin.document.write(html);
                     printWin.document.close();
@@ -534,14 +534,14 @@ const Chat = {
             return `
             <div class="welcome-message">
                 <div class="welcome-z-logo">Z</div>
-                <h2>Hello! I'm <span>Quolvex AI.</span></h2>
+                <h2>Hello! I'm <span>Zelpophai AI.</span></h2>
                 <p class="welcome-sub">How can I help you today?</p>
             </div>`;
         }
         return `
         <div class="welcome-message">
             <div class="welcome-z-logo">Z</div>
-            <h2>Hello! I'm <span>Quolvex AI.</span></h2>
+            <h2>Hello! I'm <span>Zelpophai AI.</span></h2>
             <p class="welcome-sub">Pick a starting point or ask anything below.</p>
             <div class="template-grid" id="template-grid">
                 <button class="template-card" data-tpl="1">
@@ -730,11 +730,11 @@ const Chat = {
             });
             actions.querySelector('[data-action="share-twitter"]').addEventListener('click', () => {
                 const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
-                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Quolvex AI response:\n\n' + truncated + '\n\nTry Quolvex AI: ' + window.location.origin)}`, '_blank');
+                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Zelpophai AI response:\n\n' + truncated + '\n\nTry Zelpophai AI: ' + window.location.origin)}`, '_blank');
             });
             actions.querySelector('[data-action="share-whatsapp"]').addEventListener('click', () => {
                 const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
-                window.open(`https://wa.me/?text=${encodeURIComponent('Quolvex AI response:\n\n' + truncated + '\n\nTry Quolvex AI: ' + window.location.origin)}`, '_blank');
+                window.open(`https://wa.me/?text=${encodeURIComponent('Zelpophai AI response:\n\n' + truncated + '\n\nTry Zelpophai AI: ' + window.location.origin)}`, '_blank');
             });
             actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
                 Chat.downloadAs(content, 'response', 'md');
@@ -1202,12 +1202,12 @@ const Chat = {
                 // Notify if app was minimized/background when response done (WhatsApp-style)
                 if (document.hidden || !document.hasFocus()) {
                     try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
-                    if (typeof devicePush === 'function') devicePush('Quolvex — reply ready', fullResponse.slice(0,120), 'ai-reply');
-                    if (typeof showDiscordToast === 'function') showDiscordToast('Quolvex AI', 'New reply', fullResponse.slice(0,80), 'Z');
+                    if (typeof devicePush === 'function') devicePush('Zelpophai — reply ready', fullResponse.slice(0,120), 'ai-reply');
+                    if (typeof showDiscordToast === 'function') showDiscordToast('Zelpophai AI', 'New reply', fullResponse.slice(0,80), 'Z');
                     // Also try native notification directly
                     try {
                         if ('Notification' in window && Notification.permission === 'granted') {
-                            const n = new Notification('Quolvex — reply ready', { body: fullResponse.slice(0,120), icon: '/static/icons/icon-192.png', tag: 'ai-reply', requireInteraction: true });
+                            const n = new Notification('Zelpophai — reply ready', { body: fullResponse.slice(0,120), icon: '/static/icons/icon-192.png', tag: 'ai-reply', requireInteraction: true });
                             n.onclick = () => { window.focus(); n.close(); };
                         }
                     } catch {}
@@ -1524,7 +1524,7 @@ const Chat = {
         const msgs = container.querySelectorAll('.msg-wrapper');
         let md = `# ${chat.title}\n\n`;
         msgs.forEach(m => {
-            const role = m.classList.contains('user') ? '**You**' : '**Quolvex AI**';
+            const role = m.classList.contains('user') ? '**You**' : '**Zelpophai AI**';
             const text = m.querySelector('.msg-bubble').textContent;
             md += `${role}:\n${text}\n\n`;
         });

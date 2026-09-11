@@ -24,6 +24,7 @@ PESAPAL_CONSUMER_KEY = os.getenv("PESAPAL_CONSUMER_KEY", "")
 PESAPAL_CONSUMER_SECRET = os.getenv("PESAPAL_CONSUMER_SECRET", "")
 PESAPAL_BASE_URL = os.getenv("PESAPAL_BASE_URL", "https://pay.pesapal.com/v3")
 PESAPAL_SANDBOX = os.getenv("PESAPAL_SANDBOX", "").lower() in ("1", "true", "yes")
+PESAPAL_CURRENCY = os.getenv("PESAPAL_CURRENCY", "USD")
 if PESAPAL_SANDBOX:
     PESAPAL_BASE_URL = "https://cybqa.pesapal.com/pesapalv3"
 
@@ -156,7 +157,11 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
     try:
         notification_id = _pesapal_register_ipn(ipn_url)
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (IPN setup): {e}")
+        err_str = str(e).lower()
+        if "404" in err_str:
+            raise HTTPException(status_code=502, detail="PesaPal IPN endpoint not found. Check that your PesaPal account is active and IPN is enabled in your merchant dashboard.")
+        else:
+            raise HTTPException(status_code=502, detail=f"Payment provider unavailable (IPN setup): {e}")
 
     plan = PLANS[req.plan_id]
     merchant_ref = f"{user.id}_{req.plan_id}_{int(time.time())}"
@@ -164,7 +169,7 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
 
     order_data = {
         "id": merchant_ref,
-        "currency": "USD",
+        "currency": PESAPAL_CURRENCY,
         "amount": plan["price"],
         "description": f"Quolvex AI - {plan['name']}",
         "callback_url": req.success_url or f"{base}/app?checkout=success",
@@ -197,7 +202,13 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
         result = _pesapal_submit_order(order_data)
         return {"url": result["redirect_url"], "mock": False, "plan": plan}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
+        err_str = str(e).lower()
+        if "amount_exceeds" in err_str or "contractual_error" in err_str:
+            raise HTTPException(status_code=502, detail="This plan's price exceeds your PesaPal account limit. Contact PesaPal support to increase your transaction limit, or try a lower-priced plan.")
+        elif "invalid" in err_str and "currency" in err_str:
+            raise HTTPException(status_code=502, detail=f"Currency '{PESAPAL_CURRENCY}' is not supported by your PesaPal account. Set PESAPAL_CURRENCY env var (e.g. USD, UGX, KES).")
+        else:
+            raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
 
 
 @router.post("/trial/start")

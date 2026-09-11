@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.7 — Vibrant upgrade & guest login
+
+- **Upgrade popup got a neon makeover**: gradient titles, glowing plan cards (cyan Pro, gold Ultimate), POPULAR / SAVE 17% / ONE-TIME badges, animated buttons and an aurora background — all responsive on mobile
+- **Guests now always see why invites/sharing are off-limits**: points at locking etc. with a colorful, animated **Login / Register** prompt that pops on top of everything (it used to hide behind the invite/share dialogs)
+- Guests are told instantly the moment they tap Invite or Share, before any locked feature opens
+
 ## 19.6 — Busy-proof downloads
 
 - If Zenith is busy (too many requests at once) right when you ask for a file/document generation, instead of an empty error you get a friendly note and a **test file** you can still download

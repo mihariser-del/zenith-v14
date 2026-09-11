@@ -341,6 +341,10 @@ const Chat = {
         $('chat-share-btn').addEventListener('click', () => {
             const id = createTarget();
             if (!id) return;
+            if (window.user && window.user.username && window.user.username.startsWith('guest_')) {
+                if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest share');
+                return;
+            }
             this.showShareExport(this.chats[id]);
         });
         $('chat-model-select').addEventListener('change', async (e) => {

@@ -36,7 +36,7 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "19.6"
+VERSION = "19.7"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -74,11 +74,13 @@ USER_CHANGELOG = [
     "Personal Requests: ask the admin for anything personally (a feature, a fix, a custom item) — they reply right here in the sidebar",
     "Personality Mirror: Zenith studies how you write and matches your tone, energy and vibe in its replies (tunable in Settings → System Prompt)",
     "19.6 busy-proof downloads: if Zenith is busy when you ask for a file/doc generation, you get a test file you can still download (choose md/docx/pdf/pptx/xlsx/csv) to verify downloads work",
+    "19.7 vibrant upgrade & guest login: the upgrade plans popup got a neon makeover; guests are told instantly why invites/sharing are off-limits with a colorful login prompt that never hides behind other popups",
 ]
 
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "19.7 upgrade/login vibrancy: billing.showUpgrade() fully restyled (zp-* scoped classes, gradient title/glows/top bar, plan cards cyan vs gold with POPULAR/SAVE 17%/ONE-TIME badges, animated gradient buttons, grid auto-fit for mobile) and modal z-index bumped 500→10000 so guest popups never sit behind the share (700) / invite (9999) modals; chat-share-btn and invite-btn now gate guests up-front to Billing.showUpgrade('Guest ...'); guest branch shows a bobbing rocket + vibrant Login/Register; limit popup (api.js) guest login button switched to cyan→violet→magenta animated gradient with limitDrift keyframes",
     "19.6 busy fallback: chat.js detects a streamed busy/too-many-requests error AND a generation-like user message (_looksLikeGenerationRequest regex) then _renderBusyFallback() injects the busy note + a .file-pill.ftest card with 6 format download buttons (md/docx/pdf/pptx/xlsx/csv) calling downloadAs() → /api/generate/document; .fp-dls styles in style.css (wraps full-width under 480px); also applied on regenerate()",
     "19.5 file-read pipeline: files.py extractors (docx/xlsx/pptx via python-docx/openpyxl/python-pptx, audio metadata via mutagen, video frames via imageio_ffmpeg, whisper-compatible transcription via WHISPER_API_KEY/WHISPER_BASE_URL/WHISPER_MODEL env); ALLOWED_TYPES + EXT_ALLOWLIST widened; chat.js auto-fetches /api/files/{id}/read for binary attachments and embeds content + video frames into the model context; each optional lib is import-guarded so the server keeps running without them",
     "changelog is now per-user 'seen' (users.changelog_seen_user/changelog_seen_staff); GET /api/changelog returns only newly-added entries (unseen prefix) when authed, POST /api/changelog/seen marks them; guests fall back to a local counter in app.js",

@@ -49,9 +49,10 @@ function showLimitPopup(detail) {
         ? `<div id="limit-popup-count" style="color:#F87171;font-size:34px;font-weight:800;letter-spacing:1px;margin-bottom:18px;">&nbsp;</div>`
         : '';
     const btnArea = isGuest
-        ? `<button id="limit-popup-login" style="width:100%;padding:13px;background:linear-gradient(135deg,#DDE4EE,#8B949E);color:#111315;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:15px;">Login / Register</button>`
+        ? `<button id="limit-popup-login" style="width:100%;padding:13px;background:linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#ff3db4);background-size:180% 180%;animation:limitDrift 6s ease infinite;color:#fff;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:15px;box-shadow:0 8px 26px rgba(255,61,180,.4);">Login / Register</button>`
         : `<button id="limit-popup-upgrade" style="width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FF8C00);color:#000;border:none;border-radius:10px;font-weight:800;cursor:pointer;font-size:15px;">Upgrade for more</button>`;
     wrap.innerHTML = `
+        <style>@keyframes limitDrift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}</style>
         <div style="background:linear-gradient(160deg,#221418,#2a1518 50%,#1a0f12);border:2px solid #F87171;border-radius:20px;padding:40px 44px;max-width:460px;width:92%;text-align:center;box-shadow:0 0 80px rgba(248,113,113,.22),0 24px 60px rgba(0,0,0,.6);">
             <div style="font-size:60px;margin-bottom:12px;">⏳</div>
             <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(248,113,113,.14);border:1px solid rgba(248,113,113,.4);font-size:10px;font-weight:700;letter-spacing:2px;color:#F87171;margin-bottom:14px;">LIMIT REACHED</div>

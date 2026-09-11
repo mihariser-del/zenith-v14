@@ -510,6 +510,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // ── Invite Friends Modal ──────────────────────────────────────────────
     $('invite-btn').addEventListener('click', async () => {
         closeSidebar();
+        if (window.user && window.user.username && window.user.username.startsWith('guest_')) {
+            if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest invite');
+            return;
+        }
         const wrap = document.createElement('div');
         wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,3,22,0.85);backdrop-filter:blur(8px);animation:fadeIn .25s;';
         wrap.innerHTML = `

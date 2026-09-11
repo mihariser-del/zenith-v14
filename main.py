@@ -36,7 +36,7 @@ from personality import router as personality_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "19.7"
+VERSION = "19.8"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -56,6 +56,7 @@ USER_CHANGELOG = [
     "Folders & pinning: organize chats into custom folders and pin favorites to the top of the sidebar",
     "Shared chats now collect reactions! People who view your shared link can tap emojis on any message, and you'll see viewer reactions in the chat",
     "Unlimited invites are now single-use — an invite link is consumed the moment someone registers, so it can't be replayed",
+    "Billing now uses PesaPal instead of Stripe — works in Uganda with Visa, Mastercard, AMEX and mobile money (MTN/Airtel)",
     "Invited friends land straight inside the app after creating their account (no extra login step)",
     "Brand-new redesigned invite page — crisp, animated and ready to show off",
     "Reminders: pick 'Today' for same-day alerts, plus the usual weekdays or next-day",
@@ -81,6 +82,7 @@ USER_CHANGELOG = [
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
     "19.7 upgrade/login vibrancy: billing.showUpgrade() fully restyled (zp-* scoped classes, gradient title/glows/top bar, plan cards cyan vs gold with POPULAR/SAVE 17%/ONE-TIME badges, animated gradient buttons, grid auto-fit for mobile) and modal z-index bumped 500→10000 so guest popups never sit behind the share (700) / invite (9999) modals; chat-share-btn and invite-btn now gate guests up-front to Billing.showUpgrade('Guest ...'); guest branch shows a bobbing rocket + vibrant Login/Register; limit popup (api.js) guest login button switched to cyan→violet→magenta animated gradient with limitDrift keyframes",
+    "19.8 PesaPal billing: replaced Stripe with PesaPal API 3.0 (auth token caching, IPN webhook registration per order, SubmitOrderRequest with subscription_details for monthly/yearly, GetTransactionStatus verification); env vars PESAPAL_CONSUMER_KEY/PESAPAL_CONSUMER_SECRET/PESAPAL_SANDBOX; mock mode when unconfigured; stripe.py removed from requirements.txt; supports Visa/Mastercard/AMEX + MTN/Airtel mobile money in Uganda",
     "19.6 busy fallback: chat.js detects a streamed busy/too-many-requests error AND a generation-like user message (_looksLikeGenerationRequest regex) then _renderBusyFallback() injects the busy note + a .file-pill.ftest card with 6 format download buttons (md/docx/pdf/pptx/xlsx/csv) calling downloadAs() → /api/generate/document; .fp-dls styles in style.css (wraps full-width under 480px); also applied on regenerate()",
     "19.5 file-read pipeline: files.py extractors (docx/xlsx/pptx via python-docx/openpyxl/python-pptx, audio metadata via mutagen, video frames via imageio_ffmpeg, whisper-compatible transcription via WHISPER_API_KEY/WHISPER_BASE_URL/WHISPER_MODEL env); ALLOWED_TYPES + EXT_ALLOWLIST widened; chat.js auto-fetches /api/files/{id}/read for binary attachments and embeds content + video frames into the model context; each optional lib is import-guarded so the server keeps running without them",
     "changelog is now per-user 'seen' (users.changelog_seen_user/changelog_seen_staff); GET /api/changelog returns only newly-added entries (unseen prefix) when authed, POST /api/changelog/seen marks them; guests fall back to a local counter in app.js",

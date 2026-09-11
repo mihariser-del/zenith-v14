@@ -146,7 +146,7 @@ const Billing = {
                     try {
                         const res = await api('/api/billing/create-checkout', {method:'POST', body:JSON.stringify({plan_id:planId, success_url: window.location.href, cancel_url: window.location.href})});
                         if(res.url) window.location.href = res.url;
-                        else showToast('Checkout mock — set Stripe keys for real billing', '');
+                        else { showToast('Plan activated (dev mode)', ''); modal.remove(); }
                         modal.remove();
                     } catch(e){ showToast(e.message,'error'); }
                 });

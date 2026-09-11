@@ -1,5 +1,11 @@
 # Changelog
 
+## 19.8 — PesaPal billing (Uganda-ready)
+
+- **Billing switched from Stripe to PesaPal** — works in Uganda with Visa, Mastercard, AMEX and mobile money (MTN/Airtel)
+- Subscriptions, one-time lifetime purchases and free trials all still work the same way — just a different payment provider behind the scenes
+- Sandbox mode available for testing (set `PESAPAL_SANDBOX=true` on Railway)
+
 ## 19.7 — Vibrant upgrade & guest login
 
 - **Upgrade popup got a neon makeover**: gradient titles, glowing plan cards (cyan Pro, gold Ultimate), POPULAR / SAVE 17% / ONE-TIME badges, animated buttons and an aurora background — all responsive on mobile

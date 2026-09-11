@@ -522,7 +522,7 @@ async def init_db():
         try:
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS reminders (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                user_id INTEGER NOT NULL REFERENCES users.id ON DELETE CASCADE,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 text TEXT NOT NULL,
                 next_run_at DATETIME NOT NULL,
                 repeat_days INTEGER DEFAULT 0,
@@ -545,9 +545,9 @@ async def init_db():
         try:
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS referrals (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                referrer_id INTEGER NOT NULL REFERENCES users.id ON DELETE CASCADE,
+                referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 referred_username VARCHAR(50) NOT NULL,
-                referred_user_id INTEGER REFERENCES users.id ON DELETE SET NULL,
+                referred_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 referred_ip VARCHAR(45) DEFAULT '',
                 referred_device VARCHAR(64) DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -567,9 +567,9 @@ async def init_db():
             await conn.exec_driver_sql("""CREATE TABLE IF NOT EXISTS invite_tokens (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 token VARCHAR(64) NOT NULL UNIQUE,
-                referrer_id INTEGER NOT NULL REFERENCES users.id ON DELETE CASCADE,
+                referrer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                 used BOOLEAN DEFAULT 0,
-                used_by_user_id INTEGER REFERENCES users.id ON DELETE SET NULL,
+                used_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
                 used_by_username VARCHAR(50) DEFAULT '',
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 used_at DATETIME

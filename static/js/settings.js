@@ -183,7 +183,7 @@ const Settings = {
     renderMirror(r) {
         const el = $('mirror-profile');
         if (!el) return;
-        if (!r.enabled) { el.innerHTML = '<div style="font-size:12px;color:#888;">Mirror mode is off. Turn it on and Quolvex will match how you talk.</div>'; return; }
+        if (!r.enabled) { el.innerHTML = '<div style="font-size:12px;color:#888;">Mirror mode is off. Turn it on and Quolvex AI will match how you talk.</div>'; return; }
         if (r.profile) {
             const p = r.profile;
             const chips = [['Tone', p.tone], ['Formality', p.formality], ['Energy', p.energy], ['Humor', p.humor], ['Emoji', p.emoji_use], ['Detail', p.detail_level]]
@@ -191,7 +191,7 @@ const Settings = {
                 .map(([k, v]) => `<span style="display:inline-block;background:var(--hover-bg);border:1px solid var(--border);border-radius:6px;padding:2px 8px;font-size:11px;margin:2px;color:var(--text);">${k}: <b>${v}</b></span>`)
                 .join('');
             const when = r.updated_at ? `<div style="font-size:11px;color:#888;margin-top:4px;">Analyzed ${new Date(r.updated_at).toLocaleString()}</div>` : '';
-            el.innerHTML = `<div style="margin-bottom:6px;">Quolvex mirrors how <b>you</b> talk:</div>${chips}${when}`;
+            el.innerHTML = `<div style="margin-bottom:6px;">Quolvex AI mirrors how <b>you</b> talk:</div>${chips}${when}`;
         } else {
             const need = Math.max(0, 5 - (r.message_count || 0));
             el.innerHTML = '<div style="font-size:12px;color:#888;">Not analyzed yet — it needs at least 5 of your messages' + (need > 0 ? ` (${need} more to go)` : '') + '. Chat a bit, then hit "Analyze now".</div>';
@@ -222,7 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const resetBtn = $('mirror-reset-btn');
     if (resetBtn) {
         resetBtn.addEventListener('click', async () => {
-            const ok = await showConfirm('Reset mirror profile?', 'Quolvex will forget its analysis of how you talk and re-learn from your future chats.', false);
+            const ok = await showConfirm('Reset mirror profile?', 'Quolvex AI will forget its analysis of how you talk and re-learn from your future chats.', false);
             if (!ok) return;
             try {
                 await api('/api/personality/reset', { method: 'POST' });

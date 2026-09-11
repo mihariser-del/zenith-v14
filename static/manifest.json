@@ -1,7 +1,7 @@
 {
-  "name": "Quolvex",
-  "short_name": "Quolvex",
-  "description": "Quolvex — by Wanzu Ibrahim",
+  "name": "Quolvex AI",
+  "short_name": "Quolvex AI",
+  "description": "Quolvex AI — by Wanzu Ibrahim",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

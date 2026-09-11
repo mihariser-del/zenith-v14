@@ -104,7 +104,7 @@ function showLimitPopup(detail) {
         close();
         try {
             if (window.Billing && typeof window.Billing.showUpgrade === 'function') {
-                await window.Billing.showUpgrade('Unlock more on Quolvex');
+                await window.Billing.showUpgrade('Unlock more on Quolvex AI');
             } else {
                 window.location.href = '/';
             }

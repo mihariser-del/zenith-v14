@@ -163,7 +163,7 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
         "id": merchant_ref,
         "currency": "USD",
         "amount": plan["price"],
-        "description": f"Quolvex - {plan['name']}",
+        "description": f"Quolvex AI - {plan['name']}",
         "callback_url": req.success_url or f"{base}/app?checkout=success",
         "cancellation_url": req.cancel_url or f"{base}/app?checkout=cancel",
         "notification_id": notification_id,

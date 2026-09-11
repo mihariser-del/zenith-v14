@@ -5,11 +5,11 @@
       <stop offset="0%" stop-color="#1e1040"/>
       <stop offset="100%" stop-color="#0a0520"/>
     </radialGradient>
-    <!-- Gold-orange gradient for the Q -->
+    <!-- Blue-purple gradient for the Q -->
     <linearGradient id="qgrad" x1="0.3" y1="0" x2="0.7" y2="1">
-      <stop offset="0%" stop-color="#FFD700"/>
-      <stop offset="40%" stop-color="#FF9500"/>
-      <stop offset="100%" stop-color="#E85D04"/>
+      <stop offset="0%" stop-color="#0066ff"/>
+      <stop offset="40%" stop-color="#6366f1"/>
+      <stop offset="100%" stop-color="#8b5cf6"/>
     </linearGradient>
     <!-- Cyan glow for stars -->
     <filter id="glow">

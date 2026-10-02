@@ -489,7 +489,7 @@ const Chat = {
                 const { messages } = await api(`/api/chats/${chat.id}/messages`);
                 const review = overlay.querySelector('#pdf-preview');
                 review.innerHTML = `<div class="pdf-doc">
-                    <div class="pdf-brand"><span class="pdf-logo">Q</span> Zelpophai AI ·${this.escapeHtml(chat.title || 'Chat')}</div>
+                    <div class="pdf-brand"><span class="pdf-logo">Z</span> Zelpophai AI ·${this.escapeHtml(chat.title || 'Chat')}</div>
                     ${messages.map((m, i) => {
                         const isUser = m.role === 'user';
                         return `<div class="pdf-msg ${isUser ? 'is-user' : ''}">
@@ -515,7 +515,7 @@ const Chat = {
                             .r{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#6b7280;margin-bottom:6px;}
                             .c{white-space:pre-wrap;}
                         </style></head><body>
-                        <div class="b"><div class="l">Q</div><h1>${this.escapeHtml(chat.title || 'Zelpophai AI Chat')}</h1></div>
+                        <div class="b"><div class="l">Z</div><h1>${this.escapeHtml(chat.title || 'Zelpophai AI Chat')}</h1></div>
                         ${messages.map(m => `<div class="m ${m.role === 'user' ? 'u' : ''}"><div class="r">${m.role === 'user' ? 'You' : 'Zelpophai AI'}</div><div class="c">${this.escapeHtml(m.content)}</div></div>`).join('')}
                         <div style="margin-top:30px;font-size:11px;color:#9ca3af;text-align:center;">Exported from Zelpophai AI — ${new Date().toLocaleString()}</div>
                         </body></html>`;

@@ -1269,9 +1269,12 @@
         try {
             const [overview, chatsData] = await Promise.all([
                 api('/api/auth/admin/analytics/overview'),
-                api('/api/auth/admin/analytics/all-chats').catch(() => ({ chats: [] })),
+                api('/api/auth/admin/analytics/all-chats?limit=100').catch(() => ({ chats: [] })),
             ]);
             this._cache.chats = chatsData.chats;
+            this._chatsOffset = (chatsData.chats || []).length;
+            this._chatsDone = (chatsData.offset !== undefined) ? (chatsData.chats.length < chatsData.limit) : ((chatsData.total || 0) <= this._chatsOffset);
+            if (!chatsData.offset) this._chatsTotal = chatsData.total || 0;
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
                     ${this.statCard('💬','Total Chats',overview.total_chats,'','info')}
@@ -1287,9 +1290,34 @@
                         <thead><tr><th>#</th><th>Title</th><th>User</th><th>Messages</th><th>Created</th><th>Last Active</th><th>Actions</th></tr></thead>
                         <tbody id="chats-tbody"></tbody>
                     </table>
+                    <div style="text-align:center;padding:10px;" id="chats-load-more-wrap">
+                        ${this._chatsDone ? '<div style="color:#8B949E;font-size:11px;">All chats loaded</div>' : '<button class="vault-btn" id="chats-load-more" onclick="Vault.loadMoreChats()">Load more chats</button>'}
+                    </div>
                 </div>`;
             this.renderChatsTable(chatsData.chats);
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
+    },
+
+    async loadMoreChats() {
+        const btn = document.getElementById('chats-load-more');
+        if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+        try {
+            const d = await api('/api/auth/admin/analytics/all-chats?limit=100&offset=' + this._chatsOffset);
+            const more = d.chats || [];
+            const all = (this._cache.chats || []).concat(more);
+            this._cache.chats = all;
+            this._chatsOffset = all.length;
+            this._chatsDone = more.length < (d.limit || 100);
+            const wrap = document.getElementById('chats-load-more-wrap');
+            if (wrap) {
+                wrap.innerHTML = this._chatsDone
+                    ? '<div style="color:#8B949E;font-size:11px;">All chats loaded</div>'
+                    : '<button class="vault-btn" id="chats-load-more" onclick="Vault.loadMoreChats()">Load more chats</button>';
+            }
+            this.renderChatsTable(all);
+        } catch (e) { showToast(e.message, 'error'); }
+        const btn2 = document.getElementById('chats-load-more');
+        if (btn2) btn2.disabled = false;
     },
 
     renderChatsTable(chats) {
@@ -1335,9 +1363,11 @@
         try {
             const [overview, msgsData] = await Promise.all([
                 api('/api/auth/admin/analytics/overview'),
-                api('/api/auth/admin/analytics/all-messages').catch(() => ({ messages: [] })),
+                api('/api/auth/admin/analytics/all-messages?limit=200').catch(() => ({ messages: [] })),
             ]);
             this._cache.messages = msgsData.messages;
+            this._msgsOffset = (msgsData.messages || []).length;
+            this._msgsDone = (msgsData.offset !== undefined) ? (msgsData.messages.length < msgsData.limit) : ((msgsData.total || 0) <= this._msgsOffset);
             const userMsgs = msgsData.messages.filter(m => m.role === 'user').length;
             const aiMsgs = msgsData.messages.filter(m => m.role === 'assistant').length;
             el.innerHTML = `
@@ -1355,9 +1385,34 @@
                         <thead><tr><th>#</th><th>Role</th><th>Content</th><th>Chat</th><th>Time</th></tr></thead>
                         <tbody id="msgs-tbody"></tbody>
                     </table>
+                    <div style="text-align:center;padding:10px;" id="msgs-load-more-wrap">
+                        ${this._msgsDone ? '<div style="color:#8B949E;font-size:11px;">All messages loaded</div>' : '<button class="vault-btn" id="msgs-load-more" onclick="Vault.loadMoreMessages()">Load more messages</button>'}
+                    </div>
                 </div>`;
             this.renderMsgsTable(msgsData.messages);
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
+    },
+
+    async loadMoreMessages() {
+        const btn = document.getElementById('msgs-load-more');
+        if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+        try {
+            const d = await api('/api/auth/admin/analytics/all-messages?limit=200&offset=' + this._msgsOffset);
+            const more = d.messages || [];
+            const all = (this._cache.messages || []).concat(more);
+            this._cache.messages = all;
+            this._msgsOffset = all.length;
+            this._msgsDone = more.length < (d.limit || 200);
+            const wrap = document.getElementById('msgs-load-more-wrap');
+            if (wrap) {
+                wrap.innerHTML = this._msgsDone
+                    ? '<div style="color:#8B949E;font-size:11px;">All messages loaded</div>'
+                    : '<button class="vault-btn" id="msgs-load-more" onclick="Vault.loadMoreMessages()">Load more messages</button>';
+            }
+            this.renderMsgsTable(all);
+        } catch (e) { showToast(e.message, 'error'); }
+        const btn2 = document.getElementById('msgs-load-more');
+        if (btn2) btn2.disabled = false;
     },
 
     renderMsgsTable(msgs) {

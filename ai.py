@@ -6,7 +6,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session, system_settings
+from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 

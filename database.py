@@ -182,6 +182,8 @@ class User(Base):
     # entries are prepended to the top, so unseen = list[: len - seen].
     changelog_seen_user = Column(Integer, default=0)
     changelog_seen_staff = Column(Integer, default=0)
+    # Vault PIN gate — true once the staff member has enabled the PIN lock
+    pin_enabled = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -496,6 +498,7 @@ async def init_db():
             ("referral_code", "VARCHAR(10) DEFAULT NULL"),
             ("changelog_seen_user", "INTEGER DEFAULT 0"),
             ("changelog_seen_staff", "INTEGER DEFAULT 0"),
+            ("pin_enabled", "BOOLEAN DEFAULT 0"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

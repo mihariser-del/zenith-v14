@@ -12,7 +12,6 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db, ActionLog, User
-from auth import get_current_user_from_cookie, is_staff, get_role
 
 router = APIRouter(prefix="/api/auth/admin/audit", tags=["audit"])
 
@@ -38,6 +37,7 @@ async def log_action(
     """Record one action in the audit log. Swallows errors so auditing never
     breaks a privileged request."""
     try:
+        from auth import get_role
         actor_id = getattr(actor, "id", None) if actor else None
         actor_username = getattr(actor, "username", "") if actor else "system"
         actor_role = get_role(actor) if actor else "system"
@@ -65,6 +65,7 @@ async def list_audit_logs(
     action: str = "",
     db: AsyncSession = Depends(get_db),
 ):
+    from auth import get_current_user_from_cookie, is_staff
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
@@ -101,6 +102,7 @@ async def list_audit_logs(
 async def recent_activity(request: Request, db: AsyncSession = Depends(get_db)):
     """Live activity stream: recent signups, recent staff actions, recent bans.
     Used by the Vault dashboard 'Activity Feed' with a 'NEW' pulse."""
+    from auth import get_current_user_from_cookie, is_staff, get_role
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")

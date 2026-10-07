@@ -8,6 +8,8 @@
     _cache: {},
     _chosenHelpers: [],
     _selected: new Set(),
+    _loadingCount: 0,
+    _pinUnlocked: false,
 
     async init() {
         try {
@@ -29,7 +31,8 @@
         } catch { window.location.href = '/'; return; }
         this.bindNav();
         this.bindHamburger();
-        this.loadTab('dashboard');
+        this.bindPinSecurity();
+        this.bindLoadingOverlay();
         this.startPolling();
         document.addEventListener('visibilitychange', () => {
             if (!document.hidden) {
@@ -42,6 +45,236 @@
             this.refreshCurrentTab();
             this.startPolling();
         });
+    },
+
+    // ── Global loading overlay ─────────────────────────────────────────
+    bindLoadingOverlay() {
+        // Ensure the overlay element exists even if markup was cached.
+        if (!document.getElementById('vault-loading-overlay')) {
+            const ov = document.createElement('div');
+            ov.id = 'vault-loading-overlay';
+            ov.style.cssText = 'display:none; position:fixed; inset:0; z-index:99990; background:rgba(4,6,10,0.55); backdrop-filter:blur(3px); align-items:center; justify-content:center; flex-direction:column; gap:16px;';
+            ov.innerHTML = `<div class="vault-spinner" style="width:44px;height:44px;border-width:4px;"></div><div id="vault-loading-msg" style="color:#DDE4EE;font-size:13px;letter-spacing:1px;font-weight:600;">LOADING...</div>`;
+            document.body.appendChild(ov);
+        }
+    },
+
+    showLoading(msg = 'LOADING...') {
+        this._loadingCount++;
+        const ov = document.getElementById('vault-loading-overlay');
+        if (ov) {
+            const msgEl = document.getElementById('vault-loading-msg');
+            if (msgEl) msgEl.textContent = msg;
+            ov.style.display = 'flex';
+        }
+    },
+
+    hideLoading() {
+        this._loadingCount = Math.max(0, this._loadingCount - 1);
+        if (this._loadingCount === 0) {
+            const ov = document.getElementById('vault-loading-overlay');
+            if (ov) ov.style.display = 'none';
+        }
+    },
+
+    // ── PIN lock security ──────────────────────────────────────────────
+    async bindPinSecurity() {
+        const me = this._user || (await api('/api/auth/me')).user;
+        if (!me) return;
+        const sk = 'zenith_vault_pin_' + me.username;
+        this._pinKey = sk;
+        this._pinHash = localStorage.getItem(sk) || null;
+        const lockedBtn = document.getElementById('vault-lock-btn');
+        if (lockedBtn) {
+            lockedBtn.addEventListener('click', () => this.lockVault(true));
+            this._lastActivity = Date.now();
+            ['mousemove','mousedown','keydown','wheel','touchstart'].forEach(ev =>
+                window.addEventListener(ev, () => { this._lastActivity = Date.now(); })
+            );
+            // Idle lock: 5 minutes without activity locks the vault.
+            this._idleTimer = setInterval(() => {
+                if (this._pinHash && this._pinUnlocked && (Date.now() - (this._lastActivity || 0)) > 5 * 60 * 1000) {
+                    this.lockVault(true);
+                }
+            }, 30000);
+        }
+        // Server-side pin flag (persisted across sessions/devices) so a
+        // staff member can't just clear localStorage and skip the gate once enabled.
+        let shouldGate = false;
+        let forceSetup = false;
+        try {
+            const prefs = await api('/api/auth/admin/pin-state').catch(() => null);
+            if (prefs) {
+                forceSetup = !this._pinHash && prefs.enabled && !prefs.unlocked;
+                shouldGate = prefs.enabled && !prefs.unlocked;
+            }
+        } catch {}
+        if (forceSetup) {
+            this.setupPIN();
+            return;
+        }
+        if (shouldGate || this._pinHash) {
+            this.enterPINScreen();
+            return;
+        }
+        this._pinUnlocked = true;
+        if (lockedBtn) lockedBtn.style.display = 'none';
+        this.loadTab('dashboard');
+    },
+
+    async setupPIN() {
+        this._pinUnlocked = false;
+        const sc = document.getElementById('vault-pin-screen');
+        if (!sc) return;
+        sc.style.display = 'flex';
+        document.getElementById('vault-pin-title').textContent = 'SET UP VAULT PIN';
+        document.getElementById('vault-pin-sub').textContent = 'Create a 4-digit PIN. You will need it to unlock the vault.';
+        document.getElementById('vault-pin-icon').textContent = '🔐';
+        document.getElementById('vault-pin-err').textContent = '';
+        document.getElementById('vault-pin-skip').style.display = 'none';
+        this._pinDots = [];
+        this._pinSetupStep = 1;
+        this._setupPin1 = '';
+        this._pinScreenMode = 'setup';
+        this._renderPinDots();
+        this._startPinListeners();
+    },
+
+    async enterPINScreen() {
+        this._pinUnlocked = false;
+        const sc = document.getElementById('vault-pin-screen');
+        if (!sc) return;
+        sc.style.display = 'flex';
+        document.getElementById('vault-pin-title').textContent = 'VAULT LOCKED';
+        document.getElementById('vault-pin-sub').textContent = 'Enter your 4-digit PIN to continue';
+        document.getElementById('vault-pin-icon').textContent = '🔒';
+        document.getElementById('vault-pin-err').textContent = '';
+        document.getElementById('vault-pin-skip').style.display = 'none';
+        this._pinDots = [];
+        this._pinScreenMode = 'enter';
+        this._renderPinDots();
+        this._startPinListeners();
+    },
+
+    _renderPinDots() {
+        const wrap = document.getElementById('vault-pin-dots');
+        if (!wrap) return;
+        wrap.innerHTML = '<div class="vault-pin-dot"></div><div class="vault-pin-dot"></div><div class="vault-pin-dot"></div><div class="vault-pin-dot"></div>';
+        (this._pinDots || []).forEach((_, i) => {
+            if (wrap.children[i]) wrap.children[i].classList.add('filled');
+        });
+    },
+
+    _startPinListeners() {
+        const sc = document.getElementById('vault-pin-screen');
+        if (!sc) return;
+        sc.querySelectorAll('.vault-pin-key').forEach(k => {
+            k.removeEventListener('click', k._pinHandler);
+            k._pinHandler = () => this._pinPress(k.dataset.k);
+            k.addEventListener('click', k._pinHandler);
+        });
+        const phys = (e) => {
+            if (/^[0-9]$/.test(e.key)) this._pinPress(e.key);
+            else if (e.key === 'Backspace' || e.key === 'Delete') this._pinPress('del');
+            else if (e.key === 'Enter') this._pinPress('enter');
+        };
+        this._pinPhys = phys;
+        document.addEventListener('keydown', phys);
+    },
+
+    _stopPinListeners() {
+        if (this._pinPhys) {
+            document.removeEventListener('keydown', this._pinPhys);
+            this._pinPhys = null;
+        }
+    },
+
+    async _pinPress(k) {
+        if (k === 'del') {
+            this._pinDots.pop();
+            this._renderPinDots();
+            return;
+        }
+        if (/^\d$/.test(k)) {
+            if (this._pinDots.length >= 4) return;
+            this._pinDots.push(k);
+            this._renderPinDots();
+            if (this._pinDots.length < 4) return;
+        }
+        if (k === 'enter' && this._pinDots.length < 4) return;
+        if (this._pinDots.length === 4 || k === 'enter') {
+            const pin = this._pinDots.join('');
+            if (this._pinScreenMode === 'setup') {
+                if (this._pinSetupStep === 1) {
+                    this._setupPin1 = pin;
+                    this._pinSetupStep = 2;
+                    this._pinDots = [];
+                    document.getElementById('vault-pin-sub').textContent = 'Confirm your 4-digit PIN';
+                    this._renderPinDots();
+                    return;
+                } else {
+                    if (pin === this._setupPin1) {
+                        const hash = await this._sha256(pin);
+                        localStorage.setItem(this._pinKey, hash);
+                        this._pinHash = hash;
+                        try { await api('/api/auth/admin/pin-state', { method: 'POST', body: JSON.stringify({ enabled: true }) }); } catch {}
+                        this.unlockVault();
+                    } else {
+                        document.getElementById('vault-pin-err').textContent = 'PINs did not match. Start over.';
+                        this._setupPin1 = '';
+                        this._pinSetupStep = 1;
+                        this._pinDots = [];
+                        this._renderPinDots();
+                    }
+                    return;
+                }
+            } else {
+                const hash = await this._sha256(pin);
+                if (hash === this._pinHash) {
+                    this.unlockVault();
+                } else {
+                    document.getElementById('vault-pin-err').textContent = 'Wrong PIN — try again';
+                    this._pinDots = [];
+                    this._renderPinDots();
+                }
+            }
+        }
+    },
+
+    async _sha256(str) {
+        try {
+            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('vault:' + str + ':zelpophai'));
+            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch {
+            // Non-WebCrypto fallback
+            let h = 0; for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
+            return 'fb_' + Math.abs(h).toString(16);
+        }
+    },
+
+    unlockVault() {
+        this._pinUnlocked = true;
+        this._lastActivity = Date.now();
+        this._stopPinListeners();
+        const sc = document.getElementById('vault-pin-screen');
+        if (sc) sc.style.display = 'none';
+        const btn = document.getElementById('vault-lock-btn');
+        if (btn) btn.style.display = '';
+        this.loadTab('dashboard');
+        this.startPolling();
+        try { api('/api/auth/admin/pin-unlock', { method: 'POST' }).catch(() => {}); } catch {}
+    },
+
+    lockVault(force) {
+        this._pinUnlocked = false;
+        if (!this._pinHash) {
+            // No PIN yet — gate through setup
+            this.setupPIN();
+            return;
+        }
+        const btn = document.getElementById('vault-lock-btn');
+        if (btn) btn.style.display = 'none';
+        this.enterPINScreen();
     },
 
     // Light refresh that avoids wiping the whole vault when returning to the tab / clicking active nav
@@ -193,11 +426,20 @@
     },
 
     loadTab(tab) {
+        // Refuse to switch tabs while locked.
+        if (this._pinHash && !this._pinUnlocked && tab !== 'dashboard') {
+            this.enterPINScreen();
+            return;
+        }
         this._currentTab = tab;
         const labels = { dashboard:'DASHBOARD', users:'USERS', chats:'CHATS', messages:'MESSAGES', referrals:'REFERRALS', bans:'BANS', deleted:'DELETED', security:'SECURITY', logs:'LOGS & AUDIT', backups:'BACKUPS', settings:'SETTINGS', owner:'OWNER COMMAND', admins:'ADMIN MANAGEMENT', global:'GLOBAL CONTROLS', emergency:'EMERGENCY' };
         document.getElementById('vault-section-label').textContent = labels[tab] || tab.toUpperCase();
         const fn = { dashboard:'renderDashboard', users:'renderUsers', chats:'renderChats', messages:'renderMessages', referrals:'renderReferrals', bans:'renderBans', deleted:'renderDeleted', security:'renderSecurity', logs:'renderLogs', backups:'renderBackups', settings:'renderSettings', owner:'renderOwner', admins:'renderAdmins', global:'renderGlobal', emergency:'renderEmergency' };
-        if (fn[tab]) this[fn[tab]]();
+        if (fn[tab]) {
+            this.showLoading('LOADING ' + (labels[tab] || tab).toUpperCase() + '...');
+            const p = this[fn[tab]]();
+            if (p && p.then) p.finally(() => this.hideLoading());
+        }
         this._renderedTab = tab;
     },
 
@@ -470,8 +712,8 @@
                     ${this.statCard('💎','ULTIMATE',overview.ultimate_count,'','purple')}
                 </div>
                 <div class="vault-grid" style="grid-template-columns:2fr 1fr;">
-                    <div class="vault-card">
-                        <div class="card-header"><span>📈 Message Activity (30d)</span><span style="font-size:10px;color:#8B5CF6;">Daily</span></div>
+                    <div class="vault-card" style="cursor:pointer;" onclick="Vault.openChartDetail('messages')" title="Click for full-page detail">
+                        <div class="card-header"><span>📈 Message Activity (30d)</span><span style="font-size:10px;color:#8B5CF6;">Daily · click to expand</span></div>
                         <div style="height:160px;" id="chart-messages">${this.svgLine(msgDay.days, 520, 160, '#8B5CF6', true)}</div>
                     </div>
                     <div class="vault-card" style="display:flex;flex-direction:column;align-items:center;">
@@ -481,11 +723,11 @@
                     </div>
                 </div>
                 <div class="vault-grid">
-                    <div class="vault-card">
+                    <div class="vault-card" style="cursor:pointer;" onclick="Vault.openChartDetail('chats')" title="Click for full-page detail">
                         <div class="card-header"><span>💬 Chat Activity (30d)</span></div>
                         <div style="height:120px;" id="chart-chats">${this.svgBar(chatDay.days, 520, 120, '#60A5FA')}</div>
                     </div>
-                    <div class="vault-card">
+                    <div class="vault-card" style="cursor:pointer;" onclick="Vault.openChartDetail('accounts')" title="Click for full-page detail">
                         <div class="card-header"><span>🆕 Account Growth (30d)</span></div>
                         <div style="height:120px;" id="chart-accounts">${this.svgLine(accDay.days, 520, 120, '#4ADE80', true)}</div>
                     </div>
@@ -593,6 +835,55 @@
         const el = document.getElementById('dash-activity');
         if (!el) return;
         try {
+            const d = await api('/api/auth/admin/audit/activity').catch(() => null);
+            if (d) {
+                const nowTs = Date.now();
+                const items = [];
+                (d.signups || []).forEach(s => {
+                    items.push({
+                        kind: 'signup',
+                        icon: '🆕',
+                        title: s.username,
+                        sub: `${s.role === 'owner' ? 'Owner' : s.role === 'admin' ? 'Admin' : 'User'} joined`,
+                        ts: s.created_at,
+                        isNew: this._isRecent(s.created_at, nowTs),
+                    });
+                });
+                const actionIcons = {
+                    ban: '🚫', unban: '✅', delete_user: '🗑️', bulk_delete: '🧹',
+                    reset_password: '🔑', role_change: '🔄', broadcast: '📢',
+                    lock_all: '🔒', unlock_all: '🔓', force_logout: '🔐',
+                    maintenance: '🚨', registrations: '🛑', messaging: '✉️',
+                    ai_control: '🤖', backup: '💾', view_chats: '👁️', permissions: '🔐',
+                };
+                (d.actions || []).forEach(a => {
+                    items.push({
+                        kind: 'action',
+                        icon: actionIcons[a.action] || '⚡',
+                        title: `${a.actor} → ${a.target || a.action}`,
+                        sub: a.detail || a.action,
+                        ts: a.created_at,
+                        isNew: this._isRecent(a.created_at, nowTs),
+                    });
+                });
+                items.sort((x, y) => (y.ts || '').localeCompare(x.ts || ''));
+                const shown = items.slice(0, 8);
+                const sig = shown.map(x => `${x.timestamp}|${x.title}`).join('~');
+                // avoid stale compare: use raw timestamps
+                const rawSig = shown.map(x => `${x.ts}|${x.title}`).join('~');
+                if (rawSig === this._activitySig) return;
+                this._activitySig = rawSig;
+                el.innerHTML = shown.length ? shown.map(item => `
+                    <div class="vault-activity-item" style="padding:10px 12px;align-items:center;">
+                        <span style="flex-shrink:0;font-size:13px;">${item.icon}</span>
+                        <div style="flex:1;min-width:0;">
+                            <div style="color:#DDE4EE;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:flex;align-items:center;gap:6px;">${this.esc(item.title)}${item.isNew ? '<span class="vault-new-badge">NEW</span>' : ''}</div>
+                            <div style="color:#555;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.esc(item.sub || '')} · ${item.ts || ''}</div>
+                        </div>
+                    </div>`).join('') : '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity yet</div>';
+                return;
+            }
+            // Fallback: legacy users-based feed
             const users = await this.getUsersOnce();
             const sig = users.slice(0,10).map(u=>`${u.id}:${u.is_banned}:${u.username}`).join('~');
             if (sig === this._activitySig) { this._patchActivityDots(users); return; }
@@ -608,6 +899,13 @@
             });
             el.innerHTML = html || '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity</div>';
         } catch { el.innerHTML = ''; }
+    },
+    _isRecent(ts) {
+        if (!ts) return false;
+        try {
+            const t = new Date(ts.replace(' ', 'T')).getTime();
+            return !isNaN(t) && (Date.now() - t) < 10 * 60 * 1000;
+        } catch { return false; }
     },
     _patchActivityDots(users) {
         const el = document.getElementById('dash-activity');
@@ -637,6 +935,57 @@
             const lastHr = new Date().getUTCHours();
             if (el) el.innerHTML = this.svgBar(data, 520, 100, '#A78BFA', lastHr);
         } catch {}
+    },
+
+    async openChartDetail(kind) {
+        this.showLoading('LOADING DETAIL...');
+        const labels = { messages: 'Message Activity', chats: 'Chat Activity', accounts: 'Account Growth', hourly: 'Messages Per Hour' };
+        const colors = { messages: '#8B5CF6', chats: '#60A5FA', accounts: '#4ADE80', hourly: '#A78BFA' };
+        try {
+            let res;
+            if (kind === 'messages') res = await api('/api/auth/admin/analytics/messages-per-day');
+            else if (kind === 'chats') res = await api('/api/auth/admin/analytics/chats-per-day');
+            else if (kind === 'accounts') res = await api('/api/auth/admin/analytics/accounts-per-day');
+            else if (kind === 'hourly') res = await api('/api/auth/admin/analytics/messages-per-hour');
+            const data = (res.days || res.hours || []).map((d, i) => ({ label: d.date || d.hour, count: d.count }));
+            const color = colors[kind] || '#60A5FA';
+            const total = data.reduce((s, x) => s + (x.count || 0), 0);
+            const max = Math.max(1, ...data.map(x => x.count || 0));
+            // Sort by date desc for the detail table; chart stays chronological
+            const sortable = data.slice().map((x, i) => ({ ...x, _i: i }));
+            const rows = sortable.sort((a, b) => (b.label || '').localeCompare(a.label || ''));
+            // Build a large line/bar chart
+            const bigChart = kind === 'chats' ? this.svgBar(data, 1000, 300, color) : this.svgLine(data, 1000, 300, color, true);
+            const wrap = document.createElement('div');
+            wrap.className = 'vault-chart-full';
+            wrap.innerHTML = `
+                <div class="vault-chart-card">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;gap:12px;flex-wrap:wrap;">
+                        <div>
+                            <div style="font-size:18px;font-weight:800;color:#DDE4EE;">${labels[kind] || kind}</div>
+                            <div style="font-size:12px;color:#8B949E;margin-top:2px;">${data.length} entries · Total: <span style="color:${color};font-weight:700;">${total}</span> · Peak: <span style="color:${color};font-weight:700;">${max}</span></div>
+                        </div>
+                        <button class="vault-btn danger" onclick="document.getElementById('vault-chart-full-el').remove()">✖ Close</button>
+                    </div>
+                    <div style="height:340px;margin-bottom:18px;">${bigChart}</div>
+                    <table class="vault-table" style="max-height:320px;display:block;overflow-y:auto;">
+                        <thead><tr><th>#</th><th>Date / Hour</th><th>Count</th><th style="min-width:200px;">Share</th></tr></thead>
+                        <tbody>${rows.map((r, i) => {
+                            const pct = total > 0 ? Math.round(((r.count || 0) / total) * 100) : 0;
+                            return `<tr>
+                                <td style="color:#8B949E;">${i + 1}</td>
+                                <td style="font-weight:600;">${r.label ?? '—'}</td>
+                                <td style="color:${color};font-weight:700;">${r.count || 0}</td>
+                                <td><div style="background:#1A1D21;border-radius:6px;height:14px;position:relative;overflow:hidden;"><div style="position:absolute;left:0;top:0;bottom:0;background:${color};width:${pct}%;opacity:0.8;"></div><span style="position:relative;font-size:9px;color:#DDE4EE;padding-left:6px;line-height:14px;">${pct}%</span></div></td>
+                            </tr>`;
+                        }).join('')}</tbody>
+                    </table>
+                </div>`;
+            wrap.id = 'vault-chart-full-el';
+            wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
+            document.body.appendChild(wrap);
+        } catch (e) { showToast(e.message || 'Failed to load detail', 'error'); }
+        this.hideLoading();
     },
 
     async loadSecurityAlerts() {
@@ -677,8 +1026,12 @@
         const el = document.getElementById('vault-content');
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading users...</div>';
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const d = await api('/api/auth/admin/users?limit=200');
+            const users = d.users || [];
+            const total = d.total || users.length;
             this._cache.users = users;
+            this._usersOffset = users.length;
+            this._usersTotal = total;
             let html = `
                 <div class="vault-search">
                     <input class="vault-input" id="user-search" placeholder="Search username, email, ID..." oninput="Vault.filterUsers()">
@@ -697,7 +1050,7 @@
                     </select>
                 </div>
                 <div class="vault-stats" style="padding:0 0 12px;">
-                    ${this.statCard('👥','Total',users.length,'','')}
+                    ${this.statCard('👥','Total',total,'','')}
                     ${this.statCard('🟢','Active',users.filter(u=>!u.is_banned&&!u.is_deleted).length,'','success')}
                     ${this.statCard('🛡️','Banned',users.filter(u=>u.is_banned).length,'','danger')}
                     ${this.statCard('🗑️','Deleted',users.filter(u=>u.is_deleted).length,'','warning')}
@@ -714,10 +1067,51 @@
                         <thead><tr><th style="width:34px;"><input type="checkbox" id="user-select-all" onchange="Vault.toggleAllUsers(this.checked)"></th><th>#</th><th>User</th><th>Email</th><th>Role</th><th>Status</th><th>Chats</th><th>Messages</th><th>Last Active</th><th>Actions</th></tr></thead>
                         <tbody id="users-tbody"></tbody>
                     </table>
+                    <div style="text-align:center;padding:10px;" id="users-load-more-wrap">
+                        ${users.length < total ? '<button class="vault-btn" id="users-load-more" onclick="Vault.loadMoreUsers()">Load more users (showing ' + users.length + ' of ' + total + ')</button>' : ('<div style="color:#8B949E;font-size:11px;">All ' + total + ' users loaded</div>')}
+                    </div>
                 </div>`;
             el.innerHTML = html;
             this.renderUsersTable(users);
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
+    },
+
+    async loadMoreUsers() {
+        const btn = document.getElementById('users-load-more');
+        if (btn) { btn.disabled = true; btn.textContent = 'Loading...'; }
+        try {
+            const d = await api('/api/auth/admin/users?limit=200&offset=' + this._usersOffset);
+            const more = d.users || [];
+            const total = d.total || this._usersTotal;
+            const all = (this._cache.users || []).concat(more);
+            this._cache.users = all;
+            this._usersOffset = all.length;
+            this._usersTotal = total;
+            const wrap = document.getElementById('users-load-more-wrap');
+            if (wrap) {
+                wrap.innerHTML = all.length < total
+                    ? '<button class="vault-btn" id="users-load-more" onclick="Vault.loadMoreUsers()">Load more users (showing ' + all.length + ' of ' + total + ')</button>'
+                    : '<div style="color:#8B949E;font-size:11px;">All ' + total + ' users loaded</div>';
+            }
+            this.renderUsersTable(all);
+        } catch (e) { showToast(e.message, 'error'); }
+        const btn2 = document.getElementById('users-load-more');
+        if (btn2) btn2.disabled = false;
+    },
+
+    async exportUserData(id, username) {
+        this.showLoading('EXPORTING ' + username.toUpperCase() + '...');
+        try {
+            const url = `/api/auth/admin/analytics/export/user/${id}`;
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `zenith_user_${username}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            showToast(`Exporting ${username}'s data...`, 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+        this.hideLoading();
     },
 
     renderUsersTable(users) {
@@ -744,6 +1138,7 @@
                 <td style="color:#8B949E;font-size:11px;">${u.last_active || 'Never'}</td>
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
                     ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">💬</button>` : ''}
+                    ${canAct ? `<button class="vault-btn" title="Export all data for ${this.esc(u.username)}" onclick="Vault.exportUserData(${u.id},'${this.esc(u.username)}')">⬇️</button>` : ''}
                     ${isOwner && u.role === 'user' && !u.is_banned && !u.is_deleted ? `<button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" title="Promote to Admin">⬆️</button>` : ''}
                     ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.esc(u.username)}')">🔑</button>
                     <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
@@ -1147,50 +1542,90 @@
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading logs...</div>';
         try {
             const hist = await api('/api/auth/admin/analytics/login-history-all').catch(() => ({ history: [] }));
+            const audit = await api('/api/auth/admin/audit').catch(() => ({ logs: [], total: 0 }));
             el.innerHTML = `
-                <div class="vault-search"><input class="vault-input" id="log-search" placeholder="Search logs..." oninput="Vault.filterLogs()"></div>
+                <div class="vault-stats" style="padding:0 0 12px;">
+                    <div class="vault-tabbar" style="display:flex;gap:8px;width:100%;">
+                        <button class="vault-btn primary" id="log-tab-login" onclick="Vault.switchLogTab('login')">🔑 Login History</button>
+                        <button class="vault-btn" id="log-tab-audit" onclick="Vault.switchLogTab('audit')">🛡️ Action Log (${audit.total})</button>
+                    </div>
+                </div>
+                <div class="vault-search">
+                    <input class="vault-input" id="log-search" placeholder="Search logs..." oninput="Vault.filterLogs()">
+                </div>
                 <div class="vault-card" style="overflow-x:auto;">
                     <table class="vault-table">
-                        <thead><tr><th>#</th><th>User</th><th>Action</th><th>IP</th><th>Time</th><th>Device</th></tr></thead>
-                        <tbody id="logs-tbody">${(hist.history || []).map((h, i) => `<tr>
-                            <td style="color:#8B949E;">${i + 1}</td>
-                            <td style="font-weight:600;">${h.username}</td>
-                            <td><span class="badge ${h.success ? 'badge-green' : 'badge-red'}">${h.success ? 'Login' : 'Failed'}</span></td>
-                            <td style="color:#60A5FA;">${h.ip_address}</td>
-                            <td style="color:#8B949E;font-size:11px;">${h.login_at}</td>
-                            <td style="color:#8B949E;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.user_agent}</td>
-                        </tr>`).join('')}</tbody>
+                        <thead><tr id="log-head"><th>#</th><th>User</th><th>Action</th><th>IP</th><th>Time</th><th>Device</th></tr></thead>
+                        <tbody id="logs-tbody"></tbody>
                     </table>
                 </div>`;
             this._cache.logs = hist.history || [];
+            this._cache.audit = audit.logs || [];
+            this._logTab = 'login';
+            this.renderLogsTable();
         } catch (e) { el.innerHTML = '<div style="padding:20px;color:#EF4444;">' + e.message + '</div>'; }
     },
 
-    filterLogs() {
-        const q = (document.getElementById('log-search')?.value || '').toLowerCase();
-        let logs = this._cache.logs || [];
-        if (q) logs = logs.filter(h => h.username.toLowerCase().includes(q) || h.ip_address.includes(q) || h.user_agent.toLowerCase().includes(q));
+    switchLogTab(tab) {
+        this._logTab = tab;
+        document.getElementById('log-tab-login')?.classList.toggle('primary', tab === 'login');
+        document.getElementById('log-tab-audit')?.classList.toggle('primary', tab === 'audit');
+        this.renderLogsTable();
+    },
+
+    renderLogsTable() {
         const tbody = document.getElementById('logs-tbody');
         if (!tbody) return;
-        tbody.innerHTML = logs.map((h, i) => `<tr>
-            <td style="color:#8B949E;">${i + 1}</td>
-            <td style="font-weight:600;">${h.username}</td>
-            <td><span class="badge ${h.success ? 'badge-green' : 'badge-red'}">${h.success ? 'Login' : 'Failed'}</span></td>
-            <td style="color:#60A5FA;">${h.ip_address}</td>
-            <td style="color:#8B949E;font-size:11px;">${h.login_at}</td>
-            <td style="color:#8B949E;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.user_agent}</td>
-        </tr>`).join('');
+        const head = document.getElementById('log-head');
+        if (this._logTab === 'audit') {
+            head.innerHTML = '<th>#</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th><th>Time</th>';
+            const logs = this._cache.audit || [];
+            const q = (document.getElementById('log-search')?.value || '').toLowerCase();
+            const filtered = q ? logs.filter(l => (l.actor_username||'').toLowerCase().includes(q) || (l.action||'').toLowerCase().includes(q) || (l.target_username||'').toLowerCase().includes(q) || (l.detail||'').toLowerCase().includes(q)) : logs;
+            if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="vault-empty">No staff actions recorded yet</td></tr>'; return; }
+            tbody.innerHTML = filtered.map((l, i) => {
+                const roleColor = l.actor_role === 'owner' ? '#a78bfa' : (l.actor_role === 'admin' ? '#fbbf24' : '#8B949E');
+                return `<tr>
+                    <td style="color:#8B949E;">${i + 1}</td>
+                    <td style="font-weight:600;color:${roleColor};">${l.actor_username}</td>
+                    <td><span class="badge badge-purple">${l.action}</span></td>
+                    <td style="color:#60A5FA;">${l.target_username || '—'}</td>
+                    <td style="color:#8B949E;font-size:11px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${this.esc(l.detail || '')}">${this.esc(l.detail || '')}</td>
+                    <td style="color:#8B949E;font-size:11px;">${l.created_at}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            head.innerHTML = '<th>#</th><th>User</th><th>Action</th><th>IP</th><th>Time</th><th>Device</th>';
+            const logs = this._cache.logs || [];
+            const q = (document.getElementById('log-search')?.value || '').toLowerCase();
+            const filtered = q ? logs.filter(h => h.username.toLowerCase().includes(q) || h.ip_address.includes(q) || h.user_agent.toLowerCase().includes(q)) : logs;
+            if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="vault-empty">No logins recorded yet</td></tr>'; return; }
+            tbody.innerHTML = filtered.map((h, i) => `<tr>
+                <td style="color:#8B949E;">${i + 1}</td>
+                <td style="font-weight:600;">${h.username}</td>
+                <td><span class="badge ${h.success ? 'badge-green' : 'badge-red'}">${h.success ? 'Login' : 'Failed'}</span></td>
+                <td style="color:#60A5FA;">${h.ip_address}</td>
+                <td style="color:#8B949E;font-size:11px;">${h.login_at}</td>
+                <td style="color:#8B949E;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.user_agent}</td>
+            </tr>`).join('');
+        }
+    },
+
+    filterLogs() {
+        this.renderLogsTable();
     },
 
     // ═══════════════════════════ BACKUPS ═══════════════════════════
     async renderBackups() {
         const el = document.getElementById('vault-content');
+        if (!el) return;
+        el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading backups...</div>';
         try {
-            const sys = await api('/api/system/stats');
+            const sys = await api('/api/system/stats').catch(() => null);
             el.innerHTML = `
             <div class="vault-stats" style="padding:0 0 12px;">
                 ${this.statCard('💾','Database','SQLite','','info')}
-                ${this.statCard('📁','Storage', (sys.storage || 0) + '% used','','')}
+                ${this.statCard('📁','Storage', (sys?.storage || 0) + '% used','','')}
                 ${this.statCard('🔄','Auto-backup','Railway','','success')}
             </div>
             <div class="vault-grid-3">
@@ -1198,7 +1633,7 @@
                     <div style="font-size:28px;margin-bottom:8px;">💾</div>
                     <div style="font-weight:600;color:#DDE4EE;margin-bottom:4px;">Full Backup</div>
                     <div style="font-size:11px;color:#8B949E;margin-bottom:12px;">Complete database snapshot</div>
-                    <button class="vault-btn primary" onclick="showToast('Full backup created','success')">Create Full Backup</button>
+                    <button class="vault-btn primary" onclick="Vault.createFullBackup()">Create Full Backup</button>
                 </div>
                 <div class="vault-card" style="text-align:center;">
                     <div style="font-size:28px;margin-bottom:8px;">👤</div>
@@ -1240,6 +1675,32 @@
         } catch (e) {
             el.innerHTML = '<div style="text-align:center;padding:40px;color:#8B949E;">Loading backups... (system stats unavailable)</div>';
         }
+    },
+
+    async createFullBackup() {
+        this.showLoading('CREATING BACKUP...');
+        const btn = document.querySelector('#vault-content button.primary');
+        if (btn) { btn.disabled = true; btn.textContent = 'Backing up...'; }
+        try {
+            const r = await fetch('/api/admin/system/backup', { method: 'POST', credentials: 'same-origin' });
+            if (!r.ok) {
+                let m = 'Backup failed';
+                try { m = (await r.json()).detail || m; } catch {}
+                showToast(m, 'error');
+                return;
+            }
+            const blob = await r.blob();
+            const fileName = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || ('zenith_backup_' + Date.now() + '.db');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            showToast('Full backup downloaded', 'success');
+        } catch (e) { showToast(e.message || 'Backup failed', 'error'); }
+        this.hideLoading();
+        const btn2 = document.querySelector('#vault-content button.primary');
+        if (btn2) { btn2.disabled = false; btn2.textContent = 'Create Full Backup'; }
     },
 
     downloadExport(kind) {
@@ -1515,8 +1976,19 @@
                     <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="maint-label">${state.maintenance_mode === 'on' ? 'ON' : 'OFF'}</div>
                 </div>
                 <div class="vault-card">
-                    <div class="card-header"><span>📢 Global Announcement</span></div>
-                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Broadcast message to all users immediately via popup.</div>
+                    <div class="card-header"><span>📢 Targeted Broadcast</span></div>
+                    <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Send a popup broadcast to everyone, staff, users only, or specific people.</div>
+                    <select class="vault-input" id="global-ann-audience" style="margin-bottom:8px;" onchange="Vault.onAudienceChange()">
+                        <option value="all">Everyone (all users)</option>
+                        <option value="admins">Staff only (admins + owner)</option>
+                        <option value="users">Registered users only</option>
+                        <option value="specific">Specific users…</option>
+                    </select>
+                    <div id="global-ann-specific-wrap" style="display:none;margin-bottom:8px;">
+                        <input class="vault-input" id="global-ann-specific" placeholder="Type to search users, then click to add…" oninput="Vault.onAudienceSearch(this.value)">
+                        <div id="global-ann-specific-results" style="max-height:130px;overflow-y:auto;margin-top:6px;display:flex;flex-direction:column;gap:4px;"></div>
+                        <div id="global-ann-specific-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;"></div>
+                    </div>
                     <textarea class="vault-input" id="global-announce" rows="3" placeholder="Type announcement..." style="resize:vertical;"></textarea>
                     <button class="vault-btn primary" style="margin-top:8px;width:100%;" onclick="Vault.sendAnnouncement()">Send Broadcast →</button>
                     <button class="vault-btn danger" style="margin-top:8px;width:100%;" onclick="Vault.clearBroadcastCache()">🗑️ Clear All Broadcast Cache</button>
@@ -1614,12 +2086,82 @@
         } catch {}
     },
 
+    _targetUsers: [],
+
+    async onAudienceChange() {
+        const sel = document.getElementById('global-ann-audience');
+        const wrap = document.getElementById('global-ann-specific-wrap');
+        if (!sel || !wrap) return;
+        wrap.style.display = sel.value === 'specific' ? 'block' : 'none';
+        if (sel.value === 'specific') {
+            await this.onAudienceSearch('');
+        }
+    },
+
+    async onAudienceSearch(q) {
+        const res = document.getElementById('global-ann-specific-results');
+        if (!res) return;
+        const all = await this.getUsersOnce();
+        const query = (q || '').toLowerCase();
+        let list = all.filter(u => !u.is_deleted);
+        if (query) list = list.filter(u => u.username.toLowerCase().includes(query) || u.email.toLowerCase().includes(query));
+        list = list.slice(0, 12);
+        if (!list.length) { res.innerHTML = '<div style="color:#8B949E;font-size:11px;padding:6px;">No users found</div>'; return; }
+        res.innerHTML = list.map(u => {
+            const already = (this._targetUsers || []).includes(u.id);
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:8px;cursor:pointer;" onclick="Vault.addTargetUser(${u.id},'${this.esc(u.username)}')">
+                <span style="flex:1;font-size:12px;color:${u.role==='owner'||u.role==='admin' ? '#fbbf24' : '#DDE4EE'};">${u.username}</span>
+                <span style="font-size:10px;color:#8B949E;">${u.role}</span>
+                ${already ? '<span style="color:#4ADE80;font-size:11px;">✓ added</span>' : ''}
+            </div>`;
+        }).join('');
+    },
+
+    addTargetUser(id, username) {
+        const list = this._targetUsers || [];
+        if (!list.includes(id)) {
+            list.push(id);
+            const chips = document.getElementById('global-ann-specific-chips');
+            if (chips) {
+                const chip = document.createElement('span');
+                chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:#60A5FA22;border:1px solid #60A5FA66;color:#DDE4EE;font-size:11px;border-radius:20px;padding:4px 10px;';
+                chip.innerHTML = `${this.esc(username)} <span style="cursor:pointer;color:#EF4444;" onclick="Vault.removeTargetUser(${id},'${this.esc(username)}')">✕</span>`;
+                chip.dataset.uid = id;
+                chips.appendChild(chip);
+            }
+        }
+        this._targetUsers = list;
+        this.onAudienceSearch((document.getElementById('global-ann-specific')?.value || ''));
+    },
+
+    removeTargetUser(id, username) {
+        this._targetUsers = (this._targetUsers || []).filter(x => x !== id);
+        const chips = document.getElementById('global-ann-specific-chips');
+        if (chips) {
+            chips.querySelectorAll('[data-uid]').forEach(c => { if (Number(c.dataset.uid) === id) c.remove(); });
+        }
+        this.onAudienceSearch((document.getElementById('global-ann-specific')?.value || ''));
+    },
+
     async sendAnnouncement() {
         const msg = document.getElementById('global-announce')?.value.trim();
         if (!msg) return showToast('Type a message', 'error');
-        const ok = await showConfirm('Send broadcast?', 'This will show a popup to ALL users immediately.');
+        const audience = document.getElementById('global-ann-audience')?.value || 'all';
+        let confirmText = 'This will show a popup to ALL users immediately.';
+        if (audience === 'admins') confirmText = 'This will show a popup to staff ONLY (admins + owner).';
+        else if (audience === 'users') confirmText = 'This will show a popup to registered (non-guest) users only.';
+        else if (audience === 'specific') {
+            const n = (this._targetUsers || []).length;
+            confirmText = `This will show a popup to ${n} specific user${n === 1 ? '' : 's'} only.`;
+            if (!n) return showToast('Select at least one user first', 'error');
+        }
+        const ok = await showConfirm('Send broadcast?', confirmText);
         if (!ok) return;
-        try { await api('/api/announcements', { method: 'POST', body: JSON.stringify({ content: msg }) }); showToast('Broadcast sent!', 'success'); document.getElementById('global-announce').value = ''; } catch (e) { showToast(e.message, 'error'); }
+        try {
+            await api('/api/announcements', { method: 'POST', body: JSON.stringify({ content: msg, audience, user_ids: this._targetUsers || [] }) });
+            showToast('Broadcast sent!', 'success');
+            document.getElementById('global-announce').value = '';
+        } catch (e) { showToast(e.message, 'error'); }
     },
 
     async clearBroadcastCache() {

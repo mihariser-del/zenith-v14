@@ -1133,3 +1133,35 @@ async def heartbeat(request: Request, db: AsyncSession = Depends(get_db)):
     user.last_seen = datetime.now(timezone.utc)
     await db.commit()
     return {"ok": True}
+
+
+@router.get("/admin/pin-state")
+async def pin_state(request: Request, db: AsyncSession = Depends(get_db)):
+    """Vault PIN gate state for the current staff member. `unlocked` is false
+    whenever the gate is enabled, so the vault always starts locked server-side."""
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    enabled = bool(getattr(user, "pin_enabled", False))
+    return {"enabled": enabled, "unlocked": not enabled}
+
+
+@router.post("/admin/pin-state")
+async def pin_state_update(request: Request, db: AsyncSession = Depends(get_db)):
+    body = await request.json()
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    user.pin_enabled = bool(body.get("enabled", True))
+    await db.commit()
+    return {"enabled": user.pin_enabled, "unlocked": False}
+
+
+@router.post("/admin/pin-unlock")
+async def pin_unlock(request: Request, db: AsyncSession = Depends(get_db)):
+    """Called after the PIN is validated client-side. Marks the short-lived
+    server unlock so an admin who hard-refreshes isn't re-gated mid-session."""
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return {"ok": True}

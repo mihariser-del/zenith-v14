@@ -96,16 +96,25 @@ async def search_memories(req: SearchRequest, request: Request, db: AsyncSession
     return {"memories": [MemoryResponse.model_validate(m) for m in memories]}
 
 
-@router.post("/auto-extract")
-async def auto_extract(request: Request, db: AsyncSession = Depends(get_db)):
+last_auto_extract_ts = {}
+
+
+async def run_auto_extract(user_id: int, db: AsyncSession) -> dict:
+    """Auto-extract memories from the user's recent chats. Throttled to ~once
+    every 10 minutes per user so background extraction does not burn credits."""
+    import time as _time
+    now = _time.time()
+    prev = last_auto_extract_ts.get(user_id, 0)
+    if now - prev < 600:
+        return {"memories": [], "throttled": True}
+    last_auto_extract_ts[user_id] = now
+
     import json, httpx
     from database import Message, Chat, settings
     from sqlalchemy.orm import selectinload
 
-    user = await get_current_user_from_cookie(request, db)
-
     result = await db.execute(
-        select(Chat).where(Chat.user_id == user.id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(3)
+        select(Chat).where(Chat.user_id == user_id).options(selectinload(Chat.messages)).order_by(Chat.updated_at.desc()).limit(3)
     )
     chats = result.scalars().all()
 
@@ -118,7 +127,7 @@ async def auto_extract(request: Request, db: AsyncSession = Depends(get_db)):
         return {"memories": [], "message": "No recent conversations to extract from"}
 
     existing = await db.execute(
-        select(Memory).where(Memory.user_id == user.id).order_by(Memory.updated_at.desc()).limit(10)
+        select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(10)
     )
     existing_memories = [m.content for m in existing.scalars().all()]
     existing_text = "\n".join(f"- {m}" for m in existing_memories) if existing_memories else "None"
@@ -137,8 +146,7 @@ Recent conversations:
 Return ONLY a JSON array of strings. No other text."""
 
     try:
-        from database import settings as _s
-        _keys = _s.get_openrouter_keys()
+        _keys = settings.get_openrouter_keys()
         _key = _keys[0] if _keys else ""
         if not _key:
             return {"memories": [], "error": "No API key configured"}
@@ -163,9 +171,15 @@ Return ONLY a JSON array of strings. No other text."""
         if isinstance(fact, str) and fact.strip():
             is_dup = any(fact.lower() in existing.lower() for existing in existing_memories)
             if not is_dup:
-                memory = Memory(user_id=user.id, content=fact.strip(), category="auto-extracted")
+                memory = Memory(user_id=user_id, content=fact.strip(), category="auto-extracted")
                 db.add(memory)
                 new_memories.append(fact.strip())
 
     await db.commit()
     return {"memories": new_memories, "count": len(new_memories)}
+
+
+@router.post("/auto-extract")
+async def auto_extract(request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    return await run_auto_extract(user.id, db)

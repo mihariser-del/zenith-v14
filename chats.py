@@ -296,7 +296,10 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()
     think = body.get("think", False)
-    web_search = body.get("web_search", False)
+    # Auto web search: search runs by default for factual questions unless the
+    # user explicitly disables it, so the assistant stays current without the
+    # user having to remember the toggle.
+    web_search = body.get("web_search", True)
     research = body.get("research", False)
     factcheck = body.get("factcheck", False)
     images = body.get("images", [])
@@ -305,6 +308,16 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
             yield "data: [DONE]\n\n"
         return StreamingResponse(_silent_gen(), media_type="text/event-stream")
     return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)
+
+
+async def _auto_extract_worker(user_id: int):
+    from database import async_session as _asess
+    try:
+        async with _asess() as db:
+            from memories import run_auto_extract
+            await run_auto_extract(user_id, db)
+    except Exception:
+        pass
 
 
 @router.get("/{chat_id}/messages")
@@ -387,6 +400,14 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     try:
         from personality import maybe_mirror_refresh
         await maybe_mirror_refresh(user.id)
+    except Exception:
+        pass
+    # Auto memory: fire-and-forget background extraction so the AI remembers
+    # things about the user without them opening the Memory tab. Throttled
+    # server-side (once per ~10 min per user).
+    try:
+        import asyncio as _aio
+        _aio.ensure_future(_auto_extract_worker(user.id))
     except Exception:
         pass
     return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)

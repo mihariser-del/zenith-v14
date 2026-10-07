@@ -422,8 +422,26 @@ class Announcement(Base):
     role = Column(String(20), default="admin")  # admin | owner
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    # Broadcast audience: "*" (everyone) or JSON array of recipient user ids
+    # (targeted broadcast). Empty = everyone (legacy rows).
+    recipient = Column(Text, default="*")
 
     user = relationship("User")
+
+
+class ActionLog(Base):
+    __tablename__ = "action_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    actor_id = Column(Integer, nullable=True)
+    actor_username = Column(String(50), default="")
+    actor_role = Column(String(20), default="")  # owner | admin | user | system
+    action = Column(String(50), nullable=False, index=True)  # ban, unban, reset_password, delete, role_change, ...
+    target_id = Column(Integer, nullable=True)
+    target_username = Column(String(50), default="")
+    detail = Column(Text, default="")
+    ip = Column(String(45), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 class Reminder(Base):
@@ -576,6 +594,15 @@ async def init_db():
             )""")
         except Exception as e:
             print(f"migration invite_tokens: {e}")
+        # Action audit log table + announcements audience column
+        try:
+            await conn.run_sync(Base.metadata.create_all)
+        except Exception as e:
+            print(f"migration create_all: {e}")
+        try:
+            await conn.exec_driver_sql("ALTER TABLE announcements ADD COLUMN recipient TEXT DEFAULT '*'")
+        except Exception as e:
+            pass  # column already exists
     async with async_session() as session:
         from sqlalchemy import select
         import bcrypt, os

@@ -32,6 +32,7 @@ from analytics import router as analytics_router
 from global_controls import router as global_controls_router
 from personal_requests import router as personal_requests_router
 from personality import router as personality_router
+from audit import router as audit_router
 
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
@@ -146,6 +147,7 @@ app.include_router(analytics_router)
 app.include_router(global_controls_router)
 app.include_router(personal_requests_router)
 app.include_router(personality_router)
+app.include_router(audit_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

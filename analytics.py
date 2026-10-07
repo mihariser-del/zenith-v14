@@ -3,8 +3,9 @@ from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 
-from database import get_db, User, Chat, Message, LoginHistory, Referral
+from database import get_db, User, Chat, Message, LoginHistory, Referral, UserSettings, Memory
 from auth import get_current_user_from_cookie, is_staff, get_role
+from audit import log_action
 
 router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"])
 
@@ -146,13 +147,17 @@ async def messages_per_hour(request: Request, db: AsyncSession = Depends(get_db)
 
 
 @router.get("/all-chats")
-async def all_chats(request: Request, db: AsyncSession = Depends(get_db)):
+async def all_chats(request: Request, limit: int = 50, offset: int = 0, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    from sqlalchemy import func as _func
+    from sqlalchemy.orm import selectinload
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
-        from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(select(Chat).options(selectinload(Chat.user)).order_by(Chat.updated_at.desc()).limit(100))
+    limit = min(max(limit, 1), 100)
+    offset = max(offset, 0)
+    total = (await db.execute(select(_func.count()).select_from(Chat))).scalar() or 0
+    result = await db.execute(select(Chat).options(selectinload(Chat.user)).order_by(Chat.updated_at.desc()).limit(limit).offset(offset))
     chats = result.scalars().all()
     out = []
     for c in chats:
@@ -160,7 +165,7 @@ async def all_chats(request: Request, db: AsyncSession = Depends(get_db)):
             owner = c.user
             if owner and get_role(owner) in ("admin", "owner"):
                 continue
-        msg_count = (await db.execute(select(func.count()).select_from(Message).where(Message.chat_id == c.id))).scalar() or 0
+        msg_count = (await db.execute(select(_func.count()).select_from(Message).where(Message.chat_id == c.id))).scalar() or 0
         out.append({
             "id": c.id, "title": c.title, "user_id": c.user_id,
             "username": c.user.username if c.user else "?",
@@ -168,16 +173,20 @@ async def all_chats(request: Request, db: AsyncSession = Depends(get_db)):
             "created_at": c.created_at.strftime("%Y-%m-%d %H:%M") if c.created_at else "",
             "updated_at": c.updated_at.strftime("%Y-%m-%d %H:%M") if c.updated_at else "",
         })
-    return {"chats": out}
+    return {"chats": out, "total": total, "offset": offset, "limit": limit}
 
 
 @router.get("/all-messages")
-async def all_messages(request: Request, db: AsyncSession = Depends(get_db)):
+async def all_messages(request: Request, limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)):
+    from fastapi import HTTPException
+    from sqlalchemy import func as _func
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
-        from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.execute(select(Message).join(Chat).order_by(Message.created_at.desc()).limit(100))
+    limit = min(max(limit, 1), 200)
+    offset = max(offset, 0)
+    total = (await db.execute(select(_func.count()).select_from(Message))).scalar() or 0
+    result = await db.execute(select(Message).join(Chat).order_by(Message.created_at.desc()).limit(limit).offset(offset))
     msgs = result.scalars().all()
     out = []
     for m in msgs:
@@ -191,7 +200,7 @@ async def all_messages(request: Request, db: AsyncSession = Depends(get_db)):
             "content": m.content[:200], "chat_title": chat.title if chat else "?",
             "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "",
         })
-    return {"messages": out}
+    return {"messages": out, "total": total, "offset": offset, "limit": limit}
 
 
 @router.get("/chat/{chat_id}/messages")
@@ -268,16 +277,75 @@ async def export_messages(request: Request, db: AsyncSession = Depends(get_db)):
     result = await db.execute(select(Message).order_by(Message.created_at.desc()).limit(2000))
     msgs = result.scalars().all()
     lines = [f"{m.created_at} | chat#{m.chat_id} | {m.role} | {m.content}" for m in msgs]
+    await log_action(db=db, request=request, actor=user, action="export_data", detail="Exported all messages")
     return Response(content="\n".join(lines), media_type="text/plain", headers={"Content-Disposition": 'attachment; filename="zenith_messages.txt'})
 
 
+@router.get("/export/user/{user_id}")
+async def export_single_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Per-user data export: account info + all chats/messages + memories."""
+    from fastapi import HTTPException
+    from fastapi.responses import Response
+    from sqlalchemy.orm import selectinload
+    admin = await get_current_user_from_cookie(request, db)
+    if not is_staff(admin):
+        raise HTTPException(status_code=403, detail="Admin only")
+    result = await db.execute(select(User).where(User.id == user_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404, detail="User not found")
+    target_role = get_role(target)
+    if target_role in ("admin", "owner") and get_role(admin) != "owner":
+        raise HTTPException(status_code=403, detail="Admins cannot export fellow staff data")
+    import json
+    lines = []
+    lines.append("ZELPOPHAI AI — PER-USER DATA EXPORT")
+    lines.append("=" * 50)
+    lines.append(f"User ID: {target.id}")
+    lines.append(f"Username: {target.username}")
+    lines.append(f"Email: {target.email}")
+    lines.append(f"Role: {target_role}")
+    lines.append(f"Created: {target.created_at}")
+    lines.append(f"Banned: {target.is_banned} | Deleted: {target.is_deleted} | Pro: {target.is_pro} | Ultimate: {target.is_ultimate}")
+    lines.append("")
+    user_settings = (await db.execute(select(UserSettings).where(UserSettings.user_id == target.id))).scalar_one_or_none()
+    if user_settings:
+        lines.append(f"System prompt: {user_settings.system_prompt}")
+        lines.append(f"Model: {user_settings.model} | Max tokens: {user_settings.max_tokens} | Temp: {user_settings.temperature}")
+        lines.append("")
+    mem_result = await db.execute(select(Memory).where(Memory.user_id == target.id).order_by(Memory.created_at.desc()).limit(500))
+    memories = mem_result.scalars().all()
+    if memories:
+        lines.append("MEMORIES")
+        lines.append("-" * 50)
+        for m in memories:
+            lines.append(f"[{m.created_at}] ({m.category}) {m.content}")
+        lines.append("")
+    chat_result = await db.execute(select(Chat).where(Chat.user_id == target.id).order_by(Chat.updated_at.desc()))
+    chats = chat_result.scalars().all()
+    lines.append(f"CHATS ({len(chats)})")
+    lines.append("-" * 50)
+    for c in chats:
+        lines.append("")
+        lines.append(f"=== Chat #{c.id} [{c.title}] created {c.created_at} updated {c.updated_at} ===")
+        msg_result = await db.execute(select(Message).where(Message.chat_id == c.id).order_by(Message.id))
+        for m in msg_result.scalars().all():
+            lines.append(f"[{m.created_at}] {m.role}: {m.content}")
+    await log_action(db=db, request=request, actor=admin, action="export_data", target_id=target.id, target_username=target.username, detail="Per-user data export")
+    content = "\n".join(lines)
+    return Response(content=content, media_type="text/plain", headers={"Content-Disposition": f'attachment; filename="zenith_user_{target.username}_{target.id}.txt'})
+
+
 @router.get("/login-history-all")
-async def login_history_all(request: Request, db: AsyncSession = Depends(get_db)):
+async def login_history_all(request: Request, limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.execute(select(LoginHistory).join(User).order_by(LoginHistory.login_at.desc()).limit(100))
+    limit = min(max(limit, 1), 200)
+    offset = max(offset, 0)
+    total = (await db.execute(select(func.count()).select_from(LoginHistory))).scalar() or 0
+    result = await db.execute(select(LoginHistory).join(User).order_by(LoginHistory.login_at.desc()).limit(limit).offset(offset))
     entries = result.scalars().all()
     out = []
     for e in entries:
@@ -288,4 +356,4 @@ async def login_history_all(request: Request, db: AsyncSession = Depends(get_db)
             "login_at": e.login_at.strftime("%Y-%m-%d %H:%M UTC") if e.login_at else "",
             "success": e.success,
         })
-    return {"history": out}
+    return {"history": out, "total": total, "offset": offset, "limit": limit}

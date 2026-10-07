@@ -2,10 +2,11 @@
 import os
 import re
 import httpx
+from datetime import datetime, timezone, timedelta
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session
+from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session, system_settings
 
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -224,6 +225,39 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         parts.append(kb_context)
     if mirror_text:
         parts.append(mirror_text)
+
+    # Self-awareness: give Zelpophai AI live knowledge of the platform it runs on,
+    # so when users ask "how many users are on here?", "how many admins?", "who made
+    # you?" etc. it can answer from its own context instead of guessing.
+    try:
+        async with async_session() as sap:
+            from sqlalchemy import func as _sf, text as _stext
+            from database import User as _U, Chat as _C, Message as _M
+            _u = (await sap.execute(_sf(_sf.count()).select_from(_U).where(_U.is_deleted == False))).scalar() or 0
+            _admin = (await sap.execute(_sf(_sf.count()).select_from(_U).where(_U.role == "admin", _U.is_deleted == False))).scalar() or 0
+            _owner = (await sap.execute(_sf(_sf.count()).select_from(_U).where(_U.role == "owner", _U.is_deleted == False))).scalar() or 0
+            _chats = (await sap.execute(_sf(_sf.count()).select_from(_C))).scalar() or 0
+            _msgs = (await sap.execute(_sf(_sf.count()).select_from(_M))).scalar() or 0
+            try:
+                _online = (await sap.execute(_sf(_sf.count()).select_from(_U).where(_U.last_seen >= datetime.now(timezone.utc) - timedelta(minutes=2), _U.is_deleted == False))).scalar() or 0
+            except Exception:
+                _online = 0
+            try:
+                _row = (await sap.execute(_stext("SELECT value FROM system_settings WHERE key='registrations'"))).first()
+                _regs = (_row[0] if _row else "on")
+            except Exception:
+                _regs = "on"
+        sap_text = (
+            f"PLATFORM AWARENESS (live data, use these numbers if asked about the platform):\n"
+            f"- Platform name: Zelpophai AI; creator/Owner: WANZU-IBRAHIM; you are the AI behind it.\n"
+            f"- Registered accounts (not deleted): {_u}. Owners: {_owner}. Staff admins: {_admin}.\n"
+            f"- Total chats: {_chats}. Total messages: {_msgs}. Users online right now: ~{_online}.\n"
+            f"- New registrations: {'OPEN' if _regs == 'on' else 'CLOSED'}.\n"
+            f"- When asked about user counts, admins, online users or platform stats, answer from these numbers."
+        )
+        parts.append(sap_text)
+    except Exception:
+        pass
 
     return "\n\n".join(parts)
 

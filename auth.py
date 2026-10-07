@@ -18,6 +18,7 @@ from database import (
     decrypt_pending_password,
     random_password,
 )
+from audit import log_action
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -766,6 +767,7 @@ async def create_admin(req: AdminRequest, request: Request, db: AsyncSession = D
     db.add(user)
     await db.commit()
     await db.refresh(user)
+    await log_action(db=db, request=request, actor=actor, action="create_admin", target_id=user.id, target_username=user.username, detail=f"Created admin account {username}")
     return {"id": user.id, "username": user.username, "message": "Admin created"}
 
 
@@ -791,13 +793,47 @@ async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/admin/users")
-async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
-    from sqlalchemy import func
+async def list_all_users(
+    request: Request,
+    limit: int = 100,
+    offset: int = 0,
+    search: str = "",
+    role: str = "",
+    status: str = "",
+    db: AsyncSession = Depends(get_db),
+):
+    from sqlalchemy import func, or_
     from database import Chat, Message
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    limit = min(max(limit, 1), 500)
+    offset = max(offset, 0)
+    conds = []
+    if search:
+        q = search.strip()
+        conds.append(
+            or_(
+                User.username.ilike(f"%{q}%"),
+                User.email.ilike(f"%{q}%"),
+                User.id == (int(q) if q.isdigit() else -1),
+            )
+        )
+    if role:
+        if role == "guest":
+            conds.append(User.username.like("guest_%"))
+        else:
+            conds.append(User.role == role)
+    if status == "active":
+        conds.append(User.is_banned == False, User.is_deleted == False)
+    elif status == "banned":
+        conds.append(User.is_banned == True)
+    elif status == "deleted":
+        conds.append(User.is_deleted == True)
+    total = (await db.execute(select(func.count()).select_from(User).where(*conds))).scalar() or 0
+    result = await db.execute(
+        select(User).where(*conds).order_by(User.created_at.desc()).limit(limit).offset(offset)
+    )
     users = result.scalars().all()
     now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
     enriched = []
@@ -814,7 +850,7 @@ async def list_all_users(request: Request, db: AsyncSession = Depends(get_db)):
             except Exception:
                 online = False
         enriched.append({**UserResponse.model_validate(u).model_dump(), "role": get_role(u), "chat_count": chat_count, "message_count": msg_count, "last_active": last_chat.strftime("%Y-%m-%d %H:%M") if last_chat else "Never", "created_at": u.created_at.strftime("%Y-%m-%d") if u.created_at else "", "online": online, "last_seen": last_seen.strftime("%Y-%m-%d %H:%M") if last_seen else ""})
-    return {"users": enriched}
+    return {"users": enriched, "total": total}
 
 
 @router.post("/admin/users/{user_id}/ban")
@@ -843,6 +879,7 @@ async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, d
     target.ban_reason = req.reason.strip()[:500]
     target.banned_by = get_role(admin)
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="ban", target_id=target.id, target_username=target.username, detail=f"Banned: {req.reason.strip()[:200]}")
     return {"message": f"{target.username} banned by {_role_label(get_role(admin))}"}
 
 
@@ -862,6 +899,7 @@ async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = De
     target.ban_reason = ""
     target.banned_by = ""
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="unban", target_id=target.id, target_username=target.username, detail="Unbanned")
     return {"message": f"{target.username} unbanned"}
 
 
@@ -891,6 +929,7 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
     target.pending_password = encrypt_pending_password(req.new_password)
     target.pending_password_by = get_role(admin)
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="reset_password", target_id=target.id, target_username=target.username, detail="Password reset by staff")
     return {"message": f"Password reset for {target.username}"}
 
 
@@ -919,6 +958,7 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
     for c in chats:
         msgs = [{"role": m.role, "content": m.content, "created_at": str(m.created_at)} for m in c.messages[-100:]]
         out.append({"id": c.id, "title": c.title, "message_count": len(c.messages), "updated_at": str(c.updated_at), "messages": msgs})
+    await log_action(db=db, request=request, actor=admin, action="view_chats", target_id=user_id, target_username=target.username if target else "", detail=f"Viewed {len(chats)} chat(s)")
     return {"chats": out}
 
 
@@ -949,6 +989,7 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     target.is_deleted = True
     target.deleted_by = get_role(admin)
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="delete_user", target_id=target.id, target_username=target.username, detail="User soft-deleted")
     return {"message": "User deleted (soft)"}
 
 
@@ -990,6 +1031,7 @@ async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: 
         target.deleted_by = admin_role
         deleted += 1
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="bulk_delete", detail=f"Deleted {deleted} user(s): {', '.join(t.username for t in targets if t.is_deleted)[:500]}")
     return {"message": f"Deleted {deleted} user(s)", "deleted": deleted, "skipped": skipped}
 
 
@@ -1021,6 +1063,7 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
         target.is_admin = True
         target.pending_notification = 'promoted'
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="role_change", target_id=target.id, target_username=target.username, detail=f"Role changed to {new_role}")
     return {"message": f"User role changed to {new_role}", "role": new_role}
 
 
@@ -1065,6 +1108,7 @@ async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession
     filtered = {k: bool(v) for k, v in perms.items() if k in allowed_keys}
     target.permissions = json.dumps(filtered)
     await db.commit()
+    await log_action(db=db, request=request, actor=admin, action="permissions", target_id=target.id, target_username=target.username, detail=f"Permissions set: {json.dumps(filtered)}")
     return {"message": "Permissions updated", "permissions": filtered}
 
 

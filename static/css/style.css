@@ -1,10 +1,10 @@
 :root {
-    --bg: #0a0316; --sidebar: #12082b; --text: #f2edff; --input-bg: #1d1040;
-    --border: #2f1f5c; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6, #22d3ee);
+    --bg: #000000; --sidebar: #0b0b10; --text: #f2edff; --input-bg: #131318;
+    --border: #2a2a35; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6, #22d3ee);
     --accent-solid: #a855f7; --accent-hover: #9333ea;
     --user-msg: linear-gradient(135deg, #6d28d9, #ff3db4);
-    --ai-msg: #170b35; --error: #ff4d4d; --hover-bg: #241640;
-    --code-bg: #17112e;
+    --ai-msg: #0d0d12; --error: #ff4d4d; --hover-bg: #17171c;
+    --code-bg: #0f0f14;
 }
 .light-theme {
     --bg: #f6f2ff; --sidebar: #ffffff; --text: #221235; --input-bg: #eee8f8;

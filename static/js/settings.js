@@ -1,6 +1,6 @@
 ﻿const Settings = {
     defaults: {
-        theme: 'dark',
+        theme: 'auto',
         accent: '#8b5cf6',
         msgSpacing: 'cozy',
         markdown: true,
@@ -71,9 +71,18 @@
         $('settings-modal').style.display = 'none';
     },
 
+    applyTheme(choice) {
+        const useLight = choice === 'light' || (choice !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        document.body.classList.toggle('light-theme', useLight);
+        if (!document.body.classList.contains('admin-owner') && !document.body.classList.contains('admin-gold')) {
+            const m = document.querySelector('meta[name="theme-color"]');
+            if (m) m.content = useLight ? '#f6f2ff' : '#000000';
+        }
+    },
+
     async apply() {
         const s = this.getLocal();
-        document.body.classList.toggle('light-theme', s.theme === 'light');
+        this.applyTheme(s.theme);
         let isOwner = false;
         let isAdminUser = false;
         try {
@@ -200,6 +209,14 @@
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    if (window.matchMedia) {
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (Settings.getLocal().theme === 'auto' && !e.matches) Settings.applyTheme('light');
+        });
+        window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+            if (Settings.getLocal().theme === 'auto' && !e.matches) Settings.applyTheme('dark');
+        });
+    }
     const toggle = $('mirror-toggle');
     if (!toggle) return;
     toggle.addEventListener('change', async () => {

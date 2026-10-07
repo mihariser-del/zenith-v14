@@ -9,7 +9,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16-v2.png">
     <link rel="manifest" href="/static/manifest.json?v=2">
-    <meta name="theme-color" content="#12082b">
+    <meta name="theme-color" content="#000000">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon-v2.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Zelpophai AI">
@@ -19,6 +19,15 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <script>
+        (function () {
+            try {
+                var s = JSON.parse(localStorage.getItem('zenith_settings') || '{}').theme || 'auto';
+                var useLight = s === 'light' || (s !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+                document.documentElement.classList.toggle('light-theme', useLight);
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body>
 
@@ -337,7 +346,8 @@
             <div class="details-content">
                 <label>Theme</label>
                 <select id="theme-select">
-                    <option value="dark">Dark (Vivid Neon)</option>
+                    <option value="auto">Auto (Follow device)</option>
+                    <option value="dark">Dark (Black)</option>
                     <option value="light">Light (Clean)</option>
                 </select>
                 <label>Accent Color</label>

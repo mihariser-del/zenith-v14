@@ -30,6 +30,23 @@ def _is_exhausted(status_code: int, body: str) -> bool:
 
 DEFAULT_SYSTEM_PROMPT = "You are Zelpophai AI, created by Wanzu Ibrahim. Answer accurately and helpfully."
 
+# File generation capability: the app turns the AI's reply into a downloadable
+# file (the chat shows .md/.html/.docx/.pdf/.pptx/.xlsx/.csv download buttons,
+# and the response can be exported via the built-in document generator). Tell
+# the model to write COMPLETE file content instead of refusing to create files.
+FILE_GEN_PROMPT = (
+    "FILE GENERATION CAPABILITY: You can create files for the user. "
+    "When they ask you to generate, create, write or build a file - a welcome "
+    "page or website page, HTML page, document, report, resume, essay, slides/ "
+    "presentation, spreadsheet, table, invoice, PDF content, notes, code file, "
+    "etc. - respond with the COMPLETE, ready-to-use content of that file written "
+    "out fully in your message (the full HTML+CSS for a webpage, full markdown/ "
+    "text for a document, complete rows for a spreadsheet, etc.). The app turns "
+    "your reply into an actual downloadable file in the user's choice of format. "
+    "Never refuse or say you cannot create files here - your reply IS the file. "
+    "Keep any explanation short; prioritize the full content of the file itself."
+)
+
 DEFAULT_THINK_PROMPT = (
     "You are Zelpophai AI, created by Wanzu Ibrahim. "
     "Think step-by-step before answering. "
@@ -216,6 +233,8 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
 
     if think and "think step-by-step" not in base.lower() and not research:
         base += "\nThink step-by-step before answering. Show your reasoning process clearly, then provide your final answer."
+
+    base += "\n" + FILE_GEN_PROMPT
 
     parts = [base]
     if memories:

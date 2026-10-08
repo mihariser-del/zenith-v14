@@ -1252,6 +1252,9 @@ const Chat = {
                 const old = aiWrapper.querySelector('.msg-actions');
                 if (old) old.remove();
                 aiWrapper.appendChild(this._buildMsgActions('assistant', fullResponse, null, aiWrapper));
+                if (this._looksLikeGenerationRequest(text)) {
+                    this._appendFilePill(bubble, fullResponse, this._docSlug(text, 'generated-file'));
+                }
                 this._postStreamSync(userWrapper, fullResponse);
             }
         } catch (err) {
@@ -1346,6 +1349,31 @@ const Chat = {
             btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(76,201,240,.12)'; btn.style.color = '#7df0ff'; });
             btn.addEventListener('click', () => this.downloadAs(note, 'test-file', btn.dataset.fmt));
         });
+    },
+
+    _docSlug(text, fallback) {
+        const t = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        return (t.slice(0, 40) || fallback || 'generated-file');
+    },
+
+    // When the user asks for a generated file (welcome page, doc, slides, ...),
+    // surface a download pill on the AI bubble so the reply can be grabbed in
+    // any format via /api/generate/document.
+    _appendFilePill(bubble, content, filename) {
+        const formats = ['md', 'html', 'docx', 'pdf', 'pptx', 'xlsx', 'csv'];
+        const pill = document.createElement('div');
+        pill.className = 'file-pill ftest';
+        pill.style.margin = '10px 0 0';
+        pill.innerHTML =
+            `<div class="fp-ic">&#128196;</div>` +
+            `<div class="fp-info"><div class="fp-name">${this.escapeHtml(filename)}</div><div class="fp-sub">Generated file &middot; pick a format to download</div></div>` +
+            `<div class="fp-dls">` +
+                formats.map(f => `<button class="fp-dl" data-fmt="${f}">${f}</button>`).join('') +
+            `</div>`;
+        pill.querySelectorAll('.fp-dl').forEach(btn => {
+            btn.addEventListener('click', () => this.downloadAs(content, filename, btn.dataset.fmt));
+        });
+        bubble.appendChild(pill);
     },
 
     _showLimitBanner(secs, isGuest, rawDetail) {
@@ -1474,7 +1502,12 @@ const Chat = {
             }
 
             bubble.classList.remove('streaming-cursor');
-            if (fullResponse) this.showRegenerate();
+            if (fullResponse) {
+                if (this._looksLikeGenerationRequest(lastUserMsg.content)) {
+                    this._appendFilePill(bubble, fullResponse, this._docSlug(lastUserMsg.content, 'generated-file'));
+                }
+                this.showRegenerate();
+            }
         } catch (err) {
             if (err.name !== 'AbortError') showToast('Error: ' + err.message, 'error');
             else bubble.textContent = 'Stopped.';

@@ -98,28 +98,28 @@
                 }
             }, 30000);
         }
-        // Server-side pin flag (persisted across sessions/devices) so a
-        // staff member can't just clear localStorage and skip the gate once enabled.
-        let shouldGate = false;
-        let forceSetup = false;
-        try {
-            const prefs = await api('/api/auth/admin/pin-state').catch(() => null);
-            if (prefs) {
-                forceSetup = !this._pinHash && prefs.enabled && !prefs.unlocked;
-                shouldGate = prefs.enabled && !prefs.unlocked;
-            }
-        } catch {}
-        if (forceSetup) {
+        // Always start the vault behind the welcome/PIN gate. First visit (no PIN
+        // saved anywhere) goes straight to setup; otherwise ask for the existing PIN.
+        this._renderWelcomeIdentity(me);
+        if (!this._pinHash) {
             this.setupPIN();
-            return;
-        }
-        if (shouldGate || this._pinHash) {
+        } else {
             this.enterPINScreen();
-            return;
         }
-        this._pinUnlocked = true;
-        if (lockedBtn) lockedBtn.style.display = 'none';
-        this.loadTab('dashboard');
+    },
+
+    _renderWelcomeIdentity(me) {
+        if (!me) return;
+        const av = document.getElementById('vault-pin-avatar');
+        if (av && me.username) av.textContent = me.username[0].toUpperCase();
+        const nameEl = document.getElementById('vault-pin-name');
+        if (nameEl) nameEl.textContent = me.username;
+        const roleEl = document.getElementById('vault-pin-role');
+        if (roleEl) {
+            roleEl.textContent = this._isOwner ? 'OWNER' : 'ADMIN';
+            roleEl.classList.toggle('role-owner', this._isOwner);
+            roleEl.classList.toggle('role-admin', !this._isOwner);
+        }
     },
 
     async setupPIN() {
@@ -127,11 +127,10 @@
         const sc = document.getElementById('vault-pin-screen');
         if (!sc) return;
         sc.style.display = 'flex';
-        document.getElementById('vault-pin-title').textContent = 'SET UP VAULT PIN';
-        document.getElementById('vault-pin-sub').textContent = 'Create a 4-digit PIN. You will need it to unlock the vault.';
-        document.getElementById('vault-pin-icon').textContent = '🔐';
+        this._renderWelcomeIdentity(this._user);
+        document.getElementById('vault-pin-title').textContent = 'WELCOME TO THE VAULT';
+        document.getElementById('vault-pin-sub').textContent = 'First time here — set a 4-digit PIN to protect your vault';
         document.getElementById('vault-pin-err').textContent = '';
-        document.getElementById('vault-pin-skip').style.display = 'none';
         this._pinDots = [];
         this._pinSetupStep = 1;
         this._setupPin1 = '';
@@ -145,11 +144,10 @@
         const sc = document.getElementById('vault-pin-screen');
         if (!sc) return;
         sc.style.display = 'flex';
-        document.getElementById('vault-pin-title').textContent = 'VAULT LOCKED';
+        this._renderWelcomeIdentity(this._user);
+        document.getElementById('vault-pin-title').textContent = 'WELCOME TO THE VAULT';
         document.getElementById('vault-pin-sub').textContent = 'Enter your 4-digit PIN to continue';
-        document.getElementById('vault-pin-icon').textContent = '🔒';
         document.getElementById('vault-pin-err').textContent = '';
-        document.getElementById('vault-pin-skip').style.display = 'none';
         this._pinDots = [];
         this._pinScreenMode = 'enter';
         this._renderPinDots();

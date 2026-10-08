@@ -186,6 +186,15 @@ body.auth-page { display: block; }
 #user-input::placeholder { color: #777; }
 #send-btn { color: white; background: var(--accent-solid); border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
 #send-btn svg { width: 16px; height: 16px; }
+#send-btn:disabled { cursor: wait; opacity: .85; }
+.att-spin, .snd-spin { display: inline-block; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: #7df0ff; animation: attSpin .7s linear infinite; }
+.att-spin { width: 12px; height: 12px; vertical-align: middle; margin-right: 5px; }
+.att-spin.chip { width: 11px; height: 11px; margin-right: 2px; }
+.snd-spin { width: 12px; height: 12px; flex-shrink: 0; }
+.att-spin-overlay { position: absolute; inset: 0; border-radius: 12px; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; }
+.att-spin-overlay .att-spin { width: 18px; height: 18px; border-width: 3px; margin: 0; border-color: rgba(255,255,255,.3); border-top-color: #7df0ff; }
+.file-pill.uploading { opacity: .75; }
+@keyframes attSpin { to { transform: rotate(360deg); } }
 
 /* MODAL */
 .modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 200; backdrop-filter: blur(5px); }

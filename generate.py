@@ -188,11 +188,13 @@ th {{ background: #f5f5f5; }}
                 tf.word_wrap = True
                 for line in chunk.split("\n"):
                     p = tf.add_paragraph()
-                    p.text = line.replace("#", "").strip()
-                    p.font.size = Inches(0.15)
-                    if line.startswith("# "):
-                        p.runs[0].font.bold = True
-                        p.runs[0].font.size = Inches(0.2)
+                    if line.strip().startswith("# "):
+                        r = p.add_run(line.lstrip('#').strip())
+                        r.font.bold = True
+                        r.font.size = Inches(0.25)
+                    elif line.strip():
+                        r = p.add_run(line)
+                        r.font.size = Inches(0.16)
             buffer = io.BytesIO()
             prs.save(buffer)
             buffer.seek(0)

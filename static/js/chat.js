@@ -47,6 +47,8 @@ const Chat = {
     isStreaming: false,
     attachments: [],
     abortController: null,
+    _sending: false,
+    _reading: 0,
 
     stop() {
         if (this.abortController) { this.abortController.abort(); this.abortController = null; }
@@ -1043,6 +1045,9 @@ const Chat = {
         const input = $('user-input');
         const text = input.value.trim();
         if ((!text && this.attachments.length === 0) || this.isStreaming) return;
+        if (this._sending) return; // already uploading attachments — no re-entry
+        if (this._reading > 0) return; // big files still being read into the composer
+        if (this.attachments.some(a => a.uploading)) return; // wait until every file is fully loaded
         if (this._limitBlocked) return; // messaging auto-disabled while a limit cooldown banner is live
         if (window.__msgBlocked === true) return; // global messaging off → send button does nothing
         if (!this.activeId) await this.create();
@@ -1060,24 +1065,50 @@ const Chat = {
         });
 
         const uploadedFiles = [];
-        for (const att of this.attachments) {
-            const uploaded = await this.uploadToServer(att);
-            if (uploaded) uploadedFiles.push(uploaded);
-            // Binary attachments (pdf/docx/xlsx/pptx/audio/video/code) aren't readable
-            // client-side — pull the server-extracted content so the AI can actually
-            // read, edit and replicate the file.
-            if (att.type === 'file' && uploaded && uploaded.id) {
-                try {
-                    const rr = await fetch(`/api/files/${uploaded.id}/read`, { credentials: 'same-origin' });
-                    if (!rr.ok) continue;
-                    const jj = await rr.json();
-                    if (jj.type !== 'image' && jj.content) {
-                        fullContent += `\n\n[File content: ${att.name}]\n${jj.content.slice(0, 12000)}`;
+        const sendSlot = $('send-btn');
+        if (this.attachments.length) {
+            // Block sending while files load; show a spinner on the send button and
+            // on each attachment chip. If any file fails to fully load, abort the send.
+            this._sending = true;
+            const spin = document.createElement('span');
+            spin.className = 'snd-spin';
+            if (sendSlot) { sendSlot.disabled = true; sendSlot.prepend(spin); }
+            try {
+                for (const att of this.attachments) {
+                    att.uploading = true;
+                    this.renderAtts();
+                    try {
+                        const uploaded = await this.uploadToServer(att);
+                        if (!uploaded || !uploaded.id) throw new Error(`"${att.name}" could not be uploaded — message not sent`);
+                        uploadedFiles.push(uploaded);
+                        // Binary attachments (pdf/docx/xlsx/pptx/audio/video/code) aren't readable
+                        // client-side — pull the server-extracted content so the AI can actually
+                        // read, edit and replicate the file.
+                        if (att.type === 'file' && uploaded.id) {
+                            const rr = await fetch(`/api/files/${uploaded.id}/read`, { credentials: 'same-origin' });
+                            if (!rr.ok) throw new Error(`"${att.name}" could not be read`);
+                            const jj = await rr.json();
+                            if (jj.type !== 'image' && jj.content) {
+                                fullContent += `\n\n[File content: ${att.name}]\n${jj.content.slice(0, 12000)}`;
+                            }
+                            if (jj.frames && jj.frames.length) {
+                                jj.frames.slice(0, 4).forEach(fr => images.push(fr));
+                            }
+                        }
+                    } finally {
+                        att.uploading = false;
+                        this.renderAtts();
                     }
-                    if (jj.frames && jj.frames.length) {
-                        jj.frames.slice(0, 4).forEach(fr => images.push(fr));
-                    }
-                } catch (e) { /* non-fatal: file still attaches as metadata */ }
+                }
+            } catch (err) {
+                this.attachments.forEach(a => { a.uploading = false; });
+                this.renderAtts();
+                showToast('Could not send: ' + err.message, 'error');
+                if (typeof showLimitPopup === 'function' && /wait\s+\d+m\s*\d+s|cooldown|pause|guest|limit/i.test(err.message)) showLimitPopup(err.message);
+                return;
+            } finally {
+                this._sending = false;
+                if (sendSlot) { sendSlot.disabled = false; spin.remove(); }
             }
         }
         const sendImages = this.attachments.filter(a => a.type === 'image').map(a => a.data);
@@ -1457,6 +1488,8 @@ const Chat = {
 
     async handleFiles(files) {
         Array.from(files).forEach(file => {
+            this._reading++;
+            const done = () => { this._reading = Math.max(0, this._reading - 1); };
             const reader = new FileReader();
             const lower = file.name.toLowerCase();
             const isImage = file.type.startsWith('image/');
@@ -1464,17 +1497,22 @@ const Chat = {
             const isText = !isImage && (file.type.startsWith('text/') || file.type === 'application/json' || file.type === 'application/javascript' || file.type === 'application/xml' || textExts.some(ext => lower.endsWith(ext)));
             if (isImage) {
                 reader.onload = e => {
+                    done();
                     this.attachments.push({ name: file.name, type: 'image', data: e.target.result, file });
                     this.renderAtts();
                 };
+                reader.onerror = () => { done(); showToast('Could not read ' + file.name, 'error'); };
                 reader.readAsDataURL(file);
             } else if (isText) {
                 reader.onload = e => {
+                    done();
                     this.attachments.push({ name: file.name, type: 'text', data: e.target.result, file });
                     this.renderAtts();
                 };
+                reader.onerror = () => { done(); showToast('Could not read ' + file.name, 'error'); };
                 reader.readAsText(file);
             } else {
+                done();
                 const sizeKB = (file.size / 1024).toFixed(1);
                 this.attachments.push({ name: file.name, type: 'file', data: `File: ${file.name} (${sizeKB} KB)`, file });
                 this.renderAtts();
@@ -1487,11 +1525,14 @@ const Chat = {
         const form = new FormData();
         form.append('file', att.file);
         if (this.activeId) form.append('chat_id', this.activeId);
-        try {
-            const res = await fetch('/api/files/upload', { method: 'POST', credentials: 'same-origin', body: form });
-            const data = await res.json();
-            return data.file || null;
-        } catch { return null; }
+        const res = await fetch('/api/files/upload', { method: 'POST', credentials: 'same-origin', body: form });
+        let data = null;
+        try { data = await res.json(); } catch (e) { data = null; }
+        if (!res.ok) {
+            const detail = (data && data.detail) || ('upload failed (' + res.status + ')');
+            throw new Error(detail);
+        }
+        return data && data.file ? data.file : null;
     },
 
     renderAtts() {
@@ -1503,13 +1544,17 @@ const Chat = {
             const div = document.createElement('div');
             div.className = 'att-preview';
             if (att.type === 'image') {
-                div.innerHTML = `<img src="${att.data}" alt="${att.name}"><button class="remove-att" data-i="${i}">\u2715</button>`;
+                div.innerHTML = `<img src="${att.data}" alt="${att.name}">${att.uploading ? '<div class="att-spin-overlay"><span class="att-spin"></span></div>' : `<button class="remove-att" data-i="${i}">\u2715</button>`}`;
             } else {
                 const icon = fileIcon(att.name);
-                div.innerHTML = `<div class="file-pill"><div class="fp-ic">${icon}</div><div class="fp-info"><div class="fp-name">${this.escapeHtml(att.name)}</div><div class="fp-sub">File</div></div><button class="fp-x" data-i="${i}" title="Remove">\u2715</button></div>`;
+                if (att.uploading) {
+                    div.innerHTML = `<div class="file-pill uploading"><div class="fp-ic">${icon}</div><div class="fp-info"><div class="fp-name">${this.escapeHtml(att.name)}</div><div class="fp-sub"><span class="att-spin chip"></span> Loading…</div></div></div>`;
+                } else {
+                    div.innerHTML = `<div class="file-pill"><div class="fp-ic">${icon}</div><div class="fp-info"><div class="fp-name">${this.escapeHtml(att.name)}</div><div class="fp-sub">File</div></div><button class="fp-x" data-i="${i}" title="Remove">\u2715</button></div>`;
+                }
             }
             const rmBtn = div.querySelector('.remove-att') || div.querySelector('.fp-x');
-            rmBtn.addEventListener('click', () => {
+            if (rmBtn) rmBtn.addEventListener('click', () => {
                 this.attachments.splice(i, 1);
                 this.renderAtts();
             });

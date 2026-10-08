@@ -164,6 +164,10 @@
     },
 
     _startPinListeners() {
+        if (this._pinPhys) {
+            document.removeEventListener('keydown', this._pinPhys);
+            this._pinPhys = null;
+        }
         const sc = document.getElementById('vault-pin-screen');
         if (!sc) return;
         sc.querySelectorAll('.vault-pin-key').forEach(k => {
@@ -277,6 +281,7 @@
 
     // Light refresh that avoids wiping the whole vault when returning to the tab / clicking active nav
     refreshCurrentTab() {
+        if (this._pinHash && !this._pinUnlocked) return;
         if (this._currentTab === 'dashboard') {
             this.refreshDashboardStats();
             this.refreshSystemStats();
@@ -284,9 +289,6 @@
             this.loadRecentAccounts();
             this.loadActivityFeed();
             this.loadOnlineUsers();
-        } else if (this._renderedTab === this._currentTab) {
-            // avoid full re-render for an already-rendered tab
-            return;
         } else {
             this.loadTab(this._currentTab);
         }
@@ -336,7 +338,7 @@
                 localStorage.setItem(baseKey, maxAnn.created_at_ts || '');
                 return;
             }
-            const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && a.user_id !== meId && !isDone(a));
+            const newer = anns.filter(a => _tsOf(a.created_at_ts) > lastTs && a.username !== meName && !isDone(a));
             newer.sort((a, b) => _tsOf(a.created_at_ts) - _tsOf(b.created_at_ts));
             let shownTs = lastTs;
             for (const a of newer) {
@@ -425,7 +427,7 @@
 
     loadTab(tab) {
         // Refuse to switch tabs while locked.
-        if (this._pinHash && !this._pinUnlocked && tab !== 'dashboard') {
+        if (this._pinHash && !this._pinUnlocked) {
             this.enterPINScreen();
             return;
         }
@@ -447,12 +449,15 @@
         if (this._annInterval) clearInterval(this._annInterval);
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
         if (this._onlinePollInterval) clearInterval(this._onlinePollInterval);
+        if (this._pinHash && !this._pinUnlocked) return;
         this.pollBroadcasts();
-        this._annInterval = setInterval(() => this.pollBroadcasts(), 2000);
+        this._annInterval = setInterval(() => { if (this._pinHash && !this._pinUnlocked) return; this.pollBroadcasts(); }, 2000);
         this._pollInterval = setInterval(() => {
+            if (this._pinHash && !this._pinUnlocked) return;
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 1000);
         this._sysPollInterval = setInterval(() => {
+            if (this._pinHash && !this._pinUnlocked) return;
             if (this._currentTab === 'dashboard') {
                 this.refreshSystemStats();
                 this.loadHourlyChart();
@@ -462,7 +467,7 @@
             }
         }, 5000);
         // Online count — poll slower (3s) to reduce flicker from 1s heartbeat
-        this._onlinePollInterval = setInterval(() => this.refreshOnlineCount(), 3000);
+        this._onlinePollInterval = setInterval(() => { if (this._pinHash && !this._pinUnlocked) return; this.refreshOnlineCount(); }, 3000);
         // heartbeat — vault staff must ping too, otherwise they never appear online
         this._heartbeatInterval = setInterval(() => {
             if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -534,7 +539,8 @@
         const pts = vals.map((v, i) => ({ x: pad.l + i * step, y: pad.t + (1 - v / max) * chartH }));
         const curve = this._smoothCurve(pts);
         const fillPath = curve + ` L${pts[pts.length-1].x},${h - pad.b} L${pts[0].x},${h - pad.b} Z`;
-        const gid = 'g-' + color.replace('#', '').toLowerCase().slice(0, 6);
+        const gradMap = { '60a5fa':'g-blue', 'a78bfa':'g-purple', '4ade80':'g-green', 'f472b6':'g-pink', '2dd4bf':'g-teal', '8b5cf6':'g-violet' };
+        const gid = gradMap[color.replace('#', '').toLowerCase().slice(0, 6)] || 'g-blue';
         let svg = `<svg viewBox="0 0 ${w} ${h}" style="width:100%;height:100%;overflow:visible;" preserveAspectRatio="xMidYMid meet">${this._svgDefs}`;
         for (let g = 0; g <= 4; g++) {
             const gy = pad.t + (1 - g / 4) * chartH;
@@ -807,7 +813,7 @@
     async getUsersOnce() {
         const now = Date.now();
         if (this._usersCache && (now - this._usersCacheTime) < 1000) return this._usersCache;
-        const { users } = await api('/api/auth/admin/users');
+        const { users } = await api('/api/auth/admin/users?limit=500');
         this._usersCache = users;
         this._usersCacheTime = now;
         return users;
@@ -824,7 +830,7 @@
             el.innerHTML = users.slice(0, 5).map((u, i) => {
                 const sc = u.is_banned ? 'badge-red' : (u.is_deleted ? 'badge-gray' : (u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-green')));
                 const st = u.is_banned ? 'Banned' : (u.is_deleted ? 'Deleted' : (u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'Active')));
-                return `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,${sc==='badge-red'?'#EF4444':sc==='badge-purple'?'#a78bfa':sc==='badge-yellow'?'#F59E0B':'#4ADE80'},transparent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">${u.username.charAt(0).toUpperCase()}</div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#555;font-size:10px;">${u.role === 'owner' ? 'Owner' : u.role === 'admin' ? 'Admin' : 'User'} · ${u.created_at}</div></div><span class="badge ${sc}" style="flex-shrink:0;">${st}</span></div>`;
+                return `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,${sc==='badge-red'?'#EF4444':sc==='badge-purple'?'#a78bfa':sc==='badge-yellow'?'#F59E0B':'#4ADE80'},transparent);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;flex-shrink:0;">${u.username.charAt(0).toUpperCase()}</div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.esc(u.username)}</div><div style="color:#555;font-size:10px;">${u.role === 'owner' ? 'Owner' : u.role === 'admin' ? 'Admin' : 'User'} · ${u.created_at}</div></div><span class="badge ${sc}" style="flex-shrink:0;">${st}</span></div>`;
             }).join('');
         } catch { el.innerHTML = '<div style="color:#666;font-size:12px;">No data</div>'; }
     },
@@ -888,12 +894,12 @@
             this._activitySig = sig;
             let html = '';
             users.filter(u => u.is_banned).slice(0, 3).forEach(u => {
-                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><span style="color:#EF4444;flex-shrink:0;">🚫</span><div style="flex:1;min-width:0;"><div style="color:#EF4444;font-size:12px;font-weight:500;">${u.username}</div><div style="color:#555;font-size:10px;">${u.ban_reason || 'No reason'}</div></div><span class="badge badge-red" style="flex-shrink:0;font-size:9px;">Banned</span></div>`;
+                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><span style="color:#EF4444;flex-shrink:0;">🚫</span><div style="flex:1;min-width:0;"><div style="color:#EF4444;font-size:12px;font-weight:500;">${this.esc(u.username)}</div><div style="color:#555;font-size:10px;">${this.esc(u.ban_reason || 'No reason')}</div></div><span class="badge badge-red" style="flex-shrink:0;font-size:9px;">Banned</span></div>`;
             });
             users.filter(u => !u.is_banned && !u.is_deleted).slice(0, 4).forEach(u => {
                 const dotColor = u.online ? '#4ADE80' : '#666';
                 const dotShadow = u.online ? 'box-shadow:0 0 6px #4ADE80;' : '';
-                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:8px;height:8px;border-radius:50%;background:${dotColor};${dotShadow}flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#555;font-size:10px;">${u.last_active || 'Never'}</div></div><span style="font-size:10px;color:#555;">${u.online ? 'active now' : 'idle'}</span></div>`;
+                html += `<div class="vault-activity-item" style="padding:10px 12px;align-items:center;"><div style="width:8px;height:8px;border-radius:50%;background:${dotColor};${dotShadow}flex-shrink:0;"></div><div style="flex:1;min-width:0;"><div style="color:#DDE4EE;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.esc(u.username)}</div><div style="color:#555;font-size:10px;">${this.esc(u.last_active || 'Never')}</div></div><span style="font-size:10px;color:#555;">${u.online ? 'active now' : 'idle'}</span></div>`;
             });
             el.innerHTML = html || '<div style="color:#666;font-size:12px;text-align:center;padding:20px;">No activity</div>';
         } catch { el.innerHTML = ''; }
@@ -1010,7 +1016,7 @@
             el.innerHTML = online.map(u => {
                 const rc = u.role === 'owner' ? '#a78bfa' : (u.role === 'admin' ? '#fbbf24' : '#4ADE80');
                 const rl = u.role === 'owner' ? 'Owner' : (u.role === 'admin' ? 'Admin' : 'User');
-                return `<div class="vault-activity-item" style="border-left:3px solid ${rc};"><div style="flex:1;min-width:0;"><div style="color:${rc};font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${u.username}</div><div style="color:#666;font-size:10px;">${rl}</div></div><span style="width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px #4ADE80;flex-shrink:0;"></span></div>`;
+                return `<div class="vault-activity-item" style="border-left:3px solid ${rc};"><div style="flex:1;min-width:0;"><div style="color:${rc};font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${this.esc(u.username)}</div><div style="color:#666;font-size:10px;">${rl}</div></div><span style="width:8px;height:8px;border-radius:50%;background:#4ADE80;box-shadow:0 0 6px #4ADE80;flex-shrink:0;"></span></div>`;
             }).join('');
         } catch { el.innerHTML = '<div style="color:#666;font-size:12px;">Unable to load</div>'; }
     },
@@ -1127,20 +1133,20 @@
             return `<tr>
                 <td><input type="checkbox" ${canSelect ? `onchange="Vault.toggleUser(${u.id}, this.checked)"` : 'disabled'} ${this._selected.has(u.id) ? 'checked' : ''}></td>
                 <td style="color:#8B949E;">${i + 1}</td>
-                <td><div style="font-weight:600;display:flex;align-items:center;">${u.username}${onlineDot}</div></td>
-                <td style="color:#8B949E;">${u.email}</td>
+                <td><div style="font-weight:600;display:flex;align-items:center;">${this.esc(u.username)}${onlineDot}</div></td>
+                <td style="color:#8B949E;">${this.esc(u.email)}</td>
                 <td><span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span></td>
                 <td><span class="badge ${sc}">${st}</span></td>
                 <td>${u.chat_count || 0}</td>
                 <td>${u.message_count || 0}</td>
                 <td style="color:#8B949E;font-size:11px;">${u.last_active || 'Never'}</td>
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
-                    ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">💬</button>` : ''}
-                    ${canAct ? `<button class="vault-btn" title="Export all data for ${this.esc(u.username)}" onclick="Vault.exportUserData(${u.id},'${this.esc(u.username)}')">⬇️</button>` : ''}
-                    ${isOwner && u.role === 'user' && !u.is_banned && !u.is_deleted ? `<button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" title="Promote to Admin">⬆️</button>` : ''}
-                    ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.esc(u.username)}')">🔑</button>
-                    <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
-                    <button class="vault-btn danger" onclick="Vault.deleteUser(${u.id},'${this.esc(u.username)}')">🗑️</button>`
+                    ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.escAttr(u.username)}')">💬</button>` : ''}
+                    ${canAct ? `<button class="vault-btn" title="Export all data for ${this.esc(u.username)}" onclick="Vault.exportUserData(${u.id},'${this.escAttr(u.username)}')">⬇️</button>` : ''}
+                    ${isOwner && u.role === 'user' && !u.is_banned && !u.is_deleted ? `<button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.escAttr(u.username)}')" title="Promote to Admin">⬆️</button>` : ''}
+                    ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.escAttr(u.username)}')">🔑</button>
+                    <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.escAttr(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
+                    <button class="vault-btn danger" onclick="Vault.deleteUser(${u.id},'${this.escAttr(u.username)}')">🗑️</button>`
                     : '<span style="color:#8B949E;font-size:10px;align-self:center;">—</span>'}
                 </div></td></tr>`;
         }).join('');
@@ -1165,13 +1171,13 @@
     async viewUserChats(id, username) {
         try {
             const { chats } = await api(`/api/auth/admin/users/${id}/chats`);
-            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">💬 ${username} — ${chats.length} chats</h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
+            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">💬 ${this.esc(username)} — ${chats.length} chats</h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
             if (!chats.length) html += '<div class="vault-empty"><div class="vault-empty-icon">💬</div>No chats</div>';
             chats.slice(0, 10).forEach((c, i) => {
-                html += `<div style="margin-bottom:12px;padding:12px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:8px;"><div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">${i + 1}. ${c.title} — ${c.message_count} msgs</div>`;
+                html += `<div style="margin-bottom:12px;padding:12px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:8px;"><div style="font-weight:600;color:#a78bfa;margin-bottom:6px;">${i + 1}. ${this.esc(c.title)} — ${c.message_count} msgs</div>`;
                 (c.messages || []).slice(0, 6).forEach(m => {
                     const isUser = m.role === 'user';
-                    html += `<div style="margin:4px 0;padding:8px;background:${isUser ? '#1A1D21' : '#111315'};border-left:3px solid ${isUser ? '#4ADE80' : '#8B5CF6'};border-radius:6px;font-size:12px;color:#e5e5e5;"><strong style="color:${isUser ? '#4ADE80' : '#8B5CF6'};">${m.role}:</strong> ${(m.content || '').slice(0, 300).replace(/</g, '&lt;')}</div>`;
+                    html += `<div style="margin:4px 0;padding:8px;background:${isUser ? '#1A1D21' : '#111315'};border-left:3px solid ${isUser ? '#4ADE80' : '#8B5CF6'};border-radius:6px;font-size:12px;color:#e5e5e5;"><strong style="color:${isUser ? '#4ADE80' : '#8B5CF6'};">${m.role}:</strong> ${this.esc((m.content || '').slice(0, 300))}</div>`;
                 });
                 html += '</div>';
             });
@@ -1323,12 +1329,12 @@
         if (!tbody) return;
         tbody.innerHTML = chats.map((c, i) => `<tr>
             <td style="color:#8B949E;">${i + 1}</td>
-            <td style="font-weight:600;">${c.title}</td>
-            <td style="color:#a78bfa;">${c.username}</td>
+            <td style="font-weight:600;">${this.esc(c.title)}</td>
+            <td style="color:#a78bfa;">${this.esc(c.username)}</td>
             <td>${c.message_count}</td>
             <td style="color:#8B949E;font-size:11px;">${c.created_at}</td>
             <td style="color:#8B949E;font-size:11px;">${c.updated_at}</td>
-            <td><button class="vault-btn" onclick="Vault.viewChatMessages(${c.id},'${this.esc(c.title)}')">👁️</button></td>
+            <td><button class="vault-btn" onclick="Vault.viewChatMessages(${c.id},'${this.escAttr(c.title)}')">👁️</button></td>
         </tr>`).join('');
     },
 
@@ -1343,11 +1349,11 @@
         try {
             const d = await api(`/api/auth/admin/analytics/chat/${chatId}/messages`);
             const messages = d.messages || [];
-            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">✉️ ${title} <span style="font-size:11px;color:#8B949E;">(${d.chat && d.chat.username ? d.chat.username : ''})</span></h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
+            let html = `<div class="vault-modal-overlay" onclick="if(event.target===this)this.remove()"><div class="vault-modal"><div class="vault-modal-header"><h3 style="color:#DDE4EE;">✉️ ${this.esc(title)} <span style="font-size:11px;color:#8B949E;">(${d.chat && d.chat.username ? this.esc(d.chat.username) : ''})</span></h3><button class="vault-btn" onclick="this.closest('.vault-modal-overlay').remove()">Close</button></div>`;
             if (!messages.length) html += '<div class="vault-empty">No messages</div>';
             messages.forEach(m => {
                 const isUser = m.role === 'user';
-                html += `<div style="margin:6px 0;padding:10px;background:${isUser ? '#1A1D21' : '#111315'};border-left:3px solid ${isUser ? '#4ADE80' : '#8B5CF6'};border-radius:6px;font-size:12px;color:#e5e5e5;"><strong style="color:${isUser ? '#4ADE80' : '#8B5CF6'};">${m.role}:</strong> ${(m.content || '').slice(0, 500).replace(/</g, '&lt;')}</div>`;
+                html += `<div style="margin:6px 0;padding:10px;background:${isUser ? '#1A1D21' : '#111315'};border-left:3px solid ${isUser ? '#4ADE80' : '#8B5CF6'};border-radius:6px;font-size:12px;color:#e5e5e5;"><strong style="color:${isUser ? '#4ADE80' : '#8B5CF6'};">${m.role}:</strong> ${this.esc((m.content || '').slice(0, 500))}</div>`;
             });
             html += '</div></div>';
             document.body.insertAdjacentHTML('beforeend', html);
@@ -1420,7 +1426,7 @@
             <td style="color:#8B949E;">${i + 1}</td>
             <td><span class="badge ${m.role === 'user' ? 'badge-green' : 'badge-purple'}">${m.role}</span></td>
             <td style="max-width:300px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${(m.content || '').replace(/</g, '&lt;')}</td>
-            <td style="color:#a78bfa;">${m.chat_title}</td>
+            <td style="color:#a78bfa;">${this.esc(m.chat_title)}</td>
             <td style="color:#8B949E;font-size:11px;">${m.created_at}</td>
         </tr>`).join('');
     },
@@ -1487,7 +1493,7 @@
         const el = document.getElementById('vault-content');
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading bans...</div>';
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const { users } = await api('/api/auth/admin/users?limit=500');
             const banned = users.filter(u => u.is_banned);
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
@@ -1512,11 +1518,11 @@
         if (!banned.length) { tbody.innerHTML = '<tr><td colspan="6" class="vault-empty"><div class="vault-empty-icon">✅</div>No banned accounts</td></tr>'; return; }
         tbody.innerHTML = banned.map((u, i) => `<tr>
             <td style="color:#8B949E;">${i + 1}</td>
-            <td style="font-weight:600;color:#EF4444;">${u.username}</td>
-            <td style="color:#8B949E;">${u.email}</td>
-            <td>${u.ban_reason || 'No reason'}</td>
-            <td><span class="badge badge-yellow">${u.banned_by || 'Staff'}</span></td>
-            <td><button class="vault-btn success" onclick="Vault.banUser(${u.id},'${this.esc(u.username)}',true)">Unban</button></td>
+            <td style="font-weight:600;color:#EF4444;">${this.esc(u.username)}</td>
+            <td style="color:#8B949E;">${this.esc(u.email)}</td>
+            <td>${this.esc(u.ban_reason || 'No reason')}</td>
+            <td><span class="badge badge-yellow">${this.esc(u.banned_by || 'Staff')}</span></td>
+            <td><button class="vault-btn success" onclick="Vault.banUser(${u.id},'${this.escAttr(u.username)}',true)">Unban</button></td>
         </tr>`).join('');
     },
 
@@ -1532,7 +1538,7 @@
         const el = document.getElementById('vault-content');
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading deleted accounts...</div>';
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const { users } = await api('/api/auth/admin/users?limit=500');
             const deleted = users.filter(u => u.is_deleted);
             el.innerHTML = `
                 <div class="vault-stats" style="padding:0 0 12px;">
@@ -1544,9 +1550,9 @@
                         <thead><tr><th>#</th><th>User</th><th>Email</th><th>Deleted By</th><th>Created</th></tr></thead>
                         <tbody>${deleted.map((u, i) => `<tr>
                             <td style="color:#8B949E;">${i + 1}</td>
-                            <td style="font-weight:600;color:#8B949E;">${u.username}</td>
-                            <td style="color:#666;">${u.email}</td>
-                            <td><span class="badge badge-yellow">${u.deleted_by || 'Staff'}</span></td>
+                            <td style="font-weight:600;color:#8B949E;">${this.esc(u.username)}</td>
+                            <td style="color:#666;">${this.esc(u.email)}</td>
+                            <td><span class="badge badge-yellow">${this.esc(u.deleted_by || 'Staff')}</span></td>
                             <td style="color:#8B949E;font-size:11px;">${u.created_at}</td>
                         </tr>`).join('') || '<tr><td colspan="5" class="vault-empty"><div class="vault-empty-icon">✅</div>No deleted accounts</td></tr>'}</tbody>
                     </table>
@@ -1577,10 +1583,10 @@
                             <thead><tr><th>#</th><th>User</th><th>Status</th><th>IP</th><th>Device</th><th>Time</th></tr></thead>
                             <tbody>${(hist.history || []).map((h, i) => `<tr>
                                 <td style="color:#8B949E;">${i + 1}</td>
-                                <td style="font-weight:600;">${h.username}</td>
+                                <td style="font-weight:600;">${this.esc(h.username)}</td>
                                 <td><span class="badge ${h.success ? 'badge-green' : 'badge-red'}">${h.success ? 'Success' : 'Failed'}</span></td>
                                 <td style="color:#60A5FA;">${h.ip_address}</td>
-                                <td style="color:#8B949E;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.user_agent}</td>
+                                <td style="color:#8B949E;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.esc(h.user_agent)}</td>
                                 <td style="color:#8B949E;font-size:11px;">${h.login_at}</td>
                             </tr>`).join('')}</tbody>
                         </table>
@@ -1655,11 +1661,11 @@
             if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="6" class="vault-empty">No logins recorded yet</td></tr>'; return; }
             tbody.innerHTML = filtered.map((h, i) => `<tr>
                 <td style="color:#8B949E;">${i + 1}</td>
-                <td style="font-weight:600;">${h.username}</td>
+                <td style="font-weight:600;">${this.esc(h.username)}</td>
                 <td><span class="badge ${h.success ? 'badge-green' : 'badge-red'}">${h.success ? 'Login' : 'Failed'}</span></td>
                 <td style="color:#60A5FA;">${h.ip_address}</td>
                 <td style="color:#8B949E;font-size:11px;">${h.login_at}</td>
-                <td style="color:#8B949E;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${h.user_agent}</td>
+                <td style="color:#8B949E;font-size:10px;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${this.esc(h.user_agent)}</td>
             </tr>`).join('');
         }
     },
@@ -1787,8 +1793,26 @@
     },
 
     async restoreBackup() {
-        const ok = await showConfirm('Restore backup?', 'Restore the database from the last Railway snapshot? This may overwrite current data.', true);
-        if (ok) showToast('Restore initiated — check Railway dashboard', 'success');
+        const ok = await showConfirm('Restore backup?', 'In-app restore is not wired up to protect your data from being overwritten.', true);
+        if (!ok) return;
+        const info = document.createElement('div');
+        info.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);animation:fadeIn .2s;';
+        info.innerHTML = `
+            <div style="background:#111315;border:1px solid #60A5FA66;border-radius:16px;padding:28px;max-width:440px;width:100%;text-align:center;box-shadow:0 0 40px #60A5FA22;">
+                <div style="font-size:40px;margin-bottom:10px;">&#128260;</div>
+                <div style="font-size:16px;font-weight:700;color:#DDE4EE;margin-bottom:8px;">RESTORE SNAPSHOT</div>
+                <div style="font-size:12px;color:#8B949E;line-height:1.6;margin-bottom:18px;text-align:left;">
+                    The database is a persistent volume on Railway. To restore:<br><br>
+                    1. Download a backup here (Backups tab / Emergency Backup).<br>
+                    2. In Railway, go to your project's <strong>Volume</strong> and replace the <code>/data/zenith.db</code> file,<br>
+                    3. Restart the service.<br><br>
+                    In-app restore was intentionally not added to avoid wiping live data by mistake.
+                </div>
+                <button id="restore-close" style="padding:10px 32px;background:#60A5FA;color:#000;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Got it</button>
+            </div>`;
+        info.querySelector('#restore-close').addEventListener('click', () => info.remove());
+        info.addEventListener('click', (e) => { if (e.target === info) info.remove(); });
+        document.body.appendChild(info);
     },
 
     // ═══════════════════════════ SETTINGS ═══════════════════════════
@@ -1892,11 +1916,11 @@
         const resEl = document.getElementById('owner-search-res');
         resEl.innerHTML = '<div style="color:#8B949E;font-size:12px;">Searching...</div>';
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const { users } = await api('/api/auth/admin/users?limit=500');
             const found = users.filter(u => u.username.toLowerCase().includes(q.toLowerCase()) || u.email.toLowerCase().includes(q.toLowerCase()) || String(u.id) === q);
             if (!found.length) { resEl.innerHTML = '<div style="color:#666;font-size:12px;">No results</div>'; return; }
-            resEl.innerHTML = found.slice(0, 8).map(u => `<div class="vault-activity-item" style="cursor:pointer;" onclick="Vault.viewUserChats(${u.id},'${this.esc(u.username)}')">
-                <div style="flex:1;"><div style="font-weight:600;font-size:12px;">${u.username} <span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span></div><div style="font-size:11px;color:#666;">${u.email}</div></div>
+            resEl.innerHTML = found.slice(0, 8).map(u => `<div class="vault-activity-item" style="cursor:pointer;" onclick="Vault.viewUserChats(${u.id},'${this.escAttr(u.username)}')">
+                <div style="flex:1;"><div style="font-weight:600;font-size:12px;">${this.esc(u.username)} <span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span></div><div style="font-size:11px;color:#666;">${this.esc(u.email)}</div></div>
                 <span class="badge ${u.is_banned ? 'badge-red' : 'badge-green'}">${u.is_banned ? 'Banned' : 'Active'}</span>
             </div>`).join('');
         } catch (e) { resEl.innerHTML = '<div style="color:#EF4444;font-size:12px;">' + e.message + '</div>'; }
@@ -1907,7 +1931,7 @@
         const el = document.getElementById('vault-content');
         el.innerHTML = '<div style="padding:20px;color:#8B949E;">Loading admins...</div>';
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const { users } = await api('/api/auth/admin/users?limit=500');
             const admins = users.filter(u => (u.role === 'admin' || u.role === 'owner') && !u.is_deleted);
             const regularUsers = users.filter(u => u.role === 'user' && !u.is_deleted);
             this._chosenHelpers = admins.filter(u => u.is_chosen).map(u => u.id);
@@ -1923,8 +1947,8 @@
                         const isChosen = a.is_chosen || this._chosenHelpers.includes(a.id);
                         return `<div class="vault-activity-item" style="margin-bottom:8px;${a.role === 'owner' ? 'border:1px solid #A78BFA44;' : ''}">
                         <div style="width:36px;height:36px;border-radius:50%;background:${a.role === 'owner' ? 'linear-gradient(135deg,#DDE4EE,#8B949E)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'};display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;">${a.username[0].toUpperCase()}</div>
-                        <div style="flex:1;"><div style="font-weight:600;">${a.username} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span>${isChosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div><div style="font-size:11px;color:#666;">${a.email}</div></div>
-                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.viewAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">👁 View</button><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn ${isChosen ? 'danger' : 'success'}" onclick="Vault.toggleChosen(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">${isChosen ? '✖ Remove Helper' : '⛑ Choose Helper'}</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.esc(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
+                        <div style="flex:1;"><div style="font-weight:600;">${this.esc(a.username)} <span class="badge ${a.role === 'owner' ? 'badge-purple' : 'badge-yellow'}">${a.role.toUpperCase()}</span>${isChosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div><div style="font-size:11px;color:#666;">${this.esc(a.email)}</div></div>
+                        ${a.role === 'admin' ? `<div style="display:flex;gap:6px;flex-shrink:0;"><button class="vault-btn" onclick="Vault.viewAdmin(${a.id},'${this.escAttr(a.username)}')" style="font-size:10px;">👁 View</button><button class="vault-btn" onclick="Vault.editPermissions(${a.id},'${this.escAttr(a.username)}')" style="font-size:10px;">🔑 Perms</button><button class="vault-btn ${isChosen ? 'danger' : 'success'}" onclick="Vault.toggleChosen(${a.id},'${this.escAttr(a.username)}')" style="font-size:10px;">${isChosen ? '✖ Remove Helper' : '⛑ Choose Helper'}</button><button class="vault-btn danger" onclick="Vault.demoteAdmin(${a.id},'${this.escAttr(a.username)}')" style="font-size:10px;">Demote</button></div>` : '<span style="font-size:10px;color:#555;flex-shrink:0;">Supreme</span>'}
                     </div>`;
                     }).join('')}
                 </div>
@@ -1934,15 +1958,15 @@
                     ${this._chosenHelpers.length === 0 ? '<div style="color:#666;font-size:12px;padding:8px 0;">No helpers chosen. Click "⛑ Choose Helper" on an admin above.</div>' :
                     `<div style="display:flex;flex-wrap:wrap;gap:8px;">${this._chosenHelpers.map(id => {
                         const u = admins.find(x => x.id === id);
-                        return u ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,.1);border:1px solid #10B98133;padding:8px 12px;border-radius:10px;"><span>⛑</span> ${u.username}</div>` : '';
+                        return u ? `<div style="display:flex;align-items:center;gap:8px;background:rgba(16,185,129,.1);border:1px solid #10B98133;padding:8px 12px;border-radius:10px;"><span>⛑</span> ${this.esc(u.username)}</div>` : '';
                     }).join('')}</div>`}
                 </div><div class="vault-card" style="margin-bottom:16px;">
                     <div class="card-header"><span>⬆️ Promote User to Admin</span></div>
                     ${regularUsers.length === 0 ? '<div style="color:#666;font-size:12px;padding:8px 0;">No regular users to promote</div>' : 
                     `<div style="max-height:200px;overflow-y:auto;">${regularUsers.slice(0, 20).map(u => `<div class="vault-activity-item" style="margin-bottom:6px;">
                         <div style="width:32px;height:32px;border-radius:50%;background:linear-gradient(135deg,#60A5FA,#3B82F6);display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;">${u.username[0].toUpperCase()}</div>
-                        <div style="flex:1;"><div style="font-weight:500;font-size:12px;">${u.username}</div><div style="font-size:10px;color:#666;">${u.email}</div></div>
-                        <button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.esc(u.username)}')" style="flex-shrink:0;font-size:10px;">Promote</button>
+                        <div style="flex:1;"><div style="font-weight:500;font-size:12px;">${this.esc(u.username)}</div><div style="font-size:10px;color:#666;">${this.esc(u.email)}</div></div>
+                        <button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.escAttr(u.username)}')" style="flex-shrink:0;font-size:10px;">Promote</button>
                     </div>`).join('')}</div>`}
                 </div>
                 ${this._isOwner ? `<div class="vault-card">
@@ -1978,7 +2002,7 @@
     async viewAdmin(userId, username) {
         let u = null;
         try {
-            const { users } = await api('/api/auth/admin/users');
+            const { users } = await api('/api/auth/admin/users?limit=500');
             u = users.find(x => x.id === userId);
         } catch (e) { showToast(e.message, 'error'); return; }
         if (!u) { showToast('Could not load account details', 'error'); return; }
@@ -1994,18 +2018,18 @@
                 <div style="display:flex;align-items:center;gap:14px;margin-bottom:18px;">
                     <div style="width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#FFD700,#FF8C00);display:flex;align-items:center;justify-content:center;font-weight:700;color:#111315;font-size:20px;">${u.username[0].toUpperCase()}</div>
                     <div>
-                        <div style="font-size:17px;font-weight:700;color:#DDE4EE;">${u.username}</div>
+                        <div style="font-size:17px;font-weight:700;color:#DDE4EE;">${this.esc(u.username)}</div>
                         <div><span class="badge badge-yellow">${(u.role || 'ADMIN').toUpperCase()}</span>${u.is_chosen ? ' <span class="badge badge-green" style="background:rgba(16,185,129,.2);color:#10B981;border:1px solid #10B98144;">⛑ HELPER</span>' : ''}</div>
                     </div>
                 </div>
                 ${row('ACCOUNT ID', '#' + u.id)}
-                ${row('EMAIL', u.email)}
+                ${row('EMAIL', this.esc(u.email))}
                 ${row('CREATED', u.created_at)}
                 ${row('LAST ACTIVE', u.last_seen || 'Never', u.online ? '#10B981' : '')}
                 ${u.online ? row('STATUS', '● ONLINE', '#10B981') : ''}
                 ${row('CHATS', u.chat_count)}
                 ${row('MESSAGES', u.message_count)}
-                ${row('ACCOUNT TYPE', u.is_guest ? 'Guest' : 'Registered')}
+                ${row('ACCOUNT TYPE', (u.username || '').startsWith('guest_') ? 'Guest' : 'Registered')}
                 <div style="display:flex;gap:8px;margin-top:18px;">
                     <button id="viewadmin-close" style="flex:1;padding:10px;background:#1A1D21;color:#DDE4EE;border:1px solid #333;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Close</button>
                 </div>
@@ -2049,19 +2073,19 @@
                 <div class="vault-card">
                     <div class="card-header"><span>🚫 Registration Control</span></div>
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable new account registrations.</div>
-                    <div class="vault-toggle ${state.registrations === 'on' ? 'on' : ''}" onclick="Vault.toggleRegistrations()"></div>
+                    <div class="vault-toggle ${state.registrations === 'on' ? 'on' : ''}" id="reg-toggle" onclick="Vault.toggleRegistrations()"></div>
                     <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="reg-label">${state.registrations === 'on' ? 'OPEN' : 'CLOSED'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>✉️ Messaging Control</span></div>
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable messaging for all users.</div>
-                    <div class="vault-toggle ${state.messaging === 'on' ? 'on' : ''}" onclick="Vault.toggleMessaging()"></div>
+                    <div class="vault-toggle ${state.messaging === 'on' ? 'on' : ''}" id="msg-toggle" onclick="Vault.toggleMessaging()"></div>
                     <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="msg-label">${state.messaging === 'on' ? 'ENABLED' : 'DISABLED'}</div>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🤖 AI Control</span></div>
                     <div style="font-size:12px;color:#8B949E;margin-bottom:12px;">Enable or disable AI responses globally.</div>
-                    <div class="vault-toggle ${state.ai_enabled === 'on' ? 'on' : ''}" onclick="Vault.toggleAI()"></div>
+                    <div class="vault-toggle ${state.ai_enabled === 'on' ? 'on' : ''}" id="ai-toggle" onclick="Vault.toggleAI()"></div>
                     <div style="font-size:11px;color:#8B949E;margin-top:6px;" id="ai-label">${state.ai_enabled === 'on' ? 'ENABLED' : 'DISABLED'}</div>
                 </div>
                 <div class="vault-card">
@@ -2091,39 +2115,47 @@
     },
 
     async toggleRegistrations() {
-        const tog = event.target.classList.contains('on');
-        const turningOn = !tog;
+        const tog = document.getElementById('reg-toggle');
+        if (!tog) return;
+        const turningOn = !tog.classList.contains('on');
         const ok = await showConfirm(turningOn ? 'Open registrations?' : 'Close registrations?', turningOn ? 'Allow new accounts.' : 'Block new account creation.');
         if (!ok) return;
         try {
             await api('/api/admin/system/registrations', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
-            document.getElementById('reg-label').textContent = turningOn ? 'OPEN' : 'CLOSED';
+            tog.classList.toggle('on', turningOn);
+            const lbl = document.getElementById('reg-label');
+            if (lbl) lbl.textContent = turningOn ? 'OPEN' : 'CLOSED';
             showToast('Registrations ' + (turningOn ? 'OPEN' : 'CLOSED'), 'success');
-            
-            this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
 
     async toggleMessaging() {
-        const turningOn = !event.target.classList.contains('on');
+        const tog = document.getElementById('msg-toggle');
+        if (!tog) return;
+        const turningOn = !tog.classList.contains('on');
         const ok = await showConfirm(turningOn ? 'Enable messaging?' : 'Disable messaging?', turningOn ? 'Users can send messages.' : 'Block all users from messaging.');
         if (!ok) return;
         try {
             await api('/api/admin/system/messaging', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            tog.classList.toggle('on', turningOn);
+            const lbl = document.getElementById('msg-label');
+            if (lbl) lbl.textContent = turningOn ? 'ENABLED' : 'DISABLED';
             showToast('Messaging ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
-            
-            this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
 
     async toggleAI() {
-        const turningOn = !event.target.classList.contains('on');
+        const tog = document.getElementById('ai-toggle');
+        if (!tog) return;
+        const turningOn = !tog.classList.contains('on');
         const ok = await showConfirm(turningOn ? 'Enable AI?' : 'Disable AI?', turningOn ? 'AI responses enabled.' : 'AI responses blocked globally.');
         if (!ok) return;
         try {
             await api('/api/admin/system/ai', { method: 'POST', body: JSON.stringify({ value: turningOn ? 'on' : 'off' }) });
+            tog.classList.toggle('on', turningOn);
+            const lbl = document.getElementById('ai-label');
+            if (lbl) lbl.textContent = turningOn ? 'ENABLED' : 'DISABLED';
             showToast('AI ' + (turningOn ? 'ENABLED' : 'DISABLED'), 'success');
-            this.renderGlobal();
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -2162,8 +2194,8 @@
         if (!list.length) { res.innerHTML = '<div style="color:#8B949E;font-size:11px;padding:6px;">No users found</div>'; return; }
         res.innerHTML = list.map(u => {
             const already = (this._targetUsers || []).includes(u.id);
-            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:8px;cursor:pointer;" onclick="Vault.addTargetUser(${u.id},'${this.esc(u.username)}')">
-                <span style="flex:1;font-size:12px;color:${u.role==='owner'||u.role==='admin' ? '#fbbf24' : '#DDE4EE'};">${u.username}</span>
+            return `<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;background:#0a0a0f;border:1px solid #1A1D21;border-radius:8px;cursor:pointer;" onclick="Vault.addTargetUser(${u.id},'${this.escAttr(u.username)}')">
+                <span style="flex:1;font-size:12px;color:${u.role==='owner'||u.role==='admin' ? '#fbbf24' : '#DDE4EE'};">${this.esc(u.username)}</span>
                 <span style="font-size:10px;color:#8B949E;">${u.role}</span>
                 ${already ? '<span style="color:#4ADE80;font-size:11px;">✓ added</span>' : ''}
             </div>`;
@@ -2178,7 +2210,7 @@
             if (chips) {
                 const chip = document.createElement('span');
                 chip.style.cssText = 'display:inline-flex;align-items:center;gap:6px;background:#60A5FA22;border:1px solid #60A5FA66;color:#DDE4EE;font-size:11px;border-radius:20px;padding:4px 10px;';
-                chip.innerHTML = `${this.esc(username)} <span style="cursor:pointer;color:#EF4444;" onclick="Vault.removeTargetUser(${id},'${this.esc(username)}')">✕</span>`;
+                chip.innerHTML = `${this.esc(username)} <span style="cursor:pointer;color:#EF4444;" onclick="Vault.removeTargetUser(${id},'${this.escAttr(username)}')">✕</span>`;
                 chip.dataset.uid = id;
                 chips.appendChild(chip);
             }
@@ -2290,9 +2322,25 @@
     },
 
     async emBackup() {
-        const ok = await showConfirm('Create emergency backup?', 'This will snapshot the entire database right now.', true);
+        const ok = await showConfirm('Create emergency backup?', 'This will snapshot the entire database right now and download it.', true);
         if (!ok) return;
-        try { await api('/api/admin/system/backup', { method: 'POST' }); showToast('Emergency backup created', 'success'); } catch (e) { showToast(e.message || 'Backup failed', 'error'); }
+        try {
+            const r = await fetch('/api/admin/system/backup', { method: 'POST', credentials: 'same-origin' });
+            if (!r.ok) {
+                let m = 'Backup failed';
+                try { m = (await r.json()).detail || m; } catch {}
+                showToast(m, 'error');
+                return;
+            }
+            const blob = await r.blob();
+            const fileName = (r.headers.get('Content-Disposition') || '').match(/filename="([^"]+)"/)?.[1] || ('zenith_emergency_' + Date.now() + '.db');
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fileName;
+            document.body.appendChild(a); a.click(); a.remove();
+            URL.revokeObjectURL(url);
+            showToast('Emergency backup downloaded', 'success');
+        } catch (e) { showToast(e.message || 'Backup failed', 'error'); }
     },
 
     async emRotateOwnerPassword() {
@@ -2333,7 +2381,7 @@
         try {
             await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'user' }) });
             showToast(`${username} has been demoted to user`, 'success');
-            this.renderAdmins();
+            this.loadTab(this._currentTab);
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -2343,7 +2391,7 @@
         try {
             await api(`/api/auth/admin/users/${userId}/role`, { method: 'POST', body: JSON.stringify({ role: 'admin' }) });
             showToast(`${username} has been promoted to admin`, 'success');
-            this.renderAdmins();
+            this.loadTab(this._currentTab);
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -2358,7 +2406,7 @@
             const r = await api('/api/admin/system/set-chosen', { method: 'POST', body: JSON.stringify({ user_ids: this._chosenHelpers }) });
             const now = r.chosen.some(c => c.id === userId) ? 'will help during lockdowns' : 'will no longer help during lockdowns';
             showToast(`${username} ${now}`, 'success');
-            this.renderAdmins();
+            this.loadTab(this._currentTab);
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -2369,7 +2417,7 @@
             await api('/api/admin/system/set-chosen', { method: 'POST', body: JSON.stringify({ user_ids: [] }) });
             this._chosenHelpers = [];
             showToast('All chosen helpers cleared', 'success');
-            this.renderAdmins();
+            this.loadTab(this._currentTab);
         } catch (e) { showToast(e.message, 'error'); }
     },
 
@@ -2454,8 +2502,8 @@
         wrap.querySelectorAll('.vault-toggle').forEach(t => {
             t.addEventListener('click', () => t.classList.toggle('on'));
         });
-        wrap.querySelector('#perm-close').addEventListener('click', () => { clearInterval(permPoll); wrap.remove(); });
-        wrap.addEventListener('click', (e) => { if (e.target === wrap) { clearInterval(permPoll); wrap.remove(); } });
+        wrap.querySelector('#perm-close').addEventListener('click', () => wrap.remove());
+        wrap.addEventListener('click', (e) => { if (e.target === wrap) wrap.remove(); });
         wrap.querySelector('#perm-save').addEventListener('click', async () => {
             const newPerms = {};
             wrap.querySelectorAll('.vault-toggle').forEach(t => {
@@ -2464,27 +2512,19 @@
             try {
                 await api(`/api/auth/admin/users/${userId}/permissions`, { method: 'POST', body: JSON.stringify({ permissions: newPerms }) });
                 showToast(`Permissions updated for ${username}`, 'success');
-                clearInterval(permPoll);
                 wrap.remove();
             } catch (e) { showToast(e.message, 'error'); }
         });
-        const permPoll = setInterval(async () => {
-            if (!document.body.contains(wrap)) { clearInterval(permPoll); return; }
-            try {
-                const r = await api(`/api/auth/admin/users/${userId}/permissions`);
-                const latest = r.permissions || {};
-                wrap.querySelectorAll('.vault-toggle').forEach(t => {
-                    const key = t.dataset.perm;
-                    const val = !!latest[key];
-                    if (val) t.classList.add('on'); else t.classList.remove('on');
-                });
-            } catch {}
-        }, 1000);
         document.body.appendChild(wrap);
     },
 
     // ═══════════════════════════ HELPERS ═══════════════════════════
-    esc(s) { return (s || '').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+    // Full HTML escaping for text nodes.
+    esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); },
+    // Escaping for values embedded inside inline onclick='...' args: escapes & and
+    // backslash first (so entity tricks / trailing backslashes can't corrupt the JS
+    // string), then apostrophe as a JS escape. Stays valid after HTML-attr decoding.
+    escAttr(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '&quot;'); },
 };
 
 document.addEventListener('DOMContentLoaded', () => Vault.init());

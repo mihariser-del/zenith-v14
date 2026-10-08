@@ -1083,7 +1083,7 @@ async def admin_get_permissions(user_id: int, request: Request, db: AsyncSession
             perms = json.loads(target.permissions)
         except Exception:
             perms = {}
-    defaults = {"ban_users": True, "reset_password": True, "view_messages": True, "manage_chats": True}
+    defaults = {"ban_users": True, "reset_password": True, "view_messages": True, "manage_chats": True, "delete_users": True}
     for k, v in defaults.items():
         if k not in perms:
             perms[k] = v

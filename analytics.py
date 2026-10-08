@@ -156,15 +156,18 @@ async def all_chats(request: Request, limit: int = 50, offset: int = 0, db: Asyn
         raise HTTPException(status_code=403, detail="Admin only")
     limit = min(max(limit, 1), 100)
     offset = max(offset, 0)
-    total = (await db.execute(select(_func.count()).select_from(Chat))).scalar() or 0
-    result = await db.execute(select(Chat).options(selectinload(Chat.user)).order_by(Chat.updated_at.desc()).limit(limit).offset(offset))
+    total_q = select(_func.count()).select_from(Chat)
+    result_q = select(Chat).options(selectinload(Chat.user)).order_by(Chat.updated_at.desc())
+    if get_role(user) != "owner":
+        from sqlalchemy import Select
+        _staff = select(User.id).where(User.role.in_(("admin", "owner")))
+        total_q = total_q.where(Chat.user_id.notin_(_staff))
+        result_q = result_q.where(Chat.user_id.notin_(_staff))
+    total = (await db.execute(total_q)).scalar() or 0
+    result = await db.execute(result_q.limit(limit).offset(offset))
     chats = result.scalars().all()
     out = []
     for c in chats:
-        if get_role(user) != "owner":
-            owner = c.user
-            if owner and get_role(owner) in ("admin", "owner"):
-                continue
         msg_count = (await db.execute(select(_func.count()).select_from(Message).where(Message.chat_id == c.id))).scalar() or 0
         out.append({
             "id": c.id, "title": c.title, "user_id": c.user_id,
@@ -185,16 +188,18 @@ async def all_messages(request: Request, limit: int = 100, offset: int = 0, db: 
         raise HTTPException(status_code=403, detail="Admin only")
     limit = min(max(limit, 1), 200)
     offset = max(offset, 0)
-    total = (await db.execute(select(_func.count()).select_from(Message))).scalar() or 0
-    result = await db.execute(select(Message).join(Chat).order_by(Message.created_at.desc()).limit(limit).offset(offset))
+    total_q = select(_func.count()).select_from(Message).join(Chat)
+    result_q = select(Message).join(Chat).order_by(Message.created_at.desc())
+    if get_role(user) != "owner":
+        _staff = select(User.id).where(User.role.in_(("admin", "owner")))
+        total_q = total_q.where(Chat.user_id.notin_(_staff))
+        result_q = result_q.where(Chat.user_id.notin_(_staff))
+    total = (await db.execute(total_q)).scalar() or 0
+    result = await db.execute(result_q.limit(limit).offset(offset))
     msgs = result.scalars().all()
     out = []
     for m in msgs:
         chat = (await db.execute(select(Chat).where(Chat.id == m.chat_id))).scalar_one_or_none()
-        if get_role(user) != "owner" and chat:
-            cowner = (await db.execute(select(User).where(User.id == chat.user_id))).scalar_one_or_none()
-            if cowner and get_role(cowner) in ("admin", "owner"):
-                continue
         out.append({
             "id": m.id, "chat_id": m.chat_id, "role": m.role,
             "content": m.content[:200], "chat_title": chat.title if chat else "?",

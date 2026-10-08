@@ -43,6 +43,8 @@
 .stat-card.danger .stat-value{color:#EF4444;}
 .stat-card.success .stat-value{color:#4ADE80;}
 .stat-card.info .stat-value{color:#60A5FA;}
+.stat-card.purple .stat-value{color:#a78bfa;}
+.stat-card.yellow .stat-value{color:#fbbf24;}
 .vault-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding:0 0 16px;}
 .vault-grid.tri{grid-template-columns:1fr 1fr 1fr;}
 .vault-card{background:linear-gradient(145deg,#111315,#0d0e12);border:1px solid #1A1D21;border-radius:14px;padding:20px;animation:fadeIn .3s ease;transition:border-color .2s;}

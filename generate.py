@@ -81,6 +81,8 @@ th {{ background: #f5f5f5; }}
         )
 
     elif fmt == "pdf":
+        def _esc(t):
+            return t.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
         try:
             from reportlab.lib.pagesizes import A4
             from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
@@ -93,17 +95,16 @@ th {{ background: #f5f5f5; }}
 
             for line in content.split("\n"):
                 if line.startswith("# "):
-                    elements.append(Paragraph(line[2:], styles['Title']))
+                    elements.append(Paragraph(_esc(line[2:]), styles['Title']))
                     elements.append(Spacer(1, 12))
                 elif line.startswith("## "):
-                    elements.append(Paragraph(line[3:], styles['Heading2']))
+                    elements.append(Paragraph(_esc(line[3:]), styles['Heading2']))
                     elements.append(Spacer(1, 8))
                 elif line.startswith("### "):
-                    elements.append(Paragraph(line[4:], styles['Heading3']))
+                    elements.append(Paragraph(_esc(line[4:]), styles['Heading3']))
                     elements.append(Spacer(1, 6))
                 elif line.strip():
-                    safe = line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-                    elements.append(Paragraph(safe, styles['Normal']))
+                    elements.append(Paragraph(_esc(line), styles['Normal']))
                     elements.append(Spacer(1, 4))
 
             doc.build(elements)
@@ -114,11 +115,17 @@ th {{ background: #f5f5f5; }}
                 headers={"Content-Disposition": f'attachment; filename="{filename}.pdf"'}
             )
         except ImportError:
-            html = f"<html><body><pre>{content}</pre></body></html>"
+            html = f"<html><body><pre>{_esc(content)}</pre></body></html>"
             return StreamingResponse(
                 io.BytesIO(html.encode("utf-8")),
                 media_type="text/html",
                 headers={"Content-Disposition": f'attachment; filename="{filename}.html"'}
+            )
+        except Exception as e:
+            return StreamingResponse(
+                io.BytesIO(f"PDF generation failed: {e}\n\n--- raw content ---\n\n{content}".encode("utf-8")),
+                media_type="text/plain",
+                headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
             )
 
     elif fmt == "docx":
@@ -189,11 +196,13 @@ th {{ background: #f5f5f5; }}
                 for line in chunk.split("\n"):
                     p = tf.add_paragraph()
                     if line.strip().startswith("# "):
-                        r = p.add_run(line.lstrip('#').strip())
+                        r = p.add_run()
+                        r.text = line.lstrip('#').strip()
                         r.font.bold = True
                         r.font.size = Inches(0.25)
                     elif line.strip():
-                        r = p.add_run(line)
+                        r = p.add_run()
+                        r.text = line
                         r.font.size = Inches(0.16)
             buffer = io.BytesIO()
             prs.save(buffer)

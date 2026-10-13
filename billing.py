@@ -10,6 +10,14 @@ from auth import get_current_user_from_cookie
 
 router = APIRouter(prefix="/api/billing", tags=["billing"])
 
+
+def _as_utc(dt):
+    """SQLite returns naive datetimes; treat them as UTC so comparisons against
+    an aware datetime don't raise TypeError."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
 PLANS = {
     "pro_monthly": {"id": "pro_monthly", "name": "Pro", "price": 5.99, "interval": "month", "savings": None},
     "pro_annual": {"id": "pro_annual", "name": "Pro Annual", "price": 59.99, "interval": "year", "savings": "17% off"},
@@ -58,7 +66,7 @@ async def get_plans():
 async def get_status(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     trial_active = False
-    if user.trial_end and user.trial_end > datetime.now(timezone.utc):
+    if user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc):
         trial_active = True
     return {
         "is_pro": user.is_pro or trial_active,
@@ -129,7 +137,7 @@ async def start_trial(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if user.is_pro or user.is_ultimate:
         raise HTTPException(status_code=400, detail="Already subscribed")
-    if user.trial_end and user.trial_end > datetime.now(timezone.utc):
+    if user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc):
         raise HTTPException(status_code=400, detail="Trial already active")
     if user.trial_end is not None:
         raise HTTPException(status_code=400, detail="Trial already used")

@@ -38,8 +38,16 @@ def _is_guest(user):
     return user.username.startswith("guest_")
 
 
+def _as_utc(dt):
+    """SQLite returns naive datetimes; treat them as UTC so we never subtract a
+    naive from an aware datetime (which raises TypeError and 500s the request)."""
+    if dt is None:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+
+
 def _is_pro(user):
-    return bool(user.is_pro or (user.trial_end and user.trial_end > datetime.now(timezone.utc)))
+    return bool(user.is_pro or (user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc)))
 
 
 def _is_ultimate(user):
@@ -56,7 +64,7 @@ def _cooldown_remaining(user):
     now = datetime.now(timezone.utc)
     if not user.cooldown_until:
         return 0
-    rem = int((user.cooldown_until - now).total_seconds())
+    rem = int((_as_utc(user.cooldown_until) - now).total_seconds())
     if rem > 0:
         return rem
     user.cooldown_until = None
@@ -163,7 +171,7 @@ async def check_limit(user: User, db: AsyncSession, action: str):
     if action == "image_gen":
         # Guest: images stay blocked while inside the 30-min message pause
         if is_guest and user.last_pause_at:
-            elapsed = (now - user.last_pause_at).total_seconds()
+            elapsed = (now - _as_utc(user.last_pause_at)).total_seconds()
             if elapsed < GUEST_PAUSE_MIN * 60:
                 remaining = int(GUEST_PAUSE_MIN * 60 - elapsed)
                 raise HTTPException(status_code=429, detail=f"Guest pause: wait {_fmt_wait(remaining)}. Please login for unlimited. Image generation paused with chat.")

@@ -81,9 +81,11 @@
     async bindPinSecurity() {
         const me = this._user || (await api('/api/auth/me')).user;
         if (!me) return;
-        const sk = 'zenith_vault_pin_' + me.username;
-        this._pinKey = sk;
-        this._pinHash = localStorage.getItem(sk) || null;
+        this._user = me;
+        const pwBtn = document.getElementById('vault-pin-pw-btn');
+        if (pwBtn && !pwBtn._bound) { pwBtn._bound = true; pwBtn.addEventListener('click', () => this._submitPinSetup()); }
+        const pwInput = document.getElementById('vault-pin-pw');
+        if (pwInput && !pwInput._bound) { pwInput._bound = true; pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') this._submitPinSetup(); }); }
         const lockedBtn = document.getElementById('vault-lock-btn');
         if (lockedBtn) {
             lockedBtn.addEventListener('click', () => this.lockVault(true));
@@ -93,19 +95,29 @@
             );
             // Idle lock: 5 minutes without activity locks the vault.
             this._idleTimer = setInterval(() => {
-                if (this._pinHash && this._pinUnlocked && (Date.now() - (this._lastActivity || 0)) > 5 * 60 * 1000) {
+                if (this._pinEnabled && this._pinUnlocked && (Date.now() - (this._lastActivity || 0)) > 5 * 60 * 1000) {
                     this.lockVault(true);
                 }
             }, 30000);
         }
-        // Always start the vault behind the welcome/PIN gate. First visit (no PIN
-        // saved anywhere) goes straight to setup; otherwise ask for the existing PIN.
         this._renderWelcomeIdentity(me);
-        if (!this._pinHash) {
-            this.setupPIN();
-        } else {
-            this.enterPINScreen();
+        // The server is the source of truth for whether a PIN exists. A stale
+        // localStorage value can no longer fake an unlocked vault.
+        let enabled = false;
+        try { const st = await api('/api/auth/admin/pin-state'); enabled = !!st.enabled; } catch (e) {}
+        this._pinEnabled = enabled;
+        if (!enabled) { this.setupPIN(); return; }
+        // Reuse a still-valid unlock token from this browser tab, if any.
+        let tok = null;
+        try { tok = sessionStorage.getItem('zenith_vault_token'); } catch (e) {}
+        if (tok) {
+            try {
+                const r = await fetch('/api/auth/admin/pin-unlock', { method: 'POST', credentials: 'same-origin', headers: { 'X-Vault-Token': tok } });
+                if (r.ok) { this._vaultToken = tok; this._enterVaultUnlocked(); return; }
+            } catch (e) {}
+            try { sessionStorage.removeItem('zenith_vault_token'); } catch (e) {}
         }
+        this.enterPINScreen();
     },
 
     _renderWelcomeIdentity(me) {
@@ -129,8 +141,18 @@
         sc.style.display = 'flex';
         this._renderWelcomeIdentity(this._user);
         document.getElementById('vault-pin-title').textContent = 'WELCOME TO THE VAULT';
-        document.getElementById('vault-pin-sub').textContent = 'First time here — set a 4-digit PIN to protect your vault';
+        document.getElementById('vault-pin-sub').textContent = 'First time here — create a 4-digit PIN';
         document.getElementById('vault-pin-err').textContent = '';
+        const pw = document.getElementById('vault-pin-pw-wrap');
+        if (pw) pw.style.display = 'none';
+        const pwi = document.getElementById('vault-pin-pw');
+        if (pwi) pwi.value = '';
+        const btn = document.getElementById('vault-pin-pw-btn');
+        if (btn) { btn.disabled = false; btn.textContent = 'Enable PIN lock'; }
+        const pad = document.querySelector('#vault-pin-screen .vault-pin-pad');
+        const dots = document.getElementById('vault-pin-dots');
+        if (pad) pad.style.display = '';
+        if (dots) dots.style.display = 'flex';
         this._pinDots = [];
         this._pinSetupStep = 1;
         this._setupPin1 = '';
@@ -146,8 +168,14 @@
         sc.style.display = 'flex';
         this._renderWelcomeIdentity(this._user);
         document.getElementById('vault-pin-title').textContent = 'WELCOME TO THE VAULT';
-        document.getElementById('vault-pin-sub').textContent = 'Enter your 4-digit PIN to continue';
+        document.getElementById('vault-pin-sub').textContent = 'Enter your PIN to continue';
         document.getElementById('vault-pin-err').textContent = '';
+        const pw = document.getElementById('vault-pin-pw-wrap');
+        if (pw) pw.style.display = 'none';
+        const pad = document.querySelector('#vault-pin-screen .vault-pin-pad');
+        const dots = document.getElementById('vault-pin-dots');
+        if (pad) pad.style.display = '';
+        if (dots) dots.style.display = 'flex';
         this._pinDots = [];
         this._pinScreenMode = 'enter';
         this._renderPinDots();
@@ -192,6 +220,7 @@
     },
 
     async _pinPress(k) {
+        if (this._pinBusy) return;
         if (k === 'del') {
             this._pinDots.pop();
             this._renderPinDots();
@@ -204,57 +233,127 @@
             if (this._pinDots.length < 4) return;
         }
         if (k === 'enter' && this._pinDots.length < 4) return;
-        if (this._pinDots.length === 4 || k === 'enter') {
-            const pin = this._pinDots.join('');
-            if (this._pinScreenMode === 'setup') {
-                if (this._pinSetupStep === 1) {
-                    this._setupPin1 = pin;
-                    this._pinSetupStep = 2;
-                    this._pinDots = [];
-                    document.getElementById('vault-pin-sub').textContent = 'Confirm your 4-digit PIN';
-                    this._renderPinDots();
-                    return;
-                } else {
-                    if (pin === this._setupPin1) {
-                        const hash = await this._sha256(pin);
-                        localStorage.setItem(this._pinKey, hash);
-                        this._pinHash = hash;
-                        try { await api('/api/auth/admin/pin-state', { method: 'POST', body: JSON.stringify({ enabled: true }) }); } catch {}
-                        this.unlockVault();
-                    } else {
-                        document.getElementById('vault-pin-err').textContent = 'PINs did not match. Start over.';
-                        this._setupPin1 = '';
-                        this._pinSetupStep = 1;
-                        this._pinDots = [];
-                        this._renderPinDots();
-                    }
-                    return;
-                }
-            } else {
-                const hash = await this._sha256(pin);
-                if (hash === this._pinHash) {
-                    this.unlockVault();
-                } else {
-                    document.getElementById('vault-pin-err').textContent = 'Wrong PIN — try again';
-                    this._pinDots = [];
-                    this._renderPinDots();
-                }
+        if (this._pinDots.length !== 4 && k !== 'enter') return;
+        const pin = this._pinDots.join('');
+        if (this._pinScreenMode === 'setup') {
+            if (this._pinSetupStep === 1) {
+                this._setupPin1 = pin;
+                this._pinSetupStep = 2;
+                this._pinDots = [];
+                document.getElementById('vault-pin-sub').textContent = 'Confirm your 4-digit PIN';
+                this._renderPinDots();
+                return;
             }
+            if (pin === this._setupPin1) {
+                // Reveal the account-password field to actually create the PIN.
+                this._pinScreenMode = 'setup-confirm';
+                this._stopPinListeners();
+                const pad = document.querySelector('#vault-pin-screen .vault-pin-pad');
+                const dots = document.getElementById('vault-pin-dots');
+                if (pad) pad.style.display = 'none';
+                if (dots) dots.style.display = 'none';
+                document.getElementById('vault-pin-sub').textContent = 'PIN set — confirm your password';
+                const pw = document.getElementById('vault-pin-pw-wrap');
+                if (pw) pw.style.display = 'block';
+                const pwi = document.getElementById('vault-pin-pw');
+                if (pwi) setTimeout(() => pwi.focus(), 50);
+            } else {
+                document.getElementById('vault-pin-err').textContent = 'PINs did not match. Start over.';
+                this._setupPin1 = '';
+                this._pinSetupStep = 1;
+                this._pinDots = [];
+                document.getElementById('vault-pin-sub').textContent = 'First time here — create a 4-digit PIN';
+                this._renderPinDots();
+            }
+            return;
         }
-    },
-
-    async _sha256(str) {
+        // Enter mode — verify the PIN against the server.
+        this._pinBusy = true;
+        this._pinDots = [];
+        this._renderPinDots();
+        document.getElementById('vault-pin-err').textContent = '';
         try {
-            const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('vault:' + str + ':zelpophai'));
-            return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-        } catch {
-            // Non-WebCrypto fallback
-            let h = 0; for (let i = 0; i < str.length; i++) { h = ((h << 5) - h + str.charCodeAt(i)) | 0; }
-            return 'fb_' + Math.abs(h).toString(16);
+            const r = await api('/api/auth/admin/pin-verify', { method: 'POST', body: JSON.stringify({ pin }) });
+            this._setVaultToken(r.token);
+            this._enterVaultUnlocked();
+        } catch (e) {
+            document.getElementById('vault-pin-err').textContent = e.message || 'Wrong PIN — try again';
+        } finally {
+            this._pinBusy = false;
         }
     },
 
-    unlockVault() {
+    async _submitPinSetup() {
+        const pwEl = document.getElementById('vault-pin-pw');
+        const errEl = document.getElementById('vault-pin-err');
+        const pw = pwEl ? pwEl.value : '';
+        if (!pw) { if (errEl) errEl.textContent = 'Enter your account password'; return; }
+        const btn = document.getElementById('vault-pin-pw-btn');
+        if (btn) { btn.disabled = true; btn.textContent = 'Enabling…'; }
+        try {
+            const r = await api('/api/auth/admin/pin-set', { method: 'POST', body: JSON.stringify({ pin: this._setupPin1, password: pw }) });
+            this._pinEnabled = true;
+            this._setVaultToken(r.token);
+            this._enterVaultUnlocked();
+        } catch (e) {
+            if (errEl) errEl.textContent = e.message || 'Could not enable PIN';
+            if (btn) { btn.disabled = false; btn.textContent = 'Enable PIN lock'; }
+        }
+    },
+
+    _setVaultToken(tok) {
+        this._vaultToken = tok || null;
+        try {
+            if (tok) sessionStorage.setItem('zenith_vault_token', tok);
+            else sessionStorage.removeItem('zenith_vault_token');
+        } catch (e) {}
+    },
+
+    changePIN() {
+        if (!this._pinEnabled) { this.setupPIN(); return; }
+        const wrap = document.createElement('div');
+        wrap.id = 'vault-changepin-modal';
+        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.7);backdrop-filter:blur(6px);';
+        wrap.innerHTML = `
+            <div style="background:#151A22;border:1px solid #2A3140;border-radius:16px;padding:28px;max-width:380px;width:92%;">
+                <div style="font-size:16px;font-weight:700;color:#fff;margin-bottom:16px;">Change Vault PIN</div>
+                <input id="cp-old" type="password" inputmode="numeric" maxlength="6" placeholder="Current PIN"
+                    style="width:100%;padding:12px 14px;margin-bottom:10px;background:#0f1218;border:1px solid #2A3140;border-radius:10px;color:#E6EAF2;font-size:14px;outline:none;">
+                <input id="cp-new" type="password" inputmode="numeric" maxlength="6" placeholder="New PIN (4-6 digits)"
+                    style="width:100%;padding:12px 14px;margin-bottom:10px;background:#0f1218;border:1px solid #2A3140;border-radius:10px;color:#E6EAF2;font-size:14px;outline:none;">
+                <input id="cp-pw" type="password" placeholder="Account password"
+                    style="width:100%;padding:12px 14px;margin-bottom:14px;background:#0f1218;border:1px solid #2A3140;border-radius:10px;color:#E6EAF2;font-size:14px;outline:none;">
+                <div id="cp-err" style="color:#EF4444;font-size:12px;min-height:16px;margin-bottom:10px;"></div>
+                <div style="display:flex;gap:10px;">
+                    <button id="cp-save" class="vault-btn primary" style="flex:1;">Save</button>
+                    <button id="cp-cancel" class="vault-btn" style="flex:1;">Cancel</button>
+                </div>
+            </div>`;
+        document.body.appendChild(wrap);
+        const close = () => wrap.remove();
+        wrap.querySelector('#cp-cancel').addEventListener('click', close);
+        wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+        wrap.querySelector('#cp-save').addEventListener('click', async () => {
+            const err = wrap.querySelector('#cp-err');
+            const btn = wrap.querySelector('#cp-save');
+            const old_pin = wrap.querySelector('#cp-old').value.trim();
+            const new_pin = wrap.querySelector('#cp-new').value.trim();
+            const password = wrap.querySelector('#cp-pw').value;
+            err.textContent = '';
+            btn.disabled = true; btn.textContent = 'Saving…';
+            try {
+                await api('/api/auth/admin/pin-change', { method: 'POST', body: JSON.stringify({ old_pin, new_pin, password }) });
+                close();
+                if (typeof showToast === 'function') showToast('Vault PIN updated', 'success');
+            } catch (e) {
+                err.textContent = e.message || 'Could not change PIN';
+                btn.disabled = false; btn.textContent = 'Save';
+            }
+        });
+        setTimeout(() => wrap.querySelector('#cp-old').focus(), 50);
+    },
+
+    _enterVaultUnlocked() {
         this._pinUnlocked = true;
         this._lastActivity = Date.now();
         this._stopPinListeners();
@@ -262,26 +361,38 @@
         if (sc) sc.style.display = 'none';
         const btn = document.getElementById('vault-lock-btn');
         if (btn) btn.style.display = '';
+        // Reset the setup UI so a later lock shows a clean keypad.
+        const pad = document.querySelector('#vault-pin-screen .vault-pin-pad');
+        const dots = document.getElementById('vault-pin-dots');
+        if (pad) pad.style.display = '';
+        if (dots) dots.style.display = 'flex';
+        const pw = document.getElementById('vault-pin-pw-wrap');
+        if (pw) pw.style.display = 'none';
         this.loadTab('dashboard');
         this.startPolling();
-        try { api('/api/auth/admin/pin-unlock', { method: 'POST' }).catch(() => {}); } catch {}
+    },
+
+    unlockVault() {
+        // Kept for backward compatibility with any existing callers.
+        this._enterVaultUnlocked();
     },
 
     lockVault(force) {
         this._pinUnlocked = false;
-        if (!this._pinHash) {
+        this._setVaultToken(null);
+        const btn = document.getElementById('vault-lock-btn');
+        if (btn) btn.style.display = 'none';
+        if (!this._pinEnabled) {
             // No PIN yet — gate through setup
             this.setupPIN();
             return;
         }
-        const btn = document.getElementById('vault-lock-btn');
-        if (btn) btn.style.display = 'none';
         this.enterPINScreen();
     },
 
     // Light refresh that avoids wiping the whole vault when returning to the tab / clicking active nav
     refreshCurrentTab() {
-        if (this._pinHash && !this._pinUnlocked) return;
+        if (this._pinEnabled && !this._pinUnlocked) return;
         if (this._currentTab === 'dashboard') {
             this.refreshDashboardStats();
             this.refreshSystemStats();
@@ -427,7 +538,7 @@
 
     loadTab(tab) {
         // Refuse to switch tabs while locked.
-        if (this._pinHash && !this._pinUnlocked) {
+        if (this._pinEnabled && !this._pinUnlocked) {
             this.enterPINScreen();
             return;
         }
@@ -449,15 +560,15 @@
         if (this._annInterval) clearInterval(this._annInterval);
         if (this._heartbeatInterval) clearInterval(this._heartbeatInterval);
         if (this._onlinePollInterval) clearInterval(this._onlinePollInterval);
-        if (this._pinHash && !this._pinUnlocked) return;
+        if (this._pinEnabled && !this._pinUnlocked) return;
         this.pollBroadcasts();
-        this._annInterval = setInterval(() => { if (this._pinHash && !this._pinUnlocked) return; this.pollBroadcasts(); }, 2000);
+        this._annInterval = setInterval(() => { if (this._pinEnabled && !this._pinUnlocked) return; this.pollBroadcasts(); }, 2000);
         this._pollInterval = setInterval(() => {
-            if (this._pinHash && !this._pinUnlocked) return;
+            if (this._pinEnabled && !this._pinUnlocked) return;
             if (this._currentTab === 'dashboard') this.refreshDashboardStats();
         }, 1000);
         this._sysPollInterval = setInterval(() => {
-            if (this._pinHash && !this._pinUnlocked) return;
+            if (this._pinEnabled && !this._pinUnlocked) return;
             if (this._currentTab === 'dashboard') {
                 this.refreshSystemStats();
                 this.loadHourlyChart();
@@ -467,7 +578,7 @@
             }
         }, 5000);
         // Online count — poll slower (3s) to reduce flicker from 1s heartbeat
-        this._onlinePollInterval = setInterval(() => { if (this._pinHash && !this._pinUnlocked) return; this.refreshOnlineCount(); }, 3000);
+        this._onlinePollInterval = setInterval(() => { if (this._pinEnabled && !this._pinUnlocked) return; this.refreshOnlineCount(); }, 3000);
         // heartbeat — vault staff must ping too, otherwise they never appear online
         this._heartbeatInterval = setInterval(() => {
             if (navigator.onLine) fetch('/api/auth/heartbeat', { method: 'POST', credentials: 'same-origin' }).catch(() => {});
@@ -1575,6 +1686,12 @@
                 <div class="vault-card" style="margin-bottom:16px;">
                     <div class="card-header"><span>Last Login</span></div>
                     <div style="font-size:13px;color:#fff;">${dash.last_login} from <span style="color:#60A5FA;">${dash.last_ip}</span></div>
+                </div>
+                <div class="vault-card" style="margin-bottom:16px;">
+                    <div class="card-header"><span>🔐 Vault PIN Lock</span></div>
+                    <div style="font-size:13px;color:#C0C7D1;margin-bottom:12px;">Your vault is protected by a server-verified ${this._pinEnabled ? 'PIN' : 'PIN (not set)'}. Unlocks last 15 minutes per browser tab.</div>
+                    <button class="vault-btn primary" onclick="Vault.changePIN()">${this._pinEnabled ? 'Change PIN' : 'Set PIN'}</button>
+                    <button class="vault-btn" style="margin-left:8px;" onclick="Vault.lockVault(true)">Lock Now</button>
                 </div>
                 <div class="vault-card">
                     <div class="card-header"><span>🔐 Login History (all users, last 100)</span></div>

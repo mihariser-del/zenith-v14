@@ -149,9 +149,17 @@ function showEmergencyPopup(type) {
 }
 
 async function api(path, opts = {}) {
+    // Vault unlock token (issued after a correct PIN) is kept per-tab and sent on
+    // every request so vault-only admin endpoints can verify the unlock.
+    let vaultToken = '';
+    try { vaultToken = sessionStorage.getItem('zenith_vault_token') || ''; } catch (e) {}
     const res = await fetch(path, {
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+        headers: {
+            'Content-Type': 'application/json',
+            ...(vaultToken ? { 'X-Vault-Token': vaultToken } : {}),
+            ...(opts.headers || {}),
+        },
         ...opts,
     });
     let data;

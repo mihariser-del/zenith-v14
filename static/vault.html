@@ -103,6 +103,13 @@
                 <button class="vault-pin-key" style="visibility:hidden;"></button><button class="vault-pin-key" data-k="0">0</button><button class="vault-pin-key" data-k="del">⌫</button>
             </div>
             <div style="margin-top:16px; font-size:12px; color:#EF4444; min-height:18px;" id="vault-pin-err"></div>
+            <div id="vault-pin-pw-wrap" style="display:none; margin-top:6px; text-align:left;">
+                <div id="vault-pin-pw-label" style="font-size:11px; color:#8B949E; margin-bottom:6px; letter-spacing:1px;">CONFIRM YOUR ACCOUNT PASSWORD</div>
+                <input id="vault-pin-pw" type="password" autocomplete="current-password" placeholder="Account password"
+                    style="width:100%; padding:12px 14px; background:#0f1218; border:1px solid #2A3140; border-radius:10px; color:#E6EAF2; font-size:14px; outline:none;">
+                <button id="vault-pin-pw-btn" type="button"
+                    style="width:100%; margin-top:10px; padding:12px; background:linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#ff3db4); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">Enable PIN lock</button>
+            </div>
         </div>
     </div>
     <script src="/static/js/api.js"></script>

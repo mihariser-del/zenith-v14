@@ -4,10 +4,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timezone, timedelta
 
 from database import get_db, User, Chat, Message, LoginHistory, Referral, UserSettings, Memory
-from auth import get_current_user_from_cookie, is_staff, get_role
+from auth import get_current_user_from_cookie, is_staff, get_role, require_vault
 from audit import log_action
 
-router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"])
+router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"], dependencies=[Depends(require_vault)])
 
 
 @router.get("/referrals")

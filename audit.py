@@ -16,6 +16,13 @@ from database import get_db, ActionLog, User
 router = APIRouter(prefix="/api/auth/admin/audit", tags=["audit"])
 
 
+async def _require_vault(request: Request, db: AsyncSession = Depends(get_db)):
+    """Vault gate for audit routes. Imported lazily to avoid a circular import
+    (auth.py imports log_action from this module at load time)."""
+    from auth import require_vault
+    return await require_vault(request, db)
+
+
 def _client_ip(request) -> str:
     try:
         if hasattr(request, "client") and request.client:
@@ -57,7 +64,7 @@ async def log_action(
         print(f"[audit] log_action failed: {e}")
 
 
-@router.get("")
+@router.get("", dependencies=[Depends(_require_vault)])
 async def list_audit_logs(
     request: Request,
     limit: int = 100,
@@ -98,7 +105,7 @@ async def list_audit_logs(
     }
 
 
-@router.get("/activity")
+@router.get("/activity", dependencies=[Depends(_require_vault)])
 async def recent_activity(request: Request, db: AsyncSession = Depends(get_db)):
     """Live activity stream: recent signups, recent staff actions, recent bans.
     Used by the Vault dashboard 'Activity Feed' with a 'NEW' pulse."""

@@ -1,5 +1,6 @@
 ﻿from datetime import datetime, timedelta, timezone
 import os
+import re
 import secrets
 import time
 import bcrypt
@@ -342,6 +343,63 @@ async def get_current_user_from_cookie(request: Request, db: AsyncSession) -> Us
     return user
 
 
+# ---------------------------------------------------------------- vault PIN
+# The vault PIN is verified server-side (bcrypt, lockout after 5 failures).
+# A successful unlock issues a short-lived vault token (15 min) that admin
+# APIs require via the X-Vault-Token header — so a stolen session cookie
+# alone is NOT enough to reach vault data.
+
+VAULT_TOKEN_MINUTES = 15
+
+
+def create_vault_token(user) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(minutes=VAULT_TOKEN_MINUTES)
+    return jwt.encode(
+        {
+            "sub": str(user.id),
+            "username": user.username,
+            "role": get_role(user),
+            "vault": True,
+            "exp": expire,
+        },
+        settings.secret_key,
+        algorithm=ALGORITHM,
+    )
+
+
+def decode_vault_token(token: str) -> dict:
+    """Decode + verify a vault token. Raises 403 on anything invalid/expired."""
+    if not token:
+        raise HTTPException(status_code=403, detail="Vault is locked")
+    try:
+        payload = jwt.decode(token, settings.secret_key, algorithms=[ALGORITHM])
+    except JWTError:
+        raise HTTPException(status_code=403, detail="Vault unlock expired — re-enter your PIN")
+    if not payload.get("vault"):
+        raise HTTPException(status_code=403, detail="Vault is locked")
+    return payload
+
+
+async def require_vault(request: Request, db: AsyncSession = Depends(get_db)) -> User:
+    """Dependency for vault-only admin endpoints: valid staff session AND a
+    live vault unlock token in the X-Vault-Token header."""
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    decode_vault_token(request.headers.get("x-vault-token", ""))
+    return user
+
+
+def _pin_locked_remaining(user) -> int:
+    """Seconds left on the PIN lockout, 0 when not locked."""
+    until = getattr(user, "pin_locked_until", None)
+    if not until:
+        return 0
+    if until.tzinfo is None:
+        until = until.replace(tzinfo=timezone.utc)
+    return max(0, int((until - datetime.now(timezone.utc)).total_seconds()))
+
+
 @router.post("/register")
 async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     # Brute-force / abuse protection: per-IP, 10 registrations per hour.
@@ -606,6 +664,8 @@ async def forgot_password(req: ForgotRequest, request: Request, db: AsyncSession
 
 @router.post("/reset-password")
 async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    # Rate-limit reset-code guessing: 10 tries / 15 min per IP.
+    _raise_if_locked(f"resetpw:ip:{_client_ip(request)}", limit=10, window=900)
     if len(req.new_password) < 6:
         raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
     if not req.token.strip():
@@ -613,6 +673,7 @@ async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncS
     result = await db.execute(select(User).where(User.reset_token == req.token.strip().upper()))
     user = result.scalar_one_or_none()
     if not user:
+        _record_failure(f"resetpw:ip:{_client_ip(request)}", window=900)
         raise HTTPException(status_code=400, detail="Invalid or already-used reset token")
     expires = getattr(user, "reset_token_expires", None)
     if not expires:
@@ -651,7 +712,7 @@ async def logout_all(request: Request, response: Response, db: AsyncSession = De
 
 
 @router.post("/emergency-password")
-async def owner_emergency_password(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+async def owner_emergency_password(request: Request, response: Response, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     """Owner panic button. If the owner password is leaked/compromised:
     rotate it to a fresh random 13-char value, wipe any queued password reset,
     and instantly invalidate every OTHER signed-in session (only this one
@@ -683,7 +744,7 @@ async def password_changed_status(request: Request, db: AsyncSession = Depends(g
 
 
 @router.get("/password-changed/view")
-async def password_changed_view(request: Request, db: AsyncSession = Depends(get_db)):
+async def password_changed_view(request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     user = await get_current_user_from_cookie(request, db)
     pending = getattr(user, "pending_password", "") or ""
     if not pending:
@@ -700,7 +761,7 @@ async def password_changed_view(request: Request, db: AsyncSession = Depends(get
 
 
 @router.post("/password-changed/dismiss")
-async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db)):
+async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     user = await get_current_user_from_cookie(request, db)
     user.pending_password = ""
     user.pending_password_by = ""
@@ -736,21 +797,28 @@ async def admin_login(req: AdminRequest, request: Request, response: Response, d
     ip_key = f"adminlogin:ip:{ip}"
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
+    ua = (request.headers.get("user-agent") or "")[:500]
     if not user or not verify_password(req.password, user.password_hash):
         _record_failure(user_key)
         _record_failure(ip_key)
+        if user:
+            # Record the failed admin login so it shows in Security history.
+            db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
+            await db.commit()
         _raise_if_locked(user_key, limit=5)
         _raise_if_locked(ip_key, limit=20)
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
     _clear_failures(user_key)
     _clear_failures(ip_key)
+    db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
+    await db.commit()
     token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))
     set_auth_cookie(response, token, request)
     return {"user": UserResponse.model_validate(user), "admin": True}
 
 
 @router.post("/admin/users")
-async def create_admin(req: AdminRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def create_admin(req: AdminRequest, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     # Owner only — creating a brand-new admin account no longer relies on a hardcoded secret.
     actor = await get_current_user_from_cookie(request, db)
     if not is_owner(actor):
@@ -998,7 +1066,7 @@ class BulkDeleteRequest(BaseModel):
 
 
 @router.post("/admin/users/bulk-delete")
-async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     """Soft-delete multiple users at once (Vault multi-select)."""
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
@@ -1068,7 +1136,7 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
 
 
 @router.get("/admin/users/{user_id}/permissions")
-async def admin_get_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_get_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Only the Owner can manage permissions")
@@ -1091,7 +1159,7 @@ async def admin_get_permissions(user_id: int, request: Request, db: AsyncSession
 
 
 @router.post("/admin/users/{user_id}/permissions")
-async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Only the Owner can manage permissions")
@@ -1137,31 +1205,115 @@ async def heartbeat(request: Request, db: AsyncSession = Depends(get_db)):
 
 @router.get("/admin/pin-state")
 async def pin_state(request: Request, db: AsyncSession = Depends(get_db)):
-    """Vault PIN gate state for the current staff member. `unlocked` is false
-    whenever the gate is enabled, so the vault always starts locked server-side."""
+    """Vault PIN gate state for the current staff member. `enabled` only when a
+    server-side PIN hash actually exists; also reports lockout remaining."""
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    enabled = bool(getattr(user, "pin_enabled", False))
-    return {"enabled": enabled, "unlocked": not enabled}
+    enabled = bool(getattr(user, "pin_enabled", False) and getattr(user, "pin_hash", None))
+    locked_for = _pin_locked_remaining(user) if enabled else 0
+    return {"enabled": enabled, "locked_for": locked_for}
 
 
-@router.post("/admin/pin-state")
-async def pin_state_update(request: Request, db: AsyncSession = Depends(get_db)):
+_PIN_RE = re.compile(r"^\d{4,6}$")
+
+
+@router.post("/admin/pin-set")
+async def pin_set(request: Request, db: AsyncSession = Depends(get_db)):
+    """Set/change the vault PIN. Requires the account password. The PIN is
+    stored as a bcrypt hash — it never leaves the server afterwards."""
     body = await request.json()
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    user.pin_enabled = bool(body.get("enabled", True))
+    _raise_if_locked(f"pin-set:{user.id}", limit=5, window=900)
+    password = str(body.get("password") or "")
+    pin = str(body.get("pin") or "")
+    if not password or not _PIN_RE.match(pin):
+        _record_failure(f"pin-set:{user.id}", window=900)
+        raise HTTPException(status_code=400, detail="Account password and a 4-6 digit PIN are required")
+    if not verify_password(password, user.password_hash):
+        _record_failure(f"pin-set:{user.id}", window=900)
+        raise HTTPException(status_code=401, detail="Account password is wrong")
+    _clear_failures(f"pin-set:{user.id}")
+    user.pin_hash = hash_password(pin)
+    user.pin_enabled = True
+    user.pin_attempts = 0
+    user.pin_locked_until = None
     await db.commit()
-    return {"enabled": user.pin_enabled, "unlocked": False}
+    return {"ok": True, "token": create_vault_token(user), "expires_in": VAULT_TOKEN_MINUTES * 60}
+
+
+@router.post("/admin/pin-verify")
+async def pin_verify(request: Request, db: AsyncSession = Depends(get_db)):
+    """Verify the vault PIN. 5 consecutive failures lock the PIN for 15 minutes
+    (server-side, persists across restarts). Success returns a 15-minute vault token."""
+    body = await request.json()
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    if not getattr(user, "pin_hash", None):
+        raise HTTPException(status_code=400, detail="PIN not set")
+    locked_for = _pin_locked_remaining(user)
+    if locked_for:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Too many wrong PINs. Locked for {locked_for // 60}m {locked_for % 60}s.",
+            headers={"Retry-After": str(locked_for)},
+        )
+    pin = str(body.get("pin") or "")
+    if not verify_password(pin, user.pin_hash):
+        user.pin_attempts = (getattr(user, "pin_attempts", 0) or 0) + 1
+        if user.pin_attempts >= 5:
+            user.pin_attempts = 0
+            user.pin_locked_until = datetime.now(timezone.utc) + timedelta(minutes=15)
+            await db.commit()
+            raise HTTPException(status_code=429, detail="Too many wrong PINs. Locked for 15 minutes.")
+        await db.commit()
+        remaining = 5 - (user.pin_attempts or 0)
+        raise HTTPException(status_code=401, detail=f"Wrong PIN — {remaining} attempt(s) left before lockout.")
+    user.pin_attempts = 0
+    user.pin_locked_until = None
+    await db.commit()
+    return {"ok": True, "token": create_vault_token(user), "expires_in": VAULT_TOKEN_MINUTES * 60}
+
+
+@router.post("/admin/pin-change")
+async def pin_change(request: Request, db: AsyncSession = Depends(get_db)):
+    """Change the vault PIN: needs the current PIN AND the account password."""
+    body = await request.json()
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    _raise_if_locked(f"pin-change:{user.id}", limit=5, window=900)
+    old_pin = str(body.get("old_pin") or "")
+    new_pin = str(body.get("new_pin") or "")
+    password = str(body.get("password") or "")
+    if not _PIN_RE.match(new_pin) or not password:
+        _record_failure(f"pin-change:{user.id}", window=900)
+        raise HTTPException(status_code=400, detail="New 4-6 digit PIN and account password are required")
+    if not getattr(user, "pin_hash", None) or not verify_password(old_pin, user.pin_hash):
+        _record_failure(f"pin-change:{user.id}", window=900)
+        raise HTTPException(status_code=401, detail="Current PIN is wrong")
+    if not verify_password(password, user.password_hash):
+        _record_failure(f"pin-change:{user.id}", window=900)
+        raise HTTPException(status_code=401, detail="Account password is wrong")
+    _clear_failures(f"pin-change:{user.id}")
+    user.pin_hash = hash_password(new_pin)
+    user.pin_attempts = 0
+    user.pin_locked_until = None
+    await db.commit()
+    return {"ok": True}
 
 
 @router.post("/admin/pin-unlock")
 async def pin_unlock(request: Request, db: AsyncSession = Depends(get_db)):
-    """Called after the PIN is validated client-side. Marks the short-lived
-    server unlock so an admin who hard-refreshes isn't re-gated mid-session."""
+    """Validate the X-Vault-Token header (used by the client to re-check a stored
+    unlock after refresh). Returns remaining validity seconds."""
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    return {"ok": True}
+    payload = decode_vault_token(request.headers.get("x-vault-token", ""))
+    exp = payload.get("exp") or 0
+    remaining = max(0, int(exp - datetime.now(timezone.utc).timestamp()))
+    return {"ok": True, "remaining": remaining}

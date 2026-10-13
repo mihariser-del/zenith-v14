@@ -182,8 +182,13 @@ class User(Base):
     # entries are prepended to the top, so unseen = list[: len - seen].
     changelog_seen_user = Column(Integer, default=0)
     changelog_seen_staff = Column(Integer, default=0)
-    # Vault PIN gate — true once the staff member has enabled the PIN lock
+    # Vault PIN gate — true once the staff member has enabled the PIN lock.
+    # The PIN itself is stored server-side only (bcrypt). pin_attempts /
+    # pin_locked_until implement the server-side lockout.
     pin_enabled = Column(Boolean, default=False)
+    pin_hash = Column(String(255), nullable=True)
+    pin_attempts = Column(Integer, default=0)
+    pin_locked_until = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chats = relationship("Chat", back_populates="user", cascade="all, delete-orphan")
@@ -499,6 +504,9 @@ async def init_db():
             ("changelog_seen_user", "INTEGER DEFAULT 0"),
             ("changelog_seen_staff", "INTEGER DEFAULT 0"),
             ("pin_enabled", "BOOLEAN DEFAULT 0"),
+            ("pin_hash", "VARCHAR(255) DEFAULT NULL"),
+            ("pin_attempts", "INTEGER DEFAULT 0"),
+            ("pin_locked_until", "DATETIME"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")

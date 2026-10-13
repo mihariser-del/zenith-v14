@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from database import get_db, User, Announcement, settings
-from auth import get_current_user_from_cookie, is_staff, is_owner, get_role
+from auth import get_current_user_from_cookie, is_staff, is_owner, get_role, require_vault
 from audit import log_action
 
 router = APIRouter(prefix="/api/admin/system", tags=["admin-system"])
@@ -37,7 +37,7 @@ async def _announce(db: AsyncSession, user, content: str):
     await db.commit()
 
 
-@router.get("/state")
+@router.get("/state", dependencies=[Depends(require_vault)])
 async def get_state(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
@@ -68,7 +68,7 @@ class ChosenRequest(BaseModel):
     user_ids: list[int]
 
 
-@router.post("/set-chosen")
+@router.post("/set-chosen", dependencies=[Depends(require_vault)])
 async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -91,7 +91,7 @@ async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = De
     return {"chosen": chosen}
 
 
-@router.post("/maintenance")
+@router.post("/maintenance", dependencies=[Depends(require_vault)])
 async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -119,7 +119,7 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
     return {"maintenance_mode": req.value}
 
 
-@router.post("/registrations")
+@router.post("/registrations", dependencies=[Depends(require_vault)])
 async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -131,7 +131,7 @@ async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncS
     return {"registrations": req.value}
 
 
-@router.post("/messaging")
+@router.post("/messaging", dependencies=[Depends(require_vault)])
 async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -143,7 +143,7 @@ async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSessi
     return {"messaging": req.value}
 
 
-@router.post("/ai")
+@router.post("/ai", dependencies=[Depends(require_vault)])
 async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -155,7 +155,7 @@ async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = De
     return {"ai_enabled": req.value}
 
 
-@router.post("/lock-all")
+@router.post("/lock-all", dependencies=[Depends(require_vault)])
 async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -174,7 +174,7 @@ async def lock_all(request: Request, db: AsyncSession = Depends(get_db)):
     return {"locked": len(targets)}
 
 
-@router.post("/backup")
+@router.post("/backup", dependencies=[Depends(require_vault)])
 async def create_backup(request: Request, db: AsyncSession = Depends(get_db)):
     """Create a full database snapshot (emergency + manual backup).
 
@@ -230,7 +230,7 @@ async def create_backup(request: Request, db: AsyncSession = Depends(get_db)):
     return {"message": "Snapshot created (managed DB)", "counts": counts, "created": _dt.now().isoformat()}
 
 
-@router.post("/unlock-all")
+@router.post("/unlock-all", dependencies=[Depends(require_vault)])
 async def unlock_all(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):
@@ -245,7 +245,7 @@ async def unlock_all(request: Request, db: AsyncSession = Depends(get_db)):
     return {"unlocked": len(targets)}
 
 
-@router.post("/force-logout")
+@router.post("/force-logout", dependencies=[Depends(require_vault)])
 async def force_logout(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_owner(user):

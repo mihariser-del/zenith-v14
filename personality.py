@@ -50,7 +50,7 @@ async def _analyze_style(texts) -> str:
             "https://openrouter.ai/api/v1/chat/completions",
             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
             json={
-                "model": "openai/gpt-4o-mini",
+                "model": "openai/gpt-6-luna",
                 "messages": [{"role": "user", "content": prompt}],
                 "max_tokens": 400,
                 "temperature": 0.3,

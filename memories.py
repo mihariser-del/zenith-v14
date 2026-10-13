@@ -154,7 +154,7 @@ Return ONLY a JSON array of strings. No other text."""
             resp = await client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"},
-                json={"model": "openai/gpt-4o-mini", "messages": [{"role": "user", "content": extract_prompt}], "max_tokens": 500, "temperature": 0.3}
+                json={"model": "openai/gpt-6-luna", "messages": [{"role": "user", "content": extract_prompt}], "max_tokens": 500, "temperature": 0.3}
             )
             if resp.status_code != 200:
                 return {"memories": [], "error": f"API error {resp.status_code}"}

@@ -284,7 +284,7 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False):
     user_id = None
     messages = []
-    user_model = "openai/gpt-4o-mini"
+    user_model = "openai/gpt-6-luna"
     user_max_tokens = 2048
     user_temperature = 0.7
 
@@ -442,7 +442,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                     # Try free fallback before giving up
                                     try:
                                         async with httpx.AsyncClient(timeout=60) as fb:
-                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "openai/gpt-4o-mini", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
+                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "openai/gpt-6-luna", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
                                             if fr.status_code == 200:
                                                 fobj = fr.json()
                                                 fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
@@ -543,7 +543,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                     # Free fallback
                                     try:
                                         async with httpx.AsyncClient(timeout=60) as fb:
-                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"},                     json={"model": "openai/gpt-4o-mini", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
+                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"},                     json={"model": "openai/gpt-6-luna", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
                                             if fr.status_code == 200:
                                                 fobj = fr.json()
                                                 fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")

@@ -261,7 +261,7 @@ class UserSettings(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), unique=True, nullable=False)
     system_prompt = Column(Text, default="You are Zelpophai AI, created by Wanzu Ibrahim. Answer accurately and helpfully.")
     personality = Column(String(50), default="default")
-    model = Column(String(100), default="openai/gpt-4o-mini")
+    model = Column(String(100), default="openai/gpt-6-luna")
     max_tokens = Column(Integer, default=2048)
     temperature = Column(Float, default=0.7)
     memory_enabled = Column(Boolean, default=True)
@@ -636,7 +636,7 @@ async def init_db():
             print(f"sync admin role: {e}")
         try:
             await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct'")
+                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-6-luna' WHERE model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct' OR model='openai/gpt-4o-mini'")
             )
             await session.commit()
         except Exception as e:
@@ -644,7 +644,7 @@ async def init_db():
         # Reset any free models back to OpenAI
         try:
             await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-4o-mini' WHERE model LIKE '%free%'")
+                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-6-luna' WHERE model LIKE '%free%' OR model='openai/gpt-4o-mini'")
             )
             await session.commit()
         except Exception as e:

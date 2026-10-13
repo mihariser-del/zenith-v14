@@ -296,10 +296,9 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()
     think = body.get("think", False)
-    # Auto web search: search runs by default for factual questions unless the
-    # user explicitly disables it, so the assistant stays current without the
-    # user having to remember the toggle.
-    web_search = body.get("web_search", True)
+    # Web search is now fully automatic (ai.py detects live-data questions);
+    # the flag only exists so Research/Fact can force it.
+    web_search = body.get("web_search", False)
     research = body.get("research", False)
     factcheck = body.get("factcheck", False)
     images = body.get("images", [])

@@ -281,6 +281,34 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
     return "\n\n".join(parts)
 
 
+# Auto web search: questions that need live/current data are routed to
+# Perplexity Sonar automatically — no toggle needed. Heuristic covers news,
+# weather, prices, scores, "latest/current/today", who-is/won questions,
+# and explicit recent years.
+_LIVE_DATA_RE = re.compile(
+    r"\b("
+    r"latest|newest|up[- ]to[- ]date|recent(?:ly)?|current(?:ly)?|"
+    r"today|tonight|tomorrow|yesterday|right now|as of|breaking|live(?!ly)|"
+    r"news|weather|forecast|update[sd]?|"
+    r"stock(?:s| price)?|price[sd]?|exchange rate|currency|inflation|gdp|"
+    r"bitcoin|crypto|btc|eth|"
+    r"score[sd]?|match(?:es| result)?|election|poll(?:s|ing)?|"
+    r"who (?:won|is|are|will be)|what(?:'s| is) (?:new|happening|trending)|"
+    r"this (?:year|month|week|hour)|last (?:night|week|month|year)|"
+    r"next (?:week|month|year)|"
+    r"20(?:2[4-9]|[3-9]\d)"
+    r")",
+    re.IGNORECASE,
+)
+
+
+def _needs_live_data(text: str) -> bool:
+    """True when the message likely needs current/live information."""
+    if not text:
+        return False
+    return bool(_LIVE_DATA_RE.search(text[:500]))
+
+
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False):
     user_id = None
     messages = []
@@ -318,7 +346,20 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
     has_images = bool(images)
 
-    if not has_images and (web_search or research or factcheck):
+    last_user_msg = ""
+    for m in reversed(messages):
+        if m.get("role") == "user":
+            content = m.get("content", "")
+            if isinstance(content, str):
+                last_user_msg = content
+            break
+
+    # Auto web search: live-data questions (news, prices, scores, "latest"...)
+    # are routed to Sonar without any toggle. Explicit web/research/factcheck
+    # flags still force it.
+    auto_web = (not has_images) and _needs_live_data(last_user_msg)
+
+    if not has_images and (web_search or research or factcheck or auto_web):
         user_model = "perplexity/sonar"
 
     if has_images and (research or factcheck):
@@ -328,21 +369,13 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_max_tokens = 4096
         user_temperature = 0.3
 
-    last_user_msg = ""
-    for m in reversed(messages):
-        if m.get("role") == "user":
-            content = m.get("content", "")
-            if isinstance(content, str):
-                last_user_msg = content
-            break
-
     # Basic Directory short-circuit — answer from canned knowledge (saves credits)
     # and works identically for offline-style responses. Disabled whenever the user
     # enables web search, research, think, fact-check or sends images, so the actual
     # AI service handles those cases instead of a canned directory answer.
     from directory import match_directory as _match_directory
     _dir_match = None
-    if not research and not factcheck and not web_search and not images and not think:
+    if not research and not factcheck and not web_search and not auto_web and not images and not think:
         try:
             _dir_match = _match_directory(last_user_msg)
         except Exception:

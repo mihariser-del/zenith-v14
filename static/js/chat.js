@@ -1053,7 +1053,6 @@ const Chat = {
         if (!this.activeId) await this.create();
 
         const think = $('think-btn').classList.contains('active');
-        const webSearch = $('web-btn').classList.contains('active');
         const research = $('research-btn').classList.contains('active');
         const factcheck = $('factcheck-btn').classList.contains('active');
         let fullContent = text;
@@ -1152,7 +1151,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: fullContent, images, think, web_search: webSearch, research, factcheck }),
+                body: JSON.stringify({ content: fullContent, images, think, research, factcheck }),
                 signal: this.abortController.signal,
             });
 
@@ -1455,7 +1454,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), web_search: $('web-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
+                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
                 signal: this.abortController.signal,
             });
 

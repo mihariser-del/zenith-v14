@@ -792,22 +792,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('think-btn').classList.toggle('active');
     });
 
-    $('web-btn').addEventListener('click', () => {
-        $('web-btn').classList.toggle('active');
-    });
-
+    // Web search is automatic now (backend routes live-data questions to Sonar);
+    // Research / Fact remain as explicit deep-search modes.
     $('research-btn').addEventListener('click', () => {
         $('research-btn').classList.toggle('active');
-        if ($('research-btn').classList.contains('active')) {
-            $('web-btn').classList.add('active');
-        }
     });
 
     $('factcheck-btn').addEventListener('click', () => {
         $('factcheck-btn').classList.toggle('active');
-        if ($('factcheck-btn').classList.contains('active')) {
-            $('web-btn').classList.add('active');
-        }
     });
 
     $('image-gen-btn').addEventListener('click', async () => {

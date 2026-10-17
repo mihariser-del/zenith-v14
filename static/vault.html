@@ -83,35 +83,8 @@
         <div id="vault-loading-msg" style="color:#DDE4EE; font-size:13px; letter-spacing:1px; font-weight:600;">LOADING...</div>
     </div>
 
-    <!-- Welcome + PIN gate screen -->
-    <div id="vault-pin-screen" style="display:none; position:fixed; inset:0; z-index:99995; align-items:center; justify-content:center; padding:20px; background:radial-gradient(1100px 600px at 50% -8%, #1a2140 0%, #0c0f16 58%, #0a0c10 100%);">
-        <div class="vault-welcome-card">
-            <div class="vault-welcome-logo" id="vault-pin-avatar">Z</div>
-            <div class="vault-welcome-brand">ZELPOPHAI AI</div>
-            <div id="vault-pin-title" class="vault-welcome-title">WELCOME TO THE VAULT</div>
-            <div class="vault-welcome-line"></div>
-            <div id="vault-pin-name" class="vault-welcome-name">Loading...</div>
-            <div id="vault-pin-role" class="vault-welcome-role">OWNER</div>
-            <div id="vault-pin-sub" class="vault-pin-sub">Enter your PIN to continue</div>
-            <div id="vault-pin-dots" class="vault-pin-dots" style="display:flex; gap:14px; justify-content:center; margin-bottom:22px;">
-                <div class="vault-pin-dot"></div><div class="vault-pin-dot"></div><div class="vault-pin-dot"></div><div class="vault-pin-dot"></div>
-            </div>
-            <div class="vault-pin-pad" style="display:grid; grid-template-columns:repeat(3,1fr); gap:10px;">
-                <button class="vault-pin-key" data-k="1">1</button><button class="vault-pin-key" data-k="2">2</button><button class="vault-pin-key" data-k="3">3</button>
-                <button class="vault-pin-key" data-k="4">4</button><button class="vault-pin-key" data-k="5">5</button><button class="vault-pin-key" data-k="6">6</button>
-                <button class="vault-pin-key" data-k="7">7</button><button class="vault-pin-key" data-k="8">8</button><button class="vault-pin-key" data-k="9">9</button>
-                <button class="vault-pin-key" style="visibility:hidden;"></button><button class="vault-pin-key" data-k="0">0</button><button class="vault-pin-key" data-k="del">⌫</button>
-            </div>
-            <div style="margin-top:16px; font-size:12px; color:#EF4444; min-height:18px;" id="vault-pin-err"></div>
-            <div id="vault-pin-pw-wrap" style="display:none; margin-top:6px; text-align:left;">
-                <div id="vault-pin-pw-label" style="font-size:11px; color:#8B949E; margin-bottom:6px; letter-spacing:1px;">CONFIRM YOUR ACCOUNT PASSWORD</div>
-                <input id="vault-pin-pw" type="password" autocomplete="current-password" placeholder="Account password"
-                    style="width:100%; padding:12px 14px; background:#0f1218; border:1px solid #2A3140; border-radius:10px; color:#E6EAF2; font-size:14px; outline:none;">
-                <button id="vault-pin-pw-btn" type="button"
-                    style="width:100%; margin-top:10px; padding:12px; background:linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#ff3db4); color:#fff; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">Enable PIN lock</button>
-            </div>
-        </div>
-    </div>
+    <!-- PIN entry is handled on the standalone /app/vault-auth page. -->
+    <div id="vault-pin-screen" style="display:none;"></div>
     <script src="/static/js/api.js"></script>
     <script src="/static/js/confirm.js"></script>
     <script src="/static/js/vault.js"></script>

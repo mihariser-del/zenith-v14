@@ -77,15 +77,14 @@
         }
     },
 
-    // ── PIN lock security ──────────────────────────────────────────────
+    // ── Vault unlock gate ──────────────────────────────────────────────
+    // PIN entry lives on the standalone /app/vault-auth page. This page only
+    // requires a valid per-tab unlock token; without one it bounces the user
+    // there before any vault data is shown.
     async bindPinSecurity() {
         const me = this._user || (await api('/api/auth/me')).user;
         if (!me) return;
         this._user = me;
-        const pwBtn = document.getElementById('vault-pin-pw-btn');
-        if (pwBtn && !pwBtn._bound) { pwBtn._bound = true; pwBtn.addEventListener('click', () => this._submitPinSetup()); }
-        const pwInput = document.getElementById('vault-pin-pw');
-        if (pwInput && !pwInput._bound) { pwInput._bound = true; pwInput.addEventListener('keydown', e => { if (e.key === 'Enter') this._submitPinSetup(); }); }
         const lockedBtn = document.getElementById('vault-lock-btn');
         if (lockedBtn) {
             lockedBtn.addEventListener('click', () => this.lockVault(true));
@@ -95,29 +94,21 @@
             );
             // Idle lock: 5 minutes without activity locks the vault.
             this._idleTimer = setInterval(() => {
-                if (this._pinEnabled && this._pinUnlocked && (Date.now() - (this._lastActivity || 0)) > 5 * 60 * 1000) {
+                if (this._pinUnlocked && (Date.now() - (this._lastActivity || 0)) > 5 * 60 * 1000) {
                     this.lockVault(true);
                 }
             }, 30000);
         }
-        this._renderWelcomeIdentity(me);
-        // The server is the source of truth for whether a PIN exists. A stale
-        // localStorage value can no longer fake an unlocked vault.
-        let enabled = false;
-        try { const st = await api('/api/auth/admin/pin-state'); enabled = !!st.enabled; } catch (e) {}
-        this._pinEnabled = enabled;
-        if (!enabled) { this.setupPIN(); return; }
-        // Reuse a still-valid unlock token from this browser tab, if any.
-        let tok = null;
-        try { tok = sessionStorage.getItem('zenith_vault_token'); } catch (e) {}
+        let tok = '';
+        try { tok = sessionStorage.getItem('zenith_vault_token') || ''; } catch (e) {}
         if (tok) {
             try {
                 const r = await fetch('/api/auth/admin/pin-unlock', { method: 'POST', credentials: 'same-origin', headers: { 'X-Vault-Token': tok } });
-                if (r.ok) { this._vaultToken = tok; this._enterVaultUnlocked(); return; }
+                if (r.ok) { this._vaultToken = tok; this._pinEnabled = true; this._enterVaultUnlocked(); return; }
             } catch (e) {}
             try { sessionStorage.removeItem('zenith_vault_token'); } catch (e) {}
         }
-        this.enterPINScreen();
+        window.location.href = '/app/vault-auth';
     },
 
     _renderWelcomeIdentity(me) {
@@ -382,12 +373,8 @@
         this._setVaultToken(null);
         const btn = document.getElementById('vault-lock-btn');
         if (btn) btn.style.display = 'none';
-        if (!this._pinEnabled) {
-            // No PIN yet — gate through setup
-            this.setupPIN();
-            return;
-        }
-        this.enterPINScreen();
+        // PIN entry is handled by the standalone auth page.
+        window.location.href = '/app/vault-auth';
     },
 
     // Light refresh that avoids wiping the whole vault when returning to the tab / clicking active nav

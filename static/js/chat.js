@@ -1321,7 +1321,7 @@ const Chat = {
                 if (old) old.remove();
                 aiWrapper.appendChild(this._buildMsgActions('assistant', fullResponse, null, aiWrapper));
                 if (this._looksLikeGenerationRequest(text)) {
-                    this._appendFilePill(bubble, fullResponse, this._docSlug(text, 'generated-file'));
+                    this._appendFilePill(bubble, fullResponse, this._docSlug(text, 'generated-file'), text);
                 }
                 this._postStreamSync(userWrapper, fullResponse);
             }
@@ -1401,22 +1401,17 @@ const Chat = {
 
     _renderBusyFallback(bubble) {
         const note = "The AI is currently busy, so I can't give you the exact context of your request. Use this test file as a simple test to see if you can download the file.";
-        const formats = ['md', 'docx', 'pdf', 'pptx', 'xlsx', 'csv'];
         bubble.classList.remove('streaming-cursor');
         bubble.innerHTML =
             `<div style="margin-bottom:10px;">${this.escapeHtml(note)}</div>` +
-            `<div class="file-pill ftest" style="margin-bottom:0;">` +
-                `<div class="fp-ic">&#128196;</div>` +
-                `<div class="fp-info"><div class="fp-name">test-file</div><div class="fp-sub">Test file &middot; pick a format</div></div>` +
-                `<div class="fp-dls">` +
-                    formats.map(f => `<button class="fp-dl" data-fmt="${f}">${f}</button>`).join('') +
-                `</div>` +
+            `<div class="file-card" style="margin-bottom:0;">` +
+                `<div class="fc-ic">&#128196;</div>` +
+                `<div class="fc-body"><div class="fc-name">test-file.docx</div><div class="fc-sub">Test document &middot; ready to download</div></div>` +
+                `<div class="fc-actions"><button class="fc-btn primary" data-act="dl">` +
+                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button></div>` +
             `</div>`;
-        bubble.querySelectorAll('.fp-dl').forEach(btn => {
-            btn.addEventListener('mouseenter', () => { btn.style.background = 'rgba(76,201,240,.22)'; btn.style.color = '#fff'; });
-            btn.addEventListener('mouseleave', () => { btn.style.background = 'rgba(76,201,240,.12)'; btn.style.color = '#7df0ff'; });
-            btn.addEventListener('click', () => this.downloadAs(note, 'test-file', btn.dataset.fmt));
-        });
+        const btn = bubble.querySelector('[data-act="dl"]');
+        if (btn) btn.addEventListener('click', () => this.downloadAs(note, 'test-file', 'docx'));
     },
 
     _docSlug(text, fallback) {
@@ -1424,24 +1419,78 @@ const Chat = {
         return (t.slice(0, 40) || fallback || 'generated-file');
     },
 
-    // When the user asks for a generated file (welcome page, doc, slides, ...),
-    // surface a download pill on the AI bubble so the reply can be grabbed in
-    // any format via /api/generate/document.
-    _appendFilePill(bubble, content, filename) {
-        const formats = ['md', 'html', 'docx', 'pdf', 'pptx', 'xlsx', 'csv'];
-        const pill = document.createElement('div');
-        pill.className = 'file-pill ftest';
-        pill.style.margin = '10px 0 0';
-        pill.innerHTML =
-            `<div class="fp-ic">&#128196;</div>` +
-            `<div class="fp-info"><div class="fp-name">${this.escapeHtml(filename)}</div><div class="fp-sub">Generated file &middot; pick a format to download</div></div>` +
-            `<div class="fp-dls">` +
-                formats.map(f => `<button class="fp-dl" data-fmt="${f}">${f}</button>`).join('') +
-            `</div>`;
-        pill.querySelectorAll('.fp-dl').forEach(btn => {
-            btn.addEventListener('click', () => this.downloadAs(content, filename, btn.dataset.fmt));
-        });
-        bubble.appendChild(pill);
+    // Infer the single format the user actually asked for, so we surface one
+    // clear download instead of a wall of format buttons.
+    _detectRequestedFormat(text) {
+        const t = String(text || '').toLowerCase();
+        if (/\bppt\b|pptx|\bslides?\b|deck|presentation|powerpoint|keynote/.test(t)) return 'pptx';
+        if (/xlsx|spreadsheet|excel|\bsheet\b|\bxl\b/.test(t)) return 'xlsx';
+        if (/\bcsv\b|comma[ -]?separated/.test(t)) return 'csv';
+        if (/\bpdf\b/.test(t)) return 'pdf';
+        if (/docx|\bword\b|\.doc\b/.test(t)) return 'docx';
+        if (/\bhtml\b|web ?page|webpage|landing page|website/.test(t)) return 'html';
+        if (/\bmarkdown\b/.test(t)) return 'md';
+        if (/\btxt\b|text file|plain text/.test(t)) return 'txt';
+        if (/\b(document|docs?|report|resume|cv|essay|cover[ -]?letter|invoice|proposal|notes?)\b/.test(t)) return 'docx';
+        return 'md';
+    },
+
+    _fileIcon(fmt) {
+        const ic = { docx: '&#128196;', pdf: '&#128213;', pptx: '&#128202;', xlsx: '&#128200;', csv: '&#128200;', html: '&#127760;', md: '&#128221;', txt: '&#128221;' };
+        return ic[fmt] || '&#128196;';
+    },
+
+    // When the user asks for a generated file (doc, slides, ...), persist it
+    // server-side and surface a single, shareable download card on the bubble.
+    _appendFilePill(bubble, content, filename, userText) {
+        const fmt = this._detectRequestedFormat(userText || filename);
+        const slug = this._docSlug(userText || filename, 'generated-file');
+        const card = document.createElement('div');
+        card.className = 'file-card';
+        card.innerHTML =
+            `<div class="fc-ic">${this._fileIcon(fmt)}</div>` +
+            `<div class="fc-body"><div class="fc-name">${this.escapeHtml(slug)}.${fmt}</div>` +
+            `<div class="fc-sub"><span class="fc-spin"></span> Preparing your ${fmt.toUpperCase()} file…</div></div>`;
+        bubble.appendChild(card);
+
+        const setError = (detail) => {
+            const sub = card.querySelector('.fc-sub');
+            if (sub) sub.innerHTML = detail ? this.escapeHtml(detail) : 'Could not prepare this file.';
+            if (detail && /limit|cooldown|wait|guest|pause/i.test(detail) && typeof showLimitPopup === 'function') showLimitPopup(detail);
+        };
+
+        fetch('/api/generate/file', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content, filename: slug, format: fmt }),
+        })
+            .then(async res => {
+                if (!res.ok) {
+                    let detail = '';
+                    try { const j = await res.json(); detail = (j && j.detail) || ''; } catch (e) {}
+                    setError(detail);
+                    return;
+                }
+                const info = await res.json();
+                const kb = info.size ? (info.size / 1024).toFixed(1) + ' KB' : '';
+                card.innerHTML =
+                    `<div class="fc-ic">${this._fileIcon(fmt)}</div>` +
+                    `<div class="fc-body"><div class="fc-name">${this.escapeHtml(info.filename || (slug + '.' + fmt))}</div>` +
+                    `<div class="fc-sub">${fmt.toUpperCase()}${kb ? ' &middot; ' + kb : ''} &middot; ready to download</div></div>` +
+                    `<div class="fc-actions">` +
+                        `<a class="fc-btn primary" href="${info.url}" download>` +
+                            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</a>` +
+                        `<button class="fc-btn" data-act="copy">Copy link</button>` +
+                    `</div>`;
+                const copyBtn = card.querySelector('[data-act="copy"]');
+                if (copyBtn) copyBtn.addEventListener('click', () => {
+                    const abs = new URL(info.url, location.origin).href;
+                    if (navigator.clipboard) navigator.clipboard.writeText(abs).then(() => showToast('Link copied', 'success')).catch(() => showToast(abs, 'success'));
+                    else showToast(abs, 'success');
+                });
+            })
+            .catch(() => setError('Could not prepare this file.'));
     },
 
     _showLimitBanner(secs, isGuest, rawDetail) {
@@ -1572,7 +1621,7 @@ const Chat = {
             bubble.classList.remove('streaming-cursor');
             if (fullResponse) {
                 if (this._looksLikeGenerationRequest(lastUserMsg.content)) {
-                    this._appendFilePill(bubble, fullResponse, this._docSlug(lastUserMsg.content, 'generated-file'));
+                    this._appendFilePill(bubble, fullResponse, this._docSlug(lastUserMsg.content, 'generated-file'), lastUserMsg.content);
                 }
                 this.showRegenerate();
             }

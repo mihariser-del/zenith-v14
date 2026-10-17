@@ -713,6 +713,16 @@ async def vault_page():
     return FileResponse("static/vault.html")
 
 
+@app.get("/app/vault-auth", response_class=HTMLResponse)
+async def vault_auth_page():
+    return FileResponse("static/vault-auth.html")
+
+
+@app.get("/app/coding-agent", response_class=HTMLResponse)
+async def coding_agent_page():
+    return FileResponse("static/coding-agent.html")
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=5000, reload=True)

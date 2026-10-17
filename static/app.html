@@ -177,14 +177,18 @@
         <div id="chat-header-title" style="font-weight:800; font-size:14px; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; min-width:120px;"></div>
         <select id="chat-model-select" title="Model for this chat (per-chat override)" style="background:var(--input-bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:6px 8px; font-size:12px; outline:none; max-width:190px;">
             <option value="">Default (settings)</option>
-            <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-            <option value="openai/gpt-4o">GPT-4o</option>
-            <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-            <option value="anthropic/claude-4-sonnet">Claude 4 Sonnet</option>
-            <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
-            <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
-            <option value="perplexity/sonar">Perplexity Sonar</option>
-            <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+            <option value="openai/gpt-6-luna">GPT-6 Luna (Fast)</option>
+            <option value="openai/gpt-6-sol">GPT-6 Sol</option>
+            <option value="openai/gpt-6-astra">GPT-6 Astra (Flagship)</option>
+            <option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option>
+            <option value="anthropic/claude-opus-5.5">Claude Opus 5.5</option>
+            <option value="deepseek/deepseek-v4.1-flash">DeepSeek V4.1 Flash</option>
+            <option value="z-ai/glm-5.3-flash">GLM 5.3 Flash</option>
+            <option value="xiaomi/mimo-v2.6-flash">MiMo V2.6 Flash</option>
+            <option value="moonshotai/kimi-k3">Kimi K3</option>
+            <option value="nvidia/nemotron-3-ultra-550b-a55b:free">Nemotron 3 Ultra (Free)</option>
+            <option value="perplexity/sonar">Perplexity Sonar (Web)</option>
+            <option value="openai/gpt-5.4">GPT-5.4</option>
         </select>
         <button class="btn" id="chat-pin-btn" title="Pin chat" style="padding:6px 10px; font-size:13px; border:1px solid var(--border); background:transparent; color:var(--text); min-width:34px;">📌</button>
         <button class="btn" id="chat-share-btn" title="Share & export" style="padding:6px 12px; font-size:13px; border:1px solid rgba(76,201,240,.35); background:rgba(76,201,240,.08); color:#4CC9F0; font-weight:600;">Share</button>
@@ -273,15 +277,18 @@
             <div class="details-content">
                 <label>AI Model</label>
                 <select id="model-select">
-                    <option value="openai/gpt-4o-mini">GPT-4o Mini</option>
-                    <option value="openai/gpt-4o">GPT-4o</option>
-                    <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet</option>
-                    <option value="anthropic/claude-4-sonnet">Claude 4 Sonnet</option>
-                    <option value="google/gemini-flash-1.5">Gemini Flash 1.5</option>
-                    <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash</option>
+                    <option value="openai/gpt-6-luna">GPT-6 Luna (Fast)</option>
+                    <option value="openai/gpt-6-sol">GPT-6 Sol</option>
+                    <option value="openai/gpt-6-astra">GPT-6 Astra (Flagship)</option>
+                    <option value="google/gemini-3.8-flash">Gemini 3.8 Flash</option>
+                    <option value="anthropic/claude-opus-5.5">Claude Opus 5.5</option>
+                    <option value="deepseek/deepseek-v4.1-flash">DeepSeek V4.1 Flash</option>
+                    <option value="z-ai/glm-5.3-flash">GLM 5.3 Flash</option>
+                    <option value="xiaomi/mimo-v2.6-flash">MiMo V2.6 Flash</option>
+                    <option value="moonshotai/kimi-k3">Kimi K3</option>
+                    <option value="nvidia/nemotron-3-ultra-550b-a55b:free">Nemotron 3 Ultra (Free)</option>
                     <option value="perplexity/sonar">Perplexity Sonar (Web)</option>
-                    <option value="meta-llama/llama-3.1-8b-instruct:free">Llama 3.1 8B (Free)</option>
-                    <option value="deepseek/deepseek-chat">DeepSeek Chat</option>
+                    <option value="openai/gpt-5.4">GPT-5.4</option>
                 </select>
                 <label>Max Tokens</label>
                 <input type="number" id="max-tokens" value="2048" min="100" max="16384">

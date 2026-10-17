@@ -1,4 +1,25 @@
-﻿const Settings = {
+﻿// Fill the model dropdowns (settings + per-chat header) from the server's
+// catalog so names never drift from the backend again.
+function populateModelSelects(models) {
+    if (!Array.isArray(models) || !models.length) return;
+    const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    const opts = models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    const ms = document.getElementById('model-select');
+    if (ms) {
+        const prev = ms.value;
+        ms.innerHTML = opts;
+        if (prev && models.some(m => m.id === prev)) ms.value = prev;
+    }
+    const cs = document.getElementById('chat-model-select');
+    if (cs) {
+        const prev = cs.value;
+        cs.innerHTML = '<option value="">Default (settings)</option>' + opts;
+        cs.value = prev || '';
+    }
+}
+window.populateModelSelects = populateModelSelects;
+
+const Settings = {
     defaults: {
         theme: 'auto',
         accent: '#8b5cf6',
@@ -27,6 +48,7 @@
             this.serverSettings = data.settings;
             this.presets = data.presets;
             this.modelList = data.models;
+            if (window.populateModelSelects) window.populateModelSelects(data.models);
             return data;
         } catch (e) {
             console.error('Failed to load settings:', e);

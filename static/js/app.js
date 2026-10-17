@@ -14,19 +14,34 @@ function detectImageRequest(text) {
 }
 
 // Follow-up image edits: "add a bell around the cow", "remove the hat",
-// "make the cow bigger". Only treated as an edit when the chat already has a
-// generated image (checked by Chat._hasGeneratedImage before it is used).
+// "make it blue", "change the background to night". Only treated as an edit when
+// the chat already has a generated image (Chat._hasGeneratedImage guards this).
 function detectImageEditRequest(text) {
-    const t = String(text || '').trim();
+    let t = String(text || '').trim().replace(/[.!?]+$/, '');
     if (!t || t.length > 300) return null;
-    const m = t.match(/^(?:please\s+)?(?:can\s+you\s+)?(?:add|put|give|attach|include|remove|delete|change|modify|edit|draw|make|replace|swap|erase|convert|turn|take\s+out)\s+(.+)$/i);
+    // Drop leading filler so "ok now make it blue" still reads as an edit.
+    const filler = /^(?:ok(?:ay)?|now|also|and|then|so|please|pls|hey|hi|just|can\s+you|could\s+you|would\s+you|will\s+you|can\s+u|cud\s+you)[\s,]+/i;
+    for (let i = 0; i < 4 && filler.test(t); i++) t = t.replace(filler, '').trim();
+    const m = t.match(/^(add|put|place|insert|include|attach|give|draw|remove|delete|erase|take\s+out|change|modify|edit|adjust|tweak|update|turn|convert|replace|swap|paint|recolou?r|colou?r|shade|lighten|darken|brighten|zoom|rotate|flip|crop|move|resize|enlarge|shrink|blur|sharpen|apply|set|switch|make|render|redo|regenerate)\s+(.+)$/i);
     if (!m) return null;
-    const rest = m[1].replace(/[.!?]+$/, '').trim();
-    if (!rest) return null;
-    // Explicitly references the picture ("the image", "it", "this")...
-    if (/\b(?:the|my|this|that|our)\s+(?:image|picture|pic|photo|logo|artwork|drawing|wallpaper|icon|portrait|avatar)s?\b|\b(?:it|this|that)\b/i.test(rest)) return rest;
-    // ...or is a short change starting with an article ("a bell", "the hat").
-    if (/^(?:a|an|the)\s+/i.test(rest) && rest.split(/\s+/).length <= 7) return rest;
+    const verb = m[1].toLowerCase();
+    const rest = m[2].trim();
+    if (rest.length < 2) return null;
+    // Never hijack obviously non-visual requests (math, accounts, chats, ...).
+    if (/^\d/.test(rest)) return null;
+    if (/^[0-9\s+\-*/=().]+$/.test(rest)) return null;
+    if (/\b(?:account|chat|message|conversation|history|memory|reminder|password|email|subscription|plan|file|code|function)\b/i.test(rest)) return null;
+    // Strong edit verbs are self-evidently about the picture ("remove the hat",
+    // "add a bell", "change the background to night").
+    const strong = /^(add|put|place|insert|include|attach|remove|delete|erase|take\s+out|change|modify|edit|adjust|tweak|update|replace|swap|paint|recolou?r|colou?r|shade|lighten|darken|brighten|zoom|rotate|flip|crop|move|resize|enlarge|shrink|blur|sharpen|apply|set|switch)$/;
+    if (strong.test(verb)) {
+        if (rest.split(/\s+/).length <= 10) return rest;
+    }
+    // Weaker verbs (make/turn/give/draw/convert...) need the change to point at
+    // the image: a pronoun, a picture noun, or a comparative ("bigger", "darker").
+    if (/\b(?:it|this|that|them|him|her|his|its)\b/i.test(rest)) return rest;
+    if (/\b(?:image|picture|pic|photo|logo|artwork|drawing|wallpaper|icon|portrait|avatar|background|bg|sky|scene|colour|color|colours|colors|lighting|outfit|clothes|clothing|hair|face|eyes|pose|expression|style|size|shape|mood|skin|body|shadows?|water|ground|floor|hands|arms|legs)\b/i.test(rest)) return rest;
+    if (/\b(?:bigger|smaller|larger|wider|taller|shorter|thinner|fatter|darker|lighter|brighter|older|younger|happier|sadder|cuter|scarier|realistic|detailed|blurrier|sharper|prettier|nicer|cleaner|smoother|clearer|warmer|cooler|vivid)\b/i.test(rest)) return rest;
     return null;
 }
 
@@ -477,6 +492,11 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     Settings.apply();
     Voice.init();
+    // Keep the model dropdowns in sync with the backend catalog (settings + per-chat).
+    try {
+        const sd = await api('/api/settings');
+        if (sd && sd.models && window.populateModelSelects) window.populateModelSelects(sd.models);
+    } catch (e) {}
     await Chat.init();
     if (isAdmin) {
         Staff.init();

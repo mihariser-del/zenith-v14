@@ -692,6 +692,7 @@ const Chat = {
         }
 
         wrapper.appendChild(bubble);
+        this._wireImages(wrapper);
 
         if (role === 'assistant' && !streaming) {
             wrapper.appendChild(this._buildMsgActions('assistant', content, messageId, wrapper));
@@ -960,6 +961,68 @@ const Chat = {
         }
     },
 
+    // Make every rendered image clickable (zoom lightbox) and tag generated
+    // ones so they get the capped size instead of overflowing the bubble.
+    _wireImages(scope) {
+        if (!scope) return;
+        scope.querySelectorAll('img').forEach(img => {
+            if (img.dataset.imgWired) return;
+            img.dataset.imgWired = '1';
+            if (img.alt === 'Generated image') img.classList.add('gen-image');
+            img.addEventListener('click', () => this._openImageLightbox(img.currentSrc || img.src));
+        });
+    },
+
+    _openImageLightbox(src) {
+        if (!src) return;
+        let lb = $('img-lightbox');
+        if (!lb) {
+            lb = document.createElement('div');
+            lb.id = 'img-lightbox';
+            lb.className = 'img-lightbox';
+            lb.innerHTML =
+                '<img alt="Generated image">' +
+                '<div class="img-lightbox-actions">' +
+                    '<button class="il-dl" data-act="download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button>' +
+                    '<a class="il-open" data-act="open" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg> Open</a>' +
+                    '<button class="il-close" data-act="close">\u2715 Close</button>' +
+                '</div>';
+            document.body.appendChild(lb);
+            lb.addEventListener('click', (e) => { if (e.target === lb) lb.classList.remove('open'); });
+            lb.querySelector('[data-act="close"]').addEventListener('click', () => lb.classList.remove('open'));
+            lb.querySelector('[data-act="open"]').addEventListener('click', (e) => { e.preventDefault(); window.open(lb.querySelector('img').src, '_blank', 'noopener'); });
+            lb.querySelector('[data-act="download"]').addEventListener('click', () => Chat._downloadImage(lb.querySelector('img').src));
+            document.addEventListener('keydown', (e) => { if (e.key === 'Escape') lb.classList.remove('open'); });
+        }
+        lb.querySelector('img').src = src;
+        lb.querySelector('[data-act="open"]').href = src;
+        lb.classList.add('open');
+    },
+
+    _downloadImage(src) {
+        const name = 'zelpophai-image-' + Date.now() + '.png';
+        fetch(src, { credentials: 'same-origin' })
+            .then(r => { if (!r.ok) throw new Error('x'); return r.blob(); })
+            .then(blob => {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = name;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(a.href);
+                showToast('Image downloaded', 'success');
+            })
+            .catch(() => {
+                // Cross-origin (e.g. Pollinations) — fall back to a direct download link.
+                const a = document.createElement('a');
+                a.href = src; a.download = name; a.target = '_blank'; a.rel = 'noopener';
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+            });
+    },
+
     // Generate an image now (used by the auto image-gen hook + image button),
     // persisting it as an assistant message so it survives reload.
     async generateImageNow(prompt) {
@@ -1019,6 +1082,7 @@ const Chat = {
         bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
         bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
         Chat.enhanceCodeBlocks(bubble);
+        Chat._wireImages(bubble);
         const container = $('chat-container');
         container.scrollTop = container.scrollHeight;
     },
@@ -1126,15 +1190,20 @@ const Chat = {
         this.renderAtts();
 
         // Auto image generation + follow-up edits: "generate a pic of..." creates
-        // an image; "add a bell around the cow" / "make it bigger" applies a
+        // an image; "add a bell around the cow" / "make it blue" applies a
         // follow-up edit to the last generated image in this chat.
-        if (text && typeof window.detectImageRequest === 'function') {
-            const imgPrompt = window.detectImageRequest(text);
+        if (text) {
+            const imgPrompt = typeof window.detectImageRequest === 'function' ? window.detectImageRequest(text) : null;
             if (imgPrompt) {
                 await this.generateImageNow(imgPrompt);
-            } else if (typeof window.detectImageEditRequest === 'function') {
-                const change = window.detectImageEditRequest(text);
-                if (change && this._hasGeneratedImage()) await this.editGeneratedImage(change);
+                input.focus();
+                return; // the image is the response — don't also stream a text reply
+            }
+            const change = typeof window.detectImageEditRequest === 'function' ? window.detectImageEditRequest(text) : null;
+            if (change && this._hasGeneratedImage()) {
+                await this.editGeneratedImage(change);
+                input.focus();
+                return;
             }
         }
 

@@ -921,6 +921,7 @@ const Chat = {
                 assistantBubble.classList.remove('streaming-cursor');
             }
         } finally {
+            this._stopSketch();
             this.isStreaming = false;
             this.abortController = null;
             if (sendBtn) sendBtn.style.display = 'flex';
@@ -1077,6 +1078,7 @@ const Chat = {
     },
 
     updateStreamingBubble(bubble, text) {
+        this._stopSketch();
         const thinking = bubble.querySelector('.thinking-text');
         if (thinking) thinking.remove();
         bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
@@ -1195,14 +1197,26 @@ const Chat = {
         if (text) {
             const imgPrompt = typeof window.detectImageRequest === 'function' ? window.detectImageRequest(text) : null;
             if (imgPrompt) {
-                await this.generateImageNow(imgPrompt);
-                input.focus();
+                const ph = this.appendMessage('assistant', '', true);
+                this._showSketching(ph, 'Painting it out');
+                try { await this.generateImageNow(imgPrompt); }
+                finally {
+                    this._stopSketch();
+                    if (ph && ph.parentElement) ph.remove();
+                    input.focus();
+                }
                 return; // the image is the response — don't also stream a text reply
             }
             const change = typeof window.detectImageEditRequest === 'function' ? window.detectImageEditRequest(text) : null;
             if (change && this._hasGeneratedImage()) {
-                await this.editGeneratedImage(change);
-                input.focus();
+                const ph = this.appendMessage('assistant', '', true);
+                this._showSketching(ph, 'Refining it');
+                try { await this.editGeneratedImage(change); }
+                finally {
+                    this._stopSketch();
+                    if (ph && ph.parentElement) ph.remove();
+                    input.focus();
+                }
                 return;
             }
         }
@@ -1213,6 +1227,8 @@ const Chat = {
         this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
+        const isGen = this._looksLikeGenerationRequest(text);
+        if (isGen) this._showSketching(bubble);
         let fullResponse = '';
 
         try {
@@ -1253,7 +1269,7 @@ const Chat = {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
-                            this.updateStreamingBubble(bubble, fullResponse);
+                            if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.citations) {
                             try {
@@ -1272,10 +1288,10 @@ const Chat = {
                                     }).join(' ');
                                 });
                                 fullResponse = linked;
-                                this.updateStreamingBubble(bubble, fullResponse);
+                                if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
                             } catch (e) {
                                 fullResponse = fullResponse.replace(/\s*\[\d+(?:,\s*\d+)*\]\s*/g, ' ').trim();
-                                this.updateStreamingBubble(bubble, fullResponse);
+                                if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
                             }
                         }
                         if (parsed.error) {
@@ -1342,6 +1358,7 @@ const Chat = {
                 bubble.classList.remove('streaming-cursor');
             }
         } finally {
+            this._stopSketch();
             this.isStreaming = false;
             this.abortController = null;
             $('send-btn').style.display = 'flex';
@@ -1400,6 +1417,7 @@ const Chat = {
     },
 
     _renderBusyFallback(bubble) {
+        this._stopSketch();
         const note = "The AI is currently busy, so I can't give you the exact context of your request. Use this test file as a simple test to see if you can download the file.";
         bubble.classList.remove('streaming-cursor');
         bubble.innerHTML =
@@ -1412,6 +1430,45 @@ const Chat = {
             `</div>`;
         const btn = bubble.querySelector('[data-act="dl"]');
         if (btn) btn.addEventListener('click', () => this.downloadAs(note, 'test-file', 'docx'));
+    },
+
+    // While a file is being generated, replace the assistant bubble with the
+    // "sketching" wait animation: a calming dot-matrix grid, a rotating status
+    // line and a percentage pill that eases toward ~95% until the file is ready.
+    _showSketching(bubble, titleText) {
+        if (!bubble) return;
+        this._stopSketch();
+        const cols = 22, rows = 13;
+        const titles = ['Sketching it out', 'Laying out the page', 'Drafting the content', 'Polishing the details', 'Finishing touches'];
+        let dots = '';
+        for (let y = 0; y < rows; y++) {
+            for (let x = 0; x < cols; x++) {
+                const delay = (((x * 0.5 + y * 0.9) % 6) / 6 * 1.5).toFixed(2);
+                dots += `<i class="sk-d" style="animation-delay:${delay}s"></i>`;
+            }
+        }
+        bubble.classList.remove('streaming-cursor');
+        bubble.innerHTML =
+            `<div class="sk"><div class="sk-title">${this.escapeHtml(titleText || titles[0])}</div>` +
+            `<div class="sk-grid" style="grid-template-columns:repeat(${cols},1fr)">${dots}</div>` +
+            `<div class="sk-pct">0%</div></div>`;
+        const pctEl = bubble.querySelector('.sk-pct');
+        const titleEl = bubble.querySelector('.sk-title');
+        const t0 = Date.now();
+        let ti = 0;
+        this._sketchTimer = setInterval(() => {
+            const s = (Date.now() - t0) / 1000;
+            const pct = Math.min(95, Math.round(95 * (1 - Math.exp(-s / 7))));
+            if (pctEl) pctEl.textContent = pct + '%';
+            if (!titleText && titleEl) {
+                const want = Math.min(titles.length - 1, Math.floor(s / 2.6));
+                if (want !== ti) { ti = want; titleEl.textContent = titles[ti]; }
+            }
+        }, 240);
+    },
+
+    _stopSketch() {
+        if (this._sketchTimer) { clearInterval(this._sketchTimer); this._sketchTimer = null; }
     },
 
     _docSlug(text, fallback) {
@@ -1565,6 +1622,8 @@ const Chat = {
         this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
+        const isGen = this._looksLikeGenerationRequest(lastUserMsg.content);
+        if (isGen) this._showSketching(bubble);
         let fullResponse = '';
 
         try {
@@ -1603,7 +1662,7 @@ const Chat = {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
-                            this.updateStreamingBubble(bubble, fullResponse);
+                            if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.error) {
                             if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(lastUserMsg.content)) {
@@ -1629,6 +1688,7 @@ const Chat = {
             if (err.name !== 'AbortError') showToast('Error: ' + err.message, 'error');
             else bubble.textContent = 'Stopped.';
         } finally {
+            this._stopSketch();
             this.isStreaming = false;
             this.abortController = null;
             $('send-btn').style.display = 'flex';

@@ -205,6 +205,18 @@ body.auth-page { display: block; }
    them clickable so they open in the zoom lightbox. */
 .msg-bubble img { max-width: min(100%, 360px); max-height: 420px; width: auto; height: auto; object-fit: contain; border-radius: 12px; margin: 8px 0; display: block; border: 1px solid var(--border); background: var(--code-bg); cursor: zoom-in; }
 .msg-bubble img.gen-image { max-width: min(100%, 360px); }
+/* "Sketching it out" wait animation shown while a file is generated: a dot-matrix
+   grid with a rotating status line and a percentage pill. */
+.sk { position: relative; width: 100%; max-width: 520px; background: radial-gradient(130% 120% at 85% -10%, rgba(79,157,255,.06), transparent 55%), #0b0e14; border: 1px solid var(--border); border-radius: 16px; padding: 20px 22px 56px; overflow: hidden; }
+.sk-title { font-size: 19px; font-weight: 700; color: #e8eef7; margin: 0 0 20px; letter-spacing: -.01em; }
+.sk-grid { display: grid; gap: 14px 16px; }
+.sk-d { width: 4px; height: 4px; border-radius: 50%; background: rgba(120,150,190,.20); animation: skPulse 1.6s ease-in-out infinite; }
+@keyframes skPulse {
+    0%, 100% { background: rgba(120,150,190,.18); transform: scale(1); box-shadow: none; }
+    50% { background: #4f9dff; transform: scale(1.55); box-shadow: 0 0 8px rgba(79,157,255,.9); }
+}
+.sk-pct { position: absolute; right: 18px; bottom: 16px; background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.08); color: #dfe7f2; font-size: 14px; font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+@media (max-width: 640px) { .sk { padding: 16px 16px 48px; } .sk-grid { gap: 10px 11px; } }
 .img-lightbox { position: fixed; inset: 0; z-index: 100000; display: none; align-items: center; justify-content: center; flex-direction: column; gap: 14px; background: rgba(0,0,0,.9); backdrop-filter: blur(8px); padding: 24px; }
 .img-lightbox.open { display: flex; }
 .img-lightbox img { max-width: min(92vw, 1400px); max-height: 78vh; width: auto; height: auto; border-radius: 12px; box-shadow: 0 30px 90px rgba(0,0,0,.7); background: #111; }

@@ -3,163 +3,458 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Coding AGT. &middot; Zelpophai AI</title>
+    <title>Coding AGT. &middot; Zelophai AI</title>
     <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16-v2.png">
     <link rel="manifest" href="/static/manifest.json?v=2">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon-v2.png">
-    <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/vs2015.min.css">
     <style>
-        .ca-hero {
-            max-width: 1100px; margin: 0 auto; padding: 80px 24px 20px;
-            text-align: center;
+        :root {
+            --cag-bg: #07070c;
+            --cag-side: #0a0a11;
+            --cag-panel: #0d0d15;
+            --cag-elev: #12121b;
+            --cag-border: #23232f;
+            --cag-border-2: #30303f;
+            --cag-text: #eceff7;
+            --cag-muted: #8a91a6;
+            --cag-faint: #5b6172;
+            --cag-accent: #7c6cf7;
+            --cag-accent-2: #4f9dff;
+            --cag-pink: #ff4fd8;
+            --cag-green: #3ddc84;
+            --cag-mono: "Fira Code", "JetBrains Mono", Consolas, "SF Mono", monospace;
         }
-        .ca-title { font-size: clamp(36px, 6vw, 64px); line-height: 1.02; font-weight: 900; letter-spacing: -.02em; margin: 0; background: linear-gradient(120deg,#22d3ee,#8b5cf6 55%,#ff3db4); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        .ca-sub { color: #9CA3AF; font-size: clamp(15px, 2.2vw, 19px); line-height: 1.6; margin: 16px auto 0; max-width: 720px; }
-        .ca-badges { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 22px auto 0; max-width: 780px; }
-        .ca-badge { background: var(--input-bg); border: 1px solid var(--border); color: #bbb; border-radius: 20px; padding: 6px 14px; font-size: 13px; }
-        .ca-sep { height: 1px; background: linear-gradient(to right, rgba(255,255,255,0), rgba(255,255,255,.15), rgba(255,255,255,0)); margin: 30px auto 0; max-width: 860px; }
-        .ca-plans { max-width: 1200px; margin: 40px auto 20px; padding: 0 24px; display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 22px; }
-        .ca-plan { background: linear-gradient(160deg, rgba(255,255,255,.05), rgba(255,255,255,.02)); border: 1px solid var(--border); border-radius: 18px; padding: 30px 26px; display: flex; flex-direction: column; box-shadow: inset 0 1px 0 rgba(255,255,255,.05); transition: all .2s ease; position: relative; overflow: hidden; }
-        .ca-plan:hover { transform: translateY(-4px); border-color: rgba(96,165,250,.6); box-shadow: 0 20px 60px rgba(96,165,250,.15), inset 0 1px 0 rgba(255,255,255,.08); }
-        .ca-plan .pop { position: absolute; top: -1px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg,#FFD700,#FF8C00); color: #000; font-size: 10px; font-weight: 900; letter-spacing: 2px; padding: 6px 12px; border-radius: 0 0 10px 10px; }
-        .ca-plan h3 { font-size: 24px; font-weight: 800; margin: 0; }
-        .ca-price { font-size: 42px; font-weight: 900; margin: 10px 0 6px; }
-        .ca-price small { font-size: 15px; font-weight: 600; color: #9CA3AF; }
-        .ca-list { list-style: none; padding: 0; margin: 14px 0 24px; display: flex; flex-direction: column; gap: 10px; color: #c7d2e0; }
-        .ca-list li { position: relative; padding-left: 24px; line-height: 1.5; font-size: 14px; }
-        .ca-list li::before { content: "✓"; position: absolute; left: 0; color: #4ADE80; }
-        .ca-cta { margin-top: auto; padding: 12px 18px; border-radius: 12px; border: 1px solid var(--border); background: var(--input-bg); text-align: center; text-decoration: none; color: #fff; font-weight: 700; }
-        .ca-cta.primary { background: linear-gradient(135deg,#22d3ee,#8b5cf6 55%,#ff3db4); border: 0; }
-        .ca-editor { max-width: 1180px; margin: 40px auto 60px; padding: 0 24px; }
-        .ca-card { background: var(--sidebar); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
-        .ca-toolbar { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; justify-content: space-between; background: var(--input-bg); padding: 10px 12px; border-bottom: 1px solid var(--border); }
-        .ca-toolbar-left { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-        .ca-btn { background: var(--input-bg); border: 1px solid var(--border); color: #bbb; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 600; }
-        .ca-btn:hover { background: var(--hover-bg); color: #fff; }
-        .ca-btn.primary { background: var(--accent-solid); color: #fff; border: none; }
-        .ca-select { background: var(--input-bg); border: 1px solid var(--border); color: #bbb; padding: 6px 8px; border-radius: 8px; font-size: 12px; }
-        .ca-grid { display: grid; grid-template-columns: 1.05fr .95fr; min-height: 520px; }
-        @media (max-width: 880px) { .ca-grid { grid-template-columns: 1fr; } }
-        #ca-editor { width: 100%; height: 100%; background: #1e1e1e; color: #d4d4d4; border: none; padding: 14px; font-family: Fira Code, Consolas, monospace; font-size: 14px; resize: none; outline: none; box-sizing: border-box; }
-        .ca-out { background: #0d0d0d; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
-        #ca-output { flex: 1; padding: 14px; overflow: auto; font-family: Fira Code, Consolas, monospace; font-size: 13px; white-space: pre-wrap; word-break: break-word; color: #00ff88; }
-        .ca-preview { border-top: 1px solid var(--border); background: #fff; height: 240px; display: none; }
-        #ca-preview-frame { width: 100%; height: 100%; border: 0; background: #fff; }
-        .ca-footer { color: #9CA3AF; text-align: center; font-size: 12px; padding: 20px 24px 40px; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; height: 100%; }
+        body {
+            background: var(--cag-bg);
+            color: var(--cag-text);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, system-ui, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
+        }
+        body::before {
+            content: "";
+            position: fixed; inset: 0; pointer-events: none; z-index: 0;
+            background:
+                radial-gradient(900px 620px at 78% -12%, rgba(124,108,247,.20), transparent 62%),
+                radial-gradient(700px 520px at 100% 40%, rgba(79,157,255,.10), transparent 60%);
+        }
+        .cag-shell { position: relative; z-index: 1; display: flex; min-height: 100vh; }
+
+        /* ── Sidebar ─────────────────────────────────────────────── */
+        .cag-side {
+            width: 252px; flex-shrink: 0; background: var(--cag-side);
+            border-right: 1px solid var(--cag-border);
+            display: flex; flex-direction: column; padding: 20px 14px 16px;
+            position: sticky; top: 0; height: 100vh;
+        }
+        .cag-brand { display: flex; align-items: center; gap: 11px; padding: 4px 8px 22px; }
+        .cag-logo {
+            width: 34px; height: 34px; border-radius: 10px; flex-shrink: 0;
+            background: linear-gradient(140deg, #4f9dff, #7c6cf7 55%, #ff4fd8);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 900; font-size: 18px; color: #fff;
+            box-shadow: 0 6px 20px rgba(124,108,247,.45);
+        }
+        .cag-brand h2 { margin: 0; font-size: 16.5px; font-weight: 800; letter-spacing: .2px; }
+        .cag-brand h2 span { color: var(--cag-accent-2); }
+
+        .cag-nav { display: flex; flex-direction: column; gap: 4px; }
+        .cag-nav a {
+            display: flex; align-items: center; gap: 12px; text-decoration: none;
+            color: var(--cag-muted); font-size: 14px; font-weight: 600;
+            padding: 11px 12px; border-radius: 10px; position: relative;
+            transition: background .15s, color .15s;
+        }
+        .cag-nav a svg { width: 17px; height: 17px; flex-shrink: 0; }
+        .cag-nav a:hover { background: rgba(255,255,255,.04); color: var(--cag-text); }
+        .cag-nav a.active {
+            color: #fff;
+            background: linear-gradient(90deg, rgba(124,108,247,.22), rgba(124,108,247,.05));
+        }
+        .cag-nav a.active::before {
+            content: ""; position: absolute; left: -14px; top: 8px; bottom: 8px; width: 3px;
+            border-radius: 0 3px 3px 0;
+            background: linear-gradient(#4f9dff, #7c6cf7 55%, #ff4fd8);
+        }
+        .cag-upgrade {
+            margin-top: auto; display: flex; align-items: center; gap: 12px;
+            padding: 12px 13px; border-radius: 13px; text-decoration: none; color: var(--cag-text);
+            background: linear-gradient(135deg, rgba(124,108,247,.16), rgba(255,79,216,.08));
+            border: 1px solid rgba(124,108,247,.42);
+        }
+        .cag-upgrade:hover { border-color: rgba(124,108,247,.8); }
+        .cag-upgrade .up-ic {
+            width: 34px; height: 34px; border-radius: 9px; flex-shrink: 0;
+            background: linear-gradient(135deg, #ffd76e, #ff9d3d);
+            display: flex; align-items: center; justify-content: center; font-size: 17px;
+        }
+        .cag-upgrade .up-tx { line-height: 1.25; min-width: 0; }
+        .cag-upgrade .up-tx b { display: block; font-size: 13.5px; font-weight: 800; }
+        .cag-upgrade .up-tx small { display: block; color: var(--cag-muted); font-size: 11.5px; font-weight: 500; }
+        .cag-upgrade .up-ar { margin-left: auto; color: var(--cag-muted); font-size: 16px; }
+
+        /* ── Main ────────────────────────────────────────────────── */
+        .cag-main { flex: 1; min-width: 0; padding: 40px 40px 60px; }
+        .cag-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, 470px); gap: 44px; max-width: 1560px; }
+
+        .cag-eyebrow { color: #8b8cf0; font-size: 13px; font-weight: 800; letter-spacing: 4px; margin: 0 0 10px; }
+        .cag-title {
+            margin: 0; font-size: clamp(40px, 5.4vw, 66px); line-height: 1.02; font-weight: 900; letter-spacing: -.03em;
+        }
+        .cag-title .grad {
+            background: linear-gradient(115deg, #4f9dff 5%, #7c6cf7 48%, #ff4fd8 92%);
+            -webkit-background-clip: text; background-clip: text; color: transparent;
+        }
+        .cag-sub { color: #b6bccb; font-size: 16.5px; line-height: 1.62; margin: 18px 0 0; max-width: 520px; }
+
+        .cag-chips { display: flex; flex-direction: column; gap: 11px; margin: 30px 0 0; max-width: 460px; }
+        .cag-chip {
+            display: flex; align-items: center; gap: 13px; padding: 13px 16px;
+            background: rgba(255,255,255,.028); border: 1px solid var(--cag-border);
+            border-radius: 13px; font-size: 14px; font-weight: 600; color: #d6dbe8;
+        }
+        .cag-chip .ci {
+            width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            background: linear-gradient(135deg, rgba(79,157,255,.22), rgba(124,108,247,.22));
+            color: #8fb6ff;
+        }
+        .cag-chip .ci svg { width: 16px; height: 16px; }
+
+        .cag-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 34px 0 0; }
+        .cag-plan {
+            position: relative; display: flex; flex-direction: column;
+            background: linear-gradient(165deg, rgba(255,255,255,.045), rgba(255,255,255,.015));
+            border: 1px solid var(--cag-border); border-radius: 18px; padding: 24px 20px 20px;
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+        .cag-plan:hover { transform: translateY(-3px); border-color: var(--cag-border-2); }
+        .cag-plan.pro {
+            border-color: rgba(124,108,247,.85);
+            box-shadow: 0 0 0 1px rgba(124,108,247,.25), 0 22px 60px rgba(124,108,247,.22);
+        }
+        .cag-plan .rec {
+            position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #7c6cf7, #a855f7); color: #fff;
+            font-size: 9.5px; font-weight: 900; letter-spacing: 1.6px; padding: 6px 14px; border-radius: 20px;
+            box-shadow: 0 8px 20px rgba(124,108,247,.5); white-space: nowrap;
+        }
+        .cag-plan h3 { margin: 0; font-size: 21px; font-weight: 800; }
+        .cag-plan .price { font-size: 40px; font-weight: 900; letter-spacing: -.02em; margin: 8px 0 4px; }
+        .cag-plan .price small { font-size: 15px; font-weight: 600; color: var(--cag-muted); }
+        .cag-plan .tag { color: var(--cag-muted); font-size: 13px; line-height: 1.5; margin: 0 0 16px; min-height: 38px; }
+        .cag-plan ul { list-style: none; padding: 0; margin: 0 0 22px; display: flex; flex-direction: column; gap: 10px; }
+        .cag-plan li { position: relative; padding-left: 24px; font-size: 13.5px; line-height: 1.45; color: #cbd2e0; }
+        .cag-plan li::before { content: "✓"; position: absolute; left: 0; color: var(--cag-green); font-weight: 900; }
+        .cag-plan .cta {
+            margin-top: auto; display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px 16px; border-radius: 11px; text-decoration: none; font-weight: 800; font-size: 14px;
+            color: var(--cag-text); background: rgba(255,255,255,.05); border: 1px solid var(--cag-border-2);
+            transition: background .15s, border-color .15s;
+        }
+        .cag-plan .cta:hover { background: rgba(255,255,255,.09); }
+        .cag-plan .cta.primary {
+            background: linear-gradient(135deg, #4f9dff, #7c6cf7 55%, #a855f7);
+            border: 0; color: #fff; box-shadow: 0 12px 30px rgba(124,108,247,.4);
+        }
+        .cag-plan .cta.primary:hover { filter: brightness(1.08); }
+
+        /* ── Code Runner ─────────────────────────────────────────── */
+        .cag-runner {
+            background: var(--cag-panel); border: 1px solid var(--cag-border);
+            border-radius: 18px; overflow: hidden; display: flex; flex-direction: column;
+            position: sticky; top: 40px; box-shadow: 0 40px 100px rgba(0,0,0,.55);
+        }
+        .cag-run-head {
+            display: flex; align-items: center; gap: 10px; padding: 14px 18px;
+            border-bottom: 1px solid var(--cag-border);
+        }
+        .cag-run-head .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--cag-green); box-shadow: 0 0 10px rgba(61,220,132,.85); }
+        .cag-run-head b { font-size: 15px; font-weight: 800; }
+        .cag-run-head .meta { margin-left: auto; color: var(--cag-faint); font-size: 12px; font-weight: 600; }
+
+        .cag-run-tools { display: flex; gap: 9px; flex-wrap: wrap; padding: 13px 18px; border-bottom: 1px solid var(--cag-border); }
+        .cag-btn {
+            display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+            background: rgba(255,255,255,.045); border: 1px solid var(--cag-border-2); color: #cfd5e3;
+            font-size: 12.5px; font-weight: 700; padding: 8px 13px; border-radius: 9px; font-family: inherit;
+            transition: background .15s, border-color .15s, color .15s;
+        }
+        .cag-btn svg { width: 13px; height: 13px; }
+        .cag-btn:hover { background: rgba(255,255,255,.09); color: #fff; }
+        .cag-btn.primary {
+            background: linear-gradient(135deg, #6d5cf7, #8b5cf6); border: 0; color: #fff;
+            box-shadow: 0 8px 22px rgba(109,92,247,.45);
+        }
+        .cag-btn.primary:hover { filter: brightness(1.08); }
+
+        .cag-run-opts { display: flex; gap: 9px; flex-wrap: wrap; padding: 11px 18px; border-bottom: 1px solid var(--cag-border); }
+        .cag-sel {
+            display: inline-flex; align-items: center; gap: 7px;
+            background: rgba(255,255,255,.045); border: 1px solid var(--cag-border-2); border-radius: 9px;
+            padding: 7px 10px; color: #cfd5e3; font-size: 12.5px; font-weight: 700;
+        }
+        .cag-sel .badge {
+            background: #f7df1e; color: #111; font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px; letter-spacing: .5px;
+        }
+        .cag-sel svg { width: 13px; height: 13px; opacity: .8; }
+        .cag-sel select {
+            background: transparent; border: 0; color: inherit; font: inherit; font-weight: 700;
+            outline: none; cursor: pointer; padding-right: 2px;
+        }
+        .cag-sel select option { background: #12121b; color: #cfd5e3; }
+
+        .cag-tabbar { display: flex; align-items: center; border-bottom: 1px solid var(--cag-border); background: rgba(255,255,255,.02); }
+        .cag-tab {
+            display: flex; align-items: center; gap: 8px; padding: 11px 16px; font-size: 12.5px; font-weight: 700;
+            color: #e2e7f2; border-right: 1px solid var(--cag-border); position: relative;
+        }
+        .cag-tab::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: linear-gradient(90deg,#4f9dff,#7c6cf7); }
+        .cag-tab .badge { background: #f7df1e; color: #111; font-size: 9px; font-weight: 900; padding: 2px 5px; border-radius: 4px; }
+        .cag-tab .x { color: var(--cag-faint); margin-left: 2px; }
+        .cag-tab-add { background: none; border: 0; color: var(--cag-muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 6px 14px; }
+        .cag-tab-add:hover { color: #fff; }
+        .cag-tabbar .expand { margin-left: auto; padding: 0 16px; color: var(--cag-faint); background: none; border: 0; cursor: pointer; }
+        .cag-tabbar .expand:hover { color: #fff; }
+
+        .cag-code {
+            position: relative; height: 360px; display: grid; grid-template-columns: 48px 1fr;
+            background: #191919;
+        }
+        .cag-gutter {
+            overflow: hidden; text-align: right; padding: 16px 10px 16px 0;
+            color: #5a5a68; font-family: var(--cag-mono); font-size: 14px; line-height: 1.7;
+            background: #191919; border-right: 1px solid rgba(255,255,255,.05); white-space: pre;
+            user-select: none;
+        }
+        .cag-code-area { position: relative; overflow: hidden; }
+        .cag-hl, .cag-input {
+            position: absolute; inset: 0; margin: 0; padding: 16px 18px;
+            font-family: var(--cag-mono); font-size: 14px; line-height: 1.7; tab-size: 4;
+            white-space: pre; overflow: auto; box-sizing: border-box;
+        }
+        .cag-hl { pointer-events: none; color: #d4d4d4; }
+        .cag-hl code { font-family: inherit; }
+        .cag-input {
+            background: transparent; color: transparent; caret-color: #7dd3fc;
+            border: 0; outline: none; resize: none;
+        }
+        .cag-input::selection { background: rgba(124,108,247,.42); }
+        .cag-code.light { background: #fbfbfd; }
+        .cag-code.light .cag-gutter { background: #f0f1f5; color: #a6acba; border-right-color: #e2e5ec; }
+        .cag-code.light .cag-hl { color: #1f2430; }
+        .cag-code.light .cag-input { caret-color: #7c3aed; }
+
+        .cag-out { border-top: 1px solid var(--cag-border); }
+        .cag-out-head { display: flex; align-items: center; gap: 9px; padding: 12px 18px; border-bottom: 1px solid var(--cag-border); }
+        .cag-out-head .oi { width: 15px; height: 15px; color: var(--cag-muted); }
+        .cag-out-head b { font-size: 14px; font-weight: 800; }
+        .cag-out-head .right { margin-left: auto; display: flex; align-items: center; gap: 12px; color: var(--cag-faint); font-size: 12px; font-weight: 600; }
+        .cag-toggle { width: 34px; height: 19px; border-radius: 20px; background: #2a2a38; position: relative; cursor: pointer; border: 0; padding: 0; transition: background .18s; }
+        .cag-toggle::after { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: #8a91a6; transition: transform .18s, background .18s; }
+        .cag-toggle.on { background: rgba(61,220,132,.3); }
+        .cag-toggle.on::after { transform: translateX(15px); background: var(--cag-green); }
+        .cag-out-body {
+            padding: 16px 18px; min-height: 120px; max-height: 260px; overflow: auto;
+            font-family: var(--cag-mono); font-size: 13px; line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+            color: var(--cag-green);
+        }
+        .cag-out-body iframe { width: 100%; height: 240px; border: 0; background: #fff; border-radius: 8px; }
+        .cag-out-body.err { color: #ff6b6b; }
+        .cag-out-body.muted { color: var(--cag-muted); }
+
+        @media (max-width: 1180px) {
+            .cag-cols { grid-template-columns: 1fr; gap: 34px; }
+            .cag-runner { position: static; }
+        }
+        @media (max-width: 820px) {
+            .cag-side { display: none; }
+            .cag-main { padding: 26px 18px 40px; }
+            .cag-plans { grid-template-columns: 1fr; }
+        }
     </style>
 </head>
 <body>
-    <header style="position: sticky; top: 0; background: rgba(10,12,16,.8); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); z-index: 10;">
-        <div style="max-width: 1180px; margin: 0 auto; padding: 10px 24px; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-weight: 800; letter-spacing: .5px;">Zelpophai AI <span style="color:#9CA3AF; font-weight: 600;">&middot; Coding AGT.</span></div>
-            <a href="/app" class="ca-btn">← Back to Chat</a>
+<div class="cag-shell">
+    <aside class="cag-side">
+        <div class="cag-brand">
+            <div class="cag-logo">Z</div>
+            <h2>Zelophai <span>AI</span></h2>
         </div>
-    </header>
+        <nav class="cag-nav">
+            <a href="/app/coding-agent" class="active">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                Coding AGT
+            </a>
+            <a href="/app">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Chat
+            </a>
+            <a href="/app">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                Documents
+            </a>
+            <a href="/app">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+                History
+            </a>
+            <a href="/app">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Settings
+            </a>
+        </nav>
+        <a class="cag-upgrade" href="/app">
+            <div class="up-ic">&#128081;</div>
+            <div class="up-tx"><b>Upgrade to Pro</b><small>Get more power and features</small></div>
+            <div class="up-ar">&#8594;</div>
+        </a>
+    </aside>
 
-    <section class="ca-hero">
-        <h1 class="ca-title">Coding AGT.</h1>
-        <p class="ca-sub">A precision coding agent built to run, preview, and ship clean code fast. Auto-correct, live syntax highlighting, and a secure execution path designed for clarity.</p>
-        <div class="ca-badges">
-            <div class="ca-badge">Auto-bracket &amp; smart indent</div>
-            <div class="ca-badge">Live syntax highlighting</div>
-            <div class="ca-badge">HTML/Markdown instant preview</div>
-            <div class="ca-badge">JavaScript browser fallback</div>
-            <div class="ca-badge">Clean, minimal UI</div>
-        </div>
-        <div class="ca-sep"></div>
-    </section>
+    <main class="cag-main">
+        <div class="cag-cols">
+            <div class="cag-left">
+                <p class="cag-eyebrow">ZELOPHAI AI</p>
+                <h1 class="cag-title">Coding <span class="grad">AGT.</span></h1>
+                <p class="cag-sub">A precision coding agent built to run, preview, and ship clean code fast. Auto-correct, live syntax highlighting and a secure execution path designed for clarity.</p>
 
-    <section class="ca-plans" id="plans">
-        <div class="ca-plan">
-            <h3>Free</h3>
-            <div class="ca-price">Free <small></small></div>
-            <ul class="ca-list">
-                <li>Browser-only JS execution</li>
-                <li>HTML/Markdown live preview</li>
-                <li>Auto-correct &amp; highlights</li>
-                <li>Basic editor experience</li>
-                <li>Runs in your browser</li>
-            </ul>
-            <a class="ca-cta" href="#editor">Start coding</a>
-        </div>
-        <div class="ca-plan">
-            <div class="pop">RECOMMENDED</div>
-            <h3>Pro</h3>
-            <div class="ca-price">$19<small>/mo</small></div>
-            <ul class="ca-list">
-                <li>Enhanced code insights</li>
-                <li>Longer snippets &amp; presets</li>
-                <li>Priority response time</li>
-                <li>Download/share code snippets</li>
-                <li>All Free features included</li>
-            </ul>
-            <a class="ca-cta primary" href="/pricing" target="_blank">Upgrade to Pro</a>
-        </div>
-        <div class="ca-plan">
-            <h3>Ultimate</h3>
-            <div class="ca-price">$39<small>/mo</small></div>
-            <ul class="ca-list">
-                <li>Full AI code assistance</li>
-                <li>Multi-file workspace</li>
-                <li>Expanded sandbox capabilities</li>
-                <li>Early access to new tools</li>
-                <li>All Pro features included</li>
-            </ul>
-            <a class="ca-cta" href="/pricing" target="_blank">Go Ultimate</a>
-        </div>
-    </section>
-
-    <section class="ca-editor" id="editor">
-        <div class="ca-card">
-            <div class="ca-toolbar">
-                <div class="ca-toolbar-left">
-                    <button class="ca-btn primary" id="ca-run"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:12px;height:12px;"><polygon points="5 3 19 12 5 21 5 3"/></svg> Run (Ctrl+Enter)</button>
-                    <button class="ca-btn" id="ca-clear">Clear</button>
-                    <button class="ca-btn" id="ca-copy">Copy</button>
-                    <button class="ca-btn" id="ca-download">Download</button>
-                    <select class="ca-select" id="ca-lang">
-                        <option value="javascript">JavaScript</option>
-                        <option value="python">Python</option>
-                        <option value="html">HTML</option>
-                        <option value="markdown">Markdown</option>
-                        <option value="json">JSON</option>
-                        <option value="sql">SQL</option>
-                    </select>
-                    <select class="ca-select" id="ca-theme">
-                        <option value="dark">Dark</option>
-                        <option value="light">Light</option>
-                    </select>
-                    <select class="ca-select" id="ca-fontsize">
-                        <option value="12">12px</option>
-                        <option value="13">13px</option>
-                        <option value="14" selected>14px</option>
-                        <option value="15">15px</option>
-                        <option value="16">16px</option>
-                    </select>
+                <div class="cag-chips">
+                    <div class="cag-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2 3 14h7l-1 8 10-12h-7z"/></svg></span>Auto-bracket &amp; smart indent</div>
+                    <div class="cag-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg></span>Live syntax highlighting</div>
+                    <div class="cag-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg></span>HTML/Markdown instant preview</div>
+                    <div class="cag-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>JavaScript browser fallback</div>
+                    <div class="cag-chip"><span class="ci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></span>Clean, minimal UI</div>
                 </div>
-                <div style="font-size:11px;color:#9CA3AF;">Coding AGT. &middot; auto-correct on</div>
+
+                <div class="cag-plans">
+                    <div class="cag-plan">
+                        <h3>Free</h3>
+                        <div class="price">Free</div>
+                        <p class="tag">Get started with essential coding power.</p>
+                        <ul>
+                            <li>Browser-only JS execution</li>
+                            <li>HTML/Markdown live preview</li>
+                            <li>Auto-correct &amp; highlights</li>
+                            <li>Basic editor experience</li>
+                            <li>Runs in your browser</li>
+                        </ul>
+                        <a class="cta" href="#runner">Start coding <span>&#8594;</span></a>
+                    </div>
+                    <div class="cag-plan pro">
+                        <div class="rec">RECOMMENDED</div>
+                        <h3>Pro</h3>
+                        <div class="price">$19<small>/mo</small></div>
+                        <p class="tag">For developers who want more power and control.</p>
+                        <ul>
+                            <li>Enhanced code insights</li>
+                            <li>Longer snippets &amp; presets</li>
+                            <li>Priority response time</li>
+                            <li>Download/share code snippets</li>
+                            <li>All Free features included</li>
+                        </ul>
+                        <a class="cta primary" href="/app">Upgrade to Pro <span>&#8594;</span></a>
+                    </div>
+                    <div class="cag-plan">
+                        <h3>Ultimate</h3>
+                        <div class="price">$39<small>/mo</small></div>
+                        <p class="tag">Full AI coding assistance for maximum productivity.</p>
+                        <ul>
+                            <li>Full AI code assistance</li>
+                            <li>Multi-file workspace</li>
+                            <li>Expanded sandbox capabilities</li>
+                            <li>Early access to new tools</li>
+                            <li>All Pro features included</li>
+                        </ul>
+                        <a class="cta" href="/app">Go Ultimate <span>&#8594;</span></a>
+                    </div>
+                </div>
             </div>
-            <div class="ca-grid">
-                <div style="display:flex;flex-direction:column;">
-                    <textarea id="ca-editor" spellcheck="false" placeholder="Write code here. Press Ctrl+Enter to run..."></textarea>
-                </div>
-                <div class="ca-out">
-                    <div id="ca-output">Output will appear here. Click Run to execute...</div>
-                    <div class="ca-preview" id="ca-preview">
-                        <iframe id="ca-preview-frame" sandbox="allow-scripts allow-same-origin allow-modals allow-popups"></iframe>
+
+            <div class="cag-right" id="runner">
+                <div class="cag-runner">
+                    <div class="cag-run-head">
+                        <span class="dot"></span><b>Code Runner</b>
+                        <span class="meta">Zelophai AI &middot; Coding AGT</span>
+                    </div>
+
+                    <div class="cag-run-tools">
+                        <button class="cag-btn primary" id="ca-run">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                            Run (Ctrl+Enter)
+                        </button>
+                        <button class="cag-btn" id="ca-clear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>Clear</button>
+                        <button class="cag-btn" id="ca-copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Copy</button>
+                        <button class="cag-btn" id="ca-download"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>Download</button>
+                    </div>
+
+                    <div class="cag-run-opts">
+                        <label class="cag-sel"><span class="badge" id="ca-lang-badge">JS</span>
+                            <select id="ca-lang">
+                                <option value="javascript">JavaScript</option>
+                                <option value="python">Python</option>
+                                <option value="html">HTML</option>
+                                <option value="markdown">Markdown</option>
+                                <option value="json">JSON</option>
+                                <option value="sql">SQL</option>
+                            </select>
+                        </label>
+                        <label class="cag-sel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+                            <select id="ca-theme">
+                                <option value="dark">Dark</option>
+                                <option value="light">Light</option>
+                            </select>
+                        </label>
+                        <label class="cag-sel"><span>Aa</span>
+                            <select id="ca-fontsize">
+                                <option value="12">12px</option>
+                                <option value="13">13px</option>
+                                <option value="14" selected>14px</option>
+                                <option value="15">15px</option>
+                                <option value="16">16px</option>
+                            </select>
+                        </label>
+                    </div>
+
+                    <div class="cag-tabbar">
+                        <div class="cag-tab"><span class="badge" id="ca-tab-badge">JS</span><span id="ca-tab-name">index.js</span><span class="x">&#215;</span></div>
+                        <button class="cag-tab-add" title="New file" id="ca-new-tab">+</button>
+                        <button class="expand" title="Expand"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+                    </div>
+
+                    <div class="cag-code" id="ca-code">
+                        <div class="cag-gutter" id="ca-gutter">1</div>
+                        <div class="cag-code-area">
+                            <pre class="cag-hl"><code id="ca-highlight" class="language-javascript"></code></pre>
+                            <textarea class="cag-input" id="ca-editor" spellcheck="false" autocomplete="off" autocapitalize="off" autocorrect="off" wrap="off"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="cag-out">
+                        <div class="cag-out-head">
+                            <svg class="oi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                            <b>Output</b>
+                            <span class="right">Auto-run: off
+                                <button class="cag-toggle" id="ca-autorun" title="Auto-run"></button>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="15" height="15"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+                            </span>
+                        </div>
+                        <div class="cag-out-body" id="ca-output">&gt; Hello, Zelophai! &#128075;</div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </main>
+</div>
 
-    <footer class="ca-footer">Zelpophai AI &middot; Coding AGT. &middot; Built for speed and clarity</footer>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script src="/static/js/api.js"></script>
-    <script src="/static/js/confirm.js"></script>
-    <script src="/static/js/coding-agent.js"></script>
+<div class="toast" id="toast" style="position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;pointer-events:none;background:#12121b;border:1px solid var(--cag-border-2);color:#fff;padding:11px 20px;border-radius:11px;font-size:13px;font-weight:600;transition:opacity .2s, transform .2s;z-index:9999;"></div>
+<style>.toast.show { opacity:1 !important; transform:translateX(-50%) translateY(0) !important; }</style>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/coding-agent.js"></script>
 </body>
 </html>

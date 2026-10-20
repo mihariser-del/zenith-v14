@@ -126,13 +126,22 @@ const Chat = {
             }
         }
 
-        if (chats.length === 0) {
-            await this.create();
-        } else {
-            this.activeId = chats[0].id;
-            this.renderList();
-            this.renderMessages();
-        }
+        // Always open on a fresh, unregistered chat. The chat row is created in
+        // the database only when the user sends their first message.
+        this.activeId = null;
+        this.renderList();
+        await this.renderMessages();
+    },
+
+    async newDraft() {
+        this.activeId = null;
+        this.attachments = [];
+        this.renderAtts();
+        this.renderList();
+        await this.renderMessages();
+        this.syncUrl();
+        const input = $('user-input');
+        if (input) input.focus();
     },
 
     async create() {
@@ -161,7 +170,7 @@ const Chat = {
         await api(`/api/chats/${id}`, { method: 'DELETE' });
         delete this.chats[id];
         if (this.activeId === id) {
-            await this.create();
+            await this.newDraft();
         } else {
             this.renderList();
         }
@@ -173,9 +182,7 @@ const Chat = {
             try { await api(`/api/chats/${id}`, { method: 'DELETE' }); } catch (e) {}
         }
         this.chats = {};
-        this.activeId = null;
-        this.renderList();
-        await this.create();
+        await this.newDraft();
         showToast('All chats cleared', 'success');
     },
 
@@ -531,7 +538,7 @@ const Chat = {
     },
 
     renderWelcome() {
-        if (Object.keys(this.chats).length > 0 && this.activeId) {
+        if (Object.keys(this.chats).length > 0) {
             // Not a brand-new user — keep the classic welcome
             return `
             <div class="welcome-message">

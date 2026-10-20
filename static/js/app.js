@@ -657,7 +657,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     $('new-chat-btn').addEventListener('click', async () => {
-        await Chat.create();
+        await Chat.newDraft();
         closeSidebar();
     });
     $('send-btn').addEventListener('click', () => Chat.send());

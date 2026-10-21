@@ -1,4 +1,4 @@
-﻿from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse, Response
@@ -675,7 +675,21 @@ async def changelog_seen(request: Request, db=Depends(get_db)):
 
 @app.get("/", response_class=HTMLResponse)
 async def landing():
-    return FileResponse("static/index.html")
+    """Serve the landing page, injecting search-engine verification tags when
+    the corresponding env vars are set (Railway-friendly, no code edits)."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
+    with open(path, "r", encoding="utf-8") as fh:
+        html = fh.read()
+    tags = []
+    gsv = (os.getenv("GOOGLE_SITE_VERIFICATION") or "").strip()
+    if gsv:
+        tags.append(f'<meta name="google-site-verification" content="{gsv}">')
+    bing = (os.getenv("BING_SITE_VERIFICATION") or "").strip()
+    if bing:
+        tags.append(f'<meta name="msvalidate.01" content="{bing}">')
+    if tags:
+        html = html.replace("</head>", "\n    ".join([""] + tags) + "\n</head>", 1)
+    return HTMLResponse(html)
 
 
 @app.get("/app", response_class=HTMLResponse)
@@ -747,7 +761,7 @@ async def robots_txt():
 
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
-    pages = [("/", "1.0", "weekly"), ("/status", "0.3", "daily"), ("/invite.html", "0.3", "monthly")]
+    pages = [("/", "1.0", "weekly"), ("/invite.html", "0.4", "monthly")]
     entries = "".join(
         f"<url><loc>{SITE_BASE}{path}</loc>"
         f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
@@ -770,8 +784,10 @@ async def seo_headers(request: Request, call_next):
         path.startswith("/app")
         or path.startswith("/api")
         or path.startswith("/admin")
-        or path.startswith("/vault")
+        or         path.startswith("/vault")
         or path.startswith("/denied")
+        or path.startswith("/s/")
+        or path.startswith("/i/")
     ):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     return response

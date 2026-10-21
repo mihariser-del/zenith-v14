@@ -22,14 +22,39 @@ body { background: var(--bg); color: var(--text); display: flex; height: 100vh; 
 body.auth-page { display: block; }
 
 /* LANDING */
-.landing-page { position: fixed; inset: 0; z-index: 2000; background: linear-gradient(135deg, #ff00cc 0%, #333399 50%, #00cc99 100%); background-size: 400% 400%; animation: gradientShift 15s ease infinite; display: none; flex-direction: column; justify-content: center; align-items: center; }
+.landing-page { position: fixed; inset: 0; z-index: 2000; background: linear-gradient(135deg, #ff00cc 0%, #333399 50%, #00cc99 100%); background-size: 400% 400%; animation: gradientShift 15s ease infinite; display: none; flex-direction: column; justify-content: flex-start; align-items: center; overflow-y: auto; }
 @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
-.landing-content { text-align: center; z-index: 10; animation: fadeInUp 1s ease; }
+.landing-content { text-align: center; z-index: 10; animation: fadeInUp 1s ease; min-height: 100vh; width: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 40px 20px; box-sizing: border-box; }
 @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
 .landing-title { font-size: 80px; font-weight: 900; color: #ffffff; text-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.6); letter-spacing: 8px; margin-bottom: 20px; }
 .landing-subtitle { font-size: 24px; color: rgba(255, 255, 255, 0.9); margin-bottom: 60px; letter-spacing: 3px; font-weight: 300; font-style: italic; }
 .start-btn { padding: 18px 60px; background: transparent; border: 2px solid #00ffff; color: #00ffff; font-size: 18px; font-weight: 700; letter-spacing: 4px; cursor: pointer; border-radius: 8px; transition: all 0.3s ease; box-shadow: 0 0 20px rgba(0, 255, 255, 0.4); }
 .start-btn:hover { background: rgba(0, 255, 255, 0.1); box-shadow: 0 0 40px rgba(0, 255, 255, 0.6); transform: translateY(-2px); }
+/* Landing page SEO content (crawlable, below the full-screen hero). */
+.seo-section { position: relative; z-index: 10; width: 100%; max-width: 1100px; margin: 0 auto 48px; padding: 0 24px; box-sizing: border-box; color: #fff; }
+.seo-inner { background: rgba(6, 10, 18, 0.62); border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 24px; padding: 42px 40px; backdrop-filter: blur(12px); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35); }
+.seo-inner h2 { font-size: 30px; line-height: 1.25; margin: 0 0 14px; letter-spacing: -0.01em; }
+.seo-inner h2 + .seo-lead { margin-top: 0; }
+.seo-lead { font-size: 16px; line-height: 1.7; color: rgba(255, 255, 255, 0.82); max-width: 760px; margin-bottom: 30px; }
+.seo-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 36px; }
+.seo-feature { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 18px 18px 16px; }
+.seo-feature h3 { font-size: 16px; margin: 0 0 8px; color: #9ef7ff; }
+.seo-feature p { font-size: 14px; line-height: 1.6; margin: 0; color: rgba(255, 255, 255, 0.78); }
+.seo-faq { display: flex; flex-direction: column; gap: 10px; margin-bottom: 30px; }
+.seo-faq details { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 12px; padding: 14px 18px; }
+.seo-faq summary { cursor: pointer; font-weight: 600; font-size: 15px; }
+.seo-faq details p { margin: 10px 0 0; font-size: 14px; line-height: 1.65; color: rgba(255, 255, 255, 0.78); }
+.seo-cta-row { text-align: center; margin: 6px 0 0; }
+.seo-cta { padding: 15px 42px; font-size: 15px; }
+.seo-footer { text-align: center; padding: 22px 12px 40px; font-size: 13px; color: rgba(255, 255, 255, 0.72); }
+.seo-footer a { color: #9ef7ff; text-decoration: none; }
+.seo-footer a:hover { text-decoration: underline; }
+.seo-footer span { margin: 0 8px; }
+@media (max-width: 640px) {
+    .seo-inner { padding: 26px 20px; }
+    .seo-inner h2 { font-size: 23px; }
+    .seo-lead { font-size: 15px; }
+}
 
 /* LOGIN */
 .login-screen { position: fixed; inset: 0; z-index: 1500; background: linear-gradient(135deg, #6600cc 0%, #00cc99 100%); background-size: 400% 400%; animation: gradientShift 15s ease infinite; display: none; justify-content: center; align-items: center; overflow-y: auto; padding: 20px; }

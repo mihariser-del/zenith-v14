@@ -1,7 +1,7 @@
 ﻿from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 import os
@@ -721,6 +721,60 @@ async def vault_auth_page():
 @app.get("/app/coding-agent", response_class=HTMLResponse)
 async def coding_agent_page():
     return FileResponse("static/coding-agent.html")
+
+
+# ---------------------------------------------------------------- SEO ----
+# Public base URL used for canonical links, Open Graph and the sitemap.
+SITE_BASE = os.getenv("APP_BASE_URL", "https://zenithai.up.railway.app").rstrip("/")
+
+
+@app.get("/robots.txt", include_in_schema=False)
+async def robots_txt():
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /app\n"
+        "Disallow: /app/\n"
+        "Disallow: /api/\n"
+        "Disallow: /admin\n"
+        "Disallow: /vault\n"
+        "Disallow: /denied.html\n"
+        "\n"
+        f"Sitemap: {SITE_BASE}/sitemap.xml\n"
+    )
+    return PlainTextResponse(body, media_type="text/plain")
+
+
+@app.get("/sitemap.xml", include_in_schema=False)
+async def sitemap_xml():
+    pages = [("/", "1.0", "weekly"), ("/status", "0.3", "daily"), ("/invite.html", "0.3", "monthly")]
+    entries = "".join(
+        f"<url><loc>{SITE_BASE}{path}</loc>"
+        f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
+        for path, prio, freq in pages
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        f"{entries}</urlset>"
+    )
+    return Response(content=xml, media_type="application/xml")
+
+
+@app.middleware("http")
+async def seo_headers(request: Request, call_next):
+    """Keep private/authenticated areas out of search indexes."""
+    response = await call_next(request)
+    path = request.url.path
+    if (
+        path.startswith("/app")
+        or path.startswith("/api")
+        or path.startswith("/admin")
+        or path.startswith("/vault")
+        or path.startswith("/denied")
+    ):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    return response
 
 
 if __name__ == "__main__":

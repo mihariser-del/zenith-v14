@@ -1,4 +1,4 @@
-﻿const fileIcon = (name) => {
+const fileIcon = (name) => {
     const e = (name || '').split('.').pop().toLowerCase();
     const M = {
         // Images
@@ -638,6 +638,8 @@ const Chat = {
 
     appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null) {
         const container = $('chat-container');
+        const welcome = container.querySelector('.welcome-message');
+        if (welcome) welcome.remove();
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
 
@@ -1036,11 +1038,15 @@ const Chat = {
     async generateImageNow(prompt) {
         if (!prompt || !prompt.trim()) return false;
         if (!this.activeId) await this.create();
+        const ph = this.appendMessage('assistant', '', true);
+        this._showSketching(ph, 'Painting it out');
         try {
             const { url } = await api('/api/image/generate', {
                 method: 'POST',
                 body: JSON.stringify({ prompt: prompt.trim(), width: 1024, height: 1024, chat_id: this.activeId }),
             });
+            this._stopSketch();
+            if (ph && ph.parentElement) ph.remove();
             this.appendMessage('assistant', `**Prompt:** ${prompt}\n\n![Generated image](${url})`);
             showToast('Image generated!', 'success');
             return true;
@@ -1049,6 +1055,9 @@ const Chat = {
             if (typeof showLimitPopup === 'function' && /wait\s+\d+m\s*\d+s|cooldown|pause|guest/i.test(msg)) showLimitPopup(msg);
             else showToast('Image generation failed: ' + msg, 'error');
             return false;
+        } finally {
+            this._stopSketch();
+            if (ph && ph.parentElement) ph.remove();
         }
     },
 
@@ -1058,11 +1067,15 @@ const Chat = {
     async editGeneratedImage(change) {
         if (!change || !change.trim()) return false;
         if (!this.activeId) await this.create();
+        const ph = this.appendMessage('assistant', '', true);
+        this._showSketching(ph, 'Refining it');
         try {
             const { url, prompt, change: applied } = await api('/api/image/edit', {
                 method: 'POST',
                 body: JSON.stringify({ chat_id: this.activeId, change: change.trim(), width: 1024, height: 1024 }),
             });
+            this._stopSketch();
+            if (ph && ph.parentElement) ph.remove();
             this.appendMessage('assistant', `**Prompt:** ${prompt}\n\n**Changed:** ${applied}\n\n![Generated image](${url})`);
             showToast('Image updated!', 'success');
             return true;
@@ -1071,6 +1084,9 @@ const Chat = {
             if (typeof showLimitPopup === 'function' && /wait\s+\d+m\s*\d+s|cooldown|pause|guest/i.test(msg)) showLimitPopup(msg);
             else showToast('Could not update image: ' + msg, 'error');
             return false;
+        } finally {
+            this._stopSketch();
+            if (ph && ph.parentElement) ph.remove();
         }
     },
 
@@ -1204,26 +1220,14 @@ const Chat = {
         if (text) {
             const imgPrompt = typeof window.detectImageRequest === 'function' ? window.detectImageRequest(text) : null;
             if (imgPrompt) {
-                const ph = this.appendMessage('assistant', '', true);
-                this._showSketching(ph, 'Painting it out');
-                try { await this.generateImageNow(imgPrompt); }
-                finally {
-                    this._stopSketch();
-                    if (ph && ph.parentElement) ph.remove();
-                    input.focus();
-                }
+                await this.generateImageNow(imgPrompt);
+                input.focus();
                 return; // the image is the response — don't also stream a text reply
             }
             const change = typeof window.detectImageEditRequest === 'function' ? window.detectImageEditRequest(text) : null;
             if (change && this._hasGeneratedImage()) {
-                const ph = this.appendMessage('assistant', '', true);
-                this._showSketching(ph, 'Refining it');
-                try { await this.editGeneratedImage(change); }
-                finally {
-                    this._stopSketch();
-                    if (ph && ph.parentElement) ph.remove();
-                    input.focus();
-                }
+                await this.editGeneratedImage(change);
+                input.focus();
                 return;
             }
         }
@@ -1234,8 +1238,6 @@ const Chat = {
         this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
-        const isGen = this._looksLikeGenerationRequest(text);
-        if (isGen) this._showSketching(bubble);
         let fullResponse = '';
 
         try {
@@ -1276,7 +1278,7 @@ const Chat = {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
-                            if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
+                            this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.citations) {
                             try {
@@ -1295,10 +1297,10 @@ const Chat = {
                                     }).join(' ');
                                 });
                                 fullResponse = linked;
-                                if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
+                                this.updateStreamingBubble(bubble, fullResponse);
                             } catch (e) {
                                 fullResponse = fullResponse.replace(/\s*\[\d+(?:,\s*\d+)*\]\s*/g, ' ').trim();
-                                if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
+                                this.updateStreamingBubble(bubble, fullResponse);
                             }
                         }
                         if (parsed.error) {
@@ -1629,8 +1631,6 @@ const Chat = {
         this.abortController = new AbortController();
 
         const bubble = this.appendMessage('assistant', '', true);
-        const isGen = this._looksLikeGenerationRequest(lastUserMsg.content);
-        if (isGen) this._showSketching(bubble);
         let fullResponse = '';
 
         try {
@@ -1669,7 +1669,7 @@ const Chat = {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
-                            if (!isGen) this.updateStreamingBubble(bubble, fullResponse);
+                            this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.error) {
                             if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(lastUserMsg.content)) {

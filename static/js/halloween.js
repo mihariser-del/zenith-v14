@@ -2,7 +2,7 @@
    Zelpophai AI — Halloween seasonal theme controller
    - Decides whether the theme is on: Settings → Appearance → "Seasonal theme"
      (auto = Oct 15 – Nov 2 on the visitor's own clock, or always on / off).
-   - Adds the "halloween" class to <html>, loads the Creepster headline font,
+   - Adds the "halloween" class to <html>, loads the Playfair Display / Cinzel Decorative headline fonts,
      injects the ambient layer (cobwebs, dangling spider, fog, the odd bat),
      and swaps the welcome greeting text.
    The early class toggle also lives inline in app.html's <head> so there is
@@ -33,7 +33,7 @@
         var l = document.createElement('link');
         l.id = 'hw-font';
         l.rel = 'stylesheet';
-        l.href = 'https://fonts.googleapis.com/css2?family=Creepster&display=swap';
+        l.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&family=Cinzel+Decorative:wght@700;900&display=swap';
         document.head.appendChild(l);
     }
 
@@ -42,7 +42,8 @@
         var fx = document.createElement('div');
         fx.id = 'hw-fx';
         fx.setAttribute('aria-hidden', 'true');
-        fx.innerHTML = '<div class="hw-web r"></div><div class="hw-web l"></div>' +
+        fx.innerHTML = '<div class="hw-art hw-sky"></div><div class="hw-art hw-left"></div><div class="hw-art hw-right"></div>' +
+                       '<div class="hw-web r"></div><div class="hw-web l"></div>' +
                        '<div class="hw-spider"></div><div class="hw-fog"></div>';
         document.body.appendChild(fx);
         scheduleBat();
@@ -103,6 +104,19 @@
         }
     }
 
+    /* sidebar brand: colour the "AI" in "Zelpophai AI" */
+    function patchBrand(on) {
+        var h = document.querySelector('.brand h2');
+        if (!h) return;
+        if (on && !h.querySelector('.hw-ai') && /\sAI$/.test(h.textContent)) {
+            h.dataset.hwText = h.textContent;
+            h.innerHTML = h.textContent.replace(/\sAI$/, '') + ' <span class="hw-ai">AI</span>';
+        } else if (!on && h.dataset.hwText) {
+            h.textContent = h.dataset.hwText;
+            delete h.dataset.hwText;
+        }
+    }
+
     /* landing page: add a small seasonal line under the tagline */
     function patchLanding(on) {
         var sub = document.querySelector('.landing-subtitle');
@@ -141,6 +155,7 @@
         }
         patchWelcome();
         patchLanding(on);
+        patchBrand(on);
         watchWelcome();
     }
 

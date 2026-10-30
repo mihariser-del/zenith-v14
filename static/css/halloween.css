@@ -1,222 +1,78 @@
 /* =====================================================================
-   Zelpophai AI — Halloween seasonal theme
-   Active only while <html> has the "halloween" class (see halloween.js:
+   Zelpophai AI — Halloween seasonal theme  (v2: illustrated scene)
+   Active only while <html> has the "halloween" class (js/halloween.js:
    auto Oct 15 – Nov 2, or forced on/off in Settings → Appearance).
-   Every rule is scoped to html.halloween so the normal themes (dark,
+   Everything is scoped to html.halloween, so the normal themes (dark,
    light, owner silver, admin gold) are untouched the rest of the year.
+   Artwork lives in /static/img/halloween/*.svg (hand-built vector art).
    ===================================================================== */
 
 html.halloween body {
-    --bg: #0c0910;
-    --sidebar: #120d18;
-    --surface: #17111f;
-    --cards: #1d1527;
-    --text: #f3e9dc;
-    --muted: #b8a7c4;
-    --input-bg: #17111f;
-    --border: #33243f;
-    --hover-bg: #221830;
-    --accent: linear-gradient(135deg, #ffb347, #ff7a1a 45%, #c2410c);
+    --bg: #0b070e;
+    --sidebar: #110b15;
+    --surface: #160e1b;
+    --cards: #1c1222;
+    --text: #f5ebe0;
+    --muted: #bfaebf;
+    --input-bg: #140d19;
+    --border: #3a2531;
+    --hover-bg: #23141f;
+    --accent: linear-gradient(135deg, #ffb347, #ff7a1a 45%, #d4520b);
     --accent-solid: #ff7a1a;
     --accent-hover: #ff9a3c;
-    --user-msg: linear-gradient(135deg, #ff7a1a, #b2361c);
-    --ai-msg: #150f1c;
-    --code-bg: #120d18;
+    --user-msg: linear-gradient(135deg, #ff8a2a, #c2410c);
+    --ai-msg: rgba(16, 10, 20, .84);
+    --code-bg: #120b16;
     --hw-orange: #ff7a1a;
-    --hw-orange-2: #ffb347;
-    --hw-purple: #7b2cbf;
-    --hw-green: #7cff4f;
-    background: radial-gradient(120% 80% at 50% 110%, #2a1238 0%, #0c0910 55%) fixed, #0c0910;
+    --hw-amber: #ffb347;
+    --hw-line: rgba(255, 122, 26, .45);
+    --hw-glass: rgba(14, 9, 18, .78);
+    --hw-serif: 'Playfair Display', 'Cormorant Garamond', Georgia, serif;
+    --hw-display: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+    background:
+        radial-gradient(55% 45% at 58% 0%, rgba(255, 110, 20, .30), transparent 70%),
+        radial-gradient(50% 40% at 70% 100%, rgba(255, 90, 10, .16), transparent 70%),
+        linear-gradient(180deg, #1a0b1c 0%, #120914 45%, #0b070e 100%) fixed,
+        #0b070e;
 }
 
-/* ---------- sidebar ---------- */
-html.halloween body .sidebar {
-    background: linear-gradient(180deg, #160f1e 0%, #0f0a15 100%);
-    border-right: 1px solid rgba(255, 122, 26, .22);
-    box-shadow: 1px 0 24px rgba(255, 122, 26, .07);
-}
-html.halloween body .brand h2 {
-    color: #ffe2c2;
-    text-shadow: 0 0 14px rgba(255, 122, 26, .45);
-}
-
-/* jack-o'-lantern logo tiles */
-html.halloween body .z-logo,
-html.halloween body .welcome-z-logo {
-    background: radial-gradient(circle at 50% 60%, #ffd27a 0%, #ff8c1a 38%, #d4520b 72%, #8a2c05 100%) !important;
-    background-size: 100% 100% !important;
-    color: #2a0f02 !important;
-    border: 1px solid rgba(255, 196, 120, .55) !important;
-    box-shadow: 0 0 18px rgba(255, 122, 26, .55), inset 0 -6px 14px rgba(120, 30, 0, .45) !important;
-    position: relative;
-    animation: hwFlicker 3.4s infinite !important;
-}
-/* little green stem on top */
-html.halloween body .z-logo::before,
-html.halloween body .welcome-z-logo::before {
-    content: "";
-    position: absolute;
-    top: -6px;
-    left: 50%;
-    width: 8px;
-    height: 9px;
-    transform: translateX(-50%) rotate(-12deg);
-    background: linear-gradient(#5f8f2b, #2f5414);
-    border-radius: 3px 3px 2px 2px;
-}
-html.halloween body .welcome-z-logo::before { top: -9px; width: 12px; height: 13px; }
-html.halloween body .welcome-z-logo {
-    box-shadow: 0 0 40px rgba(255, 122, 26, .55), 0 10px 40px rgba(255, 90, 0, .35), inset 0 -10px 22px rgba(120, 30, 0, .45) !important;
-}
-@keyframes hwFlicker {
-    0%, 100% { filter: brightness(1); }
-    8% { filter: brightness(1.18); }
-    10% { filter: brightness(.88); }
-    12% { filter: brightness(1.1); }
-    55% { filter: brightness(1.02); }
-    57% { filter: brightness(.9); }
-    60% { filter: brightness(1.12); }
-}
-
-/* New Chat: pumpkin */
-html.halloween body .btn.primary,
-html.halloween body #new-chat-btn {
-    background: linear-gradient(135deg, #ffb347, #ff7a1a 55%, #e0560f) !important;
-    background-size: 100% 100% !important;
-    color: #1c0b02 !important;
-    border: 1px solid rgba(255, 196, 120, .5) !important;
-    box-shadow: 0 4px 18px rgba(255, 122, 26, .3) !important;
-    animation: none !important;
-    font-weight: 700;
-}
-html.halloween body .btn.primary:hover,
-html.halloween body #new-chat-btn:hover {
-    box-shadow: 0 6px 26px rgba(255, 122, 26, .5) !important;
-    filter: brightness(1.06);
-}
-
-/* Upgrade: witchy purple with a slime-green glow (inline style needs !important) */
-html.halloween body #upgrade-btn {
-    background: linear-gradient(135deg, #9d4edd, #6a1fb0 60%, #4a1380) !important;
-    color: #f4e9ff !important;
-    border: 1px solid rgba(124, 255, 79, .45) !important;
-    box-shadow: 0 0 16px rgba(124, 255, 79, .22), 0 4px 18px rgba(106, 31, 176, .45) !important;
-}
-html.halloween body #upgrade-btn:hover { box-shadow: 0 0 24px rgba(124, 255, 79, .38), 0 6px 22px rgba(106, 31, 176, .55) !important; }
-
-html.halloween body .btn.info { color: #ffb878; text-shadow: none; }
-html.halloween body .btn.info:hover,
-html.halloween body .bottom-bar .btn:hover { background: rgba(255, 122, 26, .08); }
-
-/* candy-corn badges */
-html.halloween body #request-badge,
-html.halloween body #feedback-badge,
-html.halloween body #live-chat-badge {
-    background: linear-gradient(180deg, #fff3d6 0 30%, #ffb21a 30% 65%, #ff6a00 65%) !important;
-    color: #2a1200 !important;
-    border: 1px solid rgba(255, 255, 255, .35);
-}
-
-/* chat list */
-html.halloween body .chat-item { color: #d9c8e4; }
-html.halloween body .chat-item:hover,
-html.halloween body .chat-item.active {
-    background: #221830;
-    color: #fff1e0;
-    border-left: 2px solid var(--hw-orange);
-    box-shadow: inset 0 0 14px rgba(255, 122, 26, .08);
-}
-
-/* profile bar */
-html.halloween body .user-profile-bar .user-avatar {
-    background: linear-gradient(135deg, #ff9a3c, #c2410c) !important;
-    color: #1c0b02 !important;
-    animation: none !important;
-}
-
-/* ---------- welcome ---------- */
-html.halloween body .welcome-message h2 {
-    font-family: 'Creepster', 'Inter', system-ui, sans-serif;
-    font-weight: 400;
-    font-size: 40px;
-    letter-spacing: 2px;
-    color: #ffe2c2;
-    text-shadow: 0 0 18px rgba(255, 122, 26, .45);
-}
-html.halloween body .welcome-message h2 span {
-    background: linear-gradient(90deg, #ffd27a, #ff7a1a 45%, #ffb347 80%) !important;
-    background-size: 200% 100% !important;
-    -webkit-background-clip: text !important;
-    background-clip: text !important;
-    -webkit-text-fill-color: transparent !important;
-    animation: hwShimmer 6s ease-in-out infinite !important;
-    font-family: inherit !important;
-    letter-spacing: inherit;
-    filter: drop-shadow(0 0 10px rgba(255, 122, 26, .45));
-}
-@keyframes hwShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
-html.halloween body .welcome-sub { color: #c9b4d6; }
-
-/* starter cards */
-html.halloween body .template-card { background: rgba(29, 21, 39, .85); border-color: #33243f; }
-html.halloween body .template-card:hover {
-    border-color: rgba(255, 122, 26, .55);
-    box-shadow: 0 8px 24px rgba(255, 122, 26, .14);
-}
-
-/* ---------- messages ---------- */
-html.halloween body .user .msg-bubble { color: #fff7ee; }
-
-/* ---------- composer ---------- */
-html.halloween body .composer-box {
-    position: relative;
-    background: rgba(23, 17, 31, .92);
-    border: 1px solid #3a2848;
-    box-shadow: 0 0 0 1px rgba(255, 122, 26, .05), 0 10px 30px rgba(0, 0, 0, .35);
-}
-html.halloween body .composer-box:focus-within {
-    border-color: rgba(255, 122, 26, .7) !important;
-    box-shadow: 0 0 0 1px rgba(255, 122, 26, .25), 0 0 22px rgba(255, 122, 26, .25) !important;
-}
-/* tiny cobweb in the composer's top-left corner */
-html.halloween body .composer-box::before {
-    content: "";
-    position: absolute;
-    top: -1px;
-    left: -1px;
-    width: 34px;
-    height: 34px;
-    pointer-events: none;
-    opacity: .5;
-    border-top-left-radius: 20px;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23d8c9e6' stroke-width='.8'%3E%3Cpath d='M0 0L40 40M0 0L40 14M0 0L14 40M0 0L40 0M0 0L0 40'/%3E%3Cpath d='M10 0Q8 5 9 9Q4 8 0 10M22 0Q17 9 19 19Q9 17 0 22M34 0Q26 14 29 29Q14 26 0 34'/%3E%3C/svg%3E") no-repeat;
-}
-html.halloween body .composer-icon:hover { color: var(--hw-orange-2); }
-html.halloween body .composer-icon.active {
-    color: #ffd8b0 !important;
-    background: rgba(255, 122, 26, .16) !important;
-    box-shadow: 0 0 12px rgba(255, 122, 26, .3) !important;
-}
-html.halloween body #send-btn {
-    background: radial-gradient(circle at 50% 60%, #ffd27a 0%, #ff8c1a 45%, #c2410c 100%) !important;
-    color: #1c0b02 !important;
-    box-shadow: 0 0 16px rgba(255, 122, 26, .45) !important;
-    animation: none !important;
-}
-html.halloween body #user-input::placeholder { color: #8f7aa0; }
-
-/* thinking / streaming accents */
-html.halloween body .thinking-text { color: var(--hw-orange-2) !important; text-shadow: 0 0 10px rgba(255, 122, 26, .5) !important; }
-html.halloween body .streaming-cursor::after { background: var(--hw-orange) !important; box-shadow: 0 0 10px rgba(255, 122, 26, .8) !important; }
-
-/* scrollbars */
-html.halloween body *::-webkit-scrollbar-thumb { background: #3a2848; }
-html.halloween body * { scrollbar-color: #3a2848 transparent; }
-
-/* ---------- ambient layer (injected by halloween.js) ---------- */
-/* z-index -1: painted over the page background but underneath every piece of real UI,
-   so it can never block a click or cover text */
+/* ======================= illustrated scene ======================= */
+/* z-index -1: painted above the page background but beneath every piece of
+   real UI, so it can never cover text or take a click */
 #hw-fx { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+#hw-fx .hw-art { position: absolute; background-repeat: no-repeat; }
+#hw-fx .hw-sky {
+    top: 0;
+    left: calc(280px + (100vw - 280px) / 2);
+    transform: translateX(-50%);
+    width: min(1100px, 78vw);
+    aspect-ratio: 1200 / 420;
+    background-image: url("/static/img/halloween/sky.svg");
+    background-size: 100% 100%;
+    opacity: .95;
+    -webkit-mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 62%, transparent 100%);
+}
+#hw-fx .hw-left {
+    left: 280px;
+    bottom: 0;
+    height: min(46vh, 430px);
+    aspect-ratio: 420 / 520;
+    background-image: url("/static/img/halloween/left.svg");
+    background-size: contain;
+    background-position: left bottom;
+    opacity: .92;
+}
+#hw-fx .hw-right {
+    right: 0;
+    bottom: 0;
+    height: min(62vh, 600px);
+    aspect-ratio: 520 / 640;
+    background-image: url("/static/img/halloween/right.svg");
+    background-size: contain;
+    background-position: right bottom;
+    opacity: .92;
+}
 #hw-fx .hw-web {
     position: absolute;
     top: 0;
@@ -260,7 +116,7 @@ html.halloween body * { scrollbar-color: #3a2848 transparent; }
     background:
         radial-gradient(40% 60% at 20% 70%, rgba(170, 140, 200, .10), transparent 70%),
         radial-gradient(35% 55% at 60% 80%, rgba(170, 140, 200, .09), transparent 70%),
-        radial-gradient(30% 50% at 90% 70%, rgba(255, 140, 60, .05), transparent 70%);
+        radial-gradient(30% 50% at 90% 70%, rgba(255, 140, 60, .06), transparent 70%);
     animation: hwFog 26s ease-in-out infinite alternate;
 }
 @keyframes hwFog { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
@@ -270,7 +126,7 @@ html.halloween body * { scrollbar-color: #3a2848 transparent; }
     height: 16px;
     opacity: 0;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 30'%3E%3Cpath fill='%230a0610' d='M32 9c-2 0-3 2-3.5 3.5C27 10 24 6 18 5c2 3 2 6 0 8-3-3-7-4-12-3 3 2 4 5 3 8 4-2 9-1 12 3 3-2 7-2 11 1 4-3 8-3 11-1 3-4 8-5 12-3-1-3 0-6 3-8-5-1-9 0-12 3-2-2-2-5 0-8-6 1-9 5-10.5 7.5C35 11 34 9 32 9z'/%3E%3C/svg%3E") no-repeat center / contain;
-    filter: drop-shadow(0 0 6px rgba(255, 122, 26, .25));
+    filter: drop-shadow(0 0 6px rgba(255, 122, 26, .3));
 }
 #hw-fx .hw-bat.fly { animation: hwBat 9s linear forwards, hwFlap .22s steps(2) infinite; }
 @keyframes hwBat {
@@ -282,114 +138,491 @@ html.halloween body * { scrollbar-color: #3a2848 transparent; }
 }
 @keyframes hwFlap { 0% { background-size: 100% 100%; } 100% { background-size: 100% 55%; } }
 
-/* small screens: drop the second web, smaller main web */
+/* ============================ sidebar ============================ */
+html.halloween body .sidebar {
+    background:
+        linear-gradient(180deg, rgba(17, 11, 21, .94) 0%, rgba(13, 8, 16, .9) 45%, rgba(13, 8, 16, .93) 100%),
+        url("/static/img/halloween/right.svg") no-repeat right -60px bottom 150px / 330px auto,
+        #0d0810;
+    border-right: 1px solid rgba(255, 122, 26, .22);
+    box-shadow: 1px 0 30px rgba(255, 122, 26, .08);
+}
+html.halloween body .brand { padding: 18px 15px 14px; gap: 12px; }
+html.halloween body .z-logo {
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    background: url("/static/img/halloween/pumpkin.svg") no-repeat center / contain !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    animation: none !important;
+    filter: drop-shadow(0 0 12px rgba(255, 122, 26, .55));
+}
+html.halloween body .brand h2 {
+    font-family: var(--hw-serif);
+    font-weight: 700;
+    font-size: 21px;
+    letter-spacing: .5px;
+    line-height: 1.05;
+    color: #fbf3ea !important;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .6) !important;
+}
+html.halloween body .brand h2 .hw-ai { color: var(--hw-orange); text-shadow: 0 0 14px rgba(255, 122, 26, .6); }
+html.halloween body .brand h2::after {
+    content: "THINK \00B7 CREATE \00B7 EXPLORE";
+    display: block;
+    margin-top: 5px;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 2.6px;
+    color: #cdbcc9;
+}
+
+/* New Chat: glowing pumpkin bar with a little castle on the right */
+html.halloween body #new-chat-btn,
+html.halloween body .btn.primary {
+    background:
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 40'%3E%3Cpath fill='%237a2a05' fill-opacity='.55' d='M0 40V30h8v-8l4-6 4 6v8h6V16l-3 0 6-12 6 12h-3v14h6V20l5-8 5 8v10h6V24l4-6 4 6v6h8V18l-3 0 5-10 5 10h-3v12h6v10z'/%3E%3C/svg%3E") no-repeat right 8px bottom / 74px auto,
+        linear-gradient(135deg, #ffad4a 0%, #ff7a1a 50%, #e0560f 100%) !important;
+    color: #fff8f0 !important;
+    text-shadow: 0 1px 2px rgba(90, 25, 0, .6);
+    border: 1px solid rgba(255, 200, 130, .55) !important;
+    box-shadow: 0 0 22px rgba(255, 122, 26, .45), inset 0 1px 0 rgba(255, 255, 255, .25) !important;
+    animation: none !important;
+    font-weight: 700;
+    font-size: 15px;
+    border-radius: 12px;
+}
+html.halloween body #new-chat-btn:hover,
+html.halloween body .btn.primary:hover { box-shadow: 0 0 32px rgba(255, 122, 26, .65), inset 0 1px 0 rgba(255, 255, 255, .25) !important; filter: brightness(1.05); }
+html.halloween body #request-btn { color: #f5ebe0; }
+
+/* chat list */
+html.halloween body .chat-group-tag { color: #a99aa6 !important; }
+html.halloween body .chat-item {
+    color: #e9ddd8;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    gap: 10px;
+}
+html.halloween body .chat-item::before {
+    content: "";
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    opacity: .75;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") no-repeat center / contain;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+html.halloween body .chat-item:hover { background: rgba(255, 122, 26, .07); color: #fff; }
+html.halloween body .chat-item.active {
+    background: rgba(255, 122, 26, .10);
+    border-color: rgba(255, 122, 26, .75);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(255, 122, 26, .22), inset 0 0 12px rgba(255, 122, 26, .08);
+}
+html.halloween body .chat-item.active::after {
+    content: "";
+    flex: 0 0 22px;
+    width: 22px;
+    height: 22px;
+    background: url("/static/img/halloween/pumpkin.svg") no-repeat center / contain;
+    filter: drop-shadow(0 0 6px rgba(255, 122, 26, .6));
+}
+
+/* Upgrade: dark plate, amber outline, crown + chevron */
+html.halloween body #upgrade-btn {
+    background: linear-gradient(135deg, rgba(60, 30, 8, .85), rgba(30, 14, 6, .9)) !important;
+    color: #ffc163 !important;
+    border: 1px solid rgba(255, 179, 71, .8) !important;
+    box-shadow: 0 0 18px rgba(255, 150, 40, .25), inset 0 0 12px rgba(255, 150, 40, .1) !important;
+    justify-content: flex-start !important;
+    gap: 12px;
+    padding-left: 14px !important;
+    font-size: 15px;
+    position: relative;
+}
+html.halloween body #upgrade-btn svg { display: none; }
+html.halloween body #upgrade-btn::before {
+    content: "";
+    width: 22px;
+    height: 18px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23ffe08a'/%3E%3Cstop offset='1' stop-color='%23f29a1f'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M2 6l5 4 5-8 5 8 5-4-2 11H4z'/%3E%3Crect x='4' y='17.5' width='16' height='2.5' rx='1' fill='url(%23g)'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+html.halloween body #upgrade-btn::after {
+    content: "\203A";
+    margin-left: auto;
+    margin-right: 6px;
+    font-size: 22px;
+    line-height: 1;
+    color: #ffc163;
+}
+html.halloween body #upgrade-btn:hover { box-shadow: 0 0 26px rgba(255, 150, 40, .4), inset 0 0 12px rgba(255, 150, 40, .14) !important; }
+
+html.halloween body .bottom-bar .btn { color: #efe4dc; }
+html.halloween body .bottom-bar .btn svg { color: #ffb878; }
+html.halloween body .bottom-bar .btn:hover,
+html.halloween body .sidebar-tools-toggle:hover { background: rgba(255, 122, 26, .08); }
+html.halloween body .btn.info { color: #efe4dc; text-shadow: none !important; }
+html.halloween body #clear-all-btn { color: #ff5a4a; }
+html.halloween body #clear-all-btn svg { color: #ff5a4a; }
+
+/* badges */
+html.halloween body #request-badge,
+html.halloween body #feedback-badge,
+html.halloween body #live-chat-badge {
+    background: linear-gradient(180deg, #ff5a4a, #d62c1e) !important;
+    color: #fff !important;
+    box-shadow: 0 0 10px rgba(255, 60, 40, .5);
+}
+
+/* profile */
+html.halloween body .user-profile-bar { border-top: 1px solid rgba(255, 122, 26, .14); }
+html.halloween body .user-profile-bar .user-avatar {
+    background: linear-gradient(135deg, #e6dcf0, #9d8bb3) !important;
+    color: #2a1d38 !important;
+    animation: none !important;
+}
+html.halloween body #user-role-badge > * { border-color: rgba(255, 179, 71, .7) !important; color: #ffb347 !important; }
+html.halloween body .logout-btn { color: #ff6a4a; }
+
+/* ============================ chat header ============================ */
+html.halloween body #chat-header {
+    background: transparent !important;
+    border-bottom: none !important;
+    backdrop-filter: none !important;
+    padding: 14px 18px 8px !important;
+    gap: 12px !important;
+}
+html.halloween body #chat-header-title {
+    flex: 0 1 auto !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px 9px 12px;
+    background: var(--hw-glass);
+    border: 1px solid rgba(255, 122, 26, .35);
+    border-radius: 14px;
+    font-family: var(--hw-serif);
+    font-size: 15px !important;
+    color: #fbf3ea !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    max-width: 46%;
+}
+html.halloween body #chat-header-title::before {
+    content: "";
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    background: url("/static/img/halloween/pumpkin.svg") no-repeat center / contain;
+}
+html.halloween body #chat-header::after { content: ""; flex: 1; order: 1; }
+html.halloween body #chat-model-select { order: 2; }
+html.halloween body #chat-pin-btn { order: 3; }
+html.halloween body #chat-share-btn { order: 4; }
+html.halloween body #chat-model-select,
+html.halloween body #chat-pin-btn {
+    background: var(--hw-glass) !important;
+    border: 1px solid rgba(255, 122, 26, .3) !important;
+    color: #f5ebe0 !important;
+    border-radius: 12px !important;
+    padding: 9px 12px !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+}
+html.halloween body #chat-share-btn {
+    background: rgba(40, 16, 6, .75) !important;
+    border: 1px solid #ff7a1a !important;
+    color: #ffb347 !important;
+    border-radius: 12px !important;
+    padding: 9px 18px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 18px rgba(255, 122, 26, .35) !important;
+}
+
+/* ============================ messages ============================ */
+html.halloween body #chat-container { scrollbar-color: #4a2a32 transparent; }
+html.halloween body .assistant .msg-bubble {
+    position: relative;
+    background: linear-gradient(180deg, rgba(20, 12, 22, .88), rgba(14, 9, 17, .9));
+    border: 1px solid var(--hw-line);
+    border-radius: 18px;
+    padding: 20px 26px;
+    box-shadow: 0 0 0 1px rgba(255, 122, 26, .06), 0 0 28px rgba(255, 122, 26, .14), 0 18px 40px rgba(0, 0, 0, .45);
+    backdrop-filter: blur(3px);
+    color: #f3e9df;
+}
+/* cobweb tucked into the card's top-left corner */
+html.halloween body .assistant .msg-bubble::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 56px;
+    height: 56px;
+    pointer-events: none;
+    opacity: .35;
+    border-top-left-radius: 18px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23e9dcf5' stroke-width='.6'%3E%3Cpath d='M0 0L40 40M0 0L40 14M0 0L14 40M0 0L40 0M0 0L0 40'/%3E%3Cpath d='M10 0Q8 5 9 9Q4 8 0 10M22 0Q17 9 19 19Q9 17 0 22M34 0Q26 14 29 29Q14 26 0 34'/%3E%3C/svg%3E") no-repeat;
+}
+html.halloween body .assistant .msg-bubble h1,
+html.halloween body .assistant .msg-bubble h2,
+html.halloween body .assistant .msg-bubble h3 {
+    font-family: var(--hw-serif);
+    font-weight: 700;
+    letter-spacing: .3px;
+    line-height: 1.2;
+}
+html.halloween body .assistant .msg-bubble h1 {
+    font-size: 30px;
+    text-align: center;
+    margin: 4px 0 18px;
+    background: linear-gradient(90deg, #fff7ee 0%, #ffe6cc 45%, #ffb347 75%, #ff7a1a 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 2px 10px rgba(255, 122, 26, .35));
+}
+/* ornament under the main heading: line, pumpkin, line */
+html.halloween body .assistant .msg-bubble h1::after {
+    content: "";
+    display: block;
+    height: 18px;
+    margin: 10px auto 0;
+    max-width: 380px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 380 18'%3E%3Cg stroke='%23ff7a1a' stroke-width='1.2'%3E%3Cpath d='M10 9H165M215 9H370'/%3E%3C/g%3E%3Cg fill='%23ff7a1a'%3E%3Cpath d='M160 9l5-4 5 4-5 4zM210 9l5-4 5 4-5 4z'/%3E%3Ccircle cx='10' cy='9' r='2'/%3E%3Ccircle cx='370' cy='9' r='2'/%3E%3C/g%3E%3Cellipse cx='190' cy='10' rx='9' ry='7' fill='%23ff8a1a'/%3E%3Cpath d='M189 3q1-3 3-3' stroke='%234b5d1c' stroke-width='2' fill='none'/%3E%3Cg fill='%23ffe08a'%3E%3Cpath d='M185 9l2-3 2 3zM191 9l2-3 2 3zM185 12q5 3 10 0l-2 1-1-1-2 1-2-1-1 1z'/%3E%3C/g%3E%3C/svg%3E") no-repeat center / contain;
+    -webkit-text-fill-color: initial;
+}
+html.halloween body .assistant .msg-bubble h2 { font-size: 22px; color: #ffd2a6; margin: 18px 0 8px; }
+html.halloween body .assistant .msg-bubble h3 { font-size: 18px; color: #ffbe7a; margin: 14px 0 6px; }
+html.halloween body .assistant .msg-bubble strong { color: #ffb066; }
+html.halloween body .assistant .msg-bubble a { color: #ff9a3c; }
+html.halloween body .assistant .msg-bubble blockquote { border-left-color: #ff7a1a; }
+html.halloween body .user .msg-bubble {
+    color: #fff8f0;
+    border: 1px solid rgba(255, 200, 140, .35);
+    box-shadow: 0 0 18px rgba(255, 122, 26, .25);
+}
+
+/* action pills under each answer */
+html.halloween body .msg-actions { gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+html.halloween body .msg-actions button {
+    background: var(--hw-glass);
+    border: 1px solid rgba(255, 122, 26, .4);
+    color: #f1e5da;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    gap: 6px;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, .3);
+}
+html.halloween body .msg-actions button svg { width: 14px; height: 14px; color: #ff9a3c; }
+html.halloween body .msg-actions button:hover {
+    color: #fff !important;
+    border-color: #ff7a1a !important;
+    box-shadow: 0 0 14px rgba(255, 122, 26, .35) !important;
+    text-shadow: none !important;
+}
+
+/* ============================ welcome ============================ */
+html.halloween body .welcome-z-logo {
+    width: 116px !important;
+    height: 116px !important;
+    background: url("/static/img/halloween/pumpkin.svg") no-repeat center / contain !important;
+    border: none !important;
+    box-shadow: none !important;
+    color: transparent !important;
+    font-size: 0 !important;
+    animation: hwFlicker 3.4s infinite !important;
+    filter: drop-shadow(0 0 28px rgba(255, 122, 26, .6));
+    margin-bottom: 14px !important;
+}
+@keyframes hwFlicker {
+    0%, 100% { filter: drop-shadow(0 0 28px rgba(255, 122, 26, .6)) brightness(1); }
+    8% { filter: drop-shadow(0 0 34px rgba(255, 140, 30, .75)) brightness(1.12); }
+    10% { filter: drop-shadow(0 0 20px rgba(255, 122, 26, .5)) brightness(.9); }
+    12% { filter: drop-shadow(0 0 30px rgba(255, 122, 26, .7)) brightness(1.06); }
+    57% { filter: drop-shadow(0 0 22px rgba(255, 122, 26, .5)) brightness(.94); }
+    60% { filter: drop-shadow(0 0 32px rgba(255, 122, 26, .7)) brightness(1.08); }
+}
+html.halloween body .welcome-message h2 {
+    font-family: var(--hw-serif);
+    font-weight: 700;
+    font-size: 42px;
+    letter-spacing: .5px;
+    line-height: 1.15;
+    color: #fbf3ea;
+    text-shadow: 0 3px 18px rgba(0, 0, 0, .7);
+}
+html.halloween body .welcome-message h2 span {
+    font-family: inherit !important;
+    background: linear-gradient(90deg, #ffd27a, #ff7a1a 50%, #ffb347) !important;
+    background-size: 200% 100% !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: hwShimmer 6s ease-in-out infinite !important;
+    filter: drop-shadow(0 0 12px rgba(255, 122, 26, .5));
+}
+@keyframes hwShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+html.halloween body .welcome-message .welcome-sub { color: #d5c3cf; font-size: 16px; }
+html.halloween body .welcome-message .welcome-sub::after {
+    content: "";
+    display: block;
+    height: 16px;
+    width: 300px;
+    max-width: 80vw;
+    margin: 14px auto 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 16'%3E%3Cg stroke='%23ff7a1a' stroke-width='1.2'%3E%3Cpath d='M6 8H130M170 8H294'/%3E%3C/g%3E%3Cg fill='%23ff7a1a'%3E%3Cpath d='M126 8l4-3 4 3-4 3zM166 8l4-3 4 3-4 3z'/%3E%3C/g%3E%3Cellipse cx='150' cy='9' rx='8' ry='6' fill='%23ff8a1a'/%3E%3Cpath d='M149 3q1-3 3-3' stroke='%234b5d1c' stroke-width='2' fill='none'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+html.halloween body .template-card {
+    background: var(--hw-glass);
+    border: 1px solid rgba(255, 122, 26, .3);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .35);
+    backdrop-filter: blur(3px);
+}
+html.halloween body .template-card:hover {
+    border-color: rgba(255, 122, 26, .75);
+    box-shadow: 0 0 20px rgba(255, 122, 26, .25), 0 8px 22px rgba(0, 0, 0, .35);
+}
+
+/* ============================ composer ============================ */
+html.halloween body .input-wrapper { padding: 10px 18px 16px; }
+html.halloween body .composer-box {
+    position: relative;
+    background: linear-gradient(180deg, rgba(20, 12, 22, .92), rgba(13, 8, 16, .94));
+    border: 1px solid rgba(255, 122, 26, .55);
+    border-radius: 26px;
+    padding: 10px 10px 10px 18px;
+    box-shadow: 0 0 26px rgba(255, 122, 26, .18), 0 14px 36px rgba(0, 0, 0, .45);
+}
+html.halloween body .composer-box:focus-within {
+    border-color: #ff8a2a !important;
+    box-shadow: 0 0 0 1px rgba(255, 122, 26, .3), 0 0 32px rgba(255, 122, 26, .32), 0 14px 36px rgba(0, 0, 0, .45) !important;
+}
+html.halloween body .composer-box::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 34px;
+    height: 34px;
+    pointer-events: none;
+    opacity: .45;
+    border-top-left-radius: 26px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23d8c9e6' stroke-width='.8'%3E%3Cpath d='M0 0L40 40M0 0L40 14M0 0L14 40M0 0L40 0M0 0L0 40'/%3E%3Cpath d='M10 0Q8 5 9 9Q4 8 0 10M22 0Q17 9 19 19Q9 17 0 22M34 0Q26 14 29 29Q14 26 0 34'/%3E%3C/svg%3E") no-repeat;
+}
+html.halloween body #user-input { font-size: 16px; color: #f7ede4; }
+html.halloween body #user-input::placeholder { color: #a8949f; }
+html.halloween body .composer-icon { color: #d9cbc6; }
+html.halloween body .composer-icon:hover { color: var(--hw-amber); text-shadow: none !important; }
+html.halloween body .composer-icon.active {
+    color: #ffd8b0 !important;
+    background: rgba(255, 122, 26, .16) !important;
+    box-shadow: 0 0 12px rgba(255, 122, 26, .3) !important;
+}
+html.halloween body #send-btn {
+    width: 46px !important;
+    height: 46px !important;
+    background: radial-gradient(circle at 40% 35%, #ffc46a 0%, #ff8a1a 45%, #d4520b 100%) !important;
+    color: #2a0f02 !important;
+    box-shadow: 0 0 22px rgba(255, 122, 26, .6), inset 0 1px 0 rgba(255, 255, 255, .35) !important;
+    animation: none !important;
+}
+html.halloween body #send-btn svg { width: 20px; height: 20px; }
+
+/* thinking / streaming accents */
+html.halloween body .thinking-text { color: var(--hw-amber) !important; text-shadow: 0 0 10px rgba(255, 122, 26, .5) !important; }
+html.halloween body .streaming-cursor::after { background: var(--hw-orange) !important; box-shadow: 0 0 10px rgba(255, 122, 26, .8) !important; }
+
+/* scrollbars */
+html.halloween body *::-webkit-scrollbar-thumb { background: #4a2a32; }
+html.halloween body * { scrollbar-color: #4a2a32 transparent; }
+
+/* ============================ small screens ============================ */
 @media (max-width: 768px) {
+    #hw-fx .hw-sky { left: 50%; width: 150vw; opacity: .7; }
+    #hw-fx .hw-left { left: 0; height: 26vh; opacity: .55; }
+    #hw-fx .hw-right { height: 32vh; opacity: .55; }
     #hw-fx .hw-web.l { display: none; }
     #hw-fx .hw-web.r { width: 96px; height: 96px; }
     #hw-fx .hw-spider { right: 34px; }
-    html.halloween body .welcome-message h2 { font-size: 27px; white-space: normal !important; line-height: 1.15; padding: 0 12px; }
-}
-
-/* respect people who turn motion off */
-@media (prefers-reduced-motion: reduce) {
-    html.halloween body .z-logo,
-    html.halloween body .welcome-z-logo,
-    html.halloween body .welcome-message h2 span,
-    #hw-fx .hw-spider,
-    #hw-fx .hw-fog { animation: none !important; }
-    #hw-fx .hw-bat { display: none; }
+    html.halloween body .welcome-message h2 { font-size: 28px; white-space: normal !important; padding: 0 12px; }
+    html.halloween body .welcome-z-logo { width: 88px !important; height: 88px !important; }
+    html.halloween body .assistant .msg-bubble { padding: 16px 16px; }
+    html.halloween body .assistant .msg-bubble h1 { font-size: 23px; }
+    html.halloween body .chat-item::before,
+    html.halloween body .chat-item.active::after { display: none; }
+    html.halloween body #chat-header-title { max-width: 100%; }
+    html.halloween body .brand h2::after { display: none; }
 }
 
 /* =====================================================================
-   Landing (welcome) page + login / register screen  (static/index.html)
+   Landing (welcome) page + login / register  (static/index.html)
+   The scene is painted straight onto the full-screen sheets as background
+   layers, so it stays put while the page scrolls and never covers text.
    ===================================================================== */
-html.halloween body.auth-page { background: #0c0910; }
-
-/* the landing and login layers are fixed full-screen sheets (z 2000 / 1500),
-   so on this page the ambient layer has to sit on top of them; it never
-   takes clicks, and everything in it is faint and kept to the edges */
+html.halloween body.auth-page { background: #0b070e; }
+/* webs, spider, fog and bats float above the sheets here; no clicks, edges only */
 html.halloween body.auth-page #hw-fx { z-index: 2100; }
+html.halloween body.auth-page #hw-fx .hw-art { display: none; }
+html.halloween body.auth-page #hw-fx .hw-web.l { left: 0; }
 
 html.halloween body .landing-page,
 html.halloween body .login-screen {
     background:
-        radial-gradient(60% 50% at 50% 115%, rgba(255, 110, 20, .28), transparent 70%),
-        radial-gradient(70% 60% at 15% 0%, rgba(123, 44, 191, .35), transparent 70%),
-        linear-gradient(160deg, #120a1a 0%, #1d0d2b 45%, #2a0f12 100%) !important;
-    background-size: 100% 100% !important;
+        url("/static/img/halloween/sky.svg") no-repeat center top / min(1150px, 135vw) auto,
+        url("/static/img/halloween/left.svg") no-repeat left bottom / auto min(44vh, 420px),
+        url("/static/img/halloween/right.svg") no-repeat right bottom / auto min(58vh, 560px),
+        radial-gradient(55% 45% at 50% 0%, rgba(255, 110, 20, .32), transparent 70%),
+        linear-gradient(180deg, #1c0b1e 0%, #130914 50%, #0b070e 100%) !important;
     animation: none !important;
 }
-/* harvest moon */
-html.halloween body .landing-page::before,
-html.halloween body .login-screen::before {
-    content: "";
-    position: fixed;
-    top: 7vh;
-    right: 9vw;
-    width: 120px;
-    height: 120px;
-    border-radius: 50%;
-    pointer-events: none;
-    background: radial-gradient(circle at 38% 38%, #fff4d6 0%, #ffd27a 45%, #f2a541 75%, #c9782a 100%);
-    box-shadow: 0 0 60px rgba(255, 196, 110, .55), 0 0 140px rgba(255, 140, 40, .3);
-    opacity: .9;
-}
-html.halloween body .login-screen::before { width: 90px; height: 90px; top: 6vh; right: 6vw; opacity: .75; }
-/* rolling hills + graveyard silhouette along the bottom of the landing hero */
-html.halloween body .landing-content { position: relative; }
-html.halloween body .landing-content::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: 120px;
-    pointer-events: none;
-    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 120' preserveAspectRatio='none'%3E%3Cpath fill='%23090610' d='M0 120V78c90-30 180-36 270-18s170 10 250-14 170-30 260-6 180 34 270 10 110-30 150-22v92z'/%3E%3Cg fill='%23090610'%3E%3Cpath d='M180 66h22v-22a11 11 0 0 0-22 0z'/%3E%3Cpath d='M232 70h16v-16a8 8 0 0 0-16 0z'/%3E%3Cpath d='M890 64h24v-24a12 12 0 0 0-24 0z'/%3E%3Cpath d='M948 70h6v-26h10v-6h-10v-10h-6v10h-10v6h10z'/%3E%3Cpath d='M560 50c-4-18 2-32 0-48 10 14 4 30 8 48z'/%3E%3C/g%3E%3C/svg%3E") no-repeat bottom / 100% 100%;
-}
-
 html.halloween body .landing-title {
-    font-family: 'Creepster', 'Inter', system-ui, sans-serif;
-    font-weight: 400;
-    letter-spacing: 6px;
-    color: #ffe2c2;
-    text-shadow: 0 0 18px rgba(255, 122, 26, .75), 0 0 46px rgba(255, 90, 0, .45);
-    animation: hwFlicker 4s infinite;
+    font-family: var(--hw-display);
+    font-weight: 900;
+    letter-spacing: 3px;
+    color: #fff6ec;
+    text-shadow: 0 0 22px rgba(255, 122, 26, .7), 0 4px 30px rgba(0, 0, 0, .8);
+    margin-top: 16vh;
 }
-html.halloween body .landing-subtitle { color: #e6cfee; }
+html.halloween body .landing-subtitle { color: #ead8e2; text-shadow: 0 2px 12px rgba(0, 0, 0, .8); }
 html.halloween body .landing-subtitle .hw-tag {
     display: block;
     margin-top: 10px;
     font-style: normal;
+    font-family: var(--hw-serif);
     font-size: .62em;
     letter-spacing: 6px;
     color: #ffb347;
     text-transform: uppercase;
 }
 html.halloween body .start-btn {
-    border-color: #ff7a1a;
-    color: #ffd2a6;
-    background: rgba(255, 122, 26, .08);
-    box-shadow: 0 0 22px rgba(255, 122, 26, .4);
+    border: 1px solid #ff8a2a;
+    color: #fff3e6;
+    font-family: var(--hw-serif);
+    background: linear-gradient(135deg, rgba(255, 140, 40, .9), rgba(214, 82, 11, .9));
+    box-shadow: 0 0 26px rgba(255, 122, 26, .55);
+    border-radius: 12px;
+    text-shadow: 0 1px 2px rgba(90, 25, 0, .6);
 }
-html.halloween body .start-btn:hover {
-    background: rgba(255, 122, 26, .18);
-    color: #fff;
-    box-shadow: 0 0 40px rgba(255, 122, 26, .65);
-}
-html.halloween body .seo-feature { background: rgba(20, 12, 28, .6); border-color: rgba(255, 122, 26, .18); }
-html.halloween body .seo-feature h3 { color: #ffb347; }
-html.halloween body .seo-faq details { background: rgba(20, 12, 28, .55); border-color: rgba(255, 122, 26, .16); }
+html.halloween body .start-btn:hover { box-shadow: 0 0 42px rgba(255, 122, 26, .8); background: linear-gradient(135deg, #ffa04a, #e0600f); }
+html.halloween body .seo-section h2 { font-family: var(--hw-serif); color: #ffe6cc; }
+html.halloween body .seo-feature { background: rgba(16, 10, 20, .82); border-color: rgba(255, 122, 26, .3); backdrop-filter: blur(3px); }
+html.halloween body .seo-feature h3 { color: #ffb347; font-family: var(--hw-serif); }
+html.halloween body .seo-faq details { background: rgba(16, 10, 20, .8); border-color: rgba(255, 122, 26, .25); backdrop-filter: blur(3px); }
 html.halloween body .seo-footer a { color: #ffb347; }
 
-/* ---------- login / register ---------- */
+/* login card */
 html.halloween body .login-container {
-    background: rgba(16, 10, 22, .94);
-    border: 1px solid rgba(255, 122, 26, .35);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, .6), 0 0 44px rgba(255, 122, 26, .16);
+    background: linear-gradient(180deg, rgba(20, 12, 22, .93), rgba(13, 8, 16, .95));
+    border: 1px solid rgba(255, 122, 26, .5);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .65), 0 0 40px rgba(255, 122, 26, .2);
     position: relative;
 }
-/* corner cobweb on the card */
 html.halloween body .login-container::before {
     content: "";
     position: absolute;
@@ -402,44 +635,65 @@ html.halloween body .login-container::before {
     border-top-left-radius: 20px;
     background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23e9dcf5' stroke-width='.6'%3E%3Cpath d='M0 0L40 40M0 0L40 14M0 0L14 40M0 0L40 0M0 0L0 40'/%3E%3Cpath d='M10 0Q8 5 9 9Q4 8 0 10M22 0Q17 9 19 19Q9 17 0 22M34 0Q26 14 29 29Q14 26 0 34'/%3E%3C/svg%3E") no-repeat;
 }
+html.halloween body .login-header::before {
+    content: "";
+    display: block;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 8px;
+    background: url("/static/img/halloween/pumpkin.svg") no-repeat center / contain;
+    filter: drop-shadow(0 0 16px rgba(255, 122, 26, .55));
+}
 html.halloween body .login-header h1 {
-    font-family: 'Creepster', 'Inter', system-ui, sans-serif;
-    font-weight: 400;
-    letter-spacing: 3px;
-    background: linear-gradient(90deg, #ffd27a, #ff7a1a 50%, #ffb347);
+    font-family: var(--hw-display);
+    font-weight: 900;
+    letter-spacing: 2px;
+    background: linear-gradient(90deg, #fff3e6, #ffb347 55%, #ff7a1a);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
-    filter: drop-shadow(0 0 10px rgba(255, 122, 26, .45));
+    filter: drop-shadow(0 0 10px rgba(255, 122, 26, .4));
 }
-html.halloween body .login-header p { color: #cdb7da; }
-html.halloween body .auth-tab { border-color: rgba(255, 122, 26, .28); background: rgba(0, 0, 0, .3); }
+html.halloween body .login-header p { color: #cdbac6; }
+html.halloween body .auth-tab { border-color: rgba(255, 122, 26, .3); background: rgba(0, 0, 0, .3); }
 html.halloween body .auth-tab.active { background: rgba(255, 122, 26, .16); border-color: #ff7a1a; color: #ffb347; }
 html.halloween body .login-label { color: #ffb347; }
-html.halloween body .login-form input { border-color: rgba(255, 122, 26, .28); }
+html.halloween body .login-form input { border-color: rgba(255, 122, 26, .3); background: rgba(0, 0, 0, .45); }
 html.halloween body .login-form input:focus { border-color: #ff7a1a; box-shadow: 0 0 20px rgba(255, 122, 26, .3); }
 html.halloween body .login-btn {
-    background: linear-gradient(135deg, #ffb347, #ff7a1a 55%, #e0560f);
-    color: #1c0b02;
-    box-shadow: 0 10px 30px rgba(255, 122, 26, .3);
+    background: linear-gradient(135deg, #ffad4a, #ff7a1a 55%, #e0560f);
+    color: #fff8f0;
+    text-shadow: 0 1px 2px rgba(90, 25, 0, .6);
+    box-shadow: 0 0 26px rgba(255, 122, 26, .4);
 }
-html.halloween body .login-btn:hover:not(:disabled) { box-shadow: 0 15px 40px rgba(255, 122, 26, .5); }
-html.halloween body .pw-toggle { color: rgba(255, 179, 71, .6) !important; }
-/* these come with inline cyan styles, hence !important */
-html.halloween body #guest-btn { border-color: rgba(157, 78, 221, .55) !important; color: #e4d0f5 !important; }
-html.halloween body #guest-btn:hover { background: rgba(157, 78, 221, .12) !important; }
+html.halloween body .login-btn:hover:not(:disabled) { box-shadow: 0 0 40px rgba(255, 122, 26, .6); }
+html.halloween body .pw-toggle { color: rgba(255, 179, 71, .65) !important; }
+/* these carry inline cyan styles, hence !important */
+html.halloween body #guest-btn { border-color: rgba(255, 179, 71, .45) !important; color: #f1e2d6 !important; }
+html.halloween body #guest-btn:hover { background: rgba(255, 122, 26, .1) !important; }
+html.halloween body #forgot-link { color: rgba(255, 179, 71, .85) !important; }
 html.halloween body #forgot-modal h3 { color: #ffb347 !important; }
 html.halloween body #forgot-modal input { border-color: rgba(255, 122, 26, .3) !important; }
-html.halloween body #forgot-submit { background: linear-gradient(135deg, #ffb347, #ff7a1a 55%, #e0560f) !important; color: #1c0b02 !important; }
+html.halloween body #forgot-submit { background: linear-gradient(135deg, #ffad4a, #ff7a1a 55%, #e0560f) !important; color: #fff8f0 !important; }
 
 @media (max-width: 768px) {
-    html.halloween body .landing-page::before { width: 70px; height: 70px; top: 4vh; right: 6vw; }
-    html.halloween body .login-screen::before { display: none; }
-    html.halloween body .landing-content::after { height: 70px; }
-    html.halloween body .landing-title { letter-spacing: 3px; }
+    html.halloween body .landing-page,
+    html.halloween body .login-screen {
+        background:
+            url("/static/img/halloween/sky.svg") no-repeat center top / 170vw auto,
+            url("/static/img/halloween/left.svg") no-repeat left bottom / auto 22vh,
+            url("/static/img/halloween/right.svg") no-repeat right bottom / auto 28vh,
+            radial-gradient(70% 40% at 50% 0%, rgba(255, 110, 20, .3), transparent 70%),
+            linear-gradient(180deg, #1c0b1e 0%, #130914 50%, #0b070e 100%) !important;
+    }
+    html.halloween body .landing-title { margin-top: 10vh; letter-spacing: 1px; }
 }
+
+/* respect people who turn motion off */
 @media (prefers-reduced-motion: reduce) {
-    html.halloween body .landing-title { animation: none; }
+    html.halloween body .welcome-z-logo,
+    html.halloween body .welcome-message h2 span,
+    #hw-fx .hw-spider,
+    #hw-fx .hw-fog { animation: none !important; }
+    #hw-fx .hw-bat { display: none; }
 }
-html.halloween body.auth-page #hw-fx .hw-web.l { left: 0; }
-html.halloween body #forgot-link { color: rgba(255, 179, 71, .8) !important; }

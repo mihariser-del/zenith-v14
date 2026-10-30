@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 20.4 — Haunted village look
+
+- **Illustrated Halloween scene**: a blood-orange moon with a castle and bats behind the chat, a glowing lantern and jack-o'-lanterns with flickering candles on the left, a haunted house with lit windows behind an iron fence on the right
+- **Chat restyled to match**: pumpkin logo with "Zelpophai **AI**" and a *Think · Create · Explore* tagline, pill-shaped chat header with a pumpkin, framed glass answer cards with a corner cobweb, serif headings with a pumpkin divider, orange action pills, a big glowing send button, and a crown-and-chevron Upgrade button
+- **Welcome and login pages** use the same scene, with a Cinzel Decorative title and a pumpkin above the login card
+- **Fixes**: the site now tells Google and link previews it lives at zelpophai.up.railway.app (the old zenithai address is dead), and the hidden notification toast no longer peeks in from the right edge
+
 ## 20.3 — Halloween theme
 
 - **Seasonal Halloween theme**: pumpkin-orange accents, a jack-o'-lantern Z logo with a candle flicker, a "Happy Haunting!" greeting, a purple Upgrade button with a slime-green glow, candy-corn badges, cobwebs, a dangling spider, drifting fog and the occasional bat

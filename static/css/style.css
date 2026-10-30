@@ -317,7 +317,9 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; box-shadow: 
 
 /* TOAST */
 .toast { position: fixed; top: 20px; right: 20px; background: var(--sidebar); border: 1px solid var(--border); border-left: 4px solid var(--accent-solid); padding: 12px 24px; border-radius: 8px; color: var(--text); z-index: 300; box-shadow: 0 10px 30px rgba(0,0,0,0.3); transform: translateX(120%); transition: transform 0.3s ease; }
-.toast.show { transform: translateX(0); }
+.toast.show { transform: translateX(0); visibility: visible; }
+/* an idle toast used to peek ~10px in from the right edge (120% of an empty box isn't far enough) */
+.toast:not(.show) { transform: translateX(calc(100% + 40px)); visibility: hidden; transition: transform 0.3s ease, visibility 0s linear 0.3s; }
 .toast.error { border-left-color: var(--error); }
 .toast.success { border-left-color: #00ff88; }
 

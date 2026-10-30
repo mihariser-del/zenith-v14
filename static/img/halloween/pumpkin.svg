@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs>
+<radialGradient id="pk" cx="45%" cy="40%" r="65%"><stop offset="0" stop-color="#ffb347"/><stop offset=".55" stop-color="#f06a10"/><stop offset="1" stop-color="#8a2e05"/></radialGradient>
+<radialGradient id="glow" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#ffd27a" stop-opacity=".95"/><stop offset=".45" stop-color="#ff8a1a" stop-opacity=".45"/><stop offset="1" stop-color="#ff6a00" stop-opacity="0"/></radialGradient>
+<linearGradient id="face" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff2a8"/><stop offset="1" stop-color="#ffb000"/></linearGradient>
+<linearGradient id="wax" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#e9d9c0"/><stop offset=".5" stop-color="#fff6e6"/><stop offset="1" stop-color="#cdb898"/></linearGradient>
+<style>
+.fl{animation:f 2.6s ease-in-out infinite;transform-box:fill-box;transform-origin:50% 100%}
+.fl2{animation:f 3.1s ease-in-out infinite .7s;transform-box:fill-box;transform-origin:50% 100%}
+.gw{animation:g 3.4s ease-in-out infinite}
+@keyframes f{0%,100%{transform:scale(1,1) skewX(0)}30%{transform:scale(.92,1.08) skewX(3deg)}60%{transform:scale(1.05,.95) skewX(-3deg)}}
+@keyframes g{0%,100%{opacity:.85}45%{opacity:1}55%{opacity:.7}}
+@media (prefers-reduced-motion:reduce){.fl,.fl2,.gw{animation:none}}
+</style></defs><g transform="translate(50 60) rotate(0) scale(.74 .98)"><ellipse cx="-34.0" cy="0" rx="34.0" ry="31.1" fill="url(#pk)" stroke="#6a2203" stroke-width="1.6" stroke-opacity=".5"/><ellipse cx="34.0" cy="0" rx="34.0" ry="31.1" fill="url(#pk)" stroke="#6a2203" stroke-width="1.6" stroke-opacity=".5"/><ellipse cx="-14.6" cy="0" rx="32.4" ry="31.1" fill="url(#pk)" stroke="#6a2203" stroke-width="1.6" stroke-opacity=".5"/><ellipse cx="14.6" cy="0" rx="32.4" ry="31.1" fill="url(#pk)" stroke="#6a2203" stroke-width="1.6" stroke-opacity=".5"/><ellipse cx="0.0" cy="0" rx="29.2" ry="31.1" fill="url(#pk)" stroke="#6a2203" stroke-width="1.6" stroke-opacity=".5"/><path d="M-4.1 -28.6 q2.7 -13.5 10.8 -17.6 l2.7 4.1 q-6.8 4.1 -5.4 14.9z" fill="#4b5d1c"/><g fill="url(#face)" class="gw"><path d="M-25.9 -5.0 l13.0 -15.6 l13.0 15.6z"/><path d="M25.9 -5.0 l-13.0 -15.6 l-13.0 15.6z"/><path d="M-4.9 2.5 l4.9 -7.3 l4.9 7.3z"/><path d="M-34.0 9.9 q34.0 26.1 68.0 0 l-7.5 3.7 l-5.4 -4.3 l-6.8 5.6 l-6.8 -5.6 l-6.8 5.6 l-5.4 -4.3z"/></g></g></svg>

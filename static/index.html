@@ -61,6 +61,18 @@
     <meta name="apple-mobile-web-app-title" content="Zelpophai AI">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/halloween.css">
+    <script>
+        /* seasonal theme, applied before first paint (full logic in js/halloween.js) */
+        (function () {
+            try {
+                var sea = JSON.parse(localStorage.getItem('zenith_settings') || '{}').seasonal || 'auto';
+                var d = new Date(), m = d.getMonth(), day = d.getDate();
+                var inSeason = (m === 9 && day >= 15) || (m === 10 && day <= 2);
+                if (sea === 'on' || (sea === 'auto' && inSeason)) document.documentElement.classList.add('halloween');
+            } catch (e) {}
+        })();
+    </script>
 </head>
 <body class="auth-page">
 
@@ -237,6 +249,7 @@
 
 <script src="/static/js/api.js"></script>
 <script src="/static/js/auth.js"></script>
+<script src="/static/js/halloween.js"></script>
 <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js', {scope: '/'}));</script>
 </body>
 </html>

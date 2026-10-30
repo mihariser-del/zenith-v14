@@ -103,6 +103,21 @@
         }
     }
 
+    /* landing page: add a small seasonal line under the tagline */
+    function patchLanding(on) {
+        var sub = document.querySelector('.landing-subtitle');
+        if (!sub) return;
+        var tag = sub.querySelector('.hw-tag');
+        if (on && !tag) {
+            tag = document.createElement('span');
+            tag.className = 'hw-tag';
+            tag.textContent = 'Happy Halloween';
+            sub.appendChild(tag);
+        } else if (!on && tag) {
+            tag.parentNode.removeChild(tag);
+        }
+    }
+
     var observer = null;
     function watchWelcome() {
         if (observer || !window.MutationObserver) return;
@@ -125,6 +140,7 @@
             teardownFx();
         }
         patchWelcome();
+        patchLanding(on);
         watchWelcome();
     }
 

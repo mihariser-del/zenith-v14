@@ -159,14 +159,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('admin-submit').disabled = true;
         try {
             await api('/api/auth/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-            window.location.href = '/app';
+            if (window.Halloween) Halloween.markLogin('login'); window.location.href = '/app';
         } catch (e) { $('admin-msg').textContent = e.message; $('admin-msg').className = 'auth-msg error'; }
         finally { $('admin-submit').disabled = false; }
     });
     $('guest-btn').addEventListener('click', async () => {
         $('guest-btn').disabled = true;
         $('guest-btn').textContent = 'LOADING...';
-        try { await api('/api/auth/guest', { method: 'POST' }); window.location.href = '/app'; }
+        try { await api('/api/auth/guest', { method: 'POST' }); if (window.Halloween) Halloween.markLogin('login'); window.location.href = '/app'; }
         catch (e) { showToast(e.message, 'error'); $('guest-btn').disabled = false; $('guest-btn').textContent = 'CONTINUE AS GUEST'; }
     });
 
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     password: $('login-password').value,
                 }),
             });
-            window.location.href = '/app';
+            if (window.Halloween) Halloween.markLogin('login'); window.location.href = '/app';
         } catch (err) {
             $('login-msg').textContent = err.message;
             $('login-msg').className = 'auth-msg error';
@@ -232,8 +232,10 @@ document.addEventListener('DOMContentLoaded', async () => {
                     device_id: getDeviceId(),
                 }),
             });
-            showToast('Account created! Please login.', 'success');
             document.querySelector('.auth-tab[data-tab="login"]').click();
+            const newName = $('reg-username').value.trim();
+            if (window.Halloween && Halloween.shouldBeOn()) Halloween.greet('new', newName);
+            else showToast('Account created! Please login.', 'success');
         } catch (err) {
             $('register-msg').textContent = err.message;
             $('register-msg').className = 'auth-msg error';
@@ -257,7 +259,7 @@ async function handleGoogleCredential(response) {
     try {
         const id_token = response.credential;
         await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ id_token }) });
-        window.location.href = '/app';
+        if (window.Halloween) Halloween.markLogin('login'); window.location.href = '/app';
     } catch (e) {
         if (typeof showToast === 'function') showToast('Google login failed: ' + e.message, 'error');
         else {

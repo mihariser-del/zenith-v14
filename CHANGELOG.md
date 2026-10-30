@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 20.5 — Notifications that fold away + Halloween games
+
+- **New notifications everywhere**: alerts now drop in from the top like a phone notification, stay a few seconds (hover to pause, × to dismiss), then fold into a small circle parked in the top-right corner. Tap a circle to read it again; circles fade on their own. Pumpkin icon and orange glow during Halloween
+- **Happy Halloween greeting from the AI** on login (password, Google, guest, admin) and right after creating an account: the AI "types" a personal welcome, with a pokeable jack-o'-lantern and a **Trick or Treat?** button (treat = candy rain + a joke or fact; trick = bat swarm + a shake)
+- **Catch the bats**: the bats that fly across the screen can be tapped; each catch bursts into candy and keeps a running score, with milestones at 1, 5, 10 and 13
+- **Poke the pumpkin logo** in the sidebar or on the welcome screen for a wobble, a candy burst and a cackle
+
 ## 20.4 — Haunted village look
 
 - **Illustrated Halloween scene**: a blood-orange moon with a castle and bats behind the chat, a glowing lantern and jack-o'-lanterns with flickering candles on the left, a haunted house with lit windows behind an iron fence on the right

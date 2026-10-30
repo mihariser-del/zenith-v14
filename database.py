@@ -623,14 +623,27 @@ async def init_db():
         owner_result = await session.execute(select(User).where(User.username == owner_username))
         owner = owner_result.scalar_one_or_none()
         if not owner:
-            # Owner password: OWNER_PASSWORD env, else W.A.N.Z.U. (current default for now).
-            # The vault > EMERGENCY tab can rotate it to a fresh random value anytime.
-            wanted = os.getenv("OWNER_PASSWORD", "").strip() or "W.A.N.Z.U."
+            # Owner password comes from the OWNER_PASSWORD env var. There is deliberately
+            # NO built-in default any more (a password written in the code is a password
+            # anyone with the code knows). If the env var is missing, a strong random one
+            # is generated and printed ONCE to the deploy logs so you can log in and
+            # rotate it from vault > EMERGENCY.
+            import secrets
+            wanted = os.getenv("OWNER_PASSWORD", "").strip()
+            generated = False
+            if not wanted:
+                wanted = secrets.token_urlsafe(18)
+                generated = True
             owner = User(username=owner_username, email=f"{owner_username}@zenith.local",
                          password_hash=bcrypt.hashpw(wanted.encode(), bcrypt.gensalt()).decode(), is_admin=True, role="owner")
             session.add(owner)
             await session.commit()
-            print(f"[bootstrap] Owner '{owner_username}' created (password from OWNER_PASSWORD env or the default).")
+            if generated:
+                print(f"[bootstrap] Owner '{owner_username}' created. OWNER_PASSWORD was not set, so a one-time "
+                      f"password was generated: {wanted}  -- log in and change it now (vault > EMERGENCY), "
+                      f"or set OWNER_PASSWORD on Railway.")
+            else:
+                print(f"[bootstrap] Owner '{owner_username}' created (password from OWNER_PASSWORD).")
         else:
             owner.is_admin = True
             owner.role = "owner"

@@ -790,6 +790,11 @@ async def seo_headers(request: Request, call_next):
         or path.startswith("/i/")
     ):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    # Every page registers /static/sw.js with scope "/". Browsers refuse a scope
+    # above the script's own folder unless this header is present, so the service
+    # worker (installable app, offline cache, push notifications) never started.
+    if path == "/static/sw.js":
+        response.headers["Service-Worker-Allowed"] = "/"
     return response
 
 

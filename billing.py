@@ -152,22 +152,16 @@ async def start_trial(request: Request, db: AsyncSession = Depends(get_db)):
 @router.post("/webhook")
 async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
     sig_header = request.headers.get("stripe-signature", "")
-    if not STRIPE_WEBHOOK_SECRET or not sig_header:
-        try:
-            data = await request.json()
-            user_id = data.get("user_id")
-            plan_id = data.get("plan_id")
-            if not user_id or not plan_id:
-                return {"received": True, "mock": True}
-            result = await db.execute(select(User).where(User.id == int(user_id)))
-            user = result.scalar_one_or_none()
-            if not user:
-                return {"error": "user not found"}
-            _apply_plan(user, plan_id)
-            await db.commit()
-            return {"received": True, "mock": True}
-        except Exception as e:
-            return {"error": str(e)}
+    # SECURITY: only Stripe-signed events may change a plan. This endpoint used to
+    # accept an unsigned JSON body {user_id, plan_id} whenever the signature header
+    # was missing, so anyone could grant any account any plan without paying.
+    # (Dev/mock mode does not need this path: create-checkout applies the plan
+    # directly when Stripe is not configured.)
+    if not STRIPE_WEBHOOK_SECRET:
+        print("[billing] webhook ignored: STRIPE_WEBHOOK_SECRET is not set")
+        raise HTTPException(status_code=503, detail="Webhook not configured")
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
 
     payload = await request.body()
     try:

@@ -670,15 +670,9 @@ async def init_db():
             await session.commit()
         except Exception as e:
             print(f"reset to openai: {e}")
-        # Clear all PRO tags from non-staff users (user requested this)
-        try:
-            await session.execute(
-                __import__("sqlalchemy").text("UPDATE users SET is_pro=0, pro_plan='', is_ultimate=0 WHERE is_admin=0 AND role NOT IN ('owner','admin')")
-            )
-            await session.commit()
-            print("cleared non-staff PRO tags")
-        except Exception as e:
-            print(f"clear PRO tags: {e}")
+        # NOTE: a one-time "clear all PRO tags from non-staff users" cleanup used to
+        # live here. Because init runs on every boot, it silently removed every
+        # customer's paid Pro/Ultimate plan on each deploy or restart. Removed.
         # Auto-assign Ultimate to owners and admins
         try:
             await session.execute(

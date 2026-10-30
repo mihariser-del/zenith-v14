@@ -1,0 +1,301 @@
+/* =====================================================================
+   Zelpophai AI — Halloween seasonal theme
+   Active only while <html> has the "halloween" class (see halloween.js:
+   auto Oct 15 – Nov 2, or forced on/off in Settings → Appearance).
+   Every rule is scoped to html.halloween so the normal themes (dark,
+   light, owner silver, admin gold) are untouched the rest of the year.
+   ===================================================================== */
+
+html.halloween body {
+    --bg: #0c0910;
+    --sidebar: #120d18;
+    --surface: #17111f;
+    --cards: #1d1527;
+    --text: #f3e9dc;
+    --muted: #b8a7c4;
+    --input-bg: #17111f;
+    --border: #33243f;
+    --hover-bg: #221830;
+    --accent: linear-gradient(135deg, #ffb347, #ff7a1a 45%, #c2410c);
+    --accent-solid: #ff7a1a;
+    --accent-hover: #ff9a3c;
+    --user-msg: linear-gradient(135deg, #ff7a1a, #b2361c);
+    --ai-msg: #150f1c;
+    --code-bg: #120d18;
+    --hw-orange: #ff7a1a;
+    --hw-orange-2: #ffb347;
+    --hw-purple: #7b2cbf;
+    --hw-green: #7cff4f;
+    background: radial-gradient(120% 80% at 50% 110%, #2a1238 0%, #0c0910 55%) fixed, #0c0910;
+}
+
+/* ---------- sidebar ---------- */
+html.halloween body .sidebar {
+    background: linear-gradient(180deg, #160f1e 0%, #0f0a15 100%);
+    border-right: 1px solid rgba(255, 122, 26, .22);
+    box-shadow: 1px 0 24px rgba(255, 122, 26, .07);
+}
+html.halloween body .brand h2 {
+    color: #ffe2c2;
+    text-shadow: 0 0 14px rgba(255, 122, 26, .45);
+}
+
+/* jack-o'-lantern logo tiles */
+html.halloween body .z-logo,
+html.halloween body .welcome-z-logo {
+    background: radial-gradient(circle at 50% 60%, #ffd27a 0%, #ff8c1a 38%, #d4520b 72%, #8a2c05 100%) !important;
+    background-size: 100% 100% !important;
+    color: #2a0f02 !important;
+    border: 1px solid rgba(255, 196, 120, .55) !important;
+    box-shadow: 0 0 18px rgba(255, 122, 26, .55), inset 0 -6px 14px rgba(120, 30, 0, .45) !important;
+    position: relative;
+    animation: hwFlicker 3.4s infinite !important;
+}
+/* little green stem on top */
+html.halloween body .z-logo::before,
+html.halloween body .welcome-z-logo::before {
+    content: "";
+    position: absolute;
+    top: -6px;
+    left: 50%;
+    width: 8px;
+    height: 9px;
+    transform: translateX(-50%) rotate(-12deg);
+    background: linear-gradient(#5f8f2b, #2f5414);
+    border-radius: 3px 3px 2px 2px;
+}
+html.halloween body .welcome-z-logo::before { top: -9px; width: 12px; height: 13px; }
+html.halloween body .welcome-z-logo {
+    box-shadow: 0 0 40px rgba(255, 122, 26, .55), 0 10px 40px rgba(255, 90, 0, .35), inset 0 -10px 22px rgba(120, 30, 0, .45) !important;
+}
+@keyframes hwFlicker {
+    0%, 100% { filter: brightness(1); }
+    8% { filter: brightness(1.18); }
+    10% { filter: brightness(.88); }
+    12% { filter: brightness(1.1); }
+    55% { filter: brightness(1.02); }
+    57% { filter: brightness(.9); }
+    60% { filter: brightness(1.12); }
+}
+
+/* New Chat: pumpkin */
+html.halloween body .btn.primary,
+html.halloween body #new-chat-btn {
+    background: linear-gradient(135deg, #ffb347, #ff7a1a 55%, #e0560f) !important;
+    background-size: 100% 100% !important;
+    color: #1c0b02 !important;
+    border: 1px solid rgba(255, 196, 120, .5) !important;
+    box-shadow: 0 4px 18px rgba(255, 122, 26, .3) !important;
+    animation: none !important;
+    font-weight: 700;
+}
+html.halloween body .btn.primary:hover,
+html.halloween body #new-chat-btn:hover {
+    box-shadow: 0 6px 26px rgba(255, 122, 26, .5) !important;
+    filter: brightness(1.06);
+}
+
+/* Upgrade: witchy purple with a slime-green glow (inline style needs !important) */
+html.halloween body #upgrade-btn {
+    background: linear-gradient(135deg, #9d4edd, #6a1fb0 60%, #4a1380) !important;
+    color: #f4e9ff !important;
+    border: 1px solid rgba(124, 255, 79, .45) !important;
+    box-shadow: 0 0 16px rgba(124, 255, 79, .22), 0 4px 18px rgba(106, 31, 176, .45) !important;
+}
+html.halloween body #upgrade-btn:hover { box-shadow: 0 0 24px rgba(124, 255, 79, .38), 0 6px 22px rgba(106, 31, 176, .55) !important; }
+
+html.halloween body .btn.info { color: #ffb878; text-shadow: none; }
+html.halloween body .btn.info:hover,
+html.halloween body .bottom-bar .btn:hover { background: rgba(255, 122, 26, .08); }
+
+/* candy-corn badges */
+html.halloween body #request-badge,
+html.halloween body #feedback-badge,
+html.halloween body #live-chat-badge {
+    background: linear-gradient(180deg, #fff3d6 0 30%, #ffb21a 30% 65%, #ff6a00 65%) !important;
+    color: #2a1200 !important;
+    border: 1px solid rgba(255, 255, 255, .35);
+}
+
+/* chat list */
+html.halloween body .chat-item { color: #d9c8e4; }
+html.halloween body .chat-item:hover,
+html.halloween body .chat-item.active {
+    background: #221830;
+    color: #fff1e0;
+    border-left: 2px solid var(--hw-orange);
+    box-shadow: inset 0 0 14px rgba(255, 122, 26, .08);
+}
+
+/* profile bar */
+html.halloween body .user-profile-bar .user-avatar {
+    background: linear-gradient(135deg, #ff9a3c, #c2410c) !important;
+    color: #1c0b02 !important;
+    animation: none !important;
+}
+
+/* ---------- welcome ---------- */
+html.halloween body .welcome-message h2 {
+    font-family: 'Creepster', 'Inter', system-ui, sans-serif;
+    font-weight: 400;
+    font-size: 40px;
+    letter-spacing: 2px;
+    color: #ffe2c2;
+    text-shadow: 0 0 18px rgba(255, 122, 26, .45);
+}
+html.halloween body .welcome-message h2 span {
+    background: linear-gradient(90deg, #ffd27a, #ff7a1a 45%, #ffb347 80%) !important;
+    background-size: 200% 100% !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: hwShimmer 6s ease-in-out infinite !important;
+    font-family: inherit !important;
+    letter-spacing: inherit;
+    filter: drop-shadow(0 0 10px rgba(255, 122, 26, .45));
+}
+@keyframes hwShimmer { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+html.halloween body .welcome-sub { color: #c9b4d6; }
+
+/* starter cards */
+html.halloween body .template-card { background: rgba(29, 21, 39, .85); border-color: #33243f; }
+html.halloween body .template-card:hover {
+    border-color: rgba(255, 122, 26, .55);
+    box-shadow: 0 8px 24px rgba(255, 122, 26, .14);
+}
+
+/* ---------- messages ---------- */
+html.halloween body .user .msg-bubble { color: #fff7ee; }
+
+/* ---------- composer ---------- */
+html.halloween body .composer-box {
+    position: relative;
+    background: rgba(23, 17, 31, .92);
+    border: 1px solid #3a2848;
+    box-shadow: 0 0 0 1px rgba(255, 122, 26, .05), 0 10px 30px rgba(0, 0, 0, .35);
+}
+html.halloween body .composer-box:focus-within {
+    border-color: rgba(255, 122, 26, .7) !important;
+    box-shadow: 0 0 0 1px rgba(255, 122, 26, .25), 0 0 22px rgba(255, 122, 26, .25) !important;
+}
+/* tiny cobweb in the composer's top-left corner */
+html.halloween body .composer-box::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: -1px;
+    width: 34px;
+    height: 34px;
+    pointer-events: none;
+    opacity: .5;
+    border-top-left-radius: 20px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 40 40' fill='none' stroke='%23d8c9e6' stroke-width='.8'%3E%3Cpath d='M0 0L40 40M0 0L40 14M0 0L14 40M0 0L40 0M0 0L0 40'/%3E%3Cpath d='M10 0Q8 5 9 9Q4 8 0 10M22 0Q17 9 19 19Q9 17 0 22M34 0Q26 14 29 29Q14 26 0 34'/%3E%3C/svg%3E") no-repeat;
+}
+html.halloween body .composer-icon:hover { color: var(--hw-orange-2); }
+html.halloween body .composer-icon.active {
+    color: #ffd8b0 !important;
+    background: rgba(255, 122, 26, .16) !important;
+    box-shadow: 0 0 12px rgba(255, 122, 26, .3) !important;
+}
+html.halloween body #send-btn {
+    background: radial-gradient(circle at 50% 60%, #ffd27a 0%, #ff8c1a 45%, #c2410c 100%) !important;
+    color: #1c0b02 !important;
+    box-shadow: 0 0 16px rgba(255, 122, 26, .45) !important;
+    animation: none !important;
+}
+html.halloween body #user-input::placeholder { color: #8f7aa0; }
+
+/* thinking / streaming accents */
+html.halloween body .thinking-text { color: var(--hw-orange-2) !important; text-shadow: 0 0 10px rgba(255, 122, 26, .5) !important; }
+html.halloween body .streaming-cursor::after { background: var(--hw-orange) !important; box-shadow: 0 0 10px rgba(255, 122, 26, .8) !important; }
+
+/* scrollbars */
+html.halloween body *::-webkit-scrollbar-thumb { background: #3a2848; }
+html.halloween body * { scrollbar-color: #3a2848 transparent; }
+
+/* ---------- ambient layer (injected by halloween.js) ---------- */
+/* z-index -1: painted over the page background but underneath every piece of real UI,
+   so it can never block a click or cover text */
+#hw-fx { position: fixed; inset: 0; pointer-events: none; z-index: -1; overflow: hidden; }
+#hw-fx .hw-web {
+    position: absolute;
+    top: 0;
+    width: 150px;
+    height: 150px;
+    opacity: .22;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%23e9dcf5' stroke-width='.6'%3E%3Cpath d='M100 0L0 100M100 0L0 40M100 0L60 100M100 0L0 0M100 0L100 100M100 0L25 100M100 0L0 70'/%3E%3Cpath d='M88 0Q90 8 100 12M72 0Q76 16 100 26M54 0Q60 26 100 44M34 0Q44 40 100 64M14 0Q28 56 100 86'/%3E%3Cpath d='M92 9Q88 13 89 17Q82 19 82 25Q74 28 74 36Q64 40 64 49Q53 54 52 64'/%3E%3C/svg%3E") no-repeat right top / contain;
+}
+#hw-fx .hw-web.r { right: 0; }
+#hw-fx .hw-web.l { left: 280px; transform: scaleX(-1); width: 110px; height: 110px; opacity: .16; }
+#hw-fx .hw-spider {
+    position: absolute;
+    top: 0;
+    right: 64px;
+    width: 1px;
+    height: 70px;
+    background: rgba(233, 220, 245, .35);
+    animation: hwDangle 9s ease-in-out infinite;
+    transform-origin: top center;
+}
+#hw-fx .hw-spider::after {
+    content: "";
+    position: absolute;
+    bottom: -10px;
+    left: -7px;
+    width: 15px;
+    height: 13px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 26'%3E%3Cg stroke='%23140c1c' stroke-width='1.6' fill='none'%3E%3Cpath d='M10 12L2 6M10 14L1 14M10 16L3 23M20 12L28 6M20 14L29 14M20 16L27 23M12 10L7 2M18 10L23 2'/%3E%3C/g%3E%3Cellipse cx='15' cy='15' rx='6' ry='7' fill='%23140c1c'/%3E%3Ccircle cx='15' cy='8' r='3.5' fill='%23140c1c'/%3E%3Ccircle cx='13.6' cy='7.6' r='.8' fill='%23ff7a1a'/%3E%3Ccircle cx='16.4' cy='7.6' r='.8' fill='%23ff7a1a'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+@keyframes hwDangle {
+    0%, 100% { height: 70px; transform: rotate(0deg); }
+    40% { height: 120px; transform: rotate(2deg); }
+    60% { height: 112px; transform: rotate(-2deg); }
+}
+#hw-fx .hw-fog {
+    position: absolute;
+    left: -20%;
+    right: -20%;
+    bottom: -40px;
+    height: 220px;
+    background:
+        radial-gradient(40% 60% at 20% 70%, rgba(170, 140, 200, .10), transparent 70%),
+        radial-gradient(35% 55% at 60% 80%, rgba(170, 140, 200, .09), transparent 70%),
+        radial-gradient(30% 50% at 90% 70%, rgba(255, 140, 60, .05), transparent 70%);
+    animation: hwFog 26s ease-in-out infinite alternate;
+}
+@keyframes hwFog { from { transform: translateX(-4%); } to { transform: translateX(4%); } }
+#hw-fx .hw-bat {
+    position: absolute;
+    width: 34px;
+    height: 16px;
+    opacity: 0;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 30'%3E%3Cpath fill='%230a0610' d='M32 9c-2 0-3 2-3.5 3.5C27 10 24 6 18 5c2 3 2 6 0 8-3-3-7-4-12-3 3 2 4 5 3 8 4-2 9-1 12 3 3-2 7-2 11 1 4-3 8-3 11-1 3-4 8-5 12-3-1-3 0-6 3-8-5-1-9 0-12 3-2-2-2-5 0-8-6 1-9 5-10.5 7.5C35 11 34 9 32 9z'/%3E%3C/svg%3E") no-repeat center / contain;
+    filter: drop-shadow(0 0 6px rgba(255, 122, 26, .25));
+}
+#hw-fx .hw-bat.fly { animation: hwBat 9s linear forwards, hwFlap .22s steps(2) infinite; }
+@keyframes hwBat {
+    0% { opacity: 0; transform: translate(0, 0) scale(.7); }
+    8% { opacity: .85; }
+    50% { transform: translate(var(--hw-dx-half), var(--hw-dy)) scale(1); }
+    92% { opacity: .85; }
+    100% { opacity: 0; transform: translate(var(--hw-dx), calc(var(--hw-dy) * .3)) scale(.8); }
+}
+@keyframes hwFlap { 0% { background-size: 100% 100%; } 100% { background-size: 100% 55%; } }
+
+/* small screens: drop the second web, smaller main web */
+@media (max-width: 768px) {
+    #hw-fx .hw-web.l { display: none; }
+    #hw-fx .hw-web.r { width: 96px; height: 96px; }
+    #hw-fx .hw-spider { right: 34px; }
+    html.halloween body .welcome-message h2 { font-size: 27px; white-space: normal !important; line-height: 1.15; padding: 0 12px; }
+}
+
+/* respect people who turn motion off */
+@media (prefers-reduced-motion: reduce) {
+    html.halloween body .z-logo,
+    html.halloween body .welcome-z-logo,
+    html.halloween body .welcome-message h2 span,
+    #hw-fx .hw-spider,
+    #hw-fx .hw-fog { animation: none !important; }
+    #hw-fx .hw-bat { display: none; }
+}

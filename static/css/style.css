@@ -787,6 +787,13 @@ body.admin-owner .sidebar .btn.info { color: #dfe7f5 !important; border-color: r
 .tpl-ic { font-size: 20px; }
 .tpl-t { font-weight: 700; line-height: 1.3; }
 .tpl-t small { display: block; font-weight: 500; color: var(--muted); font-size: 11px; margin-top: 2px; }
+/* phones: the welcome block used to keep its 620px desktop width, so the
+   greeting and the right-hand column of starter cards ran off-screen */
+@media (max-width: 768px) {
+    .welcome-message { width: 100%; max-width: 100%; box-sizing: border-box; }
+    .template-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .template-card { padding: 10px 11px; min-width: 0; }
+}
 
 /* ── Share & export modal ───────────────────────────────────────── */
 .sx-tab {

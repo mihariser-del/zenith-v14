@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 20.3 — Halloween theme
+
+- **Seasonal Halloween theme**: pumpkin-orange accents, a jack-o'-lantern Z logo with a candle flicker, a "Happy Haunting!" greeting, a purple Upgrade button with a slime-green glow, candy-corn badges, cobwebs, a dangling spider, drifting fog and the occasional bat
+- Switches on by itself from Oct 15 to Nov 2 (on each visitor's own clock) and off again afterwards; Settings → Appearance → **Seasonal Theme** lets anyone force it on or turn it off
+- Lives entirely in `css/halloween.css` + `js/halloween.js`, scoped to `html.halloween`, so the normal, light, owner and admin looks are untouched; motion is disabled for people who prefer reduced motion
+- **Phone fix**: the welcome screen kept its desktop width on phones, so the greeting and the right column of starter cards ran off-screen; it now fits in two columns
+
 ## 20.0 — Zelpophai AI rebrand & billing fix
 
 - **Zelpophai AI is here** — the app is now called **Zelpophai AI**. Same features, same chats, same account.

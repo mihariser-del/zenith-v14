@@ -19,12 +19,18 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/halloween.css">
     <script>
         (function () {
             try {
-                var s = JSON.parse(localStorage.getItem('zenith_settings') || '{}').theme || 'auto';
+                var st = JSON.parse(localStorage.getItem('zenith_settings') || '{}');
+                var s = st.theme || 'auto';
                 var useLight = s === 'light' || (s !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
                 document.documentElement.classList.toggle('light-theme', useLight);
+                /* seasonal theme, applied before first paint (full logic in js/halloween.js) */
+                var sea = st.seasonal || 'auto', d = new Date(), m = d.getMonth(), day = d.getDate();
+                var inSeason = (m === 9 && day >= 15) || (m === 10 && day <= 2);
+                if (sea === 'on' || (sea === 'auto' && inSeason)) document.documentElement.classList.add('halloween');
             } catch (e) {}
         })();
     </script>
@@ -352,6 +358,12 @@
                     <option value="auto">Auto (Follow device)</option>
                     <option value="dark">Dark (Black)</option>
                     <option value="light">Light (Clean)</option>
+                </select>
+                <label>Seasonal Theme</label>
+                <select id="seasonal-select">
+                    <option value="auto">Auto (Halloween: Oct 15 &ndash; Nov 2)</option>
+                    <option value="on">Halloween &mdash; always on</option>
+                    <option value="off">Off</option>
                 </select>
                 <label>Accent Color</label>
                 <select id="accent-select">
@@ -785,5 +797,6 @@
 <script src="/static/js/directory.js"></script>
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/halloween.js"></script>
 </body>
 </html>

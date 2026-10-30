@@ -22,6 +22,7 @@ window.populateModelSelects = populateModelSelects;
 const Settings = {
     defaults: {
         theme: 'auto',
+        seasonal: 'auto',
         accent: '#8b5cf6',
         msgSpacing: 'cozy',
         markdown: true,
@@ -71,6 +72,7 @@ const Settings = {
         }
         this.loadPersonality();
         $('theme-select').value = s.theme;
+        if ($('seasonal-select')) $('seasonal-select').value = s.seasonal || 'auto';
         $('accent-select').value = s.accent;
         $('msg-spacing').value = s.msgSpacing;
         $('markdown-toggle').value = String(s.markdown);
@@ -105,6 +107,7 @@ const Settings = {
     async apply() {
         const s = this.getLocal();
         this.applyTheme(s.theme);
+        if (window.Halloween) window.Halloween.apply(s.seasonal);
         let isOwner = false;
         let isAdminUser = false;
         try {
@@ -172,6 +175,7 @@ const Settings = {
     async saveFromForm() {
         const localSettings = {
             theme: $('theme-select').value,
+            seasonal: $('seasonal-select') ? $('seasonal-select').value : 'auto',
             accent: $('accent-select').value,
             msgSpacing: $('msg-spacing').value,
             markdown: $('markdown-toggle').value === 'true',

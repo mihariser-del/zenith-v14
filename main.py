@@ -739,7 +739,7 @@ async def coding_agent_page():
 
 # ---------------------------------------------------------------- SEO ----
 # Public base URL used for canonical links, Open Graph and the sitemap.
-SITE_BASE = os.getenv("APP_BASE_URL", "https://zenithai.up.railway.app").rstrip("/")
+SITE_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app").rstrip("/")
 
 
 @app.get("/robots.txt", include_in_schema=False)

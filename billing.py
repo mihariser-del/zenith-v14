@@ -37,7 +37,7 @@ STRIPE_PRICE_IDS = {
     "pro_lifetime": os.getenv("STRIPE_PRICE_PRO_LIFETIME", ""),
     "ultimate_lifetime": os.getenv("STRIPE_PRICE_ULTIMATE_LIFETIME", ""),
 }
-APP_BASE = os.getenv("APP_BASE_URL", "https://zenithai.up.railway.app")
+APP_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app")
 
 
 class CheckoutRequest(BaseModel):

@@ -1,4 +1,4 @@
-﻿const CACHE = 'zenith-v29';
+﻿const CACHE = 'zenith-v30';
 const URLS = [
   '/',
   '/app',
@@ -15,6 +15,8 @@ const URLS = [
   '/static/css/brand.css',
   '/static/css/render.css',
   '/static/js/render.js',
+  '/static/css/layout.css',
+  '/static/js/sidebar.js',
   '/static/css/welcome.css',
   '/static/js/welcome.js',
   '/static/js/halloween.js',

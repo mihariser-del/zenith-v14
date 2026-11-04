@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/static/css/brand.css">
     <link rel="stylesheet" href="/static/css/render.css">
     <link rel="stylesheet" href="/static/css/halloween.css">
+    <link rel="stylesheet" href="/static/css/layout.css">
     <script>
         (function () {
             try {
@@ -58,25 +59,17 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
             New Chat
         </button>
-        <button class="btn info" id="request-btn" title="Personal Request" style="position:relative; justify-content:center;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M2 7h20v5a4 4 0 0 0-4 4l-2-1-2 1-2-1-2 1-2-1-2 1a4 4 0 0 0-4-4z"/><path d="M12 22V7M12 7H7.5A2.5 2.5 0 0 1 7.5 2C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
-            Personal Request
-            <span id="request-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#4CC9F0; color:#06121a; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
-        </button>
     </div>
 
     <div class="chat-list" id="chat-list"></div>
 
-    <div class="bottom-bar">
-        <button class="btn primary" id="upgrade-btn" title="Upgrade" style="background:linear-gradient(135deg,#FFD700,#FF8C00); color:#000; justify-content:center; font-weight:700;">
+    <button class="sb-upgrade" id="upgrade-btn" title="Upgrade">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px; height:16px;"><path d="M12 2l3 5h5l-4 4 1 5-5-3-5 3 1-5-4-4h5z"/></svg>
             Upgrade
         </button>
-        <button class="btn info" id="feedback-btn" title="Feedback" style="position:relative;">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Feedback
-            <span id="feedback-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ff4d4d; color:white; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
-        </button>
+
+    <div class="bottom-bar acct-menu" id="acct-menu" role="menu" aria-label="Account and tools">
+        <div class="acct-label">Account</div>
         <button class="btn" id="settings-btn" title="Settings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
             Settings
@@ -85,11 +78,22 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
             Reminders
         </button>
-        <button class="sidebar-tools-toggle" id="tools-toggle" title="More Tools">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            More Tools
+        <button class="btn info" id="request-btn" title="Personal Request" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 12v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-8"/><path d="M2 7h20v5a4 4 0 0 0-4 4l-2-1-2 1-2-1-2 1-2-1-2 1a4 4 0 0 0-4-4z"/><path d="M12 22V7M12 7H7.5A2.5 2.5 0 0 1 7.5 2C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            Personal Request
+            <span id="request-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#4CC9F0; color:#06121a; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
         </button>
-        <div class="sidebar-tools" id="sidebar-tools">
+        <button class="btn info" id="feedback-btn" title="Feedback" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Feedback
+            <span id="feedback-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#ff4d4d; color:white; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
+        </button>
+        <button class="btn info" id="invite-btn" title="Invite Friends">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
+            Invite Friends
+        </button>
+        <div class="acct-label">Tools</div>
+        <div class="sidebar-tools open" id="sidebar-tools">
             <button class="btn info" id="files-btn" title="Files">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
                 Files
@@ -106,12 +110,12 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
                 Knowledge
             </button>
-            <button class="btn info" id="staff-chat-btn" title="Staff Live Chat" style="color:#C0C7D1; border:1px solid rgba(221,228,238,0.2); background:rgba(221,228,238,0.04); position:relative;">
+            <button class="btn info" id="staff-chat-btn" title="Staff Live Chat">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
                 Live Chat
                 <span id="live-chat-badge" style="display:none; position:absolute; top:-4px; right:-4px; background:#C0C7D1; color:#111315; font-size:9px; padding:2px 6px; border-radius:10px; font-weight:700; min-width:16px; text-align:center;">0</span>
             </button>
-            <button class="btn info" id="attention-btn" title="Broadcast" style="color:#C0C7D1; border:1px solid rgba(221,228,238,0.25); background:rgba(221,228,238,0.06);">
+            <button class="btn info" id="attention-btn" title="Broadcast">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                 Broadcast
             </button>
@@ -124,23 +128,28 @@
                 About Zelpophai AI
             </button>
         </div>
-        <button class="btn info" id="invite-btn" title="Invite Friends" style="color:#4CC9F0; border:1px solid rgba(76,201,240,0.25); background:rgba(76,201,240,0.06);">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg>
-            Invite Friends
+        <button class="sidebar-tools-toggle" id="tools-toggle" title="More Tools">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            More Tools
         </button>
+        <div class="acct-sep"></div>
         <button class="btn danger" id="clear-all-btn" title="Clear All History">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
             Clear All History
         </button>
+        <button class="btn danger" id="logout-btn" title="Log out">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Log out
+        </button>
     </div>
 
-    <div class="user-profile-bar">
-        <div class="user-avatar" id="user-avatar" title="Profile - click for logout" style="cursor:pointer;">U</div>
+    <div class="user-profile-bar" id="acct-toggle" role="button" tabindex="0" aria-haspopup="menu" aria-expanded="false" aria-controls="acct-menu" title="Account and tools">
+        <div class="user-avatar" id="user-avatar" title="Account and tools">U</div>
         <div class="user-meta" style="display:flex; align-items:center; gap:6px; flex:1; min-width:0; overflow:hidden;">
             <span id="user-name-text" style="flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:600;">User</span>
             <span id="user-role-badge" style="flex-shrink:0; display:flex; align-items:center;"></span>
         </div>
-        <button class="logout-btn" id="logout-btn">Logout</button>
+        <span class="acct-chev" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="7 15 12 10 17 15"/></svg></span>
     </div>
 </aside>
 
@@ -803,6 +812,7 @@
 <script src="/static/js/render.js"></script>
 <script src="/static/js/chat.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="/static/js/sidebar.js"></script>
 <script src="/static/js/halloween.js"></script>
 </body>
 </html>

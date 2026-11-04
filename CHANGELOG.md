@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 20.8 — Unboxed answers, tidy sidebar
+
+- **AI answers without a box** (`static/css/layout.css`): replies render straight on the page in a centred 780px reading column with a small Z mark in the margin (hidden on phones); headings left-aligned; reply buttons are borderless and appear on hover (always visible on the latest reply and on touch screens); user bubbles stay compact
+- **Sidebar decluttered**: brand, New Chat, chat list, a slim Upgrade line and your name. Everything else (Settings, Reminders, Personal Request, Feedback, Invite Friends, Files, Security, Memory, Knowledge, staff tools, Run Code, About, Clear All History, Log out) moved into an account menu that opens from your name (`static/js/sidebar.js`): keyboard and Escape support, closes on outside click, floats beside the icon rail on mid-size screens, and shows a red count on your name when feedback / request / live-chat badges are waiting
+
 ## 20.7 — Real file generation, better answers, security fixes
 
 - **File generation rebuilt** (`docgen.py`): the AI wraps each file in `<zfile name="…">`; the server turns it into a real file, stores it (with its Markdown source for previews), and the chat shows a file card with **Preview**, **Download** and **Show text**. Cards survive reloads, files are versioned when the AI edits them, and if the AI forgets the tag the reply still becomes the file. One parser (mistune) feeds every format:

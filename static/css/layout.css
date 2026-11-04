@@ -1,0 +1,258 @@
+/* Zelpophai AI — layout 20.8
+   1) AI answers sit on the page like a document (no box around them), in a
+      centred reading column; your own messages stay as compact bubbles.
+   2) A calm sidebar: New Chat, your chats, Upgrade and your name. Everything
+      else lives in one account menu that opens from your name.
+   Loaded last so it wins over the theme files (brand / halloween / light). */
+
+/* ═════════════════════════════════════════════ messages ═══════════ */
+#chat-container { gap: 26px; padding-left: 24px; padding-right: 24px; }
+#chat-container > .msg-wrapper {
+    width: 100%;
+    max-width: 780px;
+    align-self: center;
+}
+.msg-wrapper.user { align-items: flex-end; }
+.msg-wrapper.user .msg-bubble { max-width: min(80%, 620px); }
+
+/* the answer itself: no card, no border, no glow — just well-set text */
+body .msg-wrapper.assistant .msg-bubble,
+html body .msg-wrapper.assistant .msg-bubble,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-wrapper.assistant .msg-bubble,
+html.halloween body .msg-wrapper.assistant .msg-bubble,
+html.light-theme body.light-theme .msg-wrapper.assistant .msg-bubble {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+    width: 100%;
+    max-width: 100%;
+    animation: zlIn .35s ease both;
+}
+html.halloween body .msg-wrapper.assistant .msg-bubble::before { display: none !important; }
+@keyframes zlIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* a small Z mark in the margin so you can still tell who's talking */
+.msg-wrapper.assistant { position: relative; }
+.msg-wrapper.assistant::before {
+    content: "Z";
+    position: absolute;
+    left: -42px;
+    top: 0;
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font: 800 15px/1 Inter, system-ui, sans-serif;
+    color: #fff;
+    background: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    box-shadow: 0 4px 14px rgba(37, 99, 235, .35);
+}
+html.halloween body .msg-wrapper.assistant::before { background: linear-gradient(135deg, #ff7a1a, #a855f7); box-shadow: 0 4px 14px rgba(255, 122, 26, .3); }
+@media (max-width: 1240px) {
+    .msg-wrapper.assistant::before { position: static; margin-bottom: 8px; width: 24px; height: 24px; font-size: 13px; border-radius: 8px; }
+}
+
+/* headings inside answers: left-aligned, document style */
+html body .msg-wrapper.assistant .msg-bubble h1 {
+    text-align: left !important;
+    font-size: 26px !important;
+    margin: .2em 0 .55em !important;
+}
+html body .msg-wrapper.assistant .msg-bubble h1::after { display: none !important; }
+html body .msg-wrapper.assistant .msg-bubble h2 { font-size: 20px; }
+html body .msg-wrapper.assistant .msg-bubble h3 { font-size: 17px; }
+.msg-wrapper.assistant .msg-bubble { font-size: 15.5px; line-height: 1.75; }
+html:not(.light-theme) body:not(.light-theme) .msg-wrapper.assistant .msg-bubble { color: #e3e8f6; }
+html.light-theme body.light-theme .msg-wrapper.assistant .msg-bubble { color: #1f2937 !important; }
+
+/* "Thinking…" without a box */
+.msg-wrapper.assistant .msg-bubble .thinking-text { padding: 4px 0; }
+
+/* actions under an answer: quiet until you hover */
+.msg-wrapper.assistant .msg-actions { margin-top: 6px; }
+.msg-wrapper.assistant .msg-actions.zr-actions > button,
+.msg-wrapper.assistant .zr-menu-wrap > button {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+.msg-wrapper.assistant .msg-actions.zr-actions > button:hover,
+.msg-wrapper.assistant .zr-menu-wrap > button:hover,
+.msg-wrapper.assistant .zr-menu-wrap > button[aria-expanded="true"] {
+    background: rgba(59, 130, 246, .12) !important;
+}
+html.light-theme body.light-theme .msg-wrapper.assistant .msg-actions.zr-actions > button:hover { background: #eaf0ff !important; }
+@media (hover: hover) {
+    .msg-wrapper.assistant .msg-actions.zr-actions { opacity: 0; }
+    .msg-wrapper.assistant:hover .msg-actions.zr-actions,
+    .msg-wrapper.assistant:last-of-type .msg-actions.zr-actions,
+    .msg-wrapper.assistant .msg-actions.zr-actions:focus-within { opacity: 1; }
+    .msg-wrapper.user .msg-actions { opacity: 0; transition: opacity .15s; }
+    .msg-wrapper.user:hover .msg-actions, .msg-wrapper.user .msg-actions:focus-within { opacity: 1; }
+}
+/* the user's Edit / Copy / Speak row: small and borderless */
+.msg-wrapper.user .msg-actions button { background: transparent !important; border-color: transparent !important; box-shadow: none !important; }
+.msg-wrapper.user .msg-actions button:hover { background: rgba(59, 130, 246, .12) !important; }
+
+#regen-btn { align-self: center; }
+
+@media (max-width: 768px) {
+    #chat-container { padding-left: 14px; padding-right: 14px; gap: 20px; }
+    .msg-wrapper.assistant .msg-bubble { font-size: 15px; }
+    .msg-wrapper.user .msg-bubble { max-width: 88%; }
+}
+
+/* ═════════════════════════════════════════════ sidebar ════════════ */
+@media (min-width: 769px) {
+    .sidebar { position: relative; overflow: visible !important; }
+}
+@media (max-width: 768px) {
+    .sidebar { overflow: visible !important; }
+}
+.sidebar .chat-list { flex: 1 1 auto; min-height: 0; padding-bottom: 8px; }
+.sidebar-actions { padding-bottom: 6px; }
+
+/* Upgrade: one slim line above your name */
+.sidebar .sb-upgrade {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 6px 12px 8px;
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 196, 99, .55);
+    background: linear-gradient(135deg, rgba(58, 40, 10, .7), rgba(26, 18, 6, .8));
+    color: #ffc463;
+    font: 700 13.5px/1.2 Inter, system-ui, sans-serif;
+    cursor: pointer;
+    flex-shrink: 0;
+    text-align: left;
+}
+.sidebar .sb-upgrade svg { width: 16px; height: 16px; }
+html.light-theme body.light-theme .sidebar .sb-upgrade { background: linear-gradient(135deg, #fff7e6, #ffefd1) !important; color: #9a5b00 !important; border-color: #f5c46b !important; box-shadow: none !important; }
+
+/* your name: the button that opens the menu */
+.user-profile-bar#acct-toggle {
+    cursor: pointer;
+    position: relative;
+    margin: 0 8px 8px;
+    padding: 10px 12px !important;
+    border: 1px solid transparent !important;
+    border-radius: 12px;
+    background: transparent !important;
+    transition: background .15s, border-color .15s;
+    user-select: none;
+}
+.user-profile-bar#acct-toggle:hover, .user-profile-bar#acct-toggle[aria-expanded="true"] { background: rgba(59, 130, 246, .10) !important; border-color: rgba(59, 130, 246, .25) !important; }
+.user-profile-bar#acct-toggle:focus-visible { outline: 2px solid #3b82f6; outline-offset: 2px; }
+html.light-theme body.light-theme .user-profile-bar#acct-toggle:hover, html.light-theme body.light-theme .user-profile-bar#acct-toggle[aria-expanded="true"] { background: #eef3ff !important; border-color: #cddbff !important; }
+.acct-chev { margin-left: auto; display: flex; color: var(--text); opacity: .6; transition: transform .2s; }
+.acct-chev svg { width: 16px; height: 16px; }
+#acct-toggle[aria-expanded="true"] .acct-chev { transform: rotate(180deg); }
+#acct-toggle.has-alert .user-avatar { position: relative; }
+#acct-toggle.has-alert::after {
+    content: attr(data-alerts);
+    position: absolute;
+    left: 34px;
+    top: 4px;
+    min-width: 17px;
+    height: 17px;
+    padding: 0 4px;
+    border-radius: 9px;
+    background: #ef4444;
+    color: #fff;
+    font: 700 10px/17px Inter, system-ui, sans-serif;
+    text-align: center;
+    box-shadow: 0 0 0 2px var(--sidebar);
+}
+
+/* the menu */
+.sidebar .bottom-bar.acct-menu {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    bottom: 70px;
+    z-index: 120;
+    display: none;
+    flex-direction: column;
+    gap: 1px;
+    max-height: min(70vh, 620px);
+    overflow-y: auto;
+    padding: 8px !important;
+    border: 1px solid rgba(122, 152, 255, .28) !important;
+    border-radius: 16px;
+    background: #0d1430 !important;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 0 1px rgba(0, 0, 0, .2);
+    transform-origin: bottom center;
+}
+.sidebar .bottom-bar.acct-menu.open { display: flex; animation: zlMenu .16s ease both; }
+@keyframes zlMenu { from { opacity: 0; transform: translateY(6px) scale(.98); } to { opacity: 1; transform: none; } }
+html.halloween body .sidebar .bottom-bar.acct-menu { background: #1a0f0a !important; border-color: rgba(255, 122, 26, .3) !important; }
+html.light-theme body.light-theme .sidebar .bottom-bar.acct-menu { background: #fff !important; border-color: #dbe3f5 !important; box-shadow: 0 24px 60px rgba(15, 23, 42, .18); }
+
+.acct-menu .acct-label { padding: 8px 10px 4px; font: 700 10.5px/1 Inter, system-ui, sans-serif; letter-spacing: .09em; text-transform: uppercase; color: #7f8bb3; }
+.acct-menu .acct-sep { height: 1px; margin: 6px 4px; background: rgba(122, 152, 255, .18); }
+html.light-theme body.light-theme .acct-menu .acct-sep { background: #e5eaf6; }
+.acct-menu .sidebar-tools { display: flex !important; flex-direction: column; gap: 1px; padding: 0 !important; }
+.acct-menu .sidebar-tools-toggle { display: none !important; }
+
+/* every item in the menu looks the same: icon + label, no boxes */
+.sidebar .acct-menu .btn,
+html body .sidebar .acct-menu .btn {
+    width: 100% !important;
+    height: auto !important;
+    justify-content: flex-start !important;
+    gap: 11px !important;
+    padding: 9px 10px !important;
+    font-size: 13.5px !important;
+    font-weight: 500 !important;
+    border: none !important;
+    border-radius: 9px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: #dfe5f7 !important;
+}
+.sidebar .acct-menu .btn svg { width: 17px !important; height: 17px !important; color: #8fb3ff; stroke: currentColor !important; }
+.sidebar .acct-menu .btn:hover, .sidebar .acct-menu .btn:focus-visible { background: rgba(59, 130, 246, .14) !important; color: #fff !important; outline: none; }
+.sidebar .acct-menu .btn.danger, .sidebar .acct-menu .btn.danger svg { color: #f87171 !important; }
+.sidebar .acct-menu .btn.danger:hover { background: rgba(239, 68, 68, .12) !important; }
+html.halloween body .sidebar .acct-menu .btn svg { color: #ffb878; }
+html.light-theme body.light-theme .sidebar .acct-menu .btn { color: #1f2937 !important; }
+html.light-theme body.light-theme .sidebar .acct-menu .btn svg { color: #2563eb; }
+html.light-theme body.light-theme .sidebar .acct-menu .btn:hover { background: #eef3ff !important; color: #0f172a !important; }
+html.light-theme body.light-theme .sidebar .acct-menu .btn.danger { color: #dc2626 !important; }
+/* badges inside the menu sit at the end of the row */
+.acct-menu #request-badge, .acct-menu #feedback-badge, .acct-menu #live-chat-badge {
+    position: static !important;
+    margin-left: auto;
+}
+
+/* icon rail (901–1100px wide): the menu pops out to the right of the rail */
+@media (max-width: 1100px) and (min-width: 901px) {
+    .sidebar .bottom-bar.acct-menu { left: calc(100% + 8px); right: auto; bottom: 8px; width: 250px; align-items: stretch; }
+    .sidebar .acct-menu .btn span:not([id$="-badge"]) { display: inline !important; }
+    .sidebar .sb-upgrade { width: 44px; height: 44px; padding: 0; margin: 6px auto; justify-content: center; font-size: 0 !important; gap: 0 !important; }
+    .sidebar .sb-upgrade::after { display: none !important; }
+    .user-profile-bar#acct-toggle { margin: 0 6px 8px; padding: 8px !important; justify-content: center; }
+    .acct-chev { display: none; }
+    #acct-toggle.has-alert::after { left: 30px; }
+}
+
+/* phone drawer: the menu covers the lower part of the drawer */
+@media (max-width: 768px) {
+    .sidebar .bottom-bar.acct-menu { left: 8px; right: 8px; bottom: 66px; max-height: calc(100dvh - 140px); }
+    .user-profile-bar#acct-toggle { position: sticky; bottom: 0; background: var(--sidebar) !important; margin: 0; border-radius: 0; border-top: 1px solid var(--border) !important; }
+    .sidebar .acct-menu .btn { padding: 9px 10px !important; font-size: 14.5px !important; }
+    .msg-wrapper.assistant::before { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .msg-wrapper.assistant .msg-bubble, .sidebar .bottom-bar.acct-menu.open { animation: none !important; }
+}

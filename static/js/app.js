@@ -429,7 +429,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const avatarEl = $('user-avatar');
     if (avatarEl) {
         avatarEl.addEventListener('click', () => {
-            if (window.innerWidth > 900 && window.innerWidth <= 1100) {
+            if (!document.getElementById('acct-menu') && window.innerWidth > 900 && window.innerWidth <= 1100) {
                 let popup = $('avatar-popup');
                 if (popup) { popup.remove(); return; }
                 popup = document.createElement('div');

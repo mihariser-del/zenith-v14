@@ -38,10 +38,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "20.8"
+VERSION = "20.9"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "20.9 Sidebar refresh: your most-used tools (Files, Memory, Knowledge, Reminders, Run Code) now sit right under New Chat, and the buttons under your chats are a clean row of icons — hover one to see its name",
     "20.8 Cleaner reading: AI answers now sit on the page like a document instead of inside a box, in a comfortable centred column, with the buttons underneath appearing when you need them",
     "A calmer sidebar: just New Chat, your chats, Upgrade and your name. Tap your name for everything else — Settings, Files, Memory, Reminders, Feedback, Invite Friends, Log out and more. A red dot tells you when something inside needs you",
     "20.7 Real files, done properly: ask for a CV, cover letter, report, slides or a budget and you get a proper Word, PDF, PowerPoint or Excel file with a Preview button, a download, and the text one tap away. Files stay in the chat after you reload and the AI can edit them when you ask",

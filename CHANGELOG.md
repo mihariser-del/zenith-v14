@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 20.9 — Tools on top, icon row below
+
+- **Sidebar**: Files, Memory, Knowledge, Reminders and Run Code (plus Live Chat and Broadcast for staff) sit under New Chat as compact rows; a "Chats" label separates them from your conversations
+- **Below the chats**: one row of word-free icons — Upgrade (gold crown), Settings, Feedback, Personal Request, Invite Friends, Security, About, Clear history (plus Owner/Admin Vault for staff) — with tooltips on hover and a red dot for unread feedback/requests; your name with a log-out icon underneath. The account pop-up menu from 20.8 is gone. Memory got its own sparkle icon (it shared the clock with Reminders)
+- Icon rail (901–1100px) shows everything as icons; phone drawer uses the same layout with bigger touch targets
+
 ## 20.8 — Unboxed answers, tidy sidebar
 
 - **AI answers without a box** (`static/css/layout.css`): replies render straight on the page in a centred 780px reading column with a small Z mark in the margin (hidden on phones); headings left-aligned; reply buttons are borderless and appear on hover (always visible on the latest reply and on touch screens); user bubbles stay compact

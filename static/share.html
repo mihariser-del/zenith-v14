@@ -15,7 +15,7 @@
     <meta name="description" content="Zelpophai AI shared conversation">
     <title>Shared Chat · Zelpophai AI</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
     <style>
@@ -135,7 +135,11 @@
             .m { padding:14px 14px; }
             .hero { padding-top:40px; }
         }
-    </style>
+      details.zfile{margin:12px 0;border:1px solid rgba(59,130,246,.35);border-radius:12px;background:rgba(59,130,246,.07);padding:0 14px}
+  details.zfile summary{cursor:pointer;padding:12px 0;font-weight:700;list-style:none}
+  details.zfile summary span{font-weight:500;opacity:.65;font-size:.9em}
+  details.zfile[open] summary{border-bottom:1px solid rgba(59,130,246,.25);margin-bottom:10px}
+</style>
 </head>
 <body>
 <div class="bg-glow"></div>
@@ -199,7 +203,16 @@
 
     const escapeHtml = s => (s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
+    // Files the AI made show as a fold-out box (the download link only works for the owner).
+    function fileBlocks(md) {
+        return String(md || '').replace(/<zfile\b([^>]*)>([\s\S]*?)(<\/zfile>|$)/gi, (m, a, body) => {
+            const nm = (/name="([^"]*)"/i.exec(a) || [])[1] || 'file';
+            return '\n\n<details class="zfile"><summary>\u{1F4C4} ' + escapeHtml(nm.replace(/&quot;/g, '"').replace(/&amp;/g, '&')) + ' <span>\u00b7 file made by Zelpophai AI</span></summary>\n\n' + body.trim() + '\n\n</details>\n\n';
+        });
+    }
+
     function render(markdown) {
+        markdown = fileBlocks(markdown);
         if (!window.marked) return '<div class="markdown-body">' + escapeHtml(markdown || '').replace(/\n/g,'<br>') + '</div>';
         try { return window.DOMPurify.sanitize(window.marked.parse(markdown || '')); }
         catch(e) { return escapeHtml(markdown || '').replace(/\n/g,'<br>'); }

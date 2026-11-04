@@ -16,7 +16,6 @@ Date: 2026-09-03 · Compiled from a full read of the codebase (backend routers, 
 - Chat CRUD: create/rename/delete chats, simple/streaming messages
 - Edit messages; copy; download
 - AI model selection, max tokens, temperature, personality per user (settings)
-- Math engine & offline answers / offline mode (real math engine)
 - Presence: live online/offline (heartbeat every 1s / 5s, last_seen)
 - Voice input + AI voice reply (`voice.js`)
 - Search across chats/memories/knowledge (`search.py`)

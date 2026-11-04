@@ -1,17 +1,17 @@
 :root {
     --bg: #000000; --sidebar: #0b0b10; --text: #f2edff; --input-bg: #131318;
-    --border: #2a2a35; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6, #22d3ee);
-    --accent-solid: #a855f7; --accent-hover: #9333ea;
-    --user-msg: linear-gradient(135deg, #6d28d9, #ff3db4);
+    --border: #232a45; --accent: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    --accent-solid: #3b82f6; --accent-hover: #2563eb;
+    --user-msg: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
     --ai-msg: #0d0d12; --error: #ff4d4d; --hover-bg: #17171c;
     --code-bg: #0f0f14;
 }
 .light-theme {
-    --bg: #f6f2ff; --sidebar: #ffffff; --text: #221235; --input-bg: #eee8f8;
-    --border: #dcd0ee; --accent: linear-gradient(135deg, #ff3db4, #8b5cf6);
-    --accent-solid: #8b5cf6; --accent-hover: #7c3aed;
-    --user-msg: linear-gradient(135deg, #8b5cf6, #ff3db4);
-    --ai-msg: #ffffff; --hover-bg: #f0eafa; --code-bg: #f4effa;
+    --bg: #f4f7ff; --sidebar: #ffffff; --text: #0f172a; --input-bg: #eef2fc;
+    --border: #d9e1f4; --accent: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    --accent-solid: #2563eb; --accent-hover: #1d4ed8;
+    --user-msg: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    --ai-msg: #ffffff; --hover-bg: #edf2ff; --code-bg: #f1f4fc;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', system-ui, -apple-system, sans-serif; scrollbar-width: thin; scrollbar-color: #333 #0a0a0a; }
 svg { display: block; flex-shrink: 0; width: 1em; height: 1em; }

@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import Message, Chat, Memory, UserSettings, KnowledgeBase, KnowledgeItem, settings, async_session
 
-OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+OPENROUTER_URL = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/") + "/chat/completions"
+from docgen import looks_like_file_request
 
 
 def _get_openrouter_keys() -> list[str]:
@@ -30,21 +31,44 @@ def _is_exhausted(status_code: int, body: str) -> bool:
 
 DEFAULT_SYSTEM_PROMPT = "You are Zelpophai AI, created by Wanzu Ibrahim. Answer accurately and helpfully."
 
-# File generation capability: the app turns the AI's reply into a downloadable
-# file (the chat shows .md/.html/.docx/.pdf/.pptx/.xlsx/.csv download buttons,
-# and the response can be exported via the built-in document generator). Tell
-# the model to write COMPLETE file content instead of refusing to create files.
+# File generation: the AI puts each file inside a <zfile> tag; the server turns
+# every tag into a real stored file (docgen.py) and the chat shows a file card
+# with Download / Preview. The tag stays in the saved message so the AI can see
+# the file's content later and make edits ("make it shorter").
 FILE_GEN_PROMPT = (
-    "FILE GENERATION CAPABILITY: You can create files for the user. "
-    "When they ask you to generate, create, write or build a file - a welcome "
-    "page or website page, HTML page, document, report, resume, essay, slides/ "
-    "presentation, spreadsheet, table, invoice, PDF content, notes, code file, "
-    "etc. - respond with the COMPLETE, ready-to-use content of that file written "
-    "out fully in your message (the full HTML+CSS for a webpage, full markdown/ "
-    "text for a document, complete rows for a spreadsheet, etc.). The app turns "
-    "your reply into an actual downloadable file in the user's choice of format. "
-    "Never refuse or say you cannot create files here - your reply IS the file. "
-    "Keep any explanation short; prioritize the full content of the file itself."
+    "FILES: You can create real downloadable files (Word .docx, PDF, PowerPoint .pptx, "
+    "Excel .xlsx, .csv, .html web pages, .md, .txt and code files like .py/.js/.json). "
+    "Whenever the user asks you to create, write, make, convert or update a file, document, "
+    "CV/resume, cover letter, report, essay, letter, invoice, slides/presentation, spreadsheet, "
+    "budget, table, web page or code file to download, put the COMPLETE file inside ONE tag:\n"
+    "<zfile name=\"Short-Descriptive-Name.ext\">\n...full content...\n</zfile>\n"
+    "Rules: 1) Pick the extension the user asked for; if they didn't say: documents, letters, CVs and "
+    "reports = .docx, slides = .pptx, tables/budgets/trackers = .xlsx, web pages = .html. "
+    "2) Inside the tag write clean Markdown (for .html write the full HTML page with inline CSS; for code "
+    "files write only the code, no fences). 3) Write the whole thing - never placeholders like '[add more here]' "
+    "or 'etc.', never cut it short. Fill realistic details; use [Your Name]-style blanks only for the user's "
+    "personal facts you don't know. 4) Outside the tag write at most one short sentence before it and one "
+    "after it (e.g. what you made, and an offer to adjust). Do NOT repeat the content outside the tag. "
+    "5) Never say you can't create files. 6) Don't wrap the tag in a code block. "
+    "Format tips - Slides (.pptx): '# Deck title', a one-line subtitle, then one '## Slide title' per slide "
+    "with 3-6 short bullets; '### ' sub-headings inside a slide become 2-3 columns; a line starting "
+    "'Notes:' becomes speaker notes; end with '## Thank you'. Spreadsheets (.xlsx/.csv): one Markdown table per "
+    "sheet, a '## Sheet name' heading above each, plain numbers (1200, 12%, $5.50) and Excel formulas like "
+    "=SUM(B2:B9) where totals help. Documents: '# Title', '## Sections', lists, tables, and callouts like "
+    "'> [!TIP] ...' or '> [!WARNING] ...' where useful. When the user asks to change a file you made, send "
+    "the full updated file in a new tag with the same name."
+)
+
+# Grounding: the model has no live knowledge. Give it today's date and tell it
+# not to invent current facts when no web results were provided.
+HONESTY_PROMPT = (
+    "TODAY is {today} (UTC). Your built-in knowledge stops at your training date and you can't see the "
+    "internet unless web results are included in this conversation. For anything that changes over time "
+    "(news, 'this week', prices, exchange rates, scores, who currently holds a job or office, latest versions, "
+    "release dates, weather) and NO web results are provided: say plainly that you can't check live "
+    "information right now, give what you knew as of your training (clearly labelled as possibly out of "
+    "date), and suggest turning on Web search. Never invent dates, numbers, quotes, events, people, links "
+    "or sources. If you're not sure, say so."
 )
 
 DEFAULT_THINK_PROMPT = (
@@ -72,16 +96,28 @@ FACTCHECK_PROMPT = (
 )
 
 
+_CITE_RE = re.compile(r"(?<![\w\]\[(])[ \t]?\[\d+(?:,\s*\d+)*\](?!\()")
+
+
 def strip_citations(text: str) -> str:
-    text = re.sub(r"\[\d+(?:,\s*\d+)*\]", "", text)
-    text = re.sub(r" {2,}", " ", text)
-    return text
+    """Remove web-search markers like "[1]" or "[2, 3]" from prose.
+
+    The old version also removed every "[0]" (so `arr[0]` in code became
+    `arr`) and squashed all runs of spaces, which wrecked code indentation.
+    Now code blocks and inline code are left alone, an index straight after a
+    word (arr[0]) is never touched, and spacing is preserved."""
+    if not text or "[" not in text:
+        return text
+    parts = re.split(r"(```[\s\S]*?(?:```|$)|`[^`\n]*`)", text)
+    for i in range(0, len(parts), 2):
+        parts[i] = _CITE_RE.sub("", parts[i])
+    return "".join(parts)
 
 
 def process_response(text: str, research: bool) -> str:
-    # Always strip [1][2] during streaming -> plain text fallback.
-    # Link path tries after stream; if URLs found, saved message is relinked.
-    return strip_citations(text)
+    # Tokens from normal (non-web) models never carry citation markers, and a
+    # single token can't tell whether it's inside code — so leave them as-is.
+    return text
 
 
 def convert_citations_to_links(text: str, urls: list) -> str:
@@ -235,6 +271,8 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         base += "\nThink step-by-step before answering. Show your reasoning process clearly, then provide your final answer."
 
     base += "\n" + FILE_GEN_PROMPT
+    if not (research or factcheck):
+        base += "\n" + HONESTY_PROMPT.format(today=datetime.now(timezone.utc).strftime("%A, %d %B %Y"))
 
     parts = [base]
     if memories:
@@ -309,6 +347,140 @@ def _needs_live_data(text: str) -> bool:
     return bool(_LIVE_DATA_RE.search(text[:500]))
 
 
+def _sse(obj):
+    return f"data: {json.dumps(obj)}\n\n"
+
+
+async def _after_reply(chat_id, user_id, user_text):
+    """Turn <zfile> blocks in the reply just saved into real stored files.
+
+    Also catches the case where the user asked for a file but the model forgot
+    the tag: the reply (minus a chatty first/last line) becomes the file.
+    Yields one SSE event: {"files": [...], "content": updated message} or
+    {"file_error": "..."} when the user's file allowance is used up."""
+    import docgen
+    from fastapi import HTTPException as _HTTPExc
+    from sqlalchemy import select as _sel
+    from database import User as _User
+    from generate import store_file
+    from limits import check_limit
+
+    async with async_session() as db:
+        msg = (await db.execute(
+            _sel(Message).where(Message.chat_id == chat_id, Message.role == "assistant").order_by(Message.id.desc()).limit(1)
+        )).scalar_one_or_none()
+        if not msg or not msg.content:
+            return
+        text = docgen._strip_outer_fence_markers(msg.content)
+        blocks = docgen.extract_files(text)
+        if not blocks:
+            if "<zfile" in text.lower() or len(text) < 250 or not looks_like_file_request(user_text):
+                return
+            intro, body, name, fmt, outro = docgen.wrap_untagged(text, user_text)
+            if len(body) < 200:
+                return
+            text = "\n\n".join(x for x in (intro, f'<zfile name="{name}">\n{body}\n</zfile>', outro) if x)
+            blocks = docgen.extract_files(text)
+        todo = [b for b in blocks if not b["attrs"].get("id") and b["body"].strip()]
+        if not todo:
+            return
+        user = await db.get(_User, user_id)
+        if not user:
+            return
+        try:
+            await check_limit(user, db, "file_tool")
+        except _HTTPExc as e:
+            yield _sse({"file_error": str(e.detail)})
+            return
+        files = []
+        new_text = text
+        for b in reversed(blocks):
+            if b not in todo:
+                continue
+            try:
+                row, size, info = await store_file(db, user_id, b["body"], b["name"], b["fmt"])
+            except Exception as e:
+                print(f"[files] render failed for {b['name']}: {type(e).__name__}: {e}")
+                files.insert(0, {"name": b["name"], "error": "Couldn't build this file. Ask me to try again."})
+                continue
+            tag = docgen.build_tag(row.id, b["name"], size, b["body"], b["attrs"].get("title", ""))
+            new_text = new_text[:b["span"][0]] + tag + new_text[b["span"][1]:]
+            files.insert(0, {
+                "id": row.id, "name": b["name"], "format": b["fmt"], "size": size, "stats": info,
+                "label": docgen.format_label(b["fmt"]), "url": f"/api/files/{row.id}/download",
+                "preview": f"/api/generate/preview/{row.id}", "truncated": not b["closed"],
+            })
+        msg.content = new_text
+        await db.commit()
+        yield _sse({"files": files, "content": new_text, "message_id": msg.id})
+
+
+def _provisional_title(text):
+    """Quick title from the first message, used until the AI names the chat."""
+    t = (text or "").split("[File content:")[0].split("[File:")[0]
+    t = re.sub(r"\s+", " ", t).strip()
+    t = re.sub(r"^(hi|hello|hey)[,!. ]+", "", t, flags=re.I)
+    if not t:
+        return ""
+    first = re.split(r"(?<=[.?!])\s", t)[0]
+    if len(first) > 52:
+        first = first[:52].rsplit(" ", 1)[0] + "\u2026"
+    return first[:1].upper() + first[1:]
+
+
+async def _auto_title(chat_id, user_text):
+    """After the first reply in a chat, ask a small model for a 2-6 word title."""
+    from sqlalchemy import select as _sel, func as _f
+    async with async_session() as db:
+        chat = await db.get(Chat, chat_id)
+        if not chat:
+            return
+        n_user = (await db.execute(_sel(_f.count()).select_from(Message).where(Message.chat_id == chat_id, Message.role == "user"))).scalar() or 0
+        if n_user != 1:
+            return
+        cur = (chat.title or "").strip()
+        auto_ok = cur.startswith("New Chat") or cur == _provisional_title(user_text) or cur == (user_text or "")[:80]
+        if not auto_ok:
+            return
+        reply = (await db.execute(
+            _sel(Message.content).where(Message.chat_id == chat_id, Message.role == "assistant").order_by(Message.id.desc()).limit(1)
+        )).scalar() or ""
+    reply = re.sub(r"<zfile\b[^>]*name=\"([^\"]+)\"[^>]*>.*?(</zfile>|$)", r"[file \1]", reply, flags=re.S)
+    keys = _get_openrouter_keys()
+    title = ""
+    if keys and (user_text or "").strip():
+        prompt = (
+            "Give this conversation a short title of 2 to 6 words, like a chat app would. "
+            "Use the user's language. No quotes, no emoji, no full stop at the end. Reply with the title only.\n\n"
+            f"User: {(user_text or '')[:600]}\nAssistant: {reply[:500]}"
+        )
+        for key in keys[:2]:
+            try:
+                async with httpx.AsyncClient(timeout=12) as client:
+                    r = await client.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+                                          json={"model": os.getenv("TITLE_MODEL", "openai/gpt-6-luna"),
+                                                "messages": [{"role": "user", "content": prompt}],
+                                                "max_tokens": 24, "temperature": 0.3})
+                if r.status_code == 200:
+                    title = (r.json().get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+                    break
+            except Exception:
+                continue
+    title = re.sub(r"^(title\s*:\s*)", "", title, flags=re.I).strip().strip("\"'`*#").strip()
+    title = re.sub(r"[.\s]+$", "", title).split("\n")[0][:60]
+    if not title or len(title) < 2:
+        title = _provisional_title(user_text)
+    if not title:
+        return
+    async with async_session() as db:
+        chat = await db.get(Chat, chat_id)
+        if not chat:
+            return
+        chat.title = title
+        await db.commit()
+    yield _sse({"title": title, "chat_id": chat_id})
+
+
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False):
     user_id = None
     messages = []
@@ -357,7 +529,13 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     # Auto web search: live-data questions (news, prices, scores, "latest"...)
     # are routed to Sonar without any toggle. Explicit web/research/factcheck
     # flags still force it.
-    auto_web = (not has_images) and _needs_live_data(last_user_msg)
+    _user_ask = last_user_msg.split("[File content:")[0].split("[File:")[0]
+    _wants_file = looks_like_file_request(_user_ask)
+    auto_web = (not has_images) and _needs_live_data(_user_ask) and not (
+        _wants_file and "[File" in last_user_msg)
+    if _wants_file:
+        # Whole documents need room: the default 2048 tokens cuts CVs/decks short.
+        user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
 
     if not has_images and (web_search or research or factcheck or auto_web):
         user_model = "perplexity/sonar"
@@ -368,18 +546,6 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     if research or factcheck:
         user_max_tokens = 4096
         user_temperature = 0.3
-
-    # Basic Directory short-circuit — answer from canned knowledge (saves credits)
-    # and works identically for offline-style responses. Disabled whenever the user
-    # enables web search, research, think, fact-check or sends images, so the actual
-    # AI service handles those cases instead of a canned directory answer.
-    from directory import match_directory as _match_directory
-    _dir_match = None
-    if not research and not factcheck and not web_search and not auto_web and not images and not think:
-        try:
-            _dir_match = _match_directory(last_user_msg)
-        except Exception:
-            _dir_match = None
 
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
     messages.insert(0, {"role": "system", "content": system_prompt})
@@ -402,22 +568,6 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
     async def generate():
         full_response = ""
-
-        # Basic Directory short-circuit: answer from canned knowledge without
-        # calling the paid AI — saves OpenRouter credits and works offline-style.
-        if _dir_match:
-            answer = _dir_match.get("answer", "")
-            if answer:
-                for i in range(0, len(answer), 20):
-                    yield f"data: {json.dumps({'token': answer[i:i+20]})}\n\n"
-                    import asyncio as _aio_dir
-                    await _aio_dir.sleep(0.02)
-                async with async_session() as db:
-                    ai_msg = Message(chat_id=chat_id, role="assistant", content=answer)
-                    db.add(ai_msg)
-                    await db.commit()
-                yield "data: [DONE]\n\n"
-                return
 
         # True links path for web/research/factcheck (perplexity) - non-stream to get real citation URLs
         is_perplexity = user_model == "perplexity/sonar"
@@ -643,4 +793,23 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
         yield "data: [DONE]\n\n"
 
-    return StreamingResponse(generate(), media_type="text/event-stream")
+    async def generate_wrapped():
+        done_sent = False
+        async for chunk in generate():
+            if not done_sent and chunk.strip() == "data: [DONE]":
+                done_sent = True
+                try:
+                    async for extra in _after_reply(chat_id, user_id, _user_ask):
+                        yield extra
+                except Exception as e:  # never break the reply over a file/title problem
+                    print(f"[after_reply] {type(e).__name__}: {e}")
+                yield chunk
+                try:
+                    async for extra in _auto_title(chat_id, _user_ask):
+                        yield extra
+                except Exception as e:
+                    print(f"[auto_title] {type(e).__name__}: {e}")
+                continue
+            yield chunk
+
+    return StreamingResponse(generate_wrapped(), media_type="text/event-stream")

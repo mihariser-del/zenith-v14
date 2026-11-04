@@ -293,26 +293,37 @@ def file_to_data_url(file_path: str, mime: str) -> str:
         return ""
 
 
+_PDF_SCRIPT = """
+import sys
+try:
+    from pypdf import PdfReader
+except ImportError:
+    print("[PDF reading is not available on this server]")
+    raise SystemExit(0)
+reader = PdfReader(sys.argv[1])
+out = []
+total = 0
+for page in reader.pages:
+    t = page.extract_text() or ""
+    out.append(t)
+    total += len(t)
+    if total > int(sys.argv[2]):
+        break
+print("\\n".join(out)[: int(sys.argv[2])])
+"""
+
+
 def extract_pdf_text(file_path: str) -> str:
+    # Runs in a child process with a timeout so a malformed or hostile PDF
+    # can't hang or crash the web server. The path is passed as an argument,
+    # never pasted into the code.
+    import sys as _sys
     try:
         result = subprocess.run(
-            ["python", "-c", f"""
-import sys
-sys.path.insert(0, '.')
-try:
-    import PyPDF2
-    with open(r"{file_path}", "rb") as f:
-        reader = PyPDF2.PdfReader(f)
-        text = ""
-        for page in reader.pages:
-            text += page.extract_text() or ""
-        print(text[:{MAX_TEXT}])
-except ImportError:
-    print("[PDF extraction requires PyPDF2. Install with: pip install PyPDF2]")
-"""],
+            [_sys.executable, "-I", "-c", _PDF_SCRIPT, file_path, str(MAX_TEXT)],
             capture_output=True, text=True, timeout=30
         )
-        return result.stdout or "[Could not extract PDF text]"
+        return result.stdout.strip() or "[Could not extract PDF text]"
     except Exception as e:
         return f"[PDF extraction error: {e}]"
 

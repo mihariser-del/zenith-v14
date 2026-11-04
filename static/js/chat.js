@@ -76,14 +76,13 @@ const Chat = {
             (main || container.parentElement).appendChild(btn);
         }
         const toggle = () => {
-            if (container.scrollTop + container.clientHeight < container.scrollHeight - 100) {
-                btn.style.display = 'flex';
-            } else {
-                btn.style.display = 'none';
-            }
+            const away = container.scrollTop + container.clientHeight < container.scrollHeight - 100;
+            btn.style.display = away ? 'flex' : 'none';
+            // Follow new text only while the reader is at (or near) the bottom.
+            Chat._stickBottom = container.scrollTop + container.clientHeight >= container.scrollHeight - 140;
         };
         container.addEventListener('scroll', toggle);
-        btn.addEventListener('click', () => { container.scrollTop = container.scrollHeight; });
+        btn.addEventListener('click', () => { Chat._stickBottom = true; container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' }); });
         toggle();
     },
 
@@ -650,9 +649,7 @@ const Chat = {
         if (streaming) {
             bubble.innerHTML = '<span class="thinking-text">Thinking...</span>';
         } else if (role === 'assistant') {
-            bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
-            bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-            Chat.enhanceCodeBlocks(bubble);
+            ZRender.render(bubble, content);
             Chat.enhanceVideos(bubble);
         } else {
             if (images && images.length > 0) {
@@ -688,9 +685,7 @@ const Chat = {
             if (contentForDisplay && contentForDisplay !== '(image)' && contentForDisplay.trim() !== '') {
                 const textNode = document.createElement('div');
                 if (contentForDisplay.includes('```') || contentForDisplay.includes('<') && contentForDisplay.includes('>')) {
-                    textNode.innerHTML = DOMPurify.sanitize(marked.parse(contentForDisplay));
-                    textNode.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-                    Chat.enhanceCodeBlocks(textNode);
+                    ZRender.render(textNode, contentForDisplay, { inner: true });
                 } else {
                     textNode.textContent = contentForDisplay;
                 }
@@ -720,7 +715,8 @@ const Chat = {
         }
 
         container.appendChild(wrapper);
-        container.scrollTop = container.scrollHeight;
+        if (role === 'user' || streaming) this._stickBottom = true;
+        if (this._stickBottom !== false) container.scrollTop = container.scrollHeight;
         return bubble;
     },
 
@@ -728,33 +724,57 @@ const Chat = {
         const actions = document.createElement('div');
         actions.className = 'msg-actions';
         if (role === 'assistant') {
-            actions.innerHTML = `
-                <button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button>
-                <button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button>
-                <button data-action="share-twitter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/></svg> Share</button>
-                <button data-action="share-whatsapp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg> Share</button>
-                <button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>
-                <button data-action="download-html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .html</button>`;
-            actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
-                navigator.clipboard.writeText(content);
-                showToast('Copied!', 'success');
+            const I = ZRender.icons;
+            const ico = {
+                speak: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>',
+                share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>',
+                more: '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>'
+            };
+            actions.classList.add('zr-actions');
+            actions.innerHTML =
+                '<button type="button" data-action="copy" title="Copy" aria-label="Copy reply">' + I.copy + '<span>Copy</span></button>' +
+                '<button type="button" data-action="speak" title="Read aloud" aria-label="Read aloud">' + ico.speak + '</button>' +
+                '<button type="button" data-action="share" title="Share" aria-label="Share reply">' + ico.share + '</button>' +
+                '<div class="zr-menu-wrap"><button type="button" data-action="more" title="Save as\u2026" aria-label="More options" aria-haspopup="menu" aria-expanded="false">' + I.dl + '<span>Save as</span></button>' +
+                '<div class="zr-menu" role="menu" hidden>' +
+                    '<button type="button" role="menuitem" data-fmt="docx">Word (.docx)</button>' +
+                    '<button type="button" role="menuitem" data-fmt="pdf">PDF</button>' +
+                    '<button type="button" role="menuitem" data-fmt="md">Markdown (.md)</button>' +
+                    '<button type="button" role="menuitem" data-fmt="html">Web page (.html)</button>' +
+                    '<button type="button" role="menuitem" data-fmt="txt">Plain text (.txt)</button>' +
+                '</div></div>';
+            const plainText = () => ZRender.plain(content);
+            const baseName = () => {
+                const h = /^#\s+(.+)$/m.exec(content.replace(/<zfile[\s\S]*?(<\/zfile>|$)/gi, ''));
+                const t = (h ? h[1] : (Chat.chats[Chat.activeId] && Chat.chats[Chat.activeId].title) || 'response');
+                return t.replace(/[^\w\s-]/g, '').trim().replace(/\s+/g, '-').slice(0, 50) || 'response';
+            };
+            actions.querySelector('[data-action="copy"]').addEventListener('click', e => ZRender.copyText(plainText(), e.currentTarget));
+            actions.querySelector('[data-action="speak"]').addEventListener('click', () => Voice.speak(plainText().replace(/```[\s\S]*?```/g, ' (code) ')));
+            actions.querySelector('[data-action="share"]').addEventListener('click', async () => {
+                const txt = plainText();
+                const short = txt.length > 280 ? txt.slice(0, 280) + '\u2026' : txt;
+                if (navigator.share) {
+                    try { await navigator.share({ title: 'Zelpophai AI', text: short + '\n\nTry Zelpophai AI: ' + location.origin }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+                }
+                Chat._shareMenu(actions.querySelector('[data-action="share"]'), short);
             });
-            actions.querySelector('[data-action="speak"]').addEventListener('click', () => {
-                Voice.speak(content);
+            const moreBtn = actions.querySelector('[data-action="more"]');
+            const menu = actions.querySelector('.zr-menu');
+            const closeMenu = () => { menu.hidden = true; moreBtn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', outside, true); };
+            const outside = e => { if (!menu.contains(e.target) && e.target !== moreBtn && !moreBtn.contains(e.target)) closeMenu(); };
+            moreBtn.addEventListener('click', () => {
+                const open = menu.hidden;
+                document.querySelectorAll('.zr-menu').forEach(m => { m.hidden = true; });
+                menu.hidden = !open;
+                moreBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+                if (open) setTimeout(() => document.addEventListener('click', outside, true), 0);
             });
-            actions.querySelector('[data-action="share-twitter"]').addEventListener('click', () => {
-                const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
-                window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Zelpophai AI response:\n\n' + truncated + '\n\nTry Zelpophai AI: ' + window.location.origin)}`, '_blank');
-            });
-            actions.querySelector('[data-action="share-whatsapp"]').addEventListener('click', () => {
-                const truncated = content.length > 200 ? content.slice(0, 200) + '...' : content;
-                window.open(`https://wa.me/?text=${encodeURIComponent('Zelpophai AI response:\n\n' + truncated + '\n\nTry Zelpophai AI: ' + window.location.origin)}`, '_blank');
-            });
-            actions.querySelector('[data-action="download-md"]').addEventListener('click', () => {
-                Chat.downloadAs(content, 'response', 'md');
-            });
-            actions.querySelector('[data-action="download-html"]').addEventListener('click', () => {
-                Chat.downloadAs(content, 'response', 'html');
+            menu.addEventListener('click', e => {
+                const b = e.target.closest('[data-fmt]'); if (!b) return;
+                closeMenu();
+                const src = content.replace(/<zfile\b[^>]*>\n?([\s\S]*?)(<\/zfile>|$)/gi, '$1');
+                Chat.downloadAs(src, baseName(), b.getAttribute('data-fmt'));
             });
         } else {
             actions.innerHTML = `
@@ -777,6 +797,23 @@ const Chat = {
             });
         }
         return actions;
+    },
+
+    _shareMenu(anchor, text) {
+        const old = document.getElementById('zr-share-pop');
+        if (old) { old.remove(); return; }
+        const pop = document.createElement('div');
+        pop.id = 'zr-share-pop';
+        pop.className = 'zr-menu zr-share-pop';
+        pop.setAttribute('role', 'menu');
+        const msg = encodeURIComponent('Zelpophai AI:\n\n' + text + '\n\nTry Zelpophai AI: ' + location.origin);
+        pop.innerHTML = '<a role="menuitem" target="_blank" rel="noopener" href="https://wa.me/?text=' + msg + '">WhatsApp</a>' +
+            '<a role="menuitem" target="_blank" rel="noopener" href="https://twitter.com/intent/tweet?text=' + msg + '">X (Twitter)</a>' +
+            '<button type="button" role="menuitem" data-copy="1">Copy text</button>';
+        anchor.parentElement.appendChild(pop);
+        pop.querySelector('[data-copy]').addEventListener('click', () => { ZRender.copyText(text); pop.remove(); });
+        pop.addEventListener('click', e => { if (e.target.closest('a')) setTimeout(() => pop.remove(), 50); });
+        setTimeout(() => document.addEventListener('click', function off(e) { if (!pop.contains(e.target)) { pop.remove(); document.removeEventListener('click', off, true); } }, true), 0);
     },
 
     async _postStreamSync(userWrapper, textToMatch) {
@@ -892,12 +929,17 @@ const Chat = {
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     const data = line.slice(6).trim();
-                    if (data === '[DONE]') break;
+                    if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(assistantBubble, fullResponse);
+                        }
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                            const st = { text: fullResponse };
+                            this._handleStreamMeta(parsed, assistantBubble, st);
+                            fullResponse = st.text;
                         }
                         if (parsed.error) {
                             showToast(parsed.error, 'error');
@@ -909,17 +951,11 @@ const Chat = {
             }
             assistantBubble.classList.remove('streaming-cursor');
             if (fullResponse) {
-                this.updateStreamingBubble(assistantBubble, fullResponse);
-                const actions = document.createElement('div');
-                actions.className = 'msg-actions';
-                actions.innerHTML = `<button data-action="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy</button><button data-action="speak"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg> Speak</button><button data-action="download-md"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> .md</button>`;
-                actions.querySelector('[data-action="copy"]').addEventListener('click', () => {
-                    navigator.clipboard.writeText(fullResponse.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 [$2]'));
-                    showToast('Copied!', 'success');
-                });
-                actions.querySelector('[data-action="speak"]').addEventListener('click', () => { Voice.speak(fullResponse); });
-                actions.querySelector('[data-action="download-md"]').addEventListener('click', () => { Chat.downloadAs(fullResponse, 'response', 'md'); });
-                assistantBubble.parentElement.appendChild(actions);
+                this.finalizeBubble(assistantBubble, fullResponse);
+                const aw = assistantBubble.parentElement;
+                const oldA = aw.querySelector('.msg-actions');
+                if (oldA) oldA.remove();
+                aw.appendChild(this._buildMsgActions('assistant', fullResponse, null, aw));
             }
         } catch (err) {
             if (err.name === 'AbortError') {
@@ -1304,16 +1340,81 @@ const Chat = {
         return !!container.querySelector('img[alt="Generated image"]');
     },
 
+    // Tokens arrive many times a second; re-rendering Markdown on every one made
+    // long answers stutter. Render at most once per animation frame (~every 60ms),
+    // and only highlight code once each block is finished.
     updateStreamingBubble(bubble, text) {
         this._stopSketch();
+        bubble._pendingText = text;
+        if (bubble._raf) return;
+        const now = performance.now();
+        const wait = Math.max(0, 60 - (now - (bubble._lastPaint || 0)));
+        bubble._raf = setTimeout(() => requestAnimationFrame(() => {
+            bubble._raf = null;
+            bubble._lastPaint = performance.now();
+            if (!bubble.isConnected || bubble._final) return;
+            const thinking = bubble.querySelector('.thinking-text');
+            if (thinking) thinking.remove();
+            ZRender.render(bubble, bubble._pendingText, { streaming: true });
+            Chat._wireImages(bubble);
+            Chat._autoScroll();
+        }), wait);
+    },
+
+    // Final, full-quality render once the reply is complete.
+    finalizeBubble(bubble, text) {
+        if (!bubble) return;
+        if (bubble._raf) { clearTimeout(bubble._raf); bubble._raf = null; }
+        bubble._final = true;
+        bubble.classList.remove('streaming-cursor');
         const thinking = bubble.querySelector('.thinking-text');
         if (thinking) thinking.remove();
-        bubble.innerHTML = DOMPurify.sanitize(marked.parse(text));
-        bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
-        Chat.enhanceCodeBlocks(bubble);
+        ZRender.render(bubble, text);
+        Chat.enhanceVideos(bubble);
         Chat._wireImages(bubble);
-        const container = $('chat-container');
-        container.scrollTop = container.scrollHeight;
+        Chat._autoScroll();
+    },
+
+    // Keep following the reply only while the reader is at the bottom; if they
+    // scrolled up to read, leave them there (the ↓ button takes them back).
+    _autoScroll(force) {
+        const c = $('chat-container');
+        if (!c) return;
+        if (force || this._stickBottom !== false) c.scrollTop = c.scrollHeight;
+    },
+
+    // Extra server events that ride along the reply stream.
+    _handleStreamMeta(parsed, bubble, state) {
+        if (parsed.files || parsed.content) {
+            if (parsed.content) state.text = parsed.content;
+            this.finalizeBubble(bubble, state.text);
+            (parsed.files || []).forEach(f => {
+                if (f.error) showToast(f.name + ': ' + f.error, 'error');
+                else if (f.truncated) showToast(f.name + ' may be cut short \u2014 ask me to continue it', 'error');
+            });
+            const ok = (parsed.files || []).filter(f => !f.error);
+            if (ok.length) showToast(ok.length === 1 ? (ok[0].name + ' is ready') : (ok.length + ' files are ready'), 'success');
+            const wrap = bubble.parentElement;
+            if (wrap) {
+                const old = wrap.querySelector('.msg-actions');
+                if (old) old.replaceWith(this._buildMsgActions('assistant', state.text, parsed.message_id || null, wrap));
+            }
+            if (typeof Files !== 'undefined' && Files && typeof Files.load === 'function') { try { Files.load(); } catch (e) {} }
+        }
+        if (parsed.file_error) {
+            bubble.querySelectorAll('.zf-card.pending, .zf-card.writing').forEach(card => {
+                card.classList.remove('pending', 'writing');
+                card.classList.add('failed');
+                const sub = card.querySelector('.zf-sub');
+                if (sub) sub.textContent = parsed.file_error;
+            });
+            if (typeof showLimitPopup === 'function' && /limit|cooldown|wait|guest|pause/i.test(parsed.file_error)) showLimitPopup(parsed.file_error);
+        }
+        if (parsed.title && parsed.chat_id && this.chats[parsed.chat_id]) {
+            this.chats[parsed.chat_id].title = parsed.title;
+            this.renderList();
+            if (this.activeId === parsed.chat_id) this.renderHeader();
+        }
     },
     enhanceCodeBlocks(bubble) {
         bubble.querySelectorAll('pre').forEach(pre => {
@@ -1483,12 +1584,17 @@ const Chat = {
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     const data = line.slice(6).trim();
-                    if (data === '[DONE]') break;
+                    if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);
+                        }
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                            const st = { text: fullResponse };
+                            this._handleStreamMeta(parsed, bubble, st);
+                            fullResponse = st.text;
                         }
                         if (parsed.citations) {
                             try {
@@ -1514,13 +1620,8 @@ const Chat = {
                             }
                         }
                         if (parsed.error) {
-                            if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(text)) {
-                                this._renderBusyFallback(bubble);
-                            } else {
-                                showToast(parsed.error, 'error');
-                                bubble.textContent = 'Error: ' + parsed.error;
-                                bubble.classList.remove('streaming-cursor');
-                            }
+                            showToast(parsed.error, 'error');
+                            this._showReplyError(bubble, parsed.error, fullResponse);
                         }
                     } catch (e) {}
                 }
@@ -1528,7 +1629,7 @@ const Chat = {
 
             bubble.classList.remove('streaming-cursor');
             if (fullResponse) {
-                this.updateStreamingBubble(bubble, fullResponse);
+                this.finalizeBubble(bubble, fullResponse);
                 // Voice-to-voice auto speak if enabled
                 if (Voice.voiceToVoice) {
                     Voice.speak(fullResponse, true);
@@ -1555,9 +1656,6 @@ const Chat = {
                 const old = aiWrapper.querySelector('.msg-actions');
                 if (old) old.remove();
                 aiWrapper.appendChild(this._buildMsgActions('assistant', fullResponse, null, aiWrapper));
-                if (this._looksLikeGenerationRequest(text)) {
-                    this._appendFilePill(bubble, fullResponse, this._docSlug(text, 'generated-file'), text);
-                }
                 this._postStreamSync(userWrapper, fullResponse);
             }
         } catch (err) {
@@ -1566,7 +1664,7 @@ const Chat = {
                 if (!fullResponse) bubble.textContent = 'Stopped.';
                 bubble.classList.remove('streaming-cursor');
             } else if (!navigator.onLine || err.message === 'Failed to fetch') {
-                // Network lost mid-chat — offer retry or offline mode
+                // Network lost mid-chat — show the offline notice
                 bubble.textContent = '';
                 bubble.classList.remove('streaming-cursor');
                 if (typeof showOfflineScreen === 'function') showOfflineScreen();
@@ -1635,20 +1733,29 @@ const Chat = {
         return saysGenerate && wantsFile;
     },
 
-    _renderBusyFallback(bubble) {
-        this._stopSketch();
-        const note = "The AI is currently busy, so I can't give you the exact context of your request. Use this test file as a simple test to see if you can download the file.";
+    // A failed reply shows a clear error with a Retry button instead of a dead bubble.
+    _showReplyError(bubble, msg, partial) {
         bubble.classList.remove('streaming-cursor');
-        bubble.innerHTML =
-            `<div style="margin-bottom:10px;">${this.escapeHtml(note)}</div>` +
-            `<div class="file-card" style="margin-bottom:0;">` +
-                `<div class="fc-ic">&#128196;</div>` +
-                `<div class="fc-body"><div class="fc-name">test-file.docx</div><div class="fc-sub">Test document &middot; ready to download</div></div>` +
-                `<div class="fc-actions"><button class="fc-btn primary" data-act="dl">` +
-                    `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</button></div>` +
-            `</div>`;
-        const btn = bubble.querySelector('[data-act="dl"]');
-        if (btn) btn.addEventListener('click', () => this.downloadAs(note, 'test-file', 'docx'));
+        bubble._final = true;
+        if (bubble._raf) { clearTimeout(bubble._raf); bubble._raf = null; }
+        if (partial) ZRender.render(bubble, partial); else bubble.innerHTML = '';
+        const box = document.createElement('div');
+        box.className = 'zr-error';
+        box.setAttribute('role', 'alert');
+        const busy = this._isBusyError(msg);
+        box.innerHTML = '<div class="zr-error-t"></div><div class="zr-error-d"></div>';
+        box.querySelector('.zr-error-t').textContent = busy ? 'Zelpophai AI is busy right now' : 'Something went wrong';
+        box.querySelector('.zr-error-d').textContent = busy ? 'Too many people are asking at once. Wait a few seconds and try again.' : String(msg || '').slice(0, 300);
+        const retry = document.createElement('button');
+        retry.type = 'button';
+        retry.className = 'zf-btn primary';
+        retry.textContent = 'Try again';
+        retry.addEventListener('click', () => {
+            if (this.isStreaming) return;
+            this.regenerate(); // removes this failed reply and asks again
+        });
+        box.appendChild(retry);
+        bubble.appendChild(box);
     },
 
     // While a file is being generated, replace the assistant bubble with the
@@ -1688,85 +1795,6 @@ const Chat = {
 
     _stopSketch() {
         if (this._sketchTimer) { clearInterval(this._sketchTimer); this._sketchTimer = null; }
-    },
-
-    _docSlug(text, fallback) {
-        const t = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-        return (t.slice(0, 40) || fallback || 'generated-file');
-    },
-
-    // Infer the single format the user actually asked for, so we surface one
-    // clear download instead of a wall of format buttons.
-    _detectRequestedFormat(text) {
-        const t = String(text || '').toLowerCase();
-        if (/\bppt\b|pptx|\bslides?\b|deck|presentation|powerpoint|keynote/.test(t)) return 'pptx';
-        if (/xlsx|spreadsheet|excel|\bsheet\b|\bxl\b/.test(t)) return 'xlsx';
-        if (/\bcsv\b|comma[ -]?separated/.test(t)) return 'csv';
-        if (/\bpdf\b/.test(t)) return 'pdf';
-        if (/docx|\bword\b|\.doc\b/.test(t)) return 'docx';
-        if (/\bhtml\b|web ?page|webpage|landing page|website/.test(t)) return 'html';
-        if (/\bmarkdown\b/.test(t)) return 'md';
-        if (/\btxt\b|text file|plain text/.test(t)) return 'txt';
-        if (/\b(document|docs?|report|resume|cv|essay|cover[ -]?letter|invoice|proposal|notes?)\b/.test(t)) return 'docx';
-        return 'md';
-    },
-
-    _fileIcon(fmt) {
-        const ic = { docx: '&#128196;', pdf: '&#128213;', pptx: '&#128202;', xlsx: '&#128200;', csv: '&#128200;', html: '&#127760;', md: '&#128221;', txt: '&#128221;' };
-        return ic[fmt] || '&#128196;';
-    },
-
-    // When the user asks for a generated file (doc, slides, ...), persist it
-    // server-side and surface a single, shareable download card on the bubble.
-    _appendFilePill(bubble, content, filename, userText) {
-        const fmt = this._detectRequestedFormat(userText || filename);
-        const slug = this._docSlug(userText || filename, 'generated-file');
-        const card = document.createElement('div');
-        card.className = 'file-card';
-        card.innerHTML =
-            `<div class="fc-ic">${this._fileIcon(fmt)}</div>` +
-            `<div class="fc-body"><div class="fc-name">${this.escapeHtml(slug)}.${fmt}</div>` +
-            `<div class="fc-sub"><span class="fc-spin"></span> Preparing your ${fmt.toUpperCase()} file…</div></div>`;
-        bubble.appendChild(card);
-
-        const setError = (detail) => {
-            const sub = card.querySelector('.fc-sub');
-            if (sub) sub.innerHTML = detail ? this.escapeHtml(detail) : 'Could not prepare this file.';
-            if (detail && /limit|cooldown|wait|guest|pause/i.test(detail) && typeof showLimitPopup === 'function') showLimitPopup(detail);
-        };
-
-        fetch('/api/generate/file', {
-            method: 'POST',
-            credentials: 'same-origin',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content, filename: slug, format: fmt }),
-        })
-            .then(async res => {
-                if (!res.ok) {
-                    let detail = '';
-                    try { const j = await res.json(); detail = (j && j.detail) || ''; } catch (e) {}
-                    setError(detail);
-                    return;
-                }
-                const info = await res.json();
-                const kb = info.size ? (info.size / 1024).toFixed(1) + ' KB' : '';
-                card.innerHTML =
-                    `<div class="fc-ic">${this._fileIcon(fmt)}</div>` +
-                    `<div class="fc-body"><div class="fc-name">${this.escapeHtml(info.filename || (slug + '.' + fmt))}</div>` +
-                    `<div class="fc-sub">${fmt.toUpperCase()}${kb ? ' &middot; ' + kb : ''} &middot; ready to download</div></div>` +
-                    `<div class="fc-actions">` +
-                        `<a class="fc-btn primary" href="${info.url}" download>` +
-                            `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Download</a>` +
-                        `<button class="fc-btn" data-act="copy">Copy link</button>` +
-                    `</div>`;
-                const copyBtn = card.querySelector('[data-act="copy"]');
-                if (copyBtn) copyBtn.addEventListener('click', () => {
-                    const abs = new URL(info.url, location.origin).href;
-                    if (navigator.clipboard) navigator.clipboard.writeText(abs).then(() => showToast('Link copied', 'success')).catch(() => showToast(abs, 'success'));
-                    else showToast(abs, 'success');
-                });
-            })
-            .catch(() => setError('Could not prepare this file.'));
     },
 
     _showLimitBanner(secs, isGuest, rawDetail) {
@@ -1874,21 +1902,21 @@ const Chat = {
                 for (const line of lines) {
                     if (!line.startsWith('data: ')) continue;
                     const data = line.slice(6).trim();
-                    if (data === '[DONE]') break;
+                    if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                            const st = { text: fullResponse };
+                            this._handleStreamMeta(parsed, bubble, st);
+                            fullResponse = st.text;
+                        }
                         if (parsed.error) {
-                            if (this._isBusyError(parsed.error) && this._looksLikeGenerationRequest(lastUserMsg.content)) {
-                                this._renderBusyFallback(bubble);
-                            } else {
-                                showToast(parsed.error, 'error');
-                                if (!fullResponse) bubble.textContent = 'Error: ' + parsed.error;
-                                bubble.classList.remove('streaming-cursor');
-                            }
+                            showToast(parsed.error, 'error');
+                            this._showReplyError(bubble, parsed.error, fullResponse);
                         }
                     } catch (e) {}
                 }
@@ -1896,9 +1924,7 @@ const Chat = {
 
             bubble.classList.remove('streaming-cursor');
             if (fullResponse) {
-                if (this._looksLikeGenerationRequest(lastUserMsg.content)) {
-                    this._appendFilePill(bubble, fullResponse, this._docSlug(lastUserMsg.content, 'generated-file'), lastUserMsg.content);
-                }
+                this.finalizeBubble(bubble, fullResponse);
                 this.showRegenerate();
             }
         } catch (err) {

@@ -1,5 +1,23 @@
 ﻿# Changelog
 
+## 20.7 — Real file generation, better answers, security fixes
+
+- **File generation rebuilt** (`docgen.py`): the AI wraps each file in `<zfile name="…">`; the server turns it into a real file, stores it (with its Markdown source for previews), and the chat shows a file card with **Preview**, **Download** and **Show text**. Cards survive reloads, files are versioned when the AI edits them, and if the AI forgets the tag the reply still becomes the file. One parser (mistune) feeds every format:
+  - **Word**: styled headings, bold/italic/links, nested and tick lists, shaded tables with repeating headers, code boxes, callouts, page X of Y footer; letters and CVs skip the report header
+  - **PDF**: brand ribbon, page numbers, real tables with proportional columns, code boxes, callouts, Unicode fonts (DejaVu bundled in `fonts/`)
+  - **PowerPoint**: dark brand design, title slide, bullet slides that split when long, 2–3 column slides from `###`, table and code slides, quote and closing slides, speaker notes from `Notes:`
+  - **Excel**: numbers, money and percentages stored as real values with formats, formulas kept, bold totals, banded rows, filters and frozen headers; one sheet per table
+  - Also CSV (Excel-friendly UTF-8), HTML (styled page or the AI's own page), Markdown, text and code files
+  - `GET /api/generate/preview/{id}` serves a sandboxed HTML preview (CSP sandbox, owner only)
+  - Long documents get up to `FILE_MAX_TOKENS` (default 8000) so they aren't cut off
+- **Message rendering rebuilt** (`static/js/render.js`, `render.css`): streaming repaints at most once a frame and only highlights finished code; code blocks with language, line count, copy, wrap, download and folding for long code; tables with copy and CSV; GitHub-style callouts; tick lists; KaTeX maths (loaded on demand); source chips for web links; reply errors show a Retry button; compact actions with **Save as** (Word/PDF/MD/HTML/TXT) and native share; scrolling no longer yanks you down while you read
+- **Auto chat titles**: a quick title from the first message, then a short AI-written one after the first reply (`TITLE_MODEL`)
+- **Honesty**: the system prompt now includes today's date and tells the AI not to invent live facts without web results
+- **Bug fixes**: citation stripping no longer deletes `arr[0]` from code or squashes indentation; free models picked by users are no longer reset on every boot; the same image prompt now gets a fresh seed; the fake "test file" shown when the AI was busy is gone
+- **Security**: client IP comes from `X-Real-IP` / the right-most `X-Forwarded-For` hop (`TRUSTED_PROXY_HOPS`), so rate limits can't be dodged with a fake header; login lockouts are checked before the password and are per username + IP, so nobody can lock the owner out; `python-jose` → `PyJWT`, `PyPDF2` → `pypdf` (PDF text read in an isolated child process), FastAPI 0.162 / Starlette 1.10, python-multipart 0.0.33; marked pinned to 15.0.12
+- **Light mode** uses the blue-purple brand (including for staff accounts)
+- **Removed**: the offline directory (`directory.py`, `directory.js`, Offline Mode chat and the canned-answer shortcut); going offline shows a simple notice
+
 ## 20.6 — AI video, new look, welcome page
 
 - **AI video generation** (OpenRouter video API): tap **Video** in the message box or say "make a 6 second video of…"; attach a photo and say "animate this" for image-to-video. 4/6/8-second clips, wide or tall, with sound. A live "rendering" card shows progress; the server keeps working if you close the tab and the video lands in the chat when ready, with a player and a download button. Pro: 3/day on Veo 3.1 Lite; Ultimate: 10/day on Veo 3.1 Fast; staff: 20/day. Failed clips don't count. All tunable with `VIDEO_*` env vars

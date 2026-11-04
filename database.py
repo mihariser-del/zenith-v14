@@ -675,21 +675,28 @@ async def init_db():
             await session.commit()
         except Exception as e:
             print(f"sync admin role: {e}")
+        # Move people off models that were removed from the picker. This used to
+        # reset EVERY ":free" model on every boot, so anyone who picked the free
+        # Nemotron model lost that choice on each deploy. Now only models that are
+        # no longer offered get moved, and models still in the list are left alone.
         try:
+            from user_settings import PRESET_MODELS as _PRESETS
+            _keep = [m["id"] for m in _PRESETS]
+            _sa = __import__("sqlalchemy")
+            _params = {f"k{i}": mid for i, mid in enumerate(_keep)}
+            _params["freepat"] = "%:free"
+            _in = ", ".join(f":k{i}" for i in range(len(_keep))) or "''"
             await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-6-luna' WHERE model LIKE '%free%' OR model='qwen/qwen-2.5-7b-instruct' OR model='openai/gpt-4o-mini'")
+                _sa.text(
+                    "UPDATE user_settings SET model='openai/gpt-6-luna' "
+                    "WHERE (model LIKE :freepat OR model IN ('qwen/qwen-2.5-7b-instruct','openai/gpt-4o-mini')) "
+                    f"AND model NOT IN ({_in})"
+                ),
+                _params,
             )
             await session.commit()
         except Exception as e:
-            print(f"reset to openai: {e}")
-        # Reset any free models back to OpenAI
-        try:
-            await session.execute(
-                __import__("sqlalchemy").text("UPDATE user_settings SET model='openai/gpt-6-luna' WHERE model LIKE '%free%' OR model='openai/gpt-4o-mini'")
-            )
-            await session.commit()
-        except Exception as e:
-            print(f"reset to openai: {e}")
+            print(f"retired-model cleanup: {e}")
         # NOTE: a one-time "clear all PRO tags from non-staff users" cleanup used to
         # live here. Because init runs on every boot, it silently removed every
         # customer's paid Pro/Ultimate plan on each deploy or restart. Removed.

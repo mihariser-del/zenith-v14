@@ -428,3 +428,49 @@ html.light-theme .zp-vdlg-card { background: #fff; color: #1b1f33; }
 html.light-theme .zp-vdlg-card textarea, html.light-theme .zp-seg { background: #f4f6fb; color: #1b1f33; border-color: #d9def0; }
 html.light-theme .zp-seg button { color: #4a5270; }
 @media (prefers-reduced-motion: reduce) { .zp-vjob-shimmer { animation: none; } }
+
+
+/* ═══ Light mode — same blue-purple brand, bright and clean ═══ */
+/* Staff themes (owner silver, admin gold) are dark designs; in light mode use the
+   light palette for everyone so text never ends up pale-on-white. */
+html.light-theme body.light-theme {
+    --bg: #f4f7ff; --sidebar: #ffffff; --surface: #ffffff; --cards: #ffffff; --text: #0f172a; --input-bg: #eef2fc;
+    --border: #d9e1f4; --accent: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    --accent-solid: #2563eb; --accent-hover: #1d4ed8;
+    --user-msg: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed);
+    --ai-msg: #ffffff; --hover-bg: #edf2ff; --code-bg: #f1f4fc;
+    color: #0f172a;
+}
+html.light-theme body.light-theme .chat-item { color: #334155; }
+html.light-theme body.light-theme .sidebar button, html.light-theme body.light-theme .sidebar .btn:not(.primary) { color: #334155; }
+html.light-theme body.light-theme .assistant .msg-bubble { color: #1f2937; }
+html.light-theme body.light-theme #chat-header { background: rgba(255,255,255,.88) !important; border-bottom: 1px solid #e3e9f7 !important; color: #0f172a; }
+html.light-theme body.light-theme #chat-header-title { color: #0f172a; }
+html.light-theme body.light-theme { background: radial-gradient(1200px 600px at 100% -10%, rgba(37,99,235,.10), transparent 60%), radial-gradient(900px 500px at -10% 110%, rgba(124,58,237,.08), transparent 60%), #f4f7ff; }
+html.light-theme body.light-theme .sidebar { background: rgba(255,255,255,.86); backdrop-filter: blur(10px); border-right: 1px solid #e3e9f7; }
+html.light-theme body.light-theme .z-logo, html.light-theme body.light-theme .welcome-z-logo { background: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed); box-shadow: 0 8px 22px rgba(37,99,235,.28); }
+html.light-theme body.light-theme .brand h2 .hw-ai { color: #2563eb; }
+html.light-theme body.light-theme #new-chat-btn, html.light-theme body.light-theme .new-chat-btn { background: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed); color: #fff; border-color: transparent; box-shadow: 0 8px 20px rgba(37,99,235,.25); }
+html.light-theme body.light-theme .chat-item.active { background: #eaf0ff; border-color: #bcd0ff; color: #1e3a8a; }
+html.light-theme body.light-theme .chat-item:hover { background: #f0f4ff; }
+html.light-theme body.light-theme .assistant .msg-bubble { background: #fff; border: 1px solid #e1e8f7; box-shadow: 0 6px 22px rgba(15,23,42,.06); }
+html.light-theme body.light-theme .assistant .msg-bubble h1 { background: linear-gradient(90deg, #1d4ed8, #1d4ed8 55%, #7c3aed); -webkit-background-clip: text; background-clip: text; color: transparent; }
+html.light-theme body.light-theme .assistant .msg-bubble h2 { color: #0f2a7a; }
+html.light-theme body.light-theme .assistant .msg-bubble h3 { color: #1d4ed8; }
+html.light-theme body.light-theme .assistant .msg-bubble strong { color: #0b1b4d; }
+html.light-theme body.light-theme .assistant .msg-bubble a { color: #1d4ed8; }
+html.light-theme body.light-theme .user .msg-bubble { background: linear-gradient(135deg, #2563eb, #2563eb 55%, #7c3aed); color: #fff; box-shadow: 0 8px 20px rgba(37,99,235,.22); }
+html.light-theme body.light-theme .composer-box { background: #fff; border-color: #d9e1f4; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+html.light-theme body.light-theme .composer-box:focus-within { border-color: #93b4ff; box-shadow: 0 10px 30px rgba(37,99,235,.15); }
+html.light-theme body.light-theme #send-btn { background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
+html.light-theme body.light-theme .msg-actions button { background: #fff; border-color: #dbe3f5; color: #475569; }
+html.light-theme body.light-theme .msg-actions button:hover { border-color: #2563eb; color: #1d4ed8; }
+html.light-theme body.light-theme .thinking-text { color: #2563eb; }
+html.light-theme body.light-theme .streaming-cursor::after { background: #2563eb; }
+/* Light mode for staff accounts: swap the silver/gold glow text for readable brand colours */
+html.light-theme body.light-theme .brand h2 { color: #0b1b4d !important; text-shadow: none !important; }
+html.light-theme body.light-theme .welcome-message h2 span { background: linear-gradient(90deg, #1d4ed8, #2563eb 50%, #7c3aed) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; filter: none !important; animation: none !important; }
+html.light-theme body.light-theme .sidebar .btn.info, html.light-theme body.light-theme .sidebar .btn:not(.primary) { color: #334155 !important; text-shadow: none !important; }
+html.light-theme body.light-theme .user-profile-bar .uname { color: #0f172a !important; text-shadow: none !important; }
+html.light-theme body.light-theme .chat-item.active { border-left: none; box-shadow: none; }
+html.light-theme body.light-theme .z-logo, html.light-theme body.light-theme .welcome-z-logo { color: #fff !important; }

@@ -38,10 +38,16 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "20.6"
+VERSION = "20.7"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "20.7 Real files, done properly: ask for a CV, cover letter, report, slides or a budget and you get a proper Word, PDF, PowerPoint or Excel file with a Preview button, a download, and the text one tap away. Files stay in the chat after you reload and the AI can edit them when you ask",
+    "Much better looking slides (dark brand design, columns, tables, speaker notes), Word and PDF files with page numbers, real tables and clean headings, and Excel sheets with proper numbers, money formats and working formulas",
+    "Answers look better and stream smoothly: code blocks with copy, download and wrap, tables you can copy or save as CSV, tip and warning boxes, tick lists, maths formulas and tidy source links",
+    "New chats name themselves after the first answer, and \"Save as\" lets you download any reply as Word, PDF, Markdown, web page or text",
+    "Light mode now uses the new blue design, the same picture prompt now gives a new image each time, and the AI is more honest about news and live facts it can't check",
+    "Offline mode was removed — when you lose connection you'll see a simple notice and the chat picks up again when you're back",
     "20.6 AI videos are here: Pro members can turn a sentence into a short video with sound — tap the new Video button or just say \"make a video of...\". Attach a photo and say \"animate this\" to bring it to life",
     "A fresh new look: a brighter blue design across the app, with a glowing message box, cleaner answer cards and a redesigned welcome page",
     "Uploaded files and generated documents now stay put after updates — no more broken downloads",

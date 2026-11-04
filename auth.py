@@ -7,7 +7,8 @@ import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel
 
 from database import (
@@ -93,10 +94,49 @@ def _raise_if_locked(key: str, limit: int, window: int = _RATE_WINDOW):
 
 
 def _client_ip(request: Request) -> str:
+    """The caller's real IP, in a way the caller can't fake.
+
+    Railway's edge proxy APPENDS the address it saw to X-Forwarded-For, so the
+    left-most entries are whatever the client chose to send (spoofable) and
+    only the right-most one is trustworthy. X-Real-IP, when present, is set by
+    the proxy itself and wins. TRUSTED_PROXY_HOPS lets a deploy behind an extra
+    proxy (e.g. Cloudflare in front of Railway) skip that many right-hand hops.
+    """
+    real = (request.headers.get("x-real-ip") or "").strip()
+    if real:
+        return real[:64]
     fwd = request.headers.get("x-forwarded-for", "")
     if fwd:
-        return fwd.split(",")[0].strip()
+        parts = [p.strip() for p in fwd.split(",") if p.strip()]
+        try:
+            hops = max(0, int(os.getenv("TRUSTED_PROXY_HOPS", "0") or 0))
+        except ValueError:
+            hops = 0
+        if parts:
+            return parts[max(0, len(parts) - 1 - hops)][:64]
     return request.client.host if request.client else "unknown"
+
+
+def _login_guard(prefix: str, username: str, ip: str):
+    """Checked BEFORE the password is verified, so a locked-out guesser can't
+    keep trying (the old code only complained after a wrong guess, so a right
+    guess always went through). Locks are per username+IP, so someone hammering
+    the owner's username from their own network can't lock the real owner out;
+    a very high per-username ceiling still slows attacks spread across many IPs."""
+    u = (username or "").lower()
+    _raise_if_locked(f"{prefix}:userip:{u}:{ip}", limit=5)
+    _raise_if_locked(f"{prefix}:ip:{ip}", limit=20)
+    _raise_if_locked(f"{prefix}:user:{u}", limit=60)
+
+
+def _login_failed(prefix: str, username: str, ip: str):
+    u = (username or "").lower()
+    for k in (f"{prefix}:userip:{u}:{ip}", f"{prefix}:ip:{ip}", f"{prefix}:user:{u}"):
+        _record_failure(k)
+
+
+def _login_ok(prefix: str, username: str, ip: str):
+    _clear_failures(f"{prefix}:userip:{(username or '').lower()}:{ip}")
 
 
 def _server_fingerprint(request: Request) -> str:
@@ -585,8 +625,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
 @router.post("/login")
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     ip = _client_ip(request)
-    user_key = f"login:user:{req.username.lower()}"
-    ip_key = f"login:ip:{ip}"
+    _login_guard("login", req.username, ip)
     result = await db.execute(select(User).where(User.username == req.username))
     user = result.scalar_one_or_none()
     ua = request.headers.get("user-agent", "")[:500]
@@ -595,10 +634,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         if user:
             db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
             await db.commit()
-        _record_failure(user_key)
-        _record_failure(ip_key)
-        _raise_if_locked(user_key, limit=5)
-        _raise_if_locked(ip_key, limit=20)
+        _login_failed("login", req.username, ip)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     if getattr(user, 'is_deleted', False):
@@ -620,8 +656,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
             pass
 
     # Successful login clears any accumulated failure counters.
-    _clear_failures(user_key)
-    _clear_failures(ip_key)
+    _login_ok("login", req.username, ip)
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     user.last_seen = datetime.now(timezone.utc)
     await db.commit()
@@ -793,23 +828,18 @@ async def guest_login(request: Request, response: Response, db: AsyncSession = D
 @router.post("/admin/login")
 async def admin_login(req: AdminRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     ip = _client_ip(request)
-    user_key = f"adminlogin:user:{req.username.lower()}"
-    ip_key = f"adminlogin:ip:{ip}"
+    _login_guard("adminlogin", req.username, ip)
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
     ua = (request.headers.get("user-agent") or "")[:500]
     if not user or not verify_password(req.password, user.password_hash):
-        _record_failure(user_key)
-        _record_failure(ip_key)
+        _login_failed("adminlogin", req.username, ip)
         if user:
             # Record the failed admin login so it shows in Security history.
             db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
             await db.commit()
-        _raise_if_locked(user_key, limit=5)
-        _raise_if_locked(ip_key, limit=20)
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
-    _clear_failures(user_key)
-    _clear_failures(ip_key)
+    _login_ok("adminlogin", req.username, ip)
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))
     await db.commit()
     token = create_token(user.id, user.username, True, getattr(user, "token_version", 0) or 0, get_role(user))

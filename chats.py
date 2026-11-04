@@ -376,8 +376,10 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     user_msg = Message(chat_id=chat.id, role="user", content=display_content)
     db.add(user_msg)
 
-    if chat.title == "New Chat":
-        chat.title = (content or (f"Image x{len(images)}" if images else "New Chat"))[:80]
+    if (chat.title or "").startswith("New Chat"):
+        # Quick readable title now; ai.py swaps in a short AI-written one after the reply.
+        from ai import _provisional_title
+        chat.title = (_provisional_title(content) or (f"Image x{len(images)}" if images else chat.title))[:80]
 
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()

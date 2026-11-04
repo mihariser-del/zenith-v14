@@ -24,12 +24,15 @@ async def _require_vault(request: Request, db: AsyncSession = Depends(get_db)):
 
 
 def _client_ip(request) -> str:
+    # Same proxy-aware lookup as auth (imported lazily: auth imports this module).
     try:
-        if hasattr(request, "client") and request.client:
-            return request.client.host or ""
+        from auth import _client_ip as _real_ip
+        return _real_ip(request)
     except Exception:
-        pass
-    return ""
+        try:
+            return request.client.host or ""
+        except Exception:
+            return ""
 
 
 async def log_action(

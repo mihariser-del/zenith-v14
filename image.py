@@ -211,7 +211,9 @@ async def generate_image(req: ImageRequest, request: Request, db: AsyncSession =
     url, model = await _openrouter_image(prompt, w, h)
     if not url:
         # Free Pollinations/Flux fallback — never blocks generation.
-        seed = abs(hash(prompt)) % 1000000
+        # Fresh random seed every time: the same prompt asked twice should give a
+        # new picture, not the identical one. (Edits reuse the old seed below.)
+        seed = secrets.randbelow(1_000_000_000)
         url = _image_url(prompt, w, h, seed)
         model = "flux"
     # Persist the generated image as an assistant message so it survives reload

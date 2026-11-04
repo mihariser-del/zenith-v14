@@ -1596,136 +1596,21 @@ function showOfflineScreen() {
     if (document.getElementById('offline-screen')) return;
     const div = document.createElement('div');
     div.id = 'offline-screen';
-    div.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.85); backdrop-filter:blur(6px);';
+    div.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(4,6,15,0.85); backdrop-filter:blur(6px);';
     div.innerHTML = `
-        <div style="width:100%; max-width:420px; text-align:center; background:linear-gradient(145deg,#0a1a2a,#1a2a3a); border:2px solid #00aaff; border-radius:18px; padding:32px 24px; box-shadow:0 20px 60px rgba(0,170,255,0.3);">
-            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(0,170,255,0.15); border:2px solid #00aaff; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#00aaff; font-size:32px;">&#128246;</div>
-            <h2 style="color:#00aaff; font-size:20px; margin-bottom:8px;">YOU ARE OFFLINE</h2>
-            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:16px;">Check your connection. Chat will resume when back online.</p>
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button id="offline-retry" style="padding:10px 18px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Retry</button>
-                <button id="offline-mode-btn" style="padding:10px 18px; background:rgba(0,170,255,0.15); color:#00aaff; border:1px solid #00aaff; border-radius:8px; font-weight:700; cursor:pointer;">Offline Mode</button>
-            </div>
-            <p style="color:rgba(255,255,255,0.45); font-size:11px; margin-top:12px;">Offline Mode lets me answer basic questions from my local directory.</p>
-            <p style="color:#FFD700; font-size:11px; margin-top:8px; line-height:1.5; border:1px solid rgba(255,215,0,0.4); background:rgba(255,215,0,0.08); border-radius:8px; padding:8px 10px;">⚠ Offline Mode is still under development. Only my pre-loaded answer directory works here, so many styles of questioning (open-ended, complex, or follow-up questions) won't be recognized. For full answers, reconnect and use the live chat.</p>
+        <div style="width:100%; max-width:400px; text-align:center; background:linear-gradient(145deg,#0b1430,#141a3d); border:1px solid rgba(59,130,246,0.6); border-radius:18px; padding:32px 24px; box-shadow:0 20px 60px rgba(37,99,235,0.3);">
+            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(59,130,246,0.15); border:2px solid #3b82f6; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#60a5fa; font-size:30px;">&#128246;</div>
+            <h2 style="color:#93c5fd; font-size:20px; margin-bottom:8px;">You're offline</h2>
+            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:18px;">Check your internet connection. Zelpophai AI will pick up where you left off as soon as you're back.</p>
+            <button id="offline-retry" style="padding:10px 22px; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer;">Retry</button>
         </div>`;
     div.querySelector('#offline-retry').addEventListener('click', () => { if (navigator.onLine) div.remove(); else showToast('Still offline', 'error'); });
-    div.querySelector('#offline-mode-btn').addEventListener('click', () => {
-        div.remove();
-        openOfflineChat();
-    });
     document.body.appendChild(div);
-}
-function openOfflineChat() {
-    if (document.getElementById('offline-chat')) return;
-    const wrap = document.createElement('div');
-    wrap.id = 'offline-chat';
-    wrap.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.9); backdrop-filter:blur(8px);';
-    wrap.innerHTML = `
-        <div style="width:100%; max-width:520px; height:80vh; display:flex; flex-direction:column; background:linear-gradient(160deg,#0a1a2a,#152536); border:2px solid #00aaff; border-radius:18px; overflow:hidden; box-shadow:0 20px 60px rgba(0,170,255,0.35);">
-            <div style="padding:14px 18px; border-bottom:1px solid rgba(0,170,255,0.3); display:flex; align-items:center; justify-content:space-between; background:rgba(0,0,0,0.2);">
-                <div>
-                    <div style="color:#00aaff; font-weight:800; font-size:15px; letter-spacing:1px;">OFFLINE MODE</div>
-                    <div style="color:rgba(255,255,255,0.5); font-size:11px;">Basic answers · no internet · under development</div>
-                </div>
-                <button id="offline-chat-close" style="background:none;border:none;color:#00aaff;font-size:22px;cursor:pointer;line-height:1;">&times;</button>
-            </div>
-            <div id="offline-chat-body" style="flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:10px;"></div>
-            <div style="padding:12px; border-top:1px solid rgba(0,170,255,0.3); display:flex; gap:8px;">
-                <input id="offline-chat-input" placeholder="Ask me something basic..." style="flex:1; padding:10px 12px; background:rgba(0,0,0,0.3); border:1px solid rgba(0,170,255,0.4); border-radius:8px; color:#fff; outline:none; font-size:13px;">
-                <button id="offline-chat-send" style="padding:10px 16px; background:#00aaff; color:#fff; border:none; border-radius:8px; font-weight:700; cursor:pointer;">Send</button>
-            </div>
-        </div>`;
-    const body = wrap.querySelector('#offline-chat-body');
-    const input = wrap.querySelector('#offline-chat-input');
-    function addMsg(role, text) {
-        const m = document.createElement('div');
-        m.style.cssText = 'padding:10px 14px; border-radius:12px; font-size:13px; line-height:1.5; max-width:85%; white-space:pre-wrap; word-wrap:break-word;' +
-            (role === 'user'
-                ? 'align-self:flex-end; background:rgba(0,170,255,0.25); color:#fff; border:1px solid rgba(0,170,255,0.5);'
-                : 'align-self:flex-start; background:rgba(0,0,0,0.35); color:#e5e5e5; border:1px solid rgba(0,170,255,0.3);');
-        m.textContent = text;
-        body.appendChild(m);
-        body.scrollTop = body.scrollHeight;
-    }
-    addMsg('assistant', "You're offline. I can only answer a small set of pre-loaded, basic questions right now (offline mode is still under development) — open-ended or complex questions like history, current events or follow-ups may not be recognized.\n\nTry simple things like 'what can you do', 'who are you', or 'capital of Nigeria'.\n\nFor full answers, reconnect and use the live chat.");
-    function send() {
-        const q = input.value.trim();
-        if (!q) return;
-        addMsg('user', q);
-        input.value = '';
-        // Try math engine first
-        let answer = null;
-        if (window.ZelpophaiDirectory && window.ZelpophaiDirectory.solveMath) {
-            answer = window.ZelpophaiDirectory.solveMath(q);
-        }
-        // Fall back to keyword directory
-        if (!answer && window.ZelpophaiDirectory) {
-            answer = window.ZelpophaiDirectory.match(q);
-        }
-        setTimeout(() => {
-            if (answer) {
-                addMsg('assistant', answer);
-                return;
-            }
-            // No offline hit. Give an honest "not recognized" reply instead of a generic
-            // greeting, so complex questions (history, current events, follow-ups) aren't
-            // misleadingly answered. Offline mode only knows a small set of basics.
-            addMsg('assistant', "I don't have that in my offline directory yet — offline mode is still under development and only knows a small set of basic answers.\n\nReconnect and use the live chat for anything else. For example I can answer: 'what can you do', 'who are you', 'capital of Nigeria', 'what is pi', or simple math like '12 * 8'.");
-        }, 300);
-    }
-    wrap.querySelector('#offline-chat-send').addEventListener('click', send);
-    input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
-    // Closing offline mode: if online, return to the live chat; otherwise show the offline screen.
-    wrap.querySelector('#offline-chat-close').addEventListener('click', () => {
-        if (navigator.onLine) {
-            goBackOnline();
-        } else {
-            wrap.remove();
-            showOfflineScreen();
-        }
-    });
-    document.body.appendChild(wrap);
-    input.focus();
-}
-// Leave offline mode entirely and reveal the live chat underneath.
-function goBackOnline() {
-    const oc = document.getElementById('offline-chat');
-    if (oc) oc.remove();
-    const os = document.getElementById('offline-screen');
-    if (os) os.remove();
-    const p = document.getElementById('back-online-popup');
-    if (p) p.remove();
-}
-function promptBackOnline() {
-    if (document.getElementById('back-online-popup')) return;
-    const p = document.createElement('div');
-    p.id = 'back-online-popup';
-    p.style.cssText = 'position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px); animation:fadeIn .3s;';
-    p.innerHTML = `
-        <div style="width:100%; max-width:440px; text-align:center; background:linear-gradient(145deg,#0a2a1a,#0f3a24); border:2px solid #4ADE80; border-radius:18px; padding:38px 26px; box-shadow:0 20px 60px rgba(74,222,128,0.25);">
-            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(74,222,128,0.15); border:2px solid #4ADE80; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#4ADE80; font-size:30px;">&#9989;</div>
-            <h2 style="color:#4ADE80; font-size:20px; margin-bottom:8px; letter-spacing:1px;">YOU'RE BACK ONLINE</h2>
-            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:20px;">Your connection is restored. The full AI chat (with web search and a complete answer directory) is available again.</p>
-            <div style="display:flex; gap:10px; justify-content:center;">
-                <button id="back-online-go" style="padding:12px 22px; background:#4ADE80; color:#063; border:none; border-radius:10px; font-weight:800; cursor:pointer; font-size:14px;">&#128640; Back to Live Chat</button>
-                <button id="back-online-stay" style="padding:12px 20px; background:transparent; color:#4ADE80; border:1px solid #4ADE80; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Continue Offline</button>
-            </div>
-        </div>`;
-    p.querySelector('#back-online-go').addEventListener('click', () => {
-        p.remove();
-        goBackOnline();
-    });
-    // "Continue offline" — just dismiss the popup; the offline chat stays open.
-    p.querySelector('#back-online-stay').addEventListener('click', () => p.remove());
-    document.body.appendChild(p);
 }
 window.addEventListener('offline', showOfflineScreen);
 window.addEventListener('online', () => {
     const el = document.getElementById('offline-screen');
-    if (el) el.remove();
-    if (!document.getElementById('offline-chat')) showToast('Back online', 'success');
-    else promptBackOnline();
+    if (el) { el.remove(); showToast('Back online', 'success'); }
 });
 function showDeletedScreen(deletedBy) {
     if (document.getElementById('banned-screen')) return;

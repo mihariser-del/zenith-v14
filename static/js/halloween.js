@@ -399,7 +399,7 @@
         }
         patchWelcome();
         patchLanding(on);
-        patchBrand(on);
+        patchBrand(true);   /* the coloured "AI" is part of the brand look all year */
         watchWelcome();
         if (on) wireLogos();
     }

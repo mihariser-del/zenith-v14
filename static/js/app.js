@@ -13,6 +13,27 @@ function detectImageRequest(text) {
     return null;
 }
 
+// Video requests: "make a 6 second video of...", "create a clip of...",
+// "animate this" (with an attached photo). Returns {prompt, duration, aspect} or null.
+function detectVideoRequest(text, hasImage) {
+    const t = String(text || '').trim().replace(/[.!?]+$/, '');
+    if (!t || t.length > 700) return null;
+    const durOf = (s) => { const m = String(s || '').match(/(\d{1,2})\s*(?:-|\s)?\s*(?:s|sec|secs|second|seconds)\b/i); if (!m) return 6; const n = parseInt(m[1], 10); return n <= 4 ? 4 : (n <= 6 ? 6 : 8); };
+    const aspectOf = (s) => (/\b(?:vertical|portrait|tall|9:16|tiktok|reels?|shorts)\b/i.test(s) ? '9:16' : '16:9');
+    const re = /^(?:please\s+)?(?:can\s+(?:you|u)\s+)?(?:generate|create|make|produce|render|give|show)\s+(?:me\s+)?(?:an?\s+)?((?:\d{1,2}\s*(?:-|\s)?\s*(?:s|sec|secs|second|seconds)\s+)?(?:short\s+|quick\s+|vertical\s+|portrait\s+|wide\s+|cinematic\s+|tiktok\s+|instagram\s+)*)(?:video|clip|animation|movie)s?\s+(?:of|about|showing|where|with|for)\s+(.{3,600})$/i;
+    const m = t.match(re);
+    if (m) return { prompt: m[2].trim(), duration: durOf(m[1]), aspect: aspectOf(m[1] + ' ' + m[2]) };
+    const want = /^(?:i\s+(?:want|wanna|need|would\s+love))\s+(?:to\s+see\s+)?(?:an?\s+)?((?:\d{1,2}\s*(?:-|\s)?\s*(?:s|sec|secs|second|seconds)\s+)?(?:short\s+)?)(?:video|clip|animation)s?\s+(?:of|about|showing)\s+(.{3,600})$/i;
+    const m2 = t.match(want);
+    if (m2) return { prompt: m2[2].trim(), duration: durOf(m2[1]), aspect: aspectOf(m2[2]) };
+    if (hasImage) {
+        const anim = /^(?:please\s+)?(?:animate|bring)\s+(?:this|it|the\s+(?:photo|picture|image|pic))(?:\s+to\s+life)?(?:\s*[,:-]?\s*(.{3,600}))?$/i;
+        const m3 = t.match(anim);
+        if (m3) return { prompt: (m3[1] || 'Bring this photo to life with gentle, natural motion').trim(), duration: 6, aspect: '16:9' };
+    }
+    return null;
+}
+
 // Follow-up image edits: "add a bell around the cow", "remove the hat",
 // "make it blue", "change the background to night". Only treated as an edit when
 // the chat already has a generated image (Chat._hasGeneratedImage guards this).
@@ -822,6 +843,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('factcheck-btn').classList.toggle('active');
     });
 
+    const vbtn = document.getElementById('video-gen-btn');
+    if (vbtn) vbtn.addEventListener('click', () => Chat.openVideoDialog());
     $('image-gen-btn').addEventListener('click', async () => {
         const prompt = await showPrompt('Describe the image you want to generate');
         if (!prompt || !prompt.trim()) return;

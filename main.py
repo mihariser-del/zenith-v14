@@ -22,6 +22,7 @@ from generate import router as generate_router
 from security import router as security_router
 from codeexec import router as codeexec_router
 from image import router as image_router
+from video import router as video_router, _resume_unfinished as _resume_videos
 from feedback import router as feedback_router
 from staff import router as staff_router
 from announcements import router as announcements_router
@@ -37,10 +38,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "20.2"
+VERSION = "20.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "20.6 AI videos are here: Pro members can turn a sentence into a short video with sound — tap the new Video button or just say \"make a video of...\". Attach a photo and say \"animate this\" to bring it to life",
+    "A fresh new look: a brighter blue design across the app, with a glowing message box, cleaner answer cards and a redesigned welcome page",
+    "Uploaded files and generated documents now stay put after updates — no more broken downloads",
     "20.0 Zelpophai AI: everything you loved is still here — same features, same chats — under a brand-new name. Say hello to Zelpophai AI!",
     "Files finally open up to the AI: upload a PDF, Word, Excel, PowerPoint, audio or video and Zelpophai AI actually reads it — it can summarize, answer questions about, edit, replicate and rewrite whatever you send",
     "Way more file types are welcome: Office docs, spreadsheets, slides, audio files, videos and code files all upload and get read",
@@ -115,6 +119,10 @@ async def lifespan(app: FastAPI):
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
     reminder_task = asyncio.create_task(_reminder_loop())
     try:
+        await _resume_videos()   # keep watching clips that were rendering during a restart
+    except Exception as e:
+        print(f"video resume skipped: {e}")
+    try:
         yield
     finally:
         reminder_task.cancel()
@@ -137,6 +145,7 @@ app.include_router(generate_router)
 app.include_router(security_router)
 app.include_router(codeexec_router)
 app.include_router(image_router)
+app.include_router(video_router)
 app.include_router(feedback_router)
 app.include_router(staff_router)
 app.include_router(announcements_router)
@@ -386,7 +395,8 @@ async def validate_invite_token(request: Request, db=Depends(get_db)):
 
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+from files import UPLOAD_DIR as _UPLOAD_DIR
+app.mount("/uploads", StaticFiles(directory=_UPLOAD_DIR), name="uploads")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

@@ -909,3 +909,13 @@ html.halloween body .welcome-z-logo { cursor: pointer; }
     .hw-wobble, .hw-shake, .hwg-say.show, .hwg-result.show { animation: none !important; }
     .hwg-say.show { opacity: 1; transform: translate(-50%, -100%); }
 }
+
+/* new (Nov 2026) welcome page: keep the seasonal look tidy on its layout */
+html.halloween body .wl-hero .landing-title { margin-top: 0; font-size: clamp(30px, 3.6vw, 48px); letter-spacing: 1px; line-height: 1.12; }
+html.halloween body .wl-shine { background: linear-gradient(90deg, #ffd27a, #ff7a1a 50%, #ffb347); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+html.halloween body .wl-btn,
+html.halloween body .landing-page .wl-btn.start-btn { background: linear-gradient(135deg, #ffad4a, #ff7a1a 55%, #e0560f); box-shadow: 0 0 26px rgba(255, 122, 26, .45); }
+html.halloween body .wl-z,
+html.halloween body .wl-ask { background: linear-gradient(135deg, #ff9a3c, #c2410c); }
+html.halloween body .wl-chips button.on { border-color: #ff7a1a; background: rgba(255, 122, 26, .16); }
+html.halloween body .wl-bg .wl-orb.o1, html.halloween body .wl-bg .wl-orb.o4 { background: rgba(255, 110, 20, .22); }

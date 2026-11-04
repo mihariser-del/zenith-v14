@@ -212,6 +212,26 @@ class UsageLog(Base):
     user = relationship("User", back_populates="usage_logs")
 
 
+class VideoJob(Base):
+    """One AI video generation request (OpenRouter /api/v1/videos job)."""
+    __tablename__ = "video_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    chat_id = Column(Integer, nullable=True, index=True)
+    provider_job_id = Column(String(120), default="")
+    model = Column(String(80), default="")
+    prompt = Column(Text, default="")
+    duration = Column(Integer, default=6)
+    aspect = Column(String(8), default="16:9")
+    status = Column(String(20), default="pending")   # pending, in_progress, completed, failed
+    url = Column(String(200), default="")
+    error = Column(Text, default="")
+    usage_log_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Chat(Base):
     __tablename__ = "chats"
 

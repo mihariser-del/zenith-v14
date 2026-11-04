@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 20.6 — AI video, new look, welcome page
+
+- **AI video generation** (OpenRouter video API): tap **Video** in the message box or say "make a 6 second video of…"; attach a photo and say "animate this" for image-to-video. 4/6/8-second clips, wide or tall, with sound. A live "rendering" card shows progress; the server keeps working if you close the tab and the video lands in the chat when ready, with a player and a download button. Pro: 3/day on Veo 3.1 Lite; Ultimate: 10/day on Veo 3.1 Fast; staff: 20/day. Failed clips don't count. All tunable with `VIDEO_*` env vars
+- **New brand look** in the app (dark mode): blue → purple gradient, drifting light, pulsing logo with a *Think · Create · Explore* tagline, pill header, glass answer cards, rotating gradient rim on the message box, gold Upgrade plate
+- **Redesigned welcome page**: clear headline, "Try it free — no sign-up" (guest) and Continue with Google up front, a live demo that plays by itself (cover letter, image, web search, video), feature cards, FAQ; restyled login card
+- **Uploads persist**: uploaded files and generated documents are stored on the Railway volume, so downloads survive redeploys
+- **Shared pages**: blue brand colours, the "Zelpophai AI.ai" typo is gone, reactions only under AI answers, generated videos play inline
+
 ## 20.5 — Notifications that fold away + Halloween games
 
 - **New notifications everywhere**: alerts now drop in from the top like a phone notification, stay a few seconds (hover to pause, × to dismiss), then fold into a small circle parked in the top-right corner. Tap a circle to read it again; circles fade on their own. Pumpkin icon and orange glow during Halloween

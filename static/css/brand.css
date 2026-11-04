@@ -1,0 +1,430 @@
+/* =====================================================================
+   Zelpophai AI — brand theme (blue → purple, mostly blue), lively edition
+   Applies to the dark theme for everyone (owner/admin looks included) and
+   steps aside for Light mode and the seasonal Halloween theme.
+   Every rule is scoped to dark mode outside the Halloween season.
+   ===================================================================== */
+
+html:not(.halloween):not(.light-theme) body:not(.light-theme) {
+    --bg: #07080f;
+    --sidebar: #0a0c16;
+    --surface: #0e1120;
+    --cards: #121628;
+    --text: #eef1fb;
+    --muted: #9aa3bf;
+    --input-bg: #0d1020;
+    --border: #212843;
+    --hover-bg: #141a30;
+    --accent: linear-gradient(135deg, #2563eb 0%, #2563eb 50%, #7c3aed 100%);
+    --accent-solid: #3b82f6;
+    --accent-hover: #60a5fa;
+    --user-msg: linear-gradient(135deg, #2563eb 0%, #2563eb 55%, #7c3aed 100%);
+    --ai-msg: rgba(13, 16, 31, .88);
+    --code-bg: #0b0e1c;
+    --zb-blue: #3b82f6;
+    --zb-sky: #8fb8ff;
+    --zb-line: rgba(59, 130, 246, .42);
+    --zb-glass: rgba(12, 15, 28, .82);
+    --zb-grad: linear-gradient(135deg, #2563eb 0%, #2563eb 50%, #7c3aed 100%);
+    background:
+        radial-gradient(55% 45% at 62% 0%, rgba(37, 99, 235, .22), transparent 70%),
+        radial-gradient(40% 35% at 95% 100%, rgba(124, 58, 237, .14), transparent 70%),
+        #07080f;
+}
+
+/* drifting light behind everything (pure CSS, never takes a click) */
+html:not(.halloween):not(.light-theme) body:not(.light-theme)::before,
+html:not(.halloween):not(.light-theme) body:not(.light-theme)::after {
+    content: "";
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(90px);
+    pointer-events: none;
+    z-index: -1;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme)::before { width: 560px; height: 560px; top: -220px; left: 42%; background: rgba(37, 99, 235, .30); animation: zbF1 18s ease-in-out infinite; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme)::after { width: 440px; height: 440px; bottom: -180px; right: -80px; background: rgba(124, 58, 237, .24); animation: zbF2 22s ease-in-out infinite; }
+@keyframes zbF1 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(-100px, 80px) scale(1.12); } }
+@keyframes zbF2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-80px, -70px); } }
+
+/* ---------------- sidebar ---------------- */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar {
+    background: linear-gradient(180deg, rgba(10, 12, 22, .92), rgba(8, 10, 18, .92));
+    border-right: 1px solid rgba(59, 130, 246, .18);
+    box-shadow: 1px 0 30px rgba(37, 99, 235, .06);
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .brand { padding: 18px 15px 14px; gap: 12px; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .z-logo {
+    width: 46px !important; height: 46px !important; min-width: 46px !important;
+    background: var(--zb-grad) !important;
+    color: #fff !important;
+    font-family: Inter, system-ui, sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 23px !important;
+    border: none !important;
+    border-radius: 13px !important;
+    animation: zbPulse 3s ease-in-out infinite !important;
+}
+@keyframes zbPulse { 0%, 100% { box-shadow: 0 0 18px rgba(37, 99, 235, .45); } 50% { box-shadow: 0 0 32px rgba(59, 130, 246, .75), 0 0 56px rgba(124, 58, 237, .25); } }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .brand h2 {
+    font-family: Inter, system-ui, sans-serif;
+    font-weight: 800;
+    font-size: 19px;
+    letter-spacing: -.2px;
+    line-height: 1.1;
+    color: #fff !important;
+    text-shadow: none !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .brand h2 .hw-ai { color: #6aa1ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .brand h2::after {
+    content: "THINK \00B7 CREATE \00B7 EXPLORE";
+    display: block;
+    margin-top: 5px;
+    font-size: 8.5px;
+    font-weight: 600;
+    letter-spacing: 2.6px;
+    color: #9aa3bf;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #new-chat-btn,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .btn.primary {
+    background: var(--zb-grad) !important;
+    background-size: 100% 100% !important;
+    color: #fff !important;
+    border: 1px solid rgba(147, 180, 255, .45) !important;
+    border-radius: 12px;
+    box-shadow: 0 0 22px rgba(37, 99, 235, .4) !important;
+    animation: none !important;
+    font-weight: 700;
+    transition: filter .2s ease, transform .15s ease, box-shadow .2s ease;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #new-chat-btn:hover,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .btn.primary:hover { filter: brightness(1.12); box-shadow: 0 0 32px rgba(59, 130, 246, .6) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #request-btn { color: #e3e7f5; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-group-tag { color: #8a92ab !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item {
+    color: #d7dcec;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    gap: 10px;
+    transition: background .2s ease, border-color .2s ease;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item::before {
+    content: "";
+    flex: 0 0 16px;
+    width: 16px;
+    height: 16px;
+    background: currentColor;
+    opacity: .7;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") no-repeat center / contain;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item:hover { background: rgba(59, 130, 246, .08); color: #fff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item.active {
+    background: rgba(37, 99, 235, .12);
+    border-color: rgba(59, 130, 246, .7);
+    color: #fff;
+    box-shadow: 0 0 16px rgba(37, 99, 235, .2);
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item.active::after {
+    content: "";
+    flex: 0 0 8px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #3b82f6;
+    box-shadow: 0 0 10px #3b82f6;
+    animation: zbDot 1.8s ease-in-out infinite;
+}
+@keyframes zbDot { 0%, 100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.5); opacity: .6; } }
+
+/* Upgrade: gold plate with a crown and an arrow */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #upgrade-btn {
+    background: linear-gradient(135deg, rgba(58, 40, 10, .88), rgba(26, 18, 6, .92)) !important;
+    color: #ffc463 !important;
+    border: 1px solid rgba(255, 196, 99, .78) !important;
+    box-shadow: 0 0 16px rgba(255, 170, 40, .18) !important;
+    justify-content: flex-start !important;
+    gap: 12px;
+    padding-left: 14px !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #upgrade-btn svg { display: none; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #upgrade-btn::before {
+    content: "";
+    width: 20px;
+    height: 17px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 20'%3E%3Cpath fill='%23ffc463' d='M2 6l5 4 5-8 5 8 5-4-2 11H4z'/%3E%3Crect x='4' y='17.5' width='16' height='2.5' rx='1' fill='%23ffc463'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #upgrade-btn::after { content: "\203A"; margin-left: auto; margin-right: 6px; font-size: 22px; line-height: 1; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #upgrade-btn:hover { box-shadow: 0 0 24px rgba(255, 170, 40, .32) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .bottom-bar .btn { color: #e3e7f5; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .bottom-bar .btn svg { color: #7fa8ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .bottom-bar .btn:hover,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar-tools-toggle:hover { background: rgba(59, 130, 246, .08); }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .btn.info { color: #e3e7f5; text-shadow: none !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #clear-all-btn, html:not(.halloween):not(.light-theme) body:not(.light-theme) #clear-all-btn svg { color: #f87171; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #request-badge, html:not(.halloween):not(.light-theme) body:not(.light-theme) #feedback-badge, html:not(.halloween):not(.light-theme) body:not(.light-theme) #live-chat-badge {
+    background: linear-gradient(180deg, #ef4444, #dc2626) !important;
+    color: #fff !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .user-profile-bar { border-top: 1px solid rgba(59, 130, 246, .14); }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .user-profile-bar .user-avatar { background: #dfe6f7 !important; color: #1b2440 !important; animation: none !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #user-role-badge > * { border-color: rgba(147, 180, 255, .6) !important; color: #9cc0ff !important; }
+
+/* ---------------- chat header ---------------- */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-header {
+    background: transparent !important;
+    border-bottom: none !important;
+    backdrop-filter: none !important;
+    padding: 14px 18px 8px !important;
+    gap: 12px !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-header-title {
+    flex: 0 1 auto !important;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 16px 9px 10px;
+    background: var(--zb-glass);
+    border: 1px solid rgba(59, 130, 246, .3);
+    border-radius: 14px;
+    font-size: 15px !important;
+    color: #fff !important;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+    max-width: 50%;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-header-title::before {
+    content: "Z";
+    flex: 0 0 26px;
+    width: 26px;
+    height: 26px;
+    border-radius: 8px;
+    background: var(--zb-grad);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-header::after { content: ""; flex: 1; order: 1; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-model-select { order: 2; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-pin-btn { order: 3; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-share-btn { order: 4; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-model-select,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-pin-btn {
+    background: var(--zb-glass) !important;
+    border: 1px solid rgba(59, 130, 246, .3) !important;
+    color: #e3e7f5 !important;
+    border-radius: 12px !important;
+    padding: 9px 12px !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-share-btn {
+    background: rgba(12, 22, 48, .8) !important;
+    border: 1px solid #3b82f6 !important;
+    color: #9cc0ff !important;
+    border-radius: 12px !important;
+    padding: 9px 18px !important;
+    font-weight: 700 !important;
+    box-shadow: 0 0 18px rgba(37, 99, 235, .3) !important;
+}
+
+/* ---------------- messages ---------------- */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble {
+    position: relative;
+    background: linear-gradient(180deg, rgba(14, 17, 32, .9), rgba(10, 12, 24, .92));
+    border: 1px solid var(--zb-line);
+    border-radius: 18px;
+    padding: 20px 26px;
+    box-shadow: 0 0 28px rgba(37, 99, 235, .12), 0 18px 40px rgba(0, 0, 0, .4);
+    color: #dfe4f3;
+    animation: zbIn .5s cubic-bezier(.2, .9, .3, 1) both;
+}
+@keyframes zbIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble h1 {
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -.02em;
+    text-align: center;
+    margin: 4px 0 16px;
+    background: linear-gradient(90deg, #ffffff 0%, #dbe7ff 40%, #7fb0ff 70%, #a78bfa 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble h1::after {
+    content: "";
+    display: block;
+    height: 10px;
+    max-width: 300px;
+    margin: 12px auto 0;
+    background:
+        linear-gradient(90deg, transparent, #3b82f6) left center / 44% 1px no-repeat,
+        linear-gradient(90deg, #7c3aed, transparent) right center / 44% 1px no-repeat,
+        linear-gradient(135deg, #2563eb, #7c3aed) center / 9px 9px no-repeat;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble h2 { font-size: 20px; font-weight: 700; color: #cfe0ff; margin: 16px 0 8px; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble h3 { font-size: 17px; font-weight: 700; color: #b9d0ff; margin: 14px 0 6px; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble strong { color: #8fb8ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble a { color: #7fb0ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble blockquote { border-left-color: #3b82f6; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .user .msg-bubble {
+    color: #fff;
+    border: 1px solid rgba(147, 180, 255, .35);
+    box-shadow: 0 0 18px rgba(37, 99, 235, .25);
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-actions { gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-actions button {
+    background: var(--zb-glass);
+    border: 1px solid rgba(59, 130, 246, .38);
+    color: #e3e7f5;
+    border-radius: 10px;
+    padding: 6px 12px;
+    font-size: 12.5px;
+    transition: transform .15s ease, border-color .2s ease, box-shadow .2s ease;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-actions button svg { color: #7fa8ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-actions button:hover {
+    color: #fff !important;
+    border-color: #3b82f6 !important;
+    transform: translateY(-2px);
+    box-shadow: 0 0 16px rgba(37, 99, 235, .35) !important;
+    text-shadow: none !important;
+}
+
+/* ---------------- welcome ---------------- */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-z-logo {
+    width: 88px !important;
+    height: 88px !important;
+    border-radius: 24px !important;
+    background: var(--zb-grad) !important;
+    color: #fff !important;
+    font-family: Inter, system-ui, sans-serif !important;
+    font-weight: 800 !important;
+    font-size: 44px !important;
+    border: none !important;
+    animation: zbPulse 3s ease-in-out infinite, zbBob 5s ease-in-out infinite !important;
+}
+@keyframes zbBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-message h2 { font-size: 38px; font-weight: 800; letter-spacing: -.03em; color: #fff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-message h2 span {
+    background: linear-gradient(90deg, #60a5fa, #3b82f6 30%, #8b5cf6 55%, #22d3ee 80%, #60a5fa) !important;
+    background-size: 250% 100% !important;
+    -webkit-background-clip: text !important;
+    background-clip: text !important;
+    -webkit-text-fill-color: transparent !important;
+    animation: zbShine 7s linear infinite !important;
+    filter: none !important;
+}
+@keyframes zbShine { to { background-position: 250% 0; } }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-message .welcome-sub { color: #aab3cc; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .template-card {
+    background: var(--zb-glass);
+    border: 1px solid rgba(59, 130, 246, .25);
+    box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .template-card:hover {
+    border-color: rgba(59, 130, 246, .75);
+    transform: translateY(-4px);
+    box-shadow: 0 0 22px rgba(37, 99, 235, .25), 0 10px 26px rgba(0, 0, 0, .35);
+}
+
+/* ---------------- composer ---------------- */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-box {
+    position: relative;
+    background: linear-gradient(180deg, rgba(14, 17, 32, .94), rgba(9, 11, 22, .96));
+    border: 1px solid rgba(59, 130, 246, .45);
+    border-radius: 26px;
+    padding: 10px 10px 10px 16px;
+    box-shadow: 0 0 26px rgba(37, 99, 235, .16), 0 14px 36px rgba(0, 0, 0, .45);
+}
+/* slowly rotating gradient rim */
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-box::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: 27px;
+    padding: 1.5px;
+    background: conic-gradient(from var(--zb-a, 0deg), #2563eb, #7c3aed, #22d3ee, #2563eb);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    animation: zbSpin 6s linear infinite;
+    pointer-events: none;
+    opacity: .85;
+}
+@property --zb-a { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+@keyframes zbSpin { to { --zb-a: 360deg; } }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-box:focus-within { box-shadow: 0 0 0 1px rgba(59, 130, 246, .35), 0 0 34px rgba(37, 99, 235, .3), 0 14px 36px rgba(0, 0, 0, .45) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #user-input { color: #f2f5ff; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #user-input::placeholder { color: #8a92ab; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-icon { color: #b6bdd3; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-icon:hover { color: #fff; text-shadow: none !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-icon.active { color: #fff !important; background: rgba(37, 99, 235, .2) !important; box-shadow: 0 0 12px rgba(37, 99, 235, .3) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) #send-btn {
+    width: 44px !important;
+    height: 44px !important;
+    background: var(--zb-grad) !important;
+    color: #fff !important;
+    box-shadow: 0 0 22px rgba(37, 99, 235, .55) !important;
+    animation: none !important;
+}
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .thinking-text { color: #8fb8ff !important; text-shadow: 0 0 10px rgba(59, 130, 246, .5) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .streaming-cursor::after { background: #3b82f6 !important; box-shadow: 0 0 10px rgba(59, 130, 246, .8) !important; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) *::-webkit-scrollbar-thumb { background: #26304f; }
+
+@media (max-width: 768px) {
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item::before, html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item.active::after, html:not(.halloween):not(.light-theme) body:not(.light-theme) .brand h2::after { display: none; }
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) #chat-header-title { max-width: 100%; }
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble { padding: 16px; }
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble h1 { font-size: 22px; }
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-message h2 { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    html:not(.halloween):not(.light-theme) body:not(.light-theme)::before, html:not(.halloween):not(.light-theme) body:not(.light-theme)::after, html:not(.halloween):not(.light-theme) body:not(.light-theme) .z-logo, html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-z-logo, html:not(.halloween):not(.light-theme) body:not(.light-theme) .welcome-message h2 span,
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .chat-item.active::after, html:not(.halloween):not(.light-theme) body:not(.light-theme) .composer-box::after, html:not(.halloween):not(.light-theme) body:not(.light-theme) .assistant .msg-bubble { animation: none !important; }
+    html:not(.halloween):not(.light-theme) body:not(.light-theme) .template-card:hover, html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-actions button:hover { transform: none; }
+}
+
+/* =====================================================================
+   Video (every theme): rendering card, finished player, Video dialog
+   ===================================================================== */
+.zp-vjob { display: flex; flex-direction: column; gap: 10px; min-width: min(420px, 70vw); }
+.zp-vjob-top { display: flex; align-items: center; gap: 10px; font-weight: 700; }
+.zp-vjob-ic { width: 30px; height: 30px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
+.zp-vjob-ic svg { width: 17px; height: 17px; }
+.zp-vjob-title { flex: 1; }
+.zp-vjob-time { font-variant-numeric: tabular-nums; font-weight: 600; opacity: .7; font-size: 13px; }
+.zp-vjob-prompt { font-size: 14px; opacity: .85; }
+.zp-vjob-stage { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: #0b1024; border: 1px solid rgba(59, 130, 246, .25); }
+.zp-vjob-stage.tall { aspect-ratio: 9 / 16; max-height: 360px; margin: 0 auto; }
+.zp-vjob-shimmer { position: absolute; inset: 0; background: linear-gradient(110deg, transparent 20%, rgba(59, 130, 246, .18) 40%, rgba(124, 58, 237, .18) 55%, transparent 75%); background-size: 220% 100%; animation: zbStage 1.8s linear infinite; }
+@keyframes zbStage { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+.zp-vjob-bar { height: 5px; border-radius: 999px; background: rgba(59, 130, 246, .15); overflow: hidden; }
+.zp-vjob-bar i { display: block; height: 100%; width: 4%; border-radius: 999px; background: linear-gradient(90deg, #2563eb, #7c3aed, #22d3ee); transition: width .9s ease; }
+.zp-vjob-note { font-size: 12.5px; opacity: .7; }
+.zp-vjob-fail { margin: 0; color: #fca5a5; }
+.zp-video { margin: 10px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.zp-video video { width: 100%; max-height: 70vh; border-radius: 12px; background: #000; border: 1px solid rgba(59, 130, 246, .3); }
+.zp-video figcaption { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 12.5px; opacity: .85; }
+.zp-video figcaption a { font-weight: 600; }
+.zp-vdlg { position: fixed; inset: 0; z-index: 10030; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(4, 6, 14, .72); backdrop-filter: blur(4px); }
+.zp-vdlg-card { position: relative; width: min(460px, 100%); padding: 24px 22px 18px; border-radius: 20px; background: #0e1120; color: #eef1fb; border: 1px solid rgba(59, 130, 246, .45); box-shadow: 0 30px 80px rgba(0, 0, 0, .6), 0 0 40px rgba(37, 99, 235, .2); display: flex; flex-direction: column; gap: 10px; font-family: Inter, system-ui, sans-serif; }
+.zp-vdlg-card h3 { margin: 0; font-size: 21px; font-weight: 800; }
+.zp-vdlg-sub { margin: 0 0 4px; font-size: 13px; color: #9aa3bf; }
+.zp-vdlg-card label, .zp-vdlg-row > span { font-size: 13px; font-weight: 600; color: #c9d0e6; }
+.zp-vdlg-card textarea { width: 100%; box-sizing: border-box; resize: vertical; min-height: 84px; padding: 12px 14px; border-radius: 12px; border: 1px solid #2a3356; background: #090c18; color: #f2f5ff; font: 15px/1.45 Inter, system-ui, sans-serif; outline: none; }
+.zp-vdlg-card textarea:focus { border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, .25); }
+.zp-vdlg-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.zp-seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: #090c18; border: 1px solid #222a48; }
+.zp-seg button { min-height: 36px; padding: 6px 12px; border-radius: 9px; border: none; background: transparent; color: #b6bdd3; font: 600 13px Inter, system-ui, sans-serif; cursor: pointer; }
+.zp-seg button.on { background: linear-gradient(135deg, #2563eb, #2563eb 50%, #7c3aed); color: #fff; }
+.zp-vdlg-img { margin: 0; font-size: 13px; color: #8fb8ff; }
+.zp-vdlg-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 6px; }
+.zp-vdlg-actions button { min-height: 44px; padding: 10px 18px; border-radius: 12px; font: 700 14px Inter, system-ui, sans-serif; cursor: pointer; }
+.zp-vdlg-cancel { background: transparent; color: #c9d0e6; border: 1px solid #2a3356; }
+.zp-vdlg-go { background: linear-gradient(135deg, #2563eb, #2563eb 50%, #7c3aed); color: #fff; border: none; box-shadow: 0 0 20px rgba(37, 99, 235, .45); }
+.zp-vdlg-x { position: absolute; top: 10px; right: 10px; width: 40px; height: 40px; border-radius: 50%; border: none; background: transparent; color: #9aa3bf; font-size: 22px; cursor: pointer; }
+html.light-theme .zp-vdlg-card { background: #fff; color: #1b1f33; }
+html.light-theme .zp-vdlg-card textarea, html.light-theme .zp-seg { background: #f4f6fb; color: #1b1f33; border-color: #d9def0; }
+html.light-theme .zp-seg button { color: #4a5270; }
+@media (prefers-reduced-motion: reduce) { .zp-vjob-shimmer { animation: none; } }

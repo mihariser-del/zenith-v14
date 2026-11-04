@@ -634,6 +634,7 @@ const Chat = {
             this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer);
         });
         container.scrollTop = container.scrollHeight;
+        this.resumeVideos(this.activeId);
     },
 
     appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null) {
@@ -652,6 +653,7 @@ const Chat = {
             bubble.innerHTML = DOMPurify.sanitize(marked.parse(content));
             bubble.querySelectorAll('pre code').forEach(block => hljs.highlightElement(block));
             Chat.enhanceCodeBlocks(bubble);
+            Chat.enhanceVideos(bubble);
         } else {
             if (images && images.length > 0) {
                 images.forEach(src => {
@@ -1090,6 +1092,208 @@ const Chat = {
         }
     },
 
+    /* ====================== AI video ======================
+       generateVideoNow() submits a job to /api/video/generate, shows a live
+       "rendering" card and polls /api/video/status until the clip is saved.
+       The server keeps watching even if the tab closes, and resumeVideos()
+       picks the card back up when the chat is opened again. */
+    _videoTimers: {},
+
+    // Turn the "[▶ Generated video](/api/video/serve/...)" link the server saves into a real player.
+    enhanceVideos(root) {
+        if (!root) return;
+        root.querySelectorAll('a[href^="/api/video/serve/"]').forEach(a => {
+            const src = a.getAttribute('href');
+            if (!/^\/api\/video\/serve\/vid_[0-9a-f]{16}\.mp4$/.test(src)) return;
+            const meta = (a.textContent || '').replace(/^[\u25B6\s]+/, '').replace(/^Generated video\s*/i, '').replace(/[()]/g, '').trim();
+            const fig = document.createElement('figure');
+            fig.className = 'zp-video';
+            const v = document.createElement('video');
+            v.src = src;
+            v.controls = true;
+            v.playsInline = true;
+            v.preload = 'metadata';
+            v.setAttribute('aria-label', 'Generated video');
+            const cap = document.createElement('figcaption');
+            const info = document.createElement('span');
+            info.textContent = meta ? 'Video \u00b7 ' + meta : 'Video';
+            const dl = document.createElement('a');
+            dl.href = src;
+            dl.setAttribute('download', src.split('/').pop());
+            dl.textContent = 'Download .mp4';
+            cap.appendChild(info);
+            cap.appendChild(dl);
+            fig.appendChild(v);
+            fig.appendChild(cap);
+            const host = a.closest('p') && a.closest('p').textContent.trim() === a.textContent.trim() ? a.closest('p') : a;
+            host.replaceWith(fig);
+        });
+    },
+
+    _videoCard(bubble, prompt, duration, aspect) {
+        bubble.classList.remove('streaming-cursor');
+        bubble.innerHTML =
+            '<div class="zp-vjob">' +
+              '<div class="zp-vjob-top"><span class="zp-vjob-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg></span>' +
+                '<span class="zp-vjob-title">Rendering your video</span><span class="zp-vjob-time">0:00</span></div>' +
+              '<div class="zp-vjob-prompt"></div>' +
+              '<div class="zp-vjob-stage ' + (aspect === '9:16' ? 'tall' : '') + '"><div class="zp-vjob-shimmer"></div></div>' +
+              '<div class="zp-vjob-bar"><i></i></div>' +
+              '<div class="zp-vjob-note">' + duration + 's \u00b7 ' + aspect + ' \u00b7 with sound \u2014 usually ready in 1\u20133 minutes. You can keep chatting.</div>' +
+            '</div>';
+        bubble.querySelector('.zp-vjob-prompt').textContent = prompt;
+        return bubble;
+    },
+
+    _tickVideoCard(bubble, elapsed, status) {
+        const t = bubble.querySelector('.zp-vjob-time');
+        if (t) t.textContent = Math.floor(elapsed / 60) + ':' + String(elapsed % 60).padStart(2, '0');
+        const bar = bubble.querySelector('.zp-vjob-bar i');
+        if (bar) bar.style.width = Math.min(94, Math.round(94 * (1 - Math.exp(-elapsed / 70)))) + '%';
+        const title = bubble.querySelector('.zp-vjob-title');
+        if (title && status === 'in_progress') title.textContent = 'Rendering your video';
+    },
+
+    async generateVideoNow(prompt, opts = {}) {
+        if (!prompt || !prompt.trim()) return false;
+        if (!this.activeId) await this.create();
+        const chatId = this.activeId;
+        const duration = [4, 6, 8].includes(opts.duration) ? opts.duration : 6;
+        const aspect = opts.aspect === '9:16' ? '9:16' : '16:9';
+        const bubble = this.appendMessage('assistant', '', true);
+        this._videoCard(bubble, prompt.trim(), duration, aspect);
+        try {
+            const res = await api('/api/video/generate', {
+                method: 'POST',
+                body: JSON.stringify({ prompt: prompt.trim(), chat_id: chatId, duration, aspect, image: opts.image || null, user_text: opts.userText || null }),
+            });
+            if (typeof res.remaining === 'number') showToast('Video started \u2014 ' + res.remaining + ' left today', 'success');
+            if (res.chat_title && this.chats[chatId] && this.chats[chatId].title !== res.chat_title) {
+                this.chats[chatId].title = res.chat_title;
+                this.renderList();
+                this.renderHeader();
+            }
+            this._pollVideo(res.id, bubble, chatId);
+            return true;
+        } catch (e) {
+            const msg = String(e.message || 'Could not start the video');
+            if (bubble && bubble.parentElement) bubble.parentElement.remove();
+            if (/pro feature|upgrade/i.test(msg) && typeof Billing !== 'undefined' && typeof Billing.showUpgrade === 'function') Billing.showUpgrade(msg);
+            else showToast(msg, 'error');
+            return false;
+        }
+    },
+
+    _pollVideo(jobId, bubble, chatId) {
+        clearInterval(this._videoTimers[jobId]);
+        const t0 = Date.now();
+        let localElapsed = 0;
+        const tick = setInterval(() => {
+            localElapsed = Math.round((Date.now() - t0) / 1000) + (bubble._baseElapsed || 0);
+            if (!bubble.isConnected) return;
+            this._tickVideoCard(bubble, localElapsed, bubble._status);
+        }, 1000);
+        const poll = async () => {
+            try {
+                const st = await api('/api/video/status/' + jobId);
+                bubble._status = st.status;
+                if (!bubble._baseElapsed && st.elapsed) bubble._baseElapsed = Math.max(0, st.elapsed - Math.round((Date.now() - t0) / 1000));
+                if (st.status === 'completed') {
+                    clearInterval(this._videoTimers[jobId]); clearInterval(tick);
+                    delete this._videoTimers[jobId];
+                    if (this.activeId === chatId && bubble.isConnected) {
+                        const md = `**Video:** ${st.prompt}\n\n[\u25B6 Generated video (${st.duration}s, ${st.aspect})](${st.url})`;
+                        bubble.classList.remove('streaming-cursor');
+                        bubble.innerHTML = DOMPurify.sanitize(marked.parse(md));
+                        this.enhanceVideos(bubble);
+                    }
+                    showToast('Your video is ready!', 'success');
+                } else if (st.status === 'failed') {
+                    clearInterval(this._videoTimers[jobId]); clearInterval(tick);
+                    delete this._videoTimers[jobId];
+                    if (bubble.isConnected) {
+                        bubble.innerHTML = '';
+                        const p = document.createElement('p');
+                        p.className = 'zp-vjob-fail';
+                        p.textContent = 'The video couldn\u2019t be made: ' + (st.error || 'unknown error') + ' It didn\u2019t count toward your daily videos.';
+                        bubble.appendChild(p);
+                    }
+                    showToast('Video failed \u2014 it didn\u2019t use up your allowance', 'error');
+                }
+            } catch (e) { /* network blip: try again next round */ }
+        };
+        this._videoTimers[jobId] = setInterval(poll, 5000);
+        setTimeout(poll, 1500);
+    },
+
+    async resumeVideos(chatId) {
+        if (!chatId) return;
+        try {
+            const { jobs } = await api('/api/video/pending?chat_id=' + chatId);
+            (jobs || []).forEach(j => {
+                if (this._videoTimers[j.id] || this.activeId !== chatId) return;
+                const bubble = this.appendMessage('assistant', '', true);
+                this._videoCard(bubble, j.prompt, j.duration, j.aspect);
+                this._pollVideo(j.id, bubble, chatId);
+            });
+        } catch (e) {}
+    },
+
+    // Composer "Video" button: a small dialog for the prompt, length and shape.
+    async openVideoDialog() {
+        let cfg = null;
+        try { cfg = await api('/api/video/config'); } catch (e) {}
+        if (cfg && !cfg.allowed) {
+            const msg = cfg.enabled ? 'Video generation is a Pro feature. Upgrade to make videos.' : 'Video generation is switched off right now.';
+            if (cfg.enabled && typeof Billing !== 'undefined' && typeof Billing.showUpgrade === 'function') Billing.showUpgrade(msg); else showToast(msg, 'error');
+            return;
+        }
+        if (document.getElementById('zp-vdlg')) return;
+        const imgAtt = this.attachments.find(a => a.type === 'image');
+        const ov = document.createElement('div');
+        ov.id = 'zp-vdlg';
+        ov.className = 'zp-vdlg';
+        ov.innerHTML =
+            '<div class="zp-vdlg-card" role="dialog" aria-modal="true" aria-labelledby="zp-vdlg-t">' +
+              '<button type="button" class="zp-vdlg-x" aria-label="Close">\u00d7</button>' +
+              '<h3 id="zp-vdlg-t">Make a video</h3>' +
+              '<p class="zp-vdlg-sub"></p>' +
+              '<label for="zp-vdlg-p">Describe the scene</label>' +
+              '<textarea id="zp-vdlg-p" rows="3" maxlength="800" placeholder="A neon city street after rain, slow camera push, reflections on the road"></textarea>' +
+              '<div class="zp-vdlg-row"><span>Length</span><div class="zp-seg" data-k="duration"><button type="button" data-v="4">4s</button><button type="button" data-v="6" class="on">6s</button><button type="button" data-v="8">8s</button></div></div>' +
+              '<div class="zp-vdlg-row"><span>Shape</span><div class="zp-seg" data-k="aspect"><button type="button" data-v="16:9" class="on">Wide 16:9</button><button type="button" data-v="9:16">Tall 9:16</button></div></div>' +
+              (imgAtt ? '<p class="zp-vdlg-img">Your attached photo will be the first frame.</p>' : '') +
+              '<div class="zp-vdlg-actions"><button type="button" class="zp-vdlg-cancel">Cancel</button><button type="button" class="zp-vdlg-go">Create video</button></div>' +
+            '</div>';
+        document.body.appendChild(ov);
+        const sub = ov.querySelector('.zp-vdlg-sub');
+        sub.textContent = cfg ? (cfg.remaining + ' of ' + cfg.daily_limit + ' videos left today') : 'Short clips with sound';
+        const sel = { duration: 6, aspect: '16:9' };
+        ov.querySelectorAll('.zp-seg').forEach(seg => seg.addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+            sel[seg.dataset.k] = seg.dataset.k === 'duration' ? parseInt(b.dataset.v, 10) : b.dataset.v;
+        }));
+        const ta = ov.querySelector('textarea');
+        const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+        const onKey = e => { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', e => { if (e.target === ov) close(); });
+        ov.querySelector('.zp-vdlg-x').onclick = close;
+        ov.querySelector('.zp-vdlg-cancel').onclick = close;
+        ov.querySelector('.zp-vdlg-go').onclick = async () => {
+            const prompt = ta.value.trim();
+            if (prompt.length < 3) { ta.focus(); return; }
+            close();
+            const image = imgAtt ? imgAtt.data : null;
+            if (imgAtt) { this.attachments = this.attachments.filter(a => a !== imgAtt); this.renderAtts(); }
+            const said = 'Make a ' + sel.duration + '-second video: ' + prompt;
+            this.appendMessage('user', said, false, image ? [image] : []);
+            await this.generateVideoNow(prompt, { duration: sel.duration, aspect: sel.aspect, image, userText: said });
+        };
+        setTimeout(() => ta.focus(), 30);
+    },
+
     // True when this chat already contains a generated image (follow-ups need one).
     // The markdown "![Generated image]" is rendered into an <img alt="Generated image">
     // element, so we must check the DOM, not the raw text content.
@@ -1218,6 +1422,12 @@ const Chat = {
         // an image; "add a bell around the cow" / "make it blue" applies a
         // follow-up edit to the last generated image in this chat.
         if (text) {
+            const vid = typeof window.detectVideoRequest === 'function' ? window.detectVideoRequest(text, sendImages.length > 0) : null;
+            if (vid) {
+                await this.generateVideoNow(vid.prompt, { duration: vid.duration, aspect: vid.aspect, image: sendImages[0] || null, userText: text });
+                input.focus();
+                return; // the video is the response
+            }
             const imgPrompt = typeof window.detectImageRequest === 'function' ? window.detectImageRequest(text) : null;
             if (imgPrompt) {
                 await this.generateImageNow(imgPrompt);

@@ -44,9 +44,9 @@ const Billing = {
                 return `
                     <div class="zp-cards">
                         ${planCard('Pro', 'zp-pro', `$${proMonthly.price}`, '/mo', '', '', 'for individuals getting started',
-                            ['100 images/day', '100 uploads/day', 'File edit &amp; generate', 'Higher daily limits'], 'Get Pro', 'cyan', 'pro_monthly')}
+                            ['100 images/day', '3 AI videos/day', '100 uploads/day', 'File edit &amp; generate'], 'Get Pro', 'cyan', 'pro_monthly')}
                         ${planCard('👑 Ultimate', 'zp-ult', `$${ultMonthly.price}`, '/mo', 'POPULAR', 'hot', 'everything, fully unlocked',
-                            ['Everything in Pro', 'Unlimited + gpt-4o / claude', 'Unlimited voice', 'Priority support'], 'Go Ultimate', 'gold', 'ultimate_monthly')}
+                            ['Everything in Pro', '10 AI videos/day (faster model)', 'Unlimited + top models', 'Unlimited voice'], 'Go Ultimate', 'gold', 'ultimate_monthly')}
                     </div>
                 `;
             } else if (isYearly) {

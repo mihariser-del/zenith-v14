@@ -10,3 +10,4 @@ static/generated/
 .DS_Store
 *.log
 DEPLOY_PLAN.md
+generated_videos/

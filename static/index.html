@@ -55,12 +55,13 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/static/icons/favicon-16-v2.png">
     <link rel="manifest" href="/static/manifest.json?v=2">
-    <meta name="theme-color" content="#0066ff">
+    <meta name="theme-color" content="#07080f">
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon-v2.png">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="Zelpophai AI">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="stylesheet" href="/static/css/welcome.css">
     <link rel="stylesheet" href="/static/css/halloween.css">
     <script>
         /* seasonal theme, applied before first paint (full logic in js/halloween.js) */
@@ -77,56 +78,139 @@
 <body class="auth-page">
 
 <div class="landing-page" id="landing-page">
-    <div class="landing-content">
-        <h1 class="landing-title">WELCOME TO Zelpophai AI</h1>
-        <p class="landing-subtitle">The Pinnacle of Intelligence</p>
-        <button class="start-btn" id="start-btn">START</button>
+    <div class="wl-bg" aria-hidden="true">
+        <span class="wl-orb o1"></span><span class="wl-orb o2"></span><span class="wl-orb o3"></span><span class="wl-orb o4"></span>
+        <span class="wl-star" style="top:120px;left:12%;animation-delay:.2s"></span>
+        <span class="wl-star" style="top:210px;left:38%;animation-delay:1.4s"></span>
+        <span class="wl-star" style="top:90px;left:66%;animation-delay:.8s"></span>
+        <span class="wl-star" style="top:380px;left:88%;animation-delay:2.1s"></span>
+        <span class="wl-star" style="top:540px;left:6%;animation-delay:1.1s"></span>
+        <span class="wl-star" style="top:660px;left:52%;animation-delay:2.7s"></span>
     </div>
 
-    <section class="seo-section" aria-labelledby="seo-heading">
+    <header class="wl-nav">
+        <a class="wl-brand" href="/" aria-label="Zelpophai AI home"><span class="wl-z">Z</span><span>Zelpophai <b>AI</b></span></a>
+        <nav class="wl-links" aria-label="Main">
+            <a class="wl-hide-sm" href="#features">Features</a>
+            <a class="wl-hide-sm" href="#faq">FAQ</a>
+            <button type="button" class="wl-link-btn" id="start-btn">Log in</button>
+            <button type="button" class="wl-btn wl-btn-sm wl-hide-sm" data-guest>Try it free</button>
+        </nav>
+    </header>
+
+    <section class="wl-hero">
+        <div class="wl-hero-copy">
+            <span class="wl-pill"><i></i>Free to start · No sign-up needed</span>
+            <h1 class="landing-title">Chat, create images, videos and documents <span class="wl-shine">with one AI.</span></h1>
+            <p class="landing-subtitle">Zelpophai AI remembers your conversations, answers with live web search, turns a sentence into an image or a short video, and hands you ready-to-download files.</p>
+            <div class="wl-ctas">
+                <button type="button" class="wl-btn wl-glow start-btn" data-guest>Try it free — no sign-up
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+                <div class="wl-google">
+                    <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="continue_with" data-size="large" data-logo_alignment="left"></div>
+                </div>
+            </div>
+            <p class="wl-have">Already have an account? <button type="button" class="wl-link-inline" data-login>Log in</button> · <button type="button" class="wl-link-inline" data-register>Create one</button></p>
+            <div class="wl-models"><span>Runs on top models</span><b>GPT</b><b>Claude</b><b>Gemini</b><b>Veo</b><b>DeepSeek</b></div>
+        </div>
+
+        <div class="wl-hero-demo">
+            <div class="wl-frame">
+                <div class="wl-frame-top"><i></i><i></i><i></i><span>Zelpophai AI</span></div>
+                <div class="wl-demo" id="wl-demo" aria-live="polite">
+                    <div class="wl-ask" id="wl-ask">Write a short cover letter for a junior designer job</div>
+                    <div class="wl-reply">
+                        <span class="wl-z wl-z-sm">Z</span>
+                        <div class="wl-reply-body">
+                            <div class="wl-chip-web" id="wl-web" hidden>
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Searched the web · 4 sources
+                            </div>
+                            <p id="wl-text">Here is a one-page cover letter in a warm, confident tone. I kept it under 250 words and highlighted your portfolio.</p>
+                            <div class="wl-doc" id="wl-doc">
+                                <span class="wl-doc-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h5"/></svg></span>
+                                <span class="wl-doc-txt"><b>Cover_Letter.docx</b><small>Word document · ready to download</small></span>
+                                <span class="wl-doc-dl">Download</span>
+                            </div>
+                            <figure class="wl-media" id="wl-img" hidden>
+                                <svg viewBox="0 0 400 210" role="img" aria-label="Generated image: a lighthouse on a cliff at dusk"><rect width="400" height="210" fill="#1b1f3a"/><rect y="120" width="400" height="90" fill="#141833"/><circle cx="300" cy="78" r="30" fill="#f6b26b"/><path d="M0 150 L120 112 L210 140 L400 104 L400 210 L0 210 Z" fill="#0f1226"/><path d="M92 132 L100 62 L114 62 L122 128 Z" fill="#e9e4f5"/><rect x="98" y="52" width="18" height="12" fill="#2b2f4f"/><path d="M116 58 L230 34 L230 82 Z" fill="#f6d78b" opacity="0.35"/><rect x="96" y="84" width="22" height="7" fill="#c0392b"/><rect x="94" y="106" width="26" height="7" fill="#c0392b"/></svg>
+                                <figcaption>lighthouse_dusk.png · 1024 × 1024</figcaption>
+                            </figure>
+                            <figure class="wl-media" id="wl-vid" hidden>
+                                <div class="wl-vid-stage">
+                                    <svg viewBox="0 0 400 225" role="img" aria-label="Generated video: a neon city street after rain"><rect width="400" height="225" fill="#0b1230"/><rect x="20" y="40" width="50" height="150" fill="#131b40"/><rect x="80" y="20" width="60" height="170" fill="#101736"/><rect x="260" y="30" width="56" height="160" fill="#131b40"/><rect x="326" y="60" width="54" height="130" fill="#101736"/><rect x="92" y="50" width="8" height="40" fill="#ff4fa3"/><rect x="272" y="60" width="8" height="46" fill="#22d3ee"/><rect x="30" y="70" width="30" height="5" fill="#60a5fa"/><g class="wl-wave"><path d="M0 190 H430 V225 H0 Z" fill="#0d1838"/><path d="M96 196 h6 v22 h-6z M276 196 h6 v24 h-6z" fill="#ff4fa3" opacity=".5"/></g><g class="wl-rain" stroke="#9cc0ff" stroke-width="1" opacity=".5"><path d="M40 0v10M120 20v10M200 5v10M300 25v10M360 10v10M160 60v10M240 70v10"/></g></svg>
+                                    <span class="wl-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z" fill="#fff"/></svg></span>
+                                </div>
+                                <figcaption><span>neon_city.mp4 · 6 s · with sound</span><span>Rendering…</span></figcaption>
+                                <div class="wl-bar"><i></i></div>
+                            </figure>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="wl-chips" role="group" aria-label="Example answers">
+                <span>See it answer:</span>
+                <button type="button" class="on" data-demo="0" aria-pressed="true">Write a cover letter</button>
+                <button type="button" data-demo="1" aria-pressed="false">Make an image</button>
+                <button type="button" data-demo="2" aria-pressed="false">Latest news</button>
+                <button type="button" data-demo="3" aria-pressed="false">Make a video</button>
+            </div>
+        </div>
+    </section>
+
+    <section class="seo-section wl-section" id="features" aria-labelledby="seo-heading">
         <div class="seo-inner">
-            <h2 id="seo-heading">One AI assistant for chat, images, documents and code</h2>
-            <p class="seo-lead">Zelpophai AI is an intelligent chat assistant that remembers your conversations, generates images, creates ready-to-download documents, researches live information and helps you write and run code — all in one place, free to start.</p>
-            <div class="seo-features">
-                <article class="seo-feature">
+            <span class="wl-eyebrow">What you can do</span>
+            <h2 id="seo-heading">One assistant instead of five apps.</h2>
+            <p class="seo-lead">Zelpophai AI is an intelligent chat assistant that remembers your conversations, generates images and short videos, creates ready-to-download documents, researches live information and helps you write and run code — all in one place, free to start.</p>
+            <div class="seo-features wl-features">
+                <article class="seo-feature wl-card wl-card-hot">
+                    <span class="wl-ic wl-ic-grad"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="5" width="14" height="14" rx="3"/><path d="M16 10l6-3v10l-6-3z"/></svg></span>
+                    <h3>Videos from a sentence <em>NEW</em></h3>
+                    <p>Describe a scene and get a short clip with sound, or bring a photo to life.</p>
+                </article>
+                <article class="seo-feature wl-card">
+                    <span class="wl-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0-6 6c0 2.2 1.2 3.7 2.5 4.8.8.7 1.5 1.6 1.5 2.7V18h4v-1.5c0-1.1.7-2 1.5-2.7C16.8 12.7 18 11.2 18 9a6 6 0 0 0-6-6z"/><path d="M10 21h4"/></svg></span>
                     <h3>Conversations with memory</h3>
                     <p>Ask anything and keep context across chats. Zelpophai AI remembers details so you don't have to repeat yourself.</p>
                 </article>
-                <article class="seo-feature">
+                <article class="seo-feature wl-card">
+                    <span class="wl-ic wl-ic-cyan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="M21 16l-5-5-9 9"/></svg></span>
                     <h3>AI image generation</h3>
                     <p>Describe a picture and get a high-quality image in seconds, then refine it with simple follow-up requests.</p>
                 </article>
-                <article class="seo-feature">
+                <article class="seo-feature wl-card">
+                    <span class="wl-ic wl-ic-soft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15l3 3 3-3"/></svg></span>
                     <h3>Documents &amp; files</h3>
                     <p>Generate PDF, Word, Excel, PowerPoint, CSV, HTML and Markdown files, or upload your own and ask questions about them.</p>
                 </article>
-                <article class="seo-feature">
-                    <h3>Research &amp; fact-check</h3>
-                    <p>Get up-to-date answers with live web search, deeper research mode and citation-backed fact checking.</p>
-                </article>
-                <article class="seo-feature">
-                    <h3>Coding AGT.</h3>
-                    <p>Write, highlight and run JavaScript, HTML, Python and more in a built-in code runner, then download the result.</p>
-                </article>
-                <article class="seo-feature">
-                    <h3>Voice &amp; accessibility</h3>
-                    <p>Talk to the assistant with voice mode, listen to replies read aloud, and use a keyboard-friendly interface.</p>
-                </article>
+            </div>
+            <div class="wl-mini">
+                <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>Live research &amp; fact-check</div>
+                <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/></svg>Write and run code</div>
+                <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Talk with voice mode</div>
+                <div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Private to your account</div>
             </div>
 
-            <h2>Frequently asked questions</h2>
+            <div class="wl-steps">
+                <div><b>1</b><h3>Start chatting free</h3><p>No account needed. Ask your first question right away.</p></div>
+                <div><b>2</b><h3>Save with one tap</h3><p>Like it? Continue with Google to keep your chats on every device.</p></div>
+                <div><b>3</b><h3>Go further with Pro</h3><p>Higher limits, video generation and extra features when you need them.</p></div>
+            </div>
+
+            <h2 id="faq">Frequently asked questions</h2>
             <div class="seo-faq">
                 <details>
                     <summary>Is Zelpophai AI free to use?</summary>
-                    <p>Yes. You can start chatting for free and create an account in seconds. Paid plans unlock higher limits and extra features.</p>
+                    <p>Yes. You can start chatting for free, even without an account. Paid plans unlock higher limits and extra features like video generation.</p>
                 </details>
                 <details>
-                    <summary>Can Zelpophai AI really create documents and images?</summary>
-                    <p>Yes. Ask it to write a report, resume, presentation or spreadsheet and it produces a downloadable file. Ask for a picture and it generates an image you can view, download and refine.</p>
+                    <summary>Can Zelpophai AI really create documents, images and videos?</summary>
+                    <p>Yes. Ask it to write a report, resume, presentation or spreadsheet and it produces a downloadable file. Ask for a picture and it generates an image you can refine. Pro members can turn a sentence or a photo into a short video with sound.</p>
                 </details>
                 <details>
                     <summary>Does it remember previous conversations?</summary>
-                    <p>Your chats are saved to your account and the assistant can use that context in later conversations, so you can pick up where you left off.</p>
+                    <p>With an account, your chats are saved and the assistant can use that context later, so you can pick up where you left off. Guest chats stay on your device.</p>
                 </details>
                 <details>
                     <summary>Can I use it to write and run code?</summary>
@@ -134,9 +218,14 @@
                 </details>
             </div>
 
-            <p class="seo-cta-row">
-                <button class="start-btn seo-cta" type="button" onclick="document.getElementById('start-btn').click()">Get started free</button>
-            </p>
+            <div class="wl-final">
+                <h2>Ask your first question in seconds.</h2>
+                <p>No card, no sign-up. Save your chats later if you like it.</p>
+                <div class="wl-ctas wl-ctas-center">
+                    <button class="wl-btn start-btn seo-cta" type="button" data-guest>Try it free — no sign-up</button>
+                    <button class="wl-btn-ghost" type="button" data-login>Log in</button>
+                </div>
+            </div>
         </div>
         <footer class="seo-footer">
             <a href="/status">System status</a>
@@ -153,7 +242,7 @@
         <button id="admin-crown" title="Admin Access" onclick="window.location.href='/admin'" style="position:absolute; top:12px; right:12px; z-index:10; background:rgba(255,215,0,0.15); border:1px solid rgba(255,215,0,0.6); color:#FFD700; width:36px; height:36px; border-radius:50%; cursor:pointer; font-size:16px; display:flex; align-items:center; justify-content:center;">&#9812;</button>
         <div class="login-header">
             <h1>Zelpophai AI</h1>
-            <p>Secure Authentication</p>
+            <p>Log in to see your chats</p>
         </div>
         <div class="auth-tabs">
             <div class="auth-tab active" data-tab="login">Login</div>
@@ -250,6 +339,7 @@
 <script src="/static/js/api.js"></script>
 <script src="/static/js/auth.js"></script>
 <script src="/static/js/halloween.js"></script>
+<script src="/static/js/welcome.js"></script>
 <script>if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/static/sw.js', {scope: '/'}));</script>
 </body>
 </html>

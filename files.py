@@ -19,8 +19,28 @@ from limits import check_limit
 
 router = APIRouter(prefix="/api/files", tags=["files"])
 
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
-os.makedirs(UPLOAD_DIR, exist_ok=True)
+def _pick_upload_dir() -> str:
+    """Uploaded files and generated documents used to live in the app folder, which
+    Railway wipes on every deploy (the database kept the rows, so downloads broke).
+    Prefer the persistent volume at /data when it is writable; UPLOAD_DIR overrides."""
+    local = os.path.join(os.path.dirname(os.path.abspath(__file__)), "uploads")
+    for cand in (os.getenv("UPLOAD_DIR", "").strip(), "/data/uploads", local):
+        if not cand:
+            continue
+        try:
+            os.makedirs(cand, exist_ok=True)
+            probe = os.path.join(cand, ".probe")
+            with open(probe, "w") as fh:
+                fh.write("x")
+            os.remove(probe)
+            return cand
+        except Exception:
+            continue
+    os.makedirs(local, exist_ok=True)
+    return local
+
+
+UPLOAD_DIR = _pick_upload_dir()
 
 MAX_SIZE = 20 * 1024 * 1024
 MAX_TEXT = 50000

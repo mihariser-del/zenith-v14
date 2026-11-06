@@ -1,7 +1,7 @@
 {
   "name": "zelpophai-desktop",
   "productName": "Zelpophai AI",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zelpophai AI for Windows",
   "author": "Wanzu Ibrahim",
   "homepage": "https://zelpophai.up.railway.app",
@@ -30,6 +30,11 @@
       "main.js",
       "preload.js",
       "runner.js",
+      "mini.js",
+      "input.js",
+      "mini-preload.js",
+      "region.html",
+      "region-preload.js",
       "offline.html",
       "build/icon.png"
     ],

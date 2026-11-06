@@ -7,6 +7,7 @@ const path = require('path');
 const fs = require('fs');
 const { autoUpdater } = require('electron-updater');
 const runner = require('./runner');
+const mini = require('./mini');
 
 const SITE = process.env.ZELPOPHAI_URL || 'https://zelpophai.up.railway.app';
 const START = SITE + '/app';
@@ -128,11 +129,14 @@ function buildTray() {
         { label: 'Open Zelpophai AI', click: showWindow },
         { label: 'New chat  (Ctrl+Shift+Space)', click: quickAsk },
         { label: 'Coding AGT.', click: () => { showWindow(); win.loadURL(SITE + '/app/coding-agent'); } },
+        { label: 'Zelpophai Mini  (Ctrl+Shift+Z)', click: () => mini.toggle() },
         { type: 'separator' },
         { label: 'Start with Windows', type: 'checkbox', checked: app.getLoginItemSettings().openAtLogin,
           click: (i) => app.setLoginItemSettings({ openAtLogin: i.checked, args: ['--hidden'] }) },
         { label: 'Keep running when closed', type: 'checkbox', checked: getSetting('closeToTray', true),
           click: (i) => setSetting('closeToTray', i.checked) },
+        { label: 'Ctrl+Shift+Z opens Zelpophai Mini', type: 'checkbox', checked: getSetting('miniShortcut', true),
+          click: (i) => { setSetting('miniShortcut', i.checked); if (i.checked) mini.register(); else mini.unregister(); } },
         { label: updateReady ? `Restart to update to ${updateReady}` : 'Check for updates', click: () => updateReady ? installNow() : checkUpdates(true) },
         { type: 'separator' },
         { label: `Version ${app.getVersion()}`, enabled: false },
@@ -215,10 +219,14 @@ app.whenReady().then(() => {
     buildTray();
     if (process.argv.includes('--hidden')) win.once('ready-to-show', () => win.hide());
     globalShortcut.register('Control+Shift+Space', quickAsk);
+    mini.setup({ SITE, isOurs, ICON, getSetting, setSetting, loadMain: (url) => { showWindow(); win.loadURL(url); } });
+    if (getSetting('miniShortcut', true) && !mini.register() && Notification.isSupported()) {
+        new Notification({ title: 'Zelpophai Mini', body: 'Ctrl+Shift+Z is used by another app, so open Mini from the tray icon instead.', icon: ICON }).show();
+    }
     setTimeout(() => checkUpdates(false), 8000);
     setInterval(() => checkUpdates(false), 4 * 60 * 60 * 1000);
 });
 
 app.on('before-quit', () => { quitting = true; saveState(); });
-app.on('will-quit', () => globalShortcut.unregisterAll());
+app.on('will-quit', () => { globalShortcut.unregisterAll(); mini.stop(); });
 app.on('window-all-closed', () => { /* stays in tray */ });

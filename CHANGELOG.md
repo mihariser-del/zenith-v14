@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 21.5 — Zelpophai Mini (Windows app 1.1.0)
+
+- **Ctrl+Shift+Z** (tray toggle to turn it off) screenshots the display under the mouse, then opens a small always-on-top panel loading `/mini` (`static/mini.html`, `static/js/mini.js`, `static/css/mini.css`)
+- **Ask mode** (`POST /api/mini/ask`, streams): screenshot or a dragged **area** (`desktop/region.html` overlay), optional **clipboard**, quick actions (Explain, Summarise, Translate, Fix/rewrite, Reply, Extract text), answers rendered with `render.js`, **Copy** / **Paste into app** (clipboard + Ctrl+V into the window underneath) / Open in Zelpophai
+- **Do mode** (`POST /api/mini/step`): fresh screenshot each step → model returns ≤4 JSON actions (click, double/right click, move, drag, type, key combos, scroll, wait, open URL); server validates/clamps them and forces `risky` on dangerous key combos; the panel asks before each action (or only risky ones after "Allow all"), Skip/Stop, Esc (global, only while running) stops; max 40 steps / 120 actions; one-time native "Allow Mini to use your PC?" dialog
+- Input on Windows: `desktop/input.js` keeps one hidden PowerShell process with a small C# `SendInput` helper (DPI aware); screenshot → screen mapping via `screen.dipToScreenPoint`
+- **Voice**: MediaRecorder → 16 kHz WAV → `POST /api/mini/transcribe` (Whisper key if set, otherwise `MINI_AGENT_AUDIO_MODEL` via OpenRouter `input_audio`)
+- **History**: every answer / task summary saved to a daily "Zelpophai Mini — <date>" chat in the "Mini agent" folder (`POST /api/mini/save`)
+- Limits per day (`UsageLog` action `mini_agent`, each ask or Do step counts): guests none, free 20, Pro 300, Ultimate/Friend/staff 1000 (`MINI_AGENT_DAILY_*`). Models: `MINI_AGENT_MODEL(_FREE)` (default google/gemini-3.8-flash), `MINI_AGENT_DO_MODEL` (anthropic/claude-sonnet-5.5), `MINI_AGENT_DO_MODEL_FREE` (google/gemini-3.8-flash)
+- Prompts treat on-screen text as content, never instructions; Mini never types passwords, card numbers or one-time codes
+
 ## 21.4.2 — Search engines
 
 - Sitemap now lists `/`, `/download` and `/whats-new` with `lastmod` (deploy date); dropped `/invite.html` (it's noindex)

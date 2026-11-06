@@ -5,6 +5,13 @@ notifications, Ctrl+Shift+Space quick ask, local code running for Coding AGT.
 (`runner.js`, asks first) and self-updates from
 `https://zelpophai.up.railway.app/downloads/win/latest.yml`.
 
+## Zelpophai Mini (Ctrl+Shift+Z)
+`mini.js` opens a small panel (`SITE/mini`) after taking a screenshot of the screen
+under the mouse. `region.html` is the "select an area" overlay. Do mode drives the
+mouse/keyboard through `input.js` (a hidden PowerShell process with a C# SendInput
+helper). Control only runs during a task the user starts, after a one-time
+permission dialog, and Esc stops it.
+
 ## Release a new version
 1. Bump `version` in `package.json`.
 2. Build: `npm install && npx electron-builder --win --x64 --publish never`

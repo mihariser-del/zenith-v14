@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>Zelpophai Mini</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<link rel="stylesheet" href="/static/css/render.css">
+<link rel="stylesheet" href="/static/css/mini.css">
+<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
+</head>
+<body>
+<div class="mini" id="mini">
+  <header class="top">
+    <div class="brand"><span class="z">Z</span><b>Mini</b></div>
+    <div class="modes" role="tablist" aria-label="Mode">
+      <button type="button" role="tab" class="on" data-mode="ask" aria-selected="true">Ask</button>
+      <button type="button" role="tab" data-mode="do" aria-selected="false">Do</button>
+    </div>
+    <div class="tools">
+      <button type="button" class="ib" id="pin" title="Keep open when I click elsewhere" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg></button>
+      <button type="button" class="ib" id="openApp" title="Open Zelpophai">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/></svg></button>
+      <button type="button" class="ib" id="close" title="Close (Esc)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+  </header>
+
+  <div class="ctx" id="ctx">
+    <div class="shot" id="shotBox" hidden>
+      <img id="shotImg" alt="Screenshot that will be sent">
+      <div class="shot-t"><b id="shotLabel">Your screen</b><span id="shotSub">Mini can see this</span></div>
+      <button type="button" class="ib sm" id="retake" title="Take a new screenshot"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+      <button type="button" class="ib sm" id="dropShot" title="Don't send the screen"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="chips">
+      <button type="button" class="chip" id="area"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 3"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>Select area</button>
+      <button type="button" class="chip" id="addShot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Use my screen</button>
+      <button type="button" class="chip" id="clip" hidden aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span id="clipText">Clipboard</span></button>
+    </div>
+  </div>
+
+  <main class="body" id="body">
+    <section id="askView">
+      <div class="empty" id="askEmpty">
+        <p class="hello">What do you need with this screen?</p>
+        <div class="quick" id="quick"></div>
+      </div>
+      <div class="thread" id="thread"></div>
+    </section>
+    <section id="doView" hidden>
+      <div class="empty" id="doEmpty">
+        <p class="hello">Tell Mini what to do on your PC</p>
+        <p class="sub">It looks at the screen, then moves the mouse and types for you, one step at a time. You stay in control: it asks before acting, and <b>Esc</b> stops it.</p>
+        <div class="examples" id="examples"></div>
+        <label class="toggle"><input type="checkbox" id="askEach" checked> Ask me before every step</label>
+      </div>
+      <div class="log" id="log"></div>
+    </section>
+  </main>
+
+  <footer class="bottom">
+    <div class="quickrow" id="quickrow"></div>
+    <div class="inputbox">
+      <textarea id="input" rows="1" placeholder="Ask about your screen…" aria-label="Message"></textarea>
+      <button type="button" class="ib mic" id="mic" title="Speak (click to start / stop)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg></button>
+      <button type="button" class="send" id="send" title="Send (Enter)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg></button>
+    </div>
+    <div class="foot"><span id="left"></span><span id="hint">Enter to send · Esc to close</span></div>
+  </footer>
+
+  <div class="blocker" id="blocker" hidden>
+    <div class="bcard"><div class="bic" id="bIcon">🖥️</div><h3 id="bTitle"></h3><p id="bText"></p><div class="bbtns" id="bBtns"></div></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="/static/js/render.js"></script>
+<script src="/static/js/mini.js"></script>
+</body>
+</html>

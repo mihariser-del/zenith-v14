@@ -23,6 +23,7 @@ from generate import router as generate_router
 from security import router as security_router
 from codeexec import router as codeexec_router
 from codeagent import router as codeagent_router
+from miniagent import router as miniagent_router
 from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
@@ -41,10 +42,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.4.2"
+VERSION = "21.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.5 Zelpophai Mini: in the Windows app press Ctrl+Shift+Z anywhere to ask about your screen — explain, summarise, translate, fix or reply in one tap, select just part of the screen, use what you copied, or speak your question. Switch to Do and Mini can even use your mouse and keyboard to finish tasks for you (it asks first, and Esc stops it). Update the Windows app to get it",
     "21.4.1 Tidier sidebar: the icon row under your chats now has just your main buttons, all the same size, with Feedback, Personal Request, Security, About and Clear history tucked into a neat More (⋯) menu",
     "21.4 Continue a shared chat: open someone's shared conversation and tap Continue this chat — it's copied into your own chats so you can keep asking from where it left off",
     "Better shared pages: answers look just like in the app (code with copy buttons, tables, maths, file cards), plus Copy link and Copy chat",
@@ -169,6 +171,7 @@ app.include_router(generate_router)
 app.include_router(security_router)
 app.include_router(codeexec_router)
 app.include_router(codeagent_router)
+app.include_router(miniagent_router)
 app.include_router(appdist_router)
 app.include_router(image_router)
 app.include_router(video_router)
@@ -904,6 +907,12 @@ async def coding_agent_page():
     return FileResponse("static/coding-agent.html")
 
 
+@app.get("/mini", response_class=HTMLResponse)
+async def mini_page():
+    # Zelpophai Mini panel (opened by Ctrl+Shift+Z in the Windows app).
+    return FileResponse("static/mini.html")
+
+
 @app.get("/code/{share_id}", response_class=HTMLResponse)
 async def shared_code_page(share_id: str):
     # Read-only view of a shared Coding AGT. project (the page loads it by id).
@@ -997,6 +1006,7 @@ async def seo_headers(request: Request, call_next):
         or path.startswith("/s/")
         or path.startswith("/i/")
         or path.startswith("/code/")
+        or path == "/mini"
     ):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     # Every page registers /static/sw.js with scope "/". Browsers refuse a scope

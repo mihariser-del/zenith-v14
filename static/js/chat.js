@@ -418,6 +418,30 @@ const Chat = {
             manageBlock.style.display = 'block';
             socials.style.display = 'flex';
             previewBtn.onclick = () => window.open(url, '_blank');
+            // privacy + snapshot state
+            const anonBox = overlay.querySelector('#sx-anon');
+            const snapText = overlay.querySelector('#sx-snap-text');
+            const updBtn = overlay.querySelector('#sx-update');
+            const applyState = (st) => {
+                if (!st) return;
+                if (anonBox) anonBox.checked = !!st.anonymous;
+                if (snapText) {
+                    const when = st.shared_at ? new Date(st.shared_at + (/[zZ]|[+-]\d\d:?\d\d$/.test(st.shared_at) ? '' : 'Z')).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '';
+                    snapText.textContent = st.newer
+                        ? `${st.newer} newer message${st.newer === 1 ? ' is' : 's are'} not on the public page yet.`
+                        : `Public page shows the chat as of ${when || 'when you shared it'}.`;
+                }
+                if (updBtn) updBtn.style.display = st.newer ? 'inline-flex' : 'none';
+            };
+            api(`/api/chats/${chat.id}/share`, { method: 'POST', body: JSON.stringify({}) }).then(applyState).catch(() => {});
+            if (anonBox) anonBox.onchange = async () => {
+                try { applyState(await api(`/api/chats/${chat.id}/share`, { method: 'POST', body: JSON.stringify({ anonymous: anonBox.checked }) })); showToast(anonBox.checked ? 'Your name is hidden on the shared page' : 'Your name shows on the shared page', 'success'); }
+                catch (e) { showToast(e.message || 'Failed', 'error'); }
+            };
+            if (updBtn) updBtn.onclick = async () => {
+                try { applyState(await api(`/api/chats/${chat.id}/share`, { method: 'POST', body: JSON.stringify({ update: true }) })); showToast('Shared page updated with your latest messages', 'success'); }
+                catch (e) { showToast(e.message || 'Failed', 'error'); }
+            };
             socials.querySelector('[data-soc="twitter"]').onclick = () => {
                 window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Check out this chat on Zelpophai AI: ' + url)}`, '_blank', 'noopener,width=600,height=450');
             };

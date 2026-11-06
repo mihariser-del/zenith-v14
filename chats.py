@@ -18,6 +18,7 @@ class ChatResponse(BaseModel):
     link_id: str
     share_id: str | None = None
     shared_at: datetime | None = None
+    share_anon: bool | None = False
     pinned: bool = False
     folder: str = ""
     model: str = ""
@@ -106,22 +107,44 @@ def _public_base(request: Request) -> str:
 
 @router.post("/{chat_id}/share")
 async def share_chat(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Create (or update) the public link. The link is a snapshot: messages
+    sent after sharing stay private until the owner presses "Update link".
+    Body (optional): {"anonymous": bool, "update": bool}."""
     import secrets
+    from sqlalchemy import func as _f
     user = await get_current_user_from_cookie(request, db)
     if user.username.startswith("guest_"):
         raise HTTPException(status_code=403, detail="Guests cannot share chats")
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    body = body if isinstance(body, dict) else {}
     result = await db.execute(
         select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
     )
     chat = result.scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+    last_id = (await db.execute(select(_f.max(Message.id)).where(Message.chat_id == chat.id))).scalar()
     if not chat.share_id:
         chat.share_id = secrets.token_hex(16)
         chat.shared_at = datetime.now(timezone.utc)
-        await db.commit()
-        await db.refresh(chat)
-    return {"link": f"{_public_base(request)}/s/{chat.share_id}", "share_id": chat.share_id}
+        chat.share_upto = last_id
+    elif body.get("update"):
+        chat.share_upto = last_id
+        chat.shared_at = datetime.now(timezone.utc)
+    if "anonymous" in body:
+        chat.share_anon = bool(body.get("anonymous"))
+    await db.commit()
+    await db.refresh(chat)
+    newer = 0
+    if chat.share_upto:
+        newer = (await db.execute(select(_f.count()).select_from(Message).where(
+            Message.chat_id == chat.id, Message.id > chat.share_upto))).scalar() or 0
+    return {"link": f"{_public_base(request)}/s/{chat.share_id}", "share_id": chat.share_id,
+            "anonymous": bool(chat.share_anon), "newer": newer,
+            "shared_at": chat.shared_at.isoformat() if chat.shared_at else None}
 
 
 @router.post("/{chat_id}/unshare")
@@ -135,6 +158,7 @@ async def unshare_chat(chat_id: int, request: Request, db: AsyncSession = Depend
         raise HTTPException(status_code=404, detail="Chat not found")
     chat.share_id = None
     chat.shared_at = None
+    chat.share_upto = None
     await db.commit()
     return {"message": "Unshared"}
 

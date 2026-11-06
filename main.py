@@ -5,6 +5,7 @@ from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Plai
 from pydantic import BaseModel
 
 import os
+import re
 import secrets
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -38,10 +39,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.0"
+VERSION = "21.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.1 Safer sharing: files you attached only show their name on a shared page (never their contents), you can hide your name, and a shared link is a snapshot — new messages stay private until you tap Update link. Shared links now show the chat's real title and a preview in WhatsApp, X and Telegram",
     "21.0 The AI now knows everything it can do — and does it: ask in your own words for a picture, a video or a reminder (\"remind me Friday at 9 to pay rent\") and it just happens, right in the chat. It also knows your plan and what you have left today",
     "New Friend tag: people Wanzu adds as friends get a FRIEND badge, Ultimate-level limits, extra videos and early access",
     "Staff: new Trusted Admin tag with more powers, and the Vault button now always asks for your PIN first",
@@ -415,40 +417,108 @@ app.mount("/uploads", StaticFiles(directory=_UPLOAD_DIR), name="uploads")
 # PUBLIC CHAT SHARES
 # ─────────────────────────────────────────────────────────────────────────────
 
+_FILE_MARK_RE = re.compile(r"\n*\[File(?: content)?:\s*([^\]\n]+)\]\n?")
+
+
+def _public_message_text(content: str, role: str) -> str:
+    """What a shared page may show. Users' attached files are summarised as
+    "📎 name" — their contents were sent to the AI, not meant for the public."""
+    text = content or ""
+    if role == "user" and "[File" in text:
+        parts = _FILE_MARK_RE.split(text)
+        names = []
+        for n in parts[1::2]:
+            n = n.strip()
+            if n and n not in names:
+                names.append(n)
+        text = parts[0].rstrip()
+        if names:
+            text = (text + "\n\n" if text else "") + "  ·  ".join("📎 " + n for n in names)
+    return text
+
+
+async def _load_share(db, share_id: str):
+    chat = (await db.execute(select(Chat).where(Chat.share_id == share_id))).scalar_one_or_none()
+    if not chat:
+        return None, []
+    q = select(Message).where(Message.chat_id == chat.id)
+    if chat.share_upto:
+        q = q.where(Message.id <= chat.share_upto)
+    msgs = (await db.execute(q.order_by(Message.id))).scalars().all()
+    return chat, msgs
+
+
+def _share_snippet(msgs) -> str:
+    for m in msgs:
+        if m.role == "assistant" and (m.content or "").strip():
+            t = re.sub(r"<zfile\b[^>]*name=\"([^\"]+)\"[^>]*>.*?(</zfile>|$)", r"[\1]", m.content, flags=re.S)
+            t = re.sub(r"!\[[^\]]*\]\([^)]*\)|```.*?```|<[^>]+>", " ", t, flags=re.S)
+            t = re.sub(r"\[([^\]]+)\]\([^)]*\)", r"\1", t)
+            t = re.sub(r"[#*_>`|-]+", " ", t)
+            t = re.sub(r"\s+", " ", t).strip()
+            if t:
+                return (t[:157] + "…") if len(t) > 160 else t
+    return "A conversation shared from Zelpophai AI — the AI that chats, makes files, images and videos."
+
+
 @app.get("/s/{share_id}", response_class=HTMLResponse)
-async def shared_chat_page(share_id: str):
-    return FileResponse("static/share.html")
+async def shared_chat_page(share_id: str, request: Request):
+    """Serve the share page with real link-preview tags (WhatsApp, X, Telegram
+    and Facebook read these from the HTML; they never run the page's JS)."""
+    import html as _h
+    page = open("static/share.html", encoding="utf-8-sig").read()
+    async with async_session() as db:
+        chat, msgs = await _load_share(db, share_id[:64])
+    if chat:
+        title = f"{chat.title or 'Shared chat'} — Zelpophai AI"
+        desc = _share_snippet(msgs)
+    else:
+        title, desc = "Shared chat — Zelpophai AI", "This shared chat isn't available."
+    base = (os.getenv("FRONTEND_URL", "").strip().rstrip("/") or str(request.base_url).rstrip("/"))
+    url = f"{base}/s/{_h.escape(share_id[:64])}"
+    t, d = _h.escape(title, quote=True), _h.escape(desc, quote=True)
+    # (lambdas, so backslashes in a chat title can't be read as regex escapes)
+    page = re.sub(r'<meta property="og:title"[^>]*>', lambda _m: f'<meta property="og:title" id="og-title" content="{t}">', page, count=1)
+    page = re.sub(r'<meta property="og:description"[^>]*>', lambda _m: f'<meta property="og:description" content="{d}">', page, count=1)
+    page = re.sub(r"<title>.*?</title>", lambda _m: f"<title>{t}</title>", page, count=1, flags=re.S)
+    extra = (f'<meta name="description" content="{d}">\n    <meta property="og:url" content="{url}">\n'
+             f'    <meta name="twitter:card" content="summary_large_image">\n    <meta name="twitter:title" content="{t}">\n'
+             f'    <meta name="twitter:description" content="{d}">\n    <meta name="robots" content="noindex">\n')
+    page = re.sub(r'\s*<meta name="description"[^>]*>', "", page)
+    if 'name="robots"' in page:
+        extra = extra.replace('    <meta name="robots" content="noindex">\n', "")
+    page = page.replace("</head>", "    " + extra + "</head>", 1)
+    return HTMLResponse(page)
 
 
 @app.get("/api/s/{share_id}")
 async def get_shared_chat(share_id: str):
     """Public read-only view of a shared conversation (no auth)."""
     async with async_session() as db:
-        result = await db.execute(
-            select(Chat).where(Chat.share_id == share_id)
-        )
-        chat = result.scalar_one_or_none()
+        chat, msgs = await _load_share(db, share_id[:64])
         if not chat:
             raise HTTPException(status_code=404, detail="Shared chat not found")
-        msg_result = await db.execute(
-            select(Message).where(Message.chat_id == chat.id).order_by(Message.id)
-        )
         messages = [
             {
                 "id": m.id,
                 "role": m.role,
-                "content": m.content,
+                "content": _public_message_text(m.content, m.role),
                 "created_at": m.created_at.isoformat() if m.created_at else "",
                 "viewer_reactions": m.viewer_reactions or "{}",
             }
-            for m in msg_result.scalars().all()
+            for m in msgs
         ]
-        owner = await db.get(User, chat.user_id)
+        owner_name = "Anonymous"
+        if not chat.share_anon:
+            owner = await db.get(User, chat.user_id)
+            if owner:
+                owner_name = (getattr(owner, "display_name", "") or owner.username)
         return {
             "title": chat.title,
             "shared_at": chat.shared_at.isoformat() if chat.shared_at else "",
             "message_count": len(messages),
-            "owner": owner.username if owner else "Unknown",
+            "owner": owner_name,
+            "anonymous": bool(chat.share_anon),
             "messages": messages,
         }
 
@@ -469,10 +539,10 @@ async def react_shared_message(share_id: str, message_id: int, request: Request)
         chat = chat_result.scalar_one_or_none()
         if not chat:
             raise HTTPException(status_code=404, detail="Shared chat not found")
-        msg_result = await db.execute(
-            select(Message).where(Message.id == message_id, Message.chat_id == chat.id)
-        )
-        msg = msg_result.scalar_one_or_none()
+        q = select(Message).where(Message.id == message_id, Message.chat_id == chat.id)
+        if chat.share_upto:
+            q = q.where(Message.id <= chat.share_upto)  # only messages in the public snapshot
+        msg = (await db.execute(q)).scalar_one_or_none()
         if not msg:
             raise HTTPException(status_code=404, detail="Message not found")
         try:

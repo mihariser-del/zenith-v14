@@ -243,6 +243,10 @@ class Chat(Base):
     link_id = Column(String(64), unique=True, index=True, nullable=True)
     share_id = Column(String(64), unique=True, index=True, nullable=True)
     shared_at = Column(DateTime, nullable=True)
+    # A share is a snapshot: only messages up to this id are public.
+    share_upto = Column(Integer, nullable=True)
+    # Hide the owner's name on the shared page.
+    share_anon = Column(Boolean, default=False)
     pinned = Column(Boolean, default=False)
     folder = Column(String(50), default="")
     model = Column(String(100), default="")
@@ -553,6 +557,8 @@ async def init_db():
             ("pinned", "BOOLEAN DEFAULT 0"),
             ("folder", "VARCHAR(50) DEFAULT ''"),
             ("model", "VARCHAR(100) DEFAULT ''"),
+            ("share_upto", "INTEGER"),
+            ("share_anon", "BOOLEAN DEFAULT 0"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE chats ADD COLUMN {_col} {_ddl}")

@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 21.1 — Shared chat privacy
+
+- Attached-file contents never appear on a shared page: user messages show "📎 file name" instead (`_public_message_text`)
+- Owner can hide their name ("Anonymous"); otherwise the display name is shown instead of the username
+- Shares are snapshots (`chats.share_upto`): only messages up to the moment of sharing are public; the share modal shows how many newer messages exist and an **Update link** button; reactions only work on snapshot messages
+- `/s/{id}` is now rendered server-side with the chat's real title, a summary of the first answer, `og:url`, Twitter card tags and `noindex`, so link previews in WhatsApp/X/Telegram/Facebook look right
+
 ## 21.0 — AI tools, Friend & Trusted Admin tags, Vault PIN
 
 - **AI knows its tools** (`tools_prompt.py`): every reply's instructions now list each real feature, how it's triggered, the user's plan, what's left today (images, files, videos), memory on/off, and who the user is (guest, Friend, Admin, Trusted Admin, Owner). The user's local time zone is sent with each message

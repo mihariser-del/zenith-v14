@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 21.3 — Invite page redesign
+
+- `static/invite.html` rebuilt: "<name> invited you" badge, perks, gift note, **Continue with Google** (hidden inside the apps), username/email/password form with show-password, clear expired/used/already-joined states; mobile layout
+- Google sign-up now credits invites: `GoogleAuthRequest` takes `invite_token` + `device_id`; invite checks refactored into `_invite_guard` / `_invite_apply` in `auth.py` (shared by register and Google)
+- Invite Friends modal: 5-step progress, joined / to go / rewarded stats, copy link, native share, WhatsApp, Telegram, X, lazy-loaded QR code
+- `/?login=1` opens the login form directly
+
 ## 21.2 — New Coding AGT., Windows & Android apps
 
 - **Coding AGT. rebuilt** (`codeagent.py`, `static/coding-agent.html`, `static/js/coding-agent.js`, `static/css/coding-agent.css`): saved projects (`code_projects` table), file tree, tabs, CodeMirror editor, live web preview with console capture, Python via Pyodide in a Web Worker (packages auto-loaded, matplotlib charts shown in the console), SQL via sql.js, templates (website, Python, data analysis, game, SQL, blank), share read-only links (`/code/<id>`, "Open my own copy"), .zip download, mobile tab layout

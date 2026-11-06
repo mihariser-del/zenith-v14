@@ -459,94 +459,33 @@ def _pin_locked_remaining(user) -> int:
     return max(0, int((until - datetime.now(timezone.utc)).total_seconds()))
 
 
-@router.post("/register")
-async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
-    # Brute-force / abuse protection: per-IP, 10 registrations per hour.
-    _raise_if_locked(f"register:{_client_ip(request)}", limit=10, window=3600)
-    # Respect global registration toggle
-    try:
-        from sqlalchemy import text
-        res = await db.execute(text("SELECT value FROM system_settings WHERE key='registrations'"))
-        row = res.fetchone()
-        if row and row[0] == "off":
-            raise HTTPException(status_code=403, detail="Registration is currently disabled by the Owner")
-    except HTTPException:
-        raise
-    except Exception:
-        pass
-    if len(req.username) < 3:
-        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
-
+async def _invite_guard(db, request, device_id: str):
+    """Block a device or network that already joined through an invite."""
     from database import UsedDevice
-    device_id = (req.device_id or "").strip()
-    has_invite = bool((req.invite_token or "").strip() or request.cookies.get("zenith_invite_token", "").strip())
-    # A device that already joined Zelpophai AI can never consume another invite link.
-    # The client-supplied device_id is easy to spoof/rotate (incognito, cleared
-    # storage), so we ALSO pin the network fingerprint server-side — a second
-    # invite registration from the same network/IP+UA is blocked regardless.
-    if has_invite:
-        if device_id:
-            dev_result = await db.execute(
-                select(UsedDevice).where(UsedDevice.device_id == device_id)
+    if device_id:
+        dev_result = await db.execute(
+            select(UsedDevice).where(UsedDevice.device_id == device_id)
+        )
+        prior = dev_result.scalar_one_or_none()
+        if prior:
+            raise HTTPException(status_code=403, detail="This device already joined Zelpophai AI")
+    net_fp = _server_fingerprint(request)
+    if net_fp:
+        net_result = await db.execute(
+            select(UsedDevice).where(
+                UsedDevice.ip_fp == net_fp,
+                UsedDevice.source == "invite",
             )
-            prior = dev_result.scalar_one_or_none()
-            if prior:
-                raise HTTPException(status_code=403, detail="This device already joined Zelpophai AI")
-        net_fp = _server_fingerprint(request)
-        if net_fp:
-            net_result = await db.execute(
-                select(UsedDevice).where(
-                    UsedDevice.ip_fp == net_fp,
-                    UsedDevice.source == "invite",
-                )
-            )
-            prior_net = net_result.scalar_one_or_none()
-            if prior_net:
-                raise HTTPException(status_code=403, detail="This network already joined Zelpophai AI")
+        )
+        prior_net = net_result.scalar_one_or_none()
+        if prior_net:
+            raise HTTPException(status_code=403, detail="This network already joined Zelpophai AI")
 
-    existing = await db.execute(
-        select(User).where((User.username == req.username) | (User.email == req.email))
-    )
-    existing_user = existing.scalar_one_or_none()
-    # Allow reusing a username/email that belongs to a soft-deleted account by reactivating it.
-    # This matches the expectation that deleting an account frees up its name/email.
-    if existing_user:
-        if existing_user.is_deleted:
-            # Only reactivate if it's the SAME account holding BOTH the username and email
-            # (i.e. no other active account owns these). Otherwise fail cleanly.
-            conflict = await db.execute(
-                select(User).where(
-                    (User.username == req.username) | (User.email == req.email),
-                    User.is_deleted == False
-                )
-            )
-            if conflict.scalar_one_or_none():
-                raise HTTPException(status_code=409, detail="Username or email already exists")
-            existing_user.username = req.username
-            existing_user.email = req.email
-            existing_user.password_hash = hash_password(req.password)
-            existing_user.is_deleted = False
-            existing_user.deleted_by = ""
-            existing_user.is_banned = False
-            existing_user.ban_reason = ""
-            existing_user.banned_by = ""
-            existing_user.token_version = 0
-            existing_user.pending_password = ""
-            existing_user.pending_password_by = ""
-            await db.commit()
-            return {"message": "Account reactivated"}
-        raise HTTPException(status_code=409, detail="Username or email already exists")
 
-    user = User(
-        username=req.username,
-        email=req.email,
-        password_hash=hash_password(req.password),
-    )
-    db.add(user)
-    await db.flush()  # Get user.id for referral tracking
 
+async def _invite_apply(db, request, user, invite_token: str, device_id: str, has_invite: bool):
+    """Record the device/network and credit the inviter (shared by password and Google sign-up)."""
+    from database import UsedDevice
     # Record the fingerprint so this device/network can't farm future invite links.
     # Keep the FIRST association — a device that later registers again normally
     # (no invite) doesn't overwrite who the device is bound to.
@@ -572,7 +511,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     # farm accounts.
     from database import InviteToken, Referral
     import secrets as _secrets
-    invite_token = (req.invite_token or "").strip()
+    invite_token = (invite_token or "").strip()
     if not invite_token:
         invite_token = request.cookies.get("zenith_invite_token", "").strip()
     invite = None
@@ -630,6 +569,81 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
                         Referral.rewarded == False
                     ).values(rewarded=True)
                 )
+
+
+
+@router.post("/register")
+async def register(req: RegisterRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    # Brute-force / abuse protection: per-IP, 10 registrations per hour.
+    _raise_if_locked(f"register:{_client_ip(request)}", limit=10, window=3600)
+    # Respect global registration toggle
+    try:
+        from sqlalchemy import text
+        res = await db.execute(text("SELECT value FROM system_settings WHERE key='registrations'"))
+        row = res.fetchone()
+        if row and row[0] == "off":
+            raise HTTPException(status_code=403, detail="Registration is currently disabled by the Owner")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+    if len(req.username) < 3:
+        raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
+    if len(req.password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+
+    from database import UsedDevice
+    device_id = (req.device_id or "").strip()
+    has_invite = bool((req.invite_token or "").strip() or request.cookies.get("zenith_invite_token", "").strip())
+    # A device that already joined Zelpophai AI can never consume another invite link.
+    # The client-supplied device_id is easy to spoof/rotate (incognito, cleared
+    # storage), so we ALSO pin the network fingerprint server-side — a second
+    # invite registration from the same network/IP+UA is blocked regardless.
+    if has_invite:
+        await _invite_guard(db, request, device_id)
+
+    existing = await db.execute(
+        select(User).where((User.username == req.username) | (User.email == req.email))
+    )
+    existing_user = existing.scalar_one_or_none()
+    # Allow reusing a username/email that belongs to a soft-deleted account by reactivating it.
+    # This matches the expectation that deleting an account frees up its name/email.
+    if existing_user:
+        if existing_user.is_deleted:
+            # Only reactivate if it's the SAME account holding BOTH the username and email
+            # (i.e. no other active account owns these). Otherwise fail cleanly.
+            conflict = await db.execute(
+                select(User).where(
+                    (User.username == req.username) | (User.email == req.email),
+                    User.is_deleted == False
+                )
+            )
+            if conflict.scalar_one_or_none():
+                raise HTTPException(status_code=409, detail="Username or email already exists")
+            existing_user.username = req.username
+            existing_user.email = req.email
+            existing_user.password_hash = hash_password(req.password)
+            existing_user.is_deleted = False
+            existing_user.deleted_by = ""
+            existing_user.is_banned = False
+            existing_user.ban_reason = ""
+            existing_user.banned_by = ""
+            existing_user.token_version = 0
+            existing_user.pending_password = ""
+            existing_user.pending_password_by = ""
+            await db.commit()
+            return {"message": "Account reactivated"}
+        raise HTTPException(status_code=409, detail="Username or email already exists")
+
+    user = User(
+        username=req.username,
+        email=req.email,
+        password_hash=hash_password(req.password),
+    )
+    db.add(user)
+    await db.flush()  # Get user.id for referral tracking
+
+    await _invite_apply(db, request, user, (req.invite_token or "").strip(), device_id, has_invite)
 
     await db.commit()
 

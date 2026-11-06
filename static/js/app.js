@@ -592,52 +592,36 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(10,3,22,0.85);backdrop-filter:blur(8px);animation:fadeIn .25s;';
+        wrap.className = 'zp-inv';
         wrap.innerHTML = `
-            <div style="background:linear-gradient(160deg,#1c0d40,#170a33 60%,#12082b);border:1px solid rgba(139,92,246,.55);border-radius:20px;padding:32px;width:100%;max-width:440px;box-shadow:0 10px 40px rgba(0,0,0,0.6),0 0 50px rgba(139,92,246,.25);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:0;left:8%;right:8%;height:2px;background:linear-gradient(90deg,transparent,#22d3ee,#ff3db4,#ffd23f,transparent);"></div>
-                <button id="invite-close" style="position:absolute;top:12px;right:12px;background:none;border:none;color:#8b7fb8;font-size:20px;cursor:pointer;">&times;</button>
-                <div style="text-align:center;margin-bottom:20px;">
-                    <div style="width:58px;height:58px;margin:0 auto 12px;border-radius:18px;background:linear-gradient(135deg,#ff3db4,#8b5cf6,#22d3ee);background-size:200% 200%;animation:invOrb 6s ease infinite;display:flex;align-items:center;justify-content:center;font-size:26px;box-shadow:0 8px 26px rgba(255,61,180,.5);">&#127968;</div>
-                    <h2 style="background:linear-gradient(90deg,#22d3ee,#ff3db4 55%,#ffd23f);-webkit-background-clip:text;background-clip:text;color:transparent;font-size:21px;font-weight:800;margin:0 0 6px;">Invite Friends</h2>
-                    <p style="color:#b6a8e0;font-size:13px;margin:0;">Invite 5 friends and get <strong style="color:#ffd23f;">Pro for 3 days</strong> free!</p>
+            <div class="zp-inv-card" role="dialog" aria-modal="true" aria-labelledby="zp-inv-t">
+                <button id="invite-close" class="zp-inv-x" aria-label="Close">&times;</button>
+                <div class="zp-inv-head">
+                    <div class="zp-inv-ic">🎁</div>
+                    <h2 id="zp-inv-t">Invite friends, get Pro</h2>
+                    <p>When <b>5 friends</b> join with your links, you get <b>Pro free for 3 days</b>.</p>
                 </div>
-                <div id="invite-stats" style="display:flex;gap:12px;margin-bottom:20px;">
-                    <div style="flex:1;text-align:center;padding:12px;background:rgba(34,211,238,.08);border:1px solid rgba(34,211,238,.3);border-radius:12px;box-shadow:0 0 14px rgba(34,211,238,.08);">
-                        <div id="invite-count" style="font-size:24px;font-weight:800;color:#7df0ff;text-shadow:0 0 14px rgba(34,211,238,.5);">0</div>
-                        <div style="font-size:11px;color:#8b7fb8;">Joined</div>
-                    </div>
-                    <div style="flex:1;text-align:center;padding:12px;background:rgba(255,210,63,.08);border:1px solid rgba(255,210,63,.3);border-radius:12px;box-shadow:0 0 14px rgba(255,210,63,.08);">
-                        <div id="invite-pending" style="font-size:24px;font-weight:800;color:#ffd23f;text-shadow:0 0 14px rgba(255,210,63,.5);">0</div>
-                        <div style="font-size:11px;color:#8b7fb8;">Remaining</div>
-                    </div>
-                    <div style="flex:1;text-align:center;padding:12px;background:rgba(139,92,246,.1);border:1px solid rgba(139,92,246,.35);border-radius:12px;box-shadow:0 0 14px rgba(139,92,246,.1);">
-                        <div id="invite-rewarded" style="font-size:24px;font-weight:800;color:#c4b5fd;text-shadow:0 0 14px rgba(139,92,246,.5);">0</div>
-                        <div style="font-size:11px;color:#8b7fb8;">Rewarded</div>
-                    </div>
+                <div class="zp-inv-steps" id="invite-steps" aria-label="Progress"></div>
+                <div class="zp-inv-prog"><span id="invite-progress-text">0/5</span> friends joined <span class="zp-inv-bar"><i id="invite-progress-bar"></i></span></div>
+                <div id="invite-stats" class="zp-inv-stats">
+                    <div><b id="invite-count">0</b><span>Joined</span></div>
+                    <div><b id="invite-pending">0</b><span>To go</span></div>
+                    <div><b id="invite-rewarded">0</b><span>Rewarded</span></div>
                 </div>
-                <div style="margin-bottom:20px;">
-                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
-                        <span style="font-size:12px;color:#b6a8e0;">Progress to Pro</span>
-                        <span id="invite-progress-text" style="font-size:12px;color:#ffd23f;font-weight:700;">0/5</span>
-                    </div>
-                    <div style="width:100%;height:8px;background:rgba(139,92,246,.15);border-radius:4px;overflow:hidden;">
-                        <div id="invite-progress-bar" style="height:100%;width:0%;background:linear-gradient(90deg,#22d3ee,#ff3db4,#ffd23f);background-size:200% 100%;animation:vsxg 4s ease infinite;border-radius:4px;transition:width 0.3s;box-shadow:0 0 12px rgba(255,61,180,.5);"></div>
-                    </div>
+                <div class="zp-inv-link">
+                    <label for="invite-link">Your invite link <small>(works once, a new one appears after each friend joins)</small></label>
+                    <div><input id="invite-link" readonly placeholder="Loading…"><button id="invite-copy">Copy</button></div>
                 </div>
-                <div style="background:rgba(23,10,51,.6);border:1px solid rgba(139,92,246,.35);border-radius:12px;padding:12px;margin-bottom:16px;">
-                    <div style="font-size:11px;color:#b6a8e0;margin-bottom:6px;">🌟 Your unique invite link <span style="color:#ffd23f;">(single-use, auto-refreshes)</span></div>
-                    <div id="invite-link-box" style="display:flex;gap:8px;">
-                        <input id="invite-link" readonly style="flex:1;min-width:0;padding:9px 12px;background:rgba(10,3,22,.7);border:1px solid rgba(34,211,238,.4);border-radius:8px;color:#c4d7f5;font-size:12px;outline:none;" placeholder="Loading...">
-                        <button id="invite-copy" style="padding:9px 16px;background:linear-gradient(135deg,#22d3ee,#8b5cf6);border:none;border-radius:8px;color:#fff;font-size:12px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px rgba(34,211,238,.4);">Copy</button>
-                    </div>
+                <div class="zp-inv-share">
+                    <button id="invite-native" hidden>📤 Share…</button>
+                    <button id="invite-whatsapp" class="wa">WhatsApp</button>
+                    <button id="invite-telegram" class="tg">Telegram</button>
+                    <button id="invite-twitter" class="x">X</button>
                 </div>
-                <div style="display:flex;gap:8px;margin-bottom:16px;">
-                    <button id="invite-twitter" style="flex:1;padding:10px;background:#1DA1F2;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(29,161,242,.4);">Share on Twitter</button>
-                    <button id="invite-whatsapp" style="flex:1;padding:10px;background:#25D366;color:white;border:none;border-radius:10px;font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 4px 14px rgba(37,211,102,.4);">Share on WhatsApp</button>
-                </div>
-                <button id="invite-claim" style="display:none;position:relative;overflow:hidden;width:100%;padding:12px;background:linear-gradient(135deg,#ff3db4,#8b5cf6 55%,#22d3ee);background-size:180% 180%;color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;box-shadow:0 4px 20px rgba(255,61,180,.45);animation:vsxg 5s ease infinite;">✨ Claim Pro Reward</button>
+                <details class="zp-inv-qr"><summary>Show QR code</summary><div id="invite-qr"></div><small>Let a friend scan this with their phone camera.</small></details>
+                <button id="invite-claim" class="zp-inv-claim" style="display:none;">✨ Claim my Pro reward</button>
             </div>`;
+        wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
         document.body.appendChild(wrap);
         wrap.querySelector('#invite-close').addEventListener('click', () => wrap.remove());
 
@@ -653,7 +637,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             wrap.querySelector('#invite-link').value = linkData.link;
             const pct = Math.min(100, (stats.total / stats.required) * 100);
             wrap.querySelector('#invite-progress-bar').style.width = pct + '%';
-            wrap.querySelector('#invite-progress-text').textContent = `${stats.total}/${stats.required}`;
+            wrap.querySelector('#invite-progress-text').textContent = `${Math.min(stats.total, stats.required)}/${stats.required}`;
+            wrap.querySelector('#invite-steps').innerHTML = Array.from({ length: stats.required }, (_, i) => `<span class="${i < stats.total ? 'on' : ''}">${i < stats.total ? '✓' : i + 1}</span>`).join('');
+            const shareText = 'Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ';
+            if (navigator.share) {
+                const nb = wrap.querySelector('#invite-native');
+                nb.hidden = false;
+                nb.onclick = () => navigator.share({ title: 'Zelpophai AI', text: shareText, url: linkData.link }).catch(() => {});
+            }
+            wrap.querySelector('#invite-telegram').onclick = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(linkData.link)}&text=${encodeURIComponent(shareText)}`, '_blank', 'noopener');
+            const qrDetails = wrap.querySelector('.zp-inv-qr');
+            qrDetails.addEventListener('toggle', () => {
+                if (!qrDetails.open || qrDetails.dataset.done) return;
+                qrDetails.dataset.done = '1';
+                const draw = () => { try { new QRCode(wrap.querySelector('#invite-qr'), { text: linkData.link, width: 180, height: 180, colorDark: '#0b1230', colorLight: '#ffffff' }); } catch (e) {} };
+                if (window.QRCode) draw();
+                else { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload = draw; document.head.appendChild(sc); }
+            });
             if (stats.has_pro) {
                 // Already earned Pro — hide claim, show message
                 wrap.querySelector('#invite-claim').style.display = 'none';
@@ -681,21 +681,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Twitter share
         wrap.querySelector('#invite-twitter').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Zelpophai AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ' + link)}`, '_blank');
         });
         // WhatsApp share
         wrap.querySelector('#invite-whatsapp').addEventListener('click', () => {
             const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zelpophai AI - your personal AI assistant! ' + link)}`, '_blank');
+            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ' + link)}`, '_blank');
         });
 
         // TEMPORARY owner tool: reset any user's invite/referral progress
         if (isOwner) {
             const rbtn = document.createElement('button');
             rbtn.textContent = '♻ Reset a user\'s invite progress (owner)';
-            rbtn.style.cssText = 'width:100%;margin-top:12px;padding:10px;background:rgba(255,61,180,.10);border:1px dashed rgba(255,61,180,.5);border-radius:10px;color:#ff8fd0;font-size:12px;font-weight:700;cursor:pointer;transition:background .15s,box-shadow .15s;';
-            rbtn.addEventListener('mouseenter', () => { rbtn.style.background = 'rgba(255,61,180,.18)'; rbtn.style.boxShadow = '0 0 16px rgba(255,61,180,.35)'; });
-            rbtn.addEventListener('mouseleave', () => { rbtn.style.background = 'rgba(255,61,180,.10)'; rbtn.style.boxShadow = 'none'; });
+            rbtn.className = 'zp-inv-reset';
             rbtn.addEventListener('click', async () => {
                 const who = prompt('Reset invite progress for which username?');
                 if (!who || !who.trim()) return;

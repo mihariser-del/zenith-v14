@@ -15,6 +15,8 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
+    invite_token: str = ""
+    device_id: str = ""
 
 @router.post("")
 async def google_auth(req: GoogleAuthRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
@@ -57,8 +59,23 @@ async def google_auth(req: GoogleAuthRequest, request: Request, response: Respon
             i += 1
         user = User(username=username, email=email, password_hash=hash_password(uuid.uuid4().hex), is_admin=False)
         db.add(user)
+        await db.flush()
+        # New account from an invite link (Continue with Google on the invite page):
+        # same anti-farming rules and inviter credit as a password sign-up. If the
+        # device/network already joined, the account is still created — just
+        # without the invite credit.
+        invite_token = (getattr(req, "invite_token", "") or "").strip() or request.cookies.get("zenith_invite_token", "").strip()
+        device_id = (getattr(req, "device_id", "") or "").strip()[:100]
+        if invite_token:
+            from auth import _invite_guard, _invite_apply
+            try:
+                await _invite_guard(db, request, device_id)
+                await _invite_apply(db, request, user, invite_token, device_id, True)
+            except HTTPException:
+                pass
         await db.commit()
         await db.refresh(user)
+        response.delete_cookie("zenith_invite_token")
     # Issue token
     token = create_token(user.id, user.username, user.is_admin, getattr(user, "token_version", 0) or 0, get_role(user))
     set_auth_cookie(response, token, request)

@@ -332,3 +332,42 @@ html.light-theme body.light-theme .zp-badge-trusted { color: #6d28d9; background
 .sx-row button { flex-shrink: 0; padding: 7px 12px; border-radius: 9px; border: none; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; font: 700 12px Inter, sans-serif; cursor: pointer; }
 .sx-note { font-size: 11.5px; color: #8fa0c8; }
 html.light-theme body.light-theme .sx-row small, html.light-theme body.light-theme .sx-note { color: #64748b; }
+
+/* ═════════════════════════════════════════ invite friends modal ═══ */
+.zp-inv { position: fixed; inset: 0; z-index: 9999; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(3, 6, 20, .72); backdrop-filter: blur(6px); }
+.zp-inv-card { position: relative; width: min(440px, 100%); max-height: 92vh; overflow: auto; padding: 26px 24px 22px; border-radius: 22px; background: linear-gradient(160deg, #0d1736, #0b1230); border: 1px solid rgba(122, 152, 255, .3); box-shadow: 0 30px 80px rgba(0, 0, 0, .5); color: #e6ebfa; animation: zlIn .25s ease both; }
+.zp-inv-x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: none; border-radius: 9px; background: transparent; color: #8b97bd; font-size: 22px; cursor: pointer; }
+.zp-inv-x:hover { background: rgba(255, 255, 255, .08); color: #fff; }
+.zp-inv-head { text-align: center; margin-bottom: 16px; }
+.zp-inv-ic { width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 16px; display: grid; place-items: center; font-size: 28px; background: linear-gradient(135deg, #2563eb, #7c3aed); box-shadow: 0 10px 26px rgba(37, 99, 235, .4); }
+.zp-inv-head h2 { margin: 0 0 4px; font-size: 21px; }
+.zp-inv-head p { margin: 0; color: #a9b6dc; font-size: 14px; }
+.zp-inv-head b { color: #fbbf24; }
+.zp-inv-steps { display: flex; justify-content: center; gap: 8px; margin: 4px 0 10px; }
+.zp-inv-steps span { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font: 700 13px Inter, sans-serif; border: 2px dashed rgba(122, 152, 255, .35); color: #8b97bd; }
+.zp-inv-steps span.on { border: none; color: #fff; background: linear-gradient(135deg, #22c55e, #16a34a); box-shadow: 0 4px 12px rgba(34, 197, 94, .35); }
+.zp-inv-prog { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #a9b6dc; margin-bottom: 14px; }
+.zp-inv-prog > span:first-child { font-weight: 800; color: #fbbf24; }
+.zp-inv-bar { flex: 1; height: 7px; border-radius: 4px; background: rgba(122, 152, 255, .15); overflow: hidden; }
+.zp-inv-bar i { display: block; height: 100%; width: 0; border-radius: 4px; background: linear-gradient(90deg, #2563eb, #7c3aed); transition: width .4s; }
+.zp-inv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.zp-inv-stats div { text-align: center; padding: 10px 6px; border-radius: 12px; border: 1px solid rgba(122, 152, 255, .2); background: rgba(10, 16, 40, .6); }
+.zp-inv-stats b { display: block; font-size: 20px; color: #93c5fd; }
+.zp-inv-stats span { font-size: 11.5px; color: #8b97bd; }
+.zp-inv-link label { display: block; font-size: 12.5px; color: #a9b6dc; margin-bottom: 6px; }
+.zp-inv-link small { color: #6b7aa6; }
+.zp-inv-link > div { display: flex; gap: 8px; }
+.zp-inv-link input { flex: 1; min-width: 0; padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(122, 152, 255, .3); background: #070b1c; color: #cfe0ff; font-size: 12.5px; outline: none; }
+.zp-inv-link button, .zp-inv-claim { padding: 10px 16px; border: none; border-radius: 10px; background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; font-weight: 700; cursor: pointer; }
+.zp-inv-share { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.zp-inv-share button { flex: 1 1 auto; padding: 10px 12px; border: none; border-radius: 10px; font-weight: 700; font-size: 13px; color: #fff; cursor: pointer; background: rgba(59, 130, 246, .2); }
+.zp-inv-share .wa { background: #25d366; color: #052e16; } .zp-inv-share .tg { background: #229ed9; } .zp-inv-share .x { background: #111; border: 1px solid #333; }
+.zp-inv-qr { border: 1px solid rgba(122, 152, 255, .2); border-radius: 12px; padding: 8px 12px; margin-bottom: 10px; }
+.zp-inv-qr summary { cursor: pointer; font-size: 13px; font-weight: 600; color: #a9b6dc; }
+.zp-inv-qr #invite-qr { display: flex; justify-content: center; margin: 12px 0 6px; }
+.zp-inv-qr #invite-qr img, .zp-inv-qr #invite-qr canvas { padding: 8px; background: #fff; border-radius: 10px; }
+.zp-inv-qr small { display: block; text-align: center; color: #6b7aa6; }
+.zp-inv-claim { width: 100%; margin-top: 4px; }
+.zp-inv-reset { width: 100%; margin: 0 0 12px; padding: 9px; border: 1px dashed rgba(251, 191, 36, .5); border-radius: 10px; background: rgba(251, 191, 36, .06); color: #fcd34d; font-size: 12px; font-weight: 700; cursor: pointer; }
+html.light-theme body.light-theme .zp-inv-card { background: #fff; color: #0f172a; border-color: #dbe3f5; }
+html.light-theme body.light-theme .zp-inv-stats div, html.light-theme body.light-theme .zp-inv-link input { background: #f4f7ff; color: #0f172a; border-color: #dbe3f5; }

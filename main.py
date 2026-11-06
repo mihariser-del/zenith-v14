@@ -41,10 +41,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.2"
+VERSION = "21.3"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.3 New invite page: your friends see \"<you> invited you\", what they get, and can join in one tap with Google. Invite Friends now shows your progress to free Pro step by step, with WhatsApp, Telegram, X and QR-code sharing",
     "21.2 Brand-new Coding AGT.: a real coding workspace with projects, a proper code editor and its own AI agent that writes code, shows you exactly what it changes and fixes errors with one tap. Websites, Python (even charts with pandas and matplotlib) and SQL run right in your browser. Templates, sharing and .zip download included",
     "The Zelpophai app is here for Windows and Android — get it from the new phone icon in the sidebar or zelpophai.up.railway.app/download. Notifications, a Ctrl+Shift+Space quick-ask shortcut, automatic updates, and on Windows Coding AGT. can run your code on your own computer",
     "21.1 Safer sharing: files you attached only show their name on a shared page (never their contents), you can hide your name, and a shared link is a snapshot — new messages stay private until you tap Update link. Shared links now show the chat's real title and a preview in WhatsApp, X and Telegram",

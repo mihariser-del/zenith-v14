@@ -412,8 +412,45 @@ html.light-theme body.light-theme .zp-inv-stats div, html.light-theme body.light
 .zp-tour-skip { border: 1px solid rgba(122, 152, 255, .3); background: transparent; color: #a3afd1; }
 .zp-tour-next { border: 0; color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); }
 @keyframes zpFade { from { opacity: 0; } to { opacity: 1; } }
-/* Icon row: always one line, icons share the width. */
-.sidebar .bottom-bar.sb-icons { flex-wrap: nowrap !important; padding: 8px 6px !important; }
+/* Icon row: one calm line of equal square icons; the rest sit in "More". */
+.sidebar .bottom-bar.sb-icons { flex-wrap: nowrap !important; justify-content: space-between !important; gap: 2px !important; padding: 8px 10px !important; }
 .sidebar .sb-icons > .btn,
 html body .sidebar .sb-icons > .btn,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: auto !important; flex: 1 1 0 !important; min-width: 0 !important; max-width: 34px; }
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn,
+html body .sidebar .sb-icons > .btn.sb-upgrade,
+html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn,
+.sidebar .sb-icons > #admin-panel-btn, .sidebar .sb-icons > #pending-pwd-btn {
+    width: 34px !important; height: 34px !important; min-width: 0 !important; max-width: none; flex: 0 0 34px !important;
+    padding: 0 !important; margin: 0 !important; border-radius: 10px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;
+}
+.sidebar .sb-icons > #admin-panel-btn, .sidebar .sb-icons > #pending-pwd-btn { border: 1px solid transparent !important; background: transparent !important; }
+.sidebar .sb-icons > #admin-panel-btn svg { stroke: #ffc463 !important; }
+html body .sidebar .sb-icons > #upgrade-btn, html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn {
+    background: rgba(255, 196, 99, .12) !important; border: 1px solid rgba(255, 196, 99, .35) !important; box-shadow: none !important;
+}
+.sidebar .sb-icons > .btn svg { width: 18px !important; height: 18px !important; }
+.sidebar .sb-icons .zp-wn-dot, .sb-more-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%; box-shadow: 0 0 0 2px var(--sidebar, #0b1020); }
+.sb-more-dot { display: none; background: #ef4444; }
+.sidebar .sb-icons > #sb-more-btn svg { fill: currentColor !important; stroke: none !important; }
+
+/* "More" menu */
+.sb-more-menu { position: fixed; z-index: 1200; min-width: 220px; padding: 6px; border-radius: 14px; background: #0f1733; border: 1px solid rgba(122, 152, 255, .25); box-shadow: 0 18px 50px rgba(0, 0, 0, .5); animation: zlIn .16s ease both; }
+.sb-more-menu[hidden] { display: none; }
+.sb-more-menu > .btn, html body .sb-more-menu > .btn {
+    position: relative; display: flex !important; align-items: center !important; gap: 12px !important; width: 100% !important; height: auto !important;
+    padding: 10px 12px !important; margin: 0 !important; border: 0 !important; border-radius: 10px !important; background: transparent !important; box-shadow: none !important;
+    color: #dbe3f8 !important; font: 600 14px Inter, system-ui, sans-serif !important; text-align: left; justify-content: flex-start !important; cursor: pointer;
+}
+.sb-more-menu > .btn:hover, .sb-more-menu > .btn:focus-visible { background: rgba(59, 130, 246, .14) !important; color: #fff !important; outline: none; }
+.sb-more-menu > .btn svg { width: 18px !important; height: 18px !important; flex: none; color: #9fb0dc; stroke: currentColor; }
+.sb-more-menu > .btn.danger, .sb-more-menu > .btn.danger svg { color: #f87171 !important; }
+.sb-more-menu > .btn.danger:hover { background: rgba(239, 68, 68, .12) !important; }
+.sb-more-menu #feedback-badge, .sb-more-menu #request-badge { position: static !important; margin-left: auto; font-size: 11px !important; padding: 1px 8px !important; border-radius: 999px !important; min-width: 0 !important; }
+.sb-more-sep { height: 1px; margin: 5px 6px; background: rgba(122, 152, 255, .16); }
+html.light-theme body.light-theme .sb-more-menu { background: #fff; border-color: #dbe3f5; box-shadow: 0 16px 40px rgba(15, 23, 42, .15); }
+html.light-theme body.light-theme .sb-more-menu > .btn { color: #1f2937 !important; }
+html.light-theme body.light-theme .sb-more-menu > .btn:hover { background: #eef3ff !important; color: #1d4ed8 !important; }
+html.light-theme body.light-theme .sb-more-menu > .btn svg { color: #64748b; }
+html.light-theme body.light-theme .sidebar .sb-icons > #upgrade-btn { background: #fff5e0 !important; border-color: #f5c46b !important; }
+html.light-theme body.light-theme .sidebar .sb-icons > .btn:not(#upgrade-btn) { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
+html.light-theme body.light-theme .sidebar .sb-icons > .btn:not(#upgrade-btn):hover { background: #eef3ff !important; }

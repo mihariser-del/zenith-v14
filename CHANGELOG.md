@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 21.4.1 — Sidebar icon row cleanup
+
+- Icon row reduced to Upgrade, Vault (staff), Settings, Invite, What's new, Get the app and **More (⋯)**; all 34px squares, no wrapping, no stray borders in light theme
+- `sidebar.js` builds the More menu (Feedback, Personal Request, Security, About, Clear All History) by moving the existing buttons, so their handlers keep working; counts show as pills in the menu and a red dot on More; closes on outside click, item click or Escape
+
 ## 21.4 — What's new redesign, shared page extras
 
 - **What's new** (`static/js/whatsnew.js`, replaces `#changelog-modal`): entries split into title + description, max 5 cards with keyword-based **Try it** buttons (open Coding AGT., get the app, invite, prefill a picture/video/reminder/file request), staff extras counted ("Vault → Changelog"), "All updates" link

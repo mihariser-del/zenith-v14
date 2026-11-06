@@ -41,10 +41,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.4"
+VERSION = "21.4.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.4.1 Tidier sidebar: the icon row under your chats now has just your main buttons, all the same size, with Feedback, Personal Request, Security, About and Clear history tucked into a neat More (⋯) menu",
     "21.4 Continue a shared chat: open someone's shared conversation and tap Continue this chat — it's copied into your own chats so you can keep asking from where it left off",
     "Better shared pages: answers look just like in the app (code with copy buttons, tables, maths, file cards), plus Copy link and Copy chat",
     "New What's new: short update cards with Try it buttons, a sparkle icon in the sidebar for the full history, and a quick welcome tour for new users. Popups now wait their turn instead of piling up",

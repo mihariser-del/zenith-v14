@@ -19,11 +19,66 @@
             var b = $(id);
             if (b && b.style.display !== 'none' && (b.textContent || '').trim() === '0') b.style.display = 'none';
         });
+        moreDot();
+    }
+
+    // Less-used actions live in a "More" menu so the row stays calm:
+    // Upgrade, (Vault), Settings, Invite, What's new, Get the app, More.
+    var MORE_IDS = ['feedback-btn', 'request-btn', 'security-btn', 'info-btn', 'clear-all-btn'];
+    function buildMore(row) {
+        if ($('sb-more-btn')) return;
+        var more = document.createElement('button');
+        more.type = 'button';
+        more.className = 'btn info';
+        more.id = 'sb-more-btn';
+        more.title = 'More';
+        more.setAttribute('aria-haspopup', 'menu');
+        more.setAttribute('aria-expanded', 'false');
+        more.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>More<span class="sb-more-dot" id="sb-more-dot"></span>';
+        var menu = document.createElement('div');
+        menu.id = 'sb-more-menu';
+        menu.className = 'sb-more-menu';
+        menu.setAttribute('role', 'menu');
+        menu.hidden = true;
+        MORE_IDS.forEach(function (id) {
+            var b = $(id); if (!b) return;
+            if (id === 'clear-all-btn') { var hr = document.createElement('div'); hr.className = 'sb-more-sep'; menu.appendChild(hr); }
+            b.setAttribute('role', 'menuitem');
+            menu.appendChild(b);
+        });
+        var toggle = $('tools-toggle');
+        row.insertBefore(more, toggle || null);
+        document.body.appendChild(menu);
+        var place = function () {
+            var r = more.getBoundingClientRect(), rr = row.getBoundingClientRect();
+            menu.style.left = Math.max(8, Math.min(rr.left + 6, window.innerWidth - menu.offsetWidth - 8)) + 'px';
+            menu.style.width = Math.max(220, Math.min(rr.width - 12, 280)) + 'px';
+            menu.style.bottom = (window.innerHeight - r.top + 8) + 'px';
+        };
+        var close = function () { menu.hidden = true; more.setAttribute('aria-expanded', 'false'); };
+        more.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (!menu.hidden) { close(); return; }
+            menu.hidden = false; more.setAttribute('aria-expanded', 'true'); place();
+            var first = menu.querySelector('button'); if (first) first.focus();
+        });
+        menu.addEventListener('click', function (e) { if (e.target.closest('button')) setTimeout(close, 0); });
+        document.addEventListener('click', function (e) { if (!menu.hidden && !menu.contains(e.target) && e.target !== more) close(); });
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !menu.hidden) { close(); more.focus(); } });
+        window.addEventListener('resize', close);
+    }
+    function moreDot() {
+        var dot = $('sb-more-dot'); if (!dot) return;
+        var on = ['feedback-badge', 'request-badge'].some(function (id) {
+            var b = $(id); return b && b.style.display !== 'none' && (b.textContent || '').trim() !== '0';
+        });
+        dot.style.display = on ? 'block' : 'none';
     }
 
     function init() {
         var row = $('sb-icons');
         if (!row) return;
+        buildMore(row);
         var all = function () { Array.prototype.forEach.call(row.querySelectorAll('button'), label); };
         all();
         // Staff buttons (Owner Vault, new-password notice) are added later by app.js.

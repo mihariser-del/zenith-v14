@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 21.4 — What's new redesign, shared page extras
+
+- **What's new** (`static/js/whatsnew.js`, replaces `#changelog-modal`): entries split into title + description, max 5 cards with keyword-based **Try it** buttons (open Coding AGT., get the app, invite, prefill a picture/video/reminder/file request), staff extras counted ("Vault → Changelog"), "All updates" link
+- Popup queue (`ZPWhatsNew.whenFree`): waits until no tag card, greeting, limit, maintenance, broadcast or other modal is open
+- Welcome tour (4 steps with a highlight ring) for accounts under 2 days old and guests, once per device; replaces the full changelog dump new users used to get. `UserResponse.created_at` added
+- Sidebar ✨ What's new icon with a dot for unseen versions; `/whats-new` full history page, grouped by version (`GET /api/changelog/all`)
+- Deep links: `/app?ask=<text>` prefills the message box, `/app?do=invite` opens Invite Friends, `/?login=register` opens sign-up
+- **Shared page** rebuilt: uses `render.js` (`publicView` mode: file cards show the content but no owner-only download/preview links), user bubbles, unboxed answers, copy per answer, Copy link / Copy chat, compact reactions, long answers folded
+- **Continue this chat** (`POST /api/s/{id}/continue`): copies the public snapshot (attachments as names, sharer's file tags turned into text) into the visitor's chats, max 200 messages and 30 per day; logged-out visitors are sent to sign up / log in and the copy happens on arrival in /app
+
 ## 21.3 — Invite page redesign
 
 - `static/invite.html` rebuilt: "<name> invited you" badge, perks, gift note, **Continue with Google** (hidden inside the apps), username/email/password form with show-password, clear expired/used/already-joined states; mobile layout

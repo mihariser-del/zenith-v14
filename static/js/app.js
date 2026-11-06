@@ -1027,38 +1027,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-refresh').addEventListener('click', () => AdminPanel.load());
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 
-    // --- Changelog popup ---
-    // Only NEWLY-ADDED features are shown (the server slices by each user's "seen"
-    // watermark), so older releases' features never repeat. Guests fall back to a
-    // per-account local counter. Acknowledging marks the entries as seen.
-    const _chgKey = 'zenith_chgcnt_' + user.username;
-    (async () => {
-        try {
-            const data = await api('/api/changelog');
-            const staffView = isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM';
-            const changes = staffView ? (data.staff_changes || data.changes || []) : (data.user_changes || data.changes || []);
-            let listToShow = changes || [];
-            if (!data.authed) {
-                const seen = parseInt(localStorage.getItem(_chgKey) || '0', 10);
-                listToShow = changes.length > seen ? changes.slice(0, changes.length - seen) : [];
-            }
-            if (!listToShow.length) return;
-            $('changelog-title').textContent = `What's New — v${data.version}`;
-            $('changelog-version').textContent = `Version ${data.version}`;
-            $('changelog-list').innerHTML = listToShow.map(c => `<li>${c}</li>`).join('');
-            $('changelog-modal').style.display = 'flex';
-            const markSeen = () => {
-                $('changelog-modal').style.display = 'none';
-                if (data.authed) {
-                    api('/api/changelog/seen', { method: 'POST', body: JSON.stringify({ list: staffView ? 'staff' : 'user' }) }).catch(() => {});
-                } else {
-                    localStorage.setItem(_chgKey, String(changes.length));
-                }
-            };
-            $('close-changelog').onclick = markSeen;
-            $('changelog-modal').addEventListener('click', e => { if (e.target === $('changelog-modal')) markSeen(); });
-        } catch (e) {}
-    })();
+    // --- What's new (cards, welcome tour, sidebar icon) — see whatsnew.js ---
+    if (window.ZPWhatsNew) window.ZPWhatsNew.init({ user, staffView: isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM' });
 
     // --- Feedback system ---
     const feedbackBadge = $('feedback-badge');

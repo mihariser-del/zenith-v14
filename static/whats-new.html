@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>What's new in Zelpophai AI</title>
+<meta name="description" content="Every Zelpophai AI update, newest first.">
+<meta property="og:title" content="What's new in Zelpophai AI">
+<meta property="og:description" content="Every Zelpophai AI update, newest first.">
+<meta property="og:image" content="https://zelpophai.up.railway.app/static/og-default.png">
+<meta name="theme-color" content="#070a17">
+<link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
+<style>
+  :root { --bg: #070a17; --ink: #e6ebfa; --dim: #8b97bd; --line: rgba(122,152,255,.2); --grad: linear-gradient(135deg,#2563eb,#7c3aed); }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: radial-gradient(900px 500px at 85% -10%, rgba(37,99,235,.22), transparent 60%), radial-gradient(800px 500px at -10% 110%, rgba(124,58,237,.18), transparent 60%), var(--bg); background-attachment: fixed; color: var(--ink); font: 16px/1.6 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; min-height: 100vh; }
+  a { color: #93c5fd; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 16px 60px; }
+  nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 36px; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 18px; }
+  .z { width: 36px; height: 36px; border-radius: 11px; display: grid; place-items: center; color: #fff; background: var(--grad); }
+  .brand b { background: linear-gradient(90deg,#60a5fa,#a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .open { padding: 9px 16px; border-radius: 10px; border: 1px solid var(--line); color: var(--ink); text-decoration: none; font-weight: 600; white-space: nowrap; }
+  h1 { font-size: clamp(28px, 5vw, 40px); line-height: 1.15; margin: 0 0 8px; letter-spacing: -.02em; }
+  .lead { color: var(--dim); margin: 0 0 30px; }
+  .rel { position: relative; padding-left: 26px; margin-bottom: 26px; }
+  .rel::before { content: ""; position: absolute; left: 6px; top: 10px; bottom: -26px; width: 2px; background: var(--line); }
+  .rel:last-child::before { display: none; }
+  .rel::after { content: ""; position: absolute; left: 0; top: 6px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 3px solid #60a5fa; }
+  .rel h2 { margin: 0 0 10px; font-size: 18px; display: flex; align-items: center; gap: 8px; }
+  .rel h2 .new { font-size: 10.5px; font-weight: 800; letter-spacing: .08em; color: #f9a8d4; background: rgba(244,114,182,.14); padding: 2px 8px; border-radius: 999px; }
+  .item { display: flex; gap: 12px; align-items: flex-start; padding: 13px 14px; border-radius: 14px; border: 1px solid var(--line); background: rgba(13,20,48,.6); margin-bottom: 8px; }
+  .item .t { flex: 1; min-width: 0; }
+  .item b { display: block; font-size: 15px; line-height: 1.35; }
+  .item span { display: block; color: var(--dim); font-size: 14px; margin-top: 3px; }
+  .try { flex: none; padding: 7px 12px; border-radius: 10px; border: 1px solid rgba(96,165,250,.45); background: rgba(59,130,246,.14); color: #bfdbfe; font-weight: 700; font-size: 13px; text-decoration: none; white-space: nowrap; }
+  .try:hover { background: rgba(59,130,246,.28); color: #fff; }
+  .more { display: block; width: 100%; padding: 12px; border-radius: 12px; border: 1px solid var(--line); background: transparent; color: var(--ink); font: 600 14px Inter, system-ui, sans-serif; cursor: pointer; }
+  .err { color: var(--dim); }
+  footer { margin-top: 44px; text-align: center; color: #5d688c; font-size: 13px; }
+  @media (max-width: 520px) { .item { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a class="brand" href="/"><span class="z">Z</span><span>Zelpophai <b>AI</b></span></a>
+    <a class="open" href="/app">Open Zelpophai AI</a>
+  </nav>
+  <h1>What's new</h1>
+  <p class="lead">Every update to Zelpophai AI, newest first.</p>
+  <div id="list"><p class="err">Loading…</p></div>
+  <footer>Made by Wanzu Ibrahim · <a href="/download">Get the app</a></footer>
+</div>
+<script>
+(function () {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  // Same splitting and "Try it" rules as the in-app popup (whatsnew.js).
+  const TRY = [
+    [/Coding AGT/i, ['Open Coding AGT.', '/app/coding-agent']],
+    [/\bapp is here|Windows and Android|\/download\b/i, ['Get the app', '/download']],
+    [/invit/i, ['Invite friends', '/app?do=invite']],
+    [/remind/i, ['Try it', '/app?ask=' + encodeURIComponent('Remind me tomorrow at 9am to ')]],
+    [/\bvideo/i, ['Make a video', '/app?ask=' + encodeURIComponent('Make a short video of ')]],
+    [/\b(picture|image|logo|poster)/i, ['Make a picture', '/app?ask=' + encodeURIComponent('Make a picture of ')]],
+    [/\b(Word|PDF|PowerPoint|Excel|slides)\b/, ['Make a file', '/app?ask=' + encodeURIComponent('Make me a one-page PDF about ')]],
+  ];
+  function split(text) {
+    const cut = (re, max) => { const i = text.search(re); return i > 8 && i <= max ? i : -1; };
+    let i;
+    if ((i = cut(/:\s/, 80)) > 0) return [text.slice(0, i), text.slice(i + 1).trim()];
+    if ((i = cut(/\s[—–-]\s/, 90)) > 0) return [text.slice(0, i), text.slice(i + 3).trim()];
+    if ((i = cut(/[.!]\s/, 90)) > 0) return [text.slice(0, i), text.slice(i + 1).trim()];
+    if (text.length <= 80) return [text, ''];
+    return [text.split(/\s+/).slice(0, 7).join(' ') + '…', text];
+  }
+  function item(text) {
+    let [t, d] = split(text);
+    d = d.charAt(0).toUpperCase() + d.slice(1);
+    const act = (TRY.find(([re]) => re.test(text)) || [])[1];
+    return `<div class="item"><div class="t"><b>${esc(t)}</b>${d ? `<span>${esc(d)}</span>` : ''}</div>${act ? `<a class="try" href="${esc(act[1])}">${esc(act[0])}</a>` : ''}</div>`;
+  }
+  fetch('/api/changelog/all', { cache: 'no-store' }).then(r => r.json()).then(data => {
+    const rels = data.releases || [];
+    const html = rels.map((r, n) => `<section class="rel"${n >= 8 ? ' hidden' : ''}><h2>${r.version ? 'Version ' + esc(r.version) : 'Earlier'}${n === 0 ? ' <span class="new">LATEST</span>' : ''}</h2>${r.items.map(item).join('')}</section>`).join('');
+    const box = document.getElementById('list');
+    box.innerHTML = html + (rels.length > 8 ? '<button class="more" id="more">Show older updates</button>' : '');
+    const more = document.getElementById('more');
+    if (more) more.onclick = () => { box.querySelectorAll('.rel[hidden]').forEach(s => s.hidden = false); more.remove(); };
+  }).catch(() => { document.getElementById('list').innerHTML = '<p class="err">Couldn\'t load the updates. Please try again.</p>'; });
+})();
+</script>
+</body>
+</html>

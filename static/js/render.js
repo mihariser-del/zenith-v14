@@ -295,6 +295,7 @@
         return parts.join(' · ');
     }
 
+    var PUBLIC = false; // shared pages: no owner-only download/preview links
     function buildFileCard(f, streaming) {
         var a = f.attrs || {};
         var name = a.name || 'document.md';
@@ -312,7 +313,7 @@
             card.querySelector('.zf-name').textContent = name;
             return card;
         }
-        if (!a.id) {
+        if (!a.id && !PUBLIC) {
             card.classList.add('pending');
             card.innerHTML = fileIcon(fmt) + '<div class="zf-body"><div class="zf-name"></div><div class="zf-sub"><span class="zf-spin"></span>Building your ' + esc(FMT_LABEL[fmt] || fmt.toUpperCase()) + '…</div></div>';
             card.querySelector('.zf-name').textContent = name;
@@ -323,14 +324,15 @@
         var prev = '/api/generate/preview/' + encodeURIComponent(a.id);
         card.innerHTML = fileIcon(fmt) +
             '<div class="zf-body"><div class="zf-name"></div><div class="zf-sub"></div></div>' +
-            '<div class="zf-actions">' +
-            '<button type="button" class="zf-btn" data-a="preview">' + I.eye + '<span>Preview</span></button>' +
-            '<a class="zf-btn primary" data-a="dl" href="' + url + '" download>' + I.dl + '<span>Download</span></a>' +
-            '<button type="button" class="zf-btn icon" data-a="text" title="Show the content" aria-label="Show the content" aria-expanded="false">' + I.text + '</button>' +
+            '<div class="zf-actions">' + (PUBLIC
+                ? '<button type="button" class="zf-btn primary" data-a="text" aria-expanded="false">' + I.text + '<span>Show content</span></button>'
+                : '<button type="button" class="zf-btn" data-a="preview">' + I.eye + '<span>Preview</span></button>' +
+                  '<a class="zf-btn primary" data-a="dl" href="' + url + '" download>' + I.dl + '<span>Download</span></a>' +
+                  '<button type="button" class="zf-btn icon" data-a="text" title="Show the content" aria-label="Show the content" aria-expanded="false">' + I.text + '</button>') +
             '</div><div class="zf-content" hidden></div>';
         card.querySelector('.zf-name').textContent = name;
         card.querySelector('.zf-sub').textContent = statLine(fmt, a, f.body || '');
-        if (f.truncated || f.closed === false) {
+        if (!PUBLIC && (f.truncated || f.closed === false)) {
             var warn = document.createElement('div');
             warn.className = 'zf-warn';
             warn.textContent = 'This file may be cut short. Ask me to "continue the file" to finish it.';
@@ -398,6 +400,7 @@
         /* Render `text` into `el`. opts.streaming = still arriving. */
         render: function (el, text, opts) {
             opts = opts || {};
+            if (!opts.inner) PUBLIC = !!opts.publicView;
             var streaming = !!opts.streaming;
             var parsed = parseFiles(text);
             var md = parsed.md;

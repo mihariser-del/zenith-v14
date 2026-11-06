@@ -41,10 +41,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.3"
+VERSION = "21.4"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.4 Continue a shared chat: open someone's shared conversation and tap Continue this chat — it's copied into your own chats so you can keep asking from where it left off",
+    "Better shared pages: answers look just like in the app (code with copy buttons, tables, maths, file cards), plus Copy link and Copy chat",
+    "New What's new: short update cards with Try it buttons, a sparkle icon in the sidebar for the full history, and a quick welcome tour for new users. Popups now wait their turn instead of piling up",
     "21.3 New invite page: your friends see \"<you> invited you\", what they get, and can join in one tap with Google. Invite Friends now shows your progress to free Pro step by step, with WhatsApp, Telegram, X and QR-code sharing",
     "21.2 Brand-new Coding AGT.: a real coding workspace with projects, a proper code editor and its own AI agent that writes code, shows you exactly what it changes and fixes errors with one tap. Websites, Python (even charts with pandas and matplotlib) and SQL run right in your browser. Templates, sharing and .zip download included",
     "The Zelpophai app is here for Windows and Android — get it from the new phone icon in the sidebar or zelpophai.up.railway.app/download. Notifications, a Ctrl+Shift+Space quick-ask shortcut, automatic updates, and on Windows Coding AGT. can run your code on your own computer",
@@ -498,6 +501,43 @@ async def shared_chat_page(share_id: str, request: Request):
     return HTMLResponse(page)
 
 
+@app.post("/api/s/{share_id}/continue")
+async def continue_shared_chat(share_id: str, request: Request, db=Depends(get_db)):
+    """Copy a shared conversation (only the public snapshot, with attached
+    files reduced to their names) into the visitor's own chats so they can keep
+    talking to the AI from where it left off."""
+    from chats import _new_link_id
+    from database import UsageLog
+    user = await get_current_user_from_cookie(request, db)
+    chat, msgs = await _load_share(db, share_id[:64])
+    if not chat:
+        raise HTTPException(status_code=404, detail="Shared chat not found")
+    if chat.user_id == user.id:
+        return {"link_id": chat.link_id, "own": True}
+    start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    used = (await db.execute(select(func.count()).select_from(UsageLog).where(
+        UsageLog.user_id == user.id, UsageLog.action == "share_continue", UsageLog.created_at >= start))).scalar() or 0
+    if used >= 30:
+        raise HTTPException(status_code=429, detail="You've continued a lot of shared chats today. Try again tomorrow.")
+    msgs = [m for m in msgs if m.role in ("user", "assistant") and (m.content or "").strip()][-200:]
+    if not msgs:
+        raise HTTPException(status_code=400, detail="This shared chat is empty")
+    new = Chat(user_id=user.id, title=((chat.title or "Shared chat")[:90]), link_id=_new_link_id())
+    db.add(new)
+    await db.flush()
+    for m in msgs:
+        text = _public_message_text(m.content, m.role)
+        if m.role == "assistant" and "<zfile" in text:
+            # The original files belong to the sharer; keep their text, not their links.
+            text = re.sub(r'<zfile\b[^>]*?name="([^"]*)"[^>]*>(.*?)(?:</zfile>|$)',
+                          lambda x: "\n\n**📄 " + x.group(1) + "** (file from the shared chat)\n\n" + x.group(2).strip() + "\n\n",
+                          text, flags=re.S)
+        db.add(Message(chat_id=new.id, role=m.role, content=text))
+    db.add(UsageLog(user_id=user.id, action="share_continue"))
+    await db.commit()
+    return {"link_id": new.link_id, "chat_id": new.id}
+
+
 @app.get("/api/s/{share_id}")
 async def get_shared_chat(share_id: str):
     """Public read-only view of a shared conversation (no auth)."""
@@ -751,6 +791,32 @@ async def get_changelog(request: Request, db=Depends(get_db)):
         "staff_changes": staff_changes,
         "authed": authed,
     }
+
+
+_VER_RE = re.compile(r"^(\d+\.\d+(?:\.\d+)?)\s+")
+
+
+def _changelog_groups(entries):
+    """Group the flat changelog into releases: an entry that starts with a
+    version number opens a new release; the entries after it belong to it."""
+    groups = []
+    for e in entries:
+        m = _VER_RE.match(e)
+        if m or not groups:
+            groups.append({"version": m.group(1) if m else "", "items": []})
+        groups[-1]["items"].append(_VER_RE.sub("", e, count=1))
+    return groups
+
+
+@app.get("/api/changelog/all")
+async def changelog_all():
+    """Full user-facing history for the What's new page (public)."""
+    return {"version": VERSION, "releases": _changelog_groups(USER_CHANGELOG)}
+
+
+@app.get("/whats-new")
+async def whats_new_page():
+    return FileResponse("static/whats-new.html")
 
 
 @app.post("/api/changelog/seen")

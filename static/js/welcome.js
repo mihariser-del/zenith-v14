@@ -64,7 +64,7 @@
         });
         document.querySelectorAll('[data-login]').forEach(function (b) { b.addEventListener('click', function () { openLogin('login'); }); });
         // /?login=1 (from the invite page and the apps) opens the login form straight away
-        try { if (new URLSearchParams(location.search).get('login') === '1') setTimeout(function () { openLogin('login'); }, 300); } catch (e) {}
+        try { var _lq = new URLSearchParams(location.search).get('login'); if (_lq === '1' || _lq === 'register') setTimeout(function () { openLogin(_lq === 'register' ? 'register' : 'login'); }, 300); } catch (e) {}
         document.querySelectorAll('[data-register]').forEach(function (b) { b.addEventListener('click', function () { openLogin('register'); }); });
     });
 })();

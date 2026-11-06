@@ -3,6 +3,7 @@ import os
 import re
 import secrets
 import time
+from typing import Optional
 import bcrypt
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
@@ -301,6 +302,7 @@ class UserResponse(BaseModel):
     is_pro: bool = False
     is_ultimate: bool = False
     tags: str = ""
+    created_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

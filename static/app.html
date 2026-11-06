@@ -123,6 +123,11 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             Security
             </button>
+        <button aria-label="What's new" class="btn info" id="whatsnew-btn" title="What's new" style="position:relative;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+            What's new
+            <span id="whatsnew-dot" class="zp-wn-dot" style="display:none"></span>
+            </button>
         <button aria-label="About Zelpophai AI" class="btn info" id="info-btn" title="About Zelpophai AI">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
             About Zelpophai AI
@@ -674,16 +679,6 @@
     </div>
 </div>
 
-<div id="changelog-modal" class="modal">
-    <div class="modal-content" style="max-width:480px; text-align:center;">
-        <div class="z-logo" style="margin:0 auto 12px; width:56px; height:56px; font-size:32px; border-radius:14px;">Z</div>
-        <h3 id="changelog-title" style="color:var(--accent-solid); margin-bottom:10px;">What's New</h3>
-        <p id="changelog-version" style="color:#888; font-size:12px; margin-bottom:12px;"></p>
-        <ul id="changelog-list" style="text-align:left; color:var(--text); font-size:13px; line-height:1.6; margin-bottom:15px; padding-left:20px;"></ul>
-        <button class="btn primary" id="close-changelog" style="width:100%; justify-content:center;">Got it</button>
-    </div>
-</div>
-
 <div id="about-modal" class="modal">
     <div class="modal-content" style="text-align: center;">
         <div class="z-logo" style="margin: 0 auto 10px; width: 64px; height: 64px; font-size: 40px;">Z</div>
@@ -816,6 +811,7 @@
 <script src="/static/js/staff.js"></script>
 <script src="/static/js/render.js"></script>
 <script src="/static/js/chat.js"></script>
+<script src="/static/js/whatsnew.js"></script>
 <script src="/static/js/app.js"></script>
 <script src="/static/js/sidebar.js"></script>
 <script src="/static/js/halloween.js"></script>

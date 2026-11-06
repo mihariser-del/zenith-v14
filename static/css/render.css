@@ -196,3 +196,7 @@ html.halloween body { --zr-accent: #ff7a1a; --zr-accent2: #a855f7; --zr-chip: rg
 @media (prefers-reduced-motion: reduce) {
     .zf-bar i, .zf-pulse, .zf-spin, .thinking-text::after { animation: none; }
 }
+
+/* AI tool request in progress (image / video / reminder) */
+.zt-card { display: inline-flex; align-items: center; gap: 10px; margin: .6em 0; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--zr-line); background: var(--zr-card); color: var(--zr-ink); font-size: 13.5px; font-weight: 600; }
+.zt-card .zt-ic { font-size: 18px; line-height: 1; }

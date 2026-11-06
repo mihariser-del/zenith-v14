@@ -306,7 +306,7 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
         async def _silent_gen():
             yield "data: [DONE]\n\n"
         return StreamingResponse(_silent_gen(), media_type="text/event-stream")
-    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None)
 
 
 async def _auto_extract_worker(user_id: int):
@@ -411,4 +411,4 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
         _aio.ensure_future(_auto_extract_worker(user.id))
     except Exception:
         pass
-    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck)
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None)

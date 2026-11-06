@@ -168,6 +168,8 @@ class User(Base):
     pending_notification = Column(Text, default="")
     # Chosen helper — staff selected by the Owner to assist during shutdowns
     is_chosen = Column(Boolean, default=False)
+    # Owner-given tags, comma separated: "friend" (perks) and "trusted" (Trusted Admin).
+    tags = Column(String(200), default="")
     # Personality Mirror: dynamically derived profile of how the user writes,
     # used to make Zelpophai AI mirror their tone/formality/energy in replies.
     personality_enabled = Column(Boolean, default=True)
@@ -515,6 +517,7 @@ async def init_db():
             ("permissions", "TEXT DEFAULT ''"),
             ("pending_notification", "TEXT DEFAULT ''"),
             ("is_chosen", "BOOLEAN DEFAULT 0"),
+            ("tags", "VARCHAR(200) DEFAULT ''"),
             ("personality_enabled", "BOOLEAN DEFAULT 1"),
             ("personality_profile", "TEXT DEFAULT ''"),
             ("personality_updated_at", "DATETIME"),

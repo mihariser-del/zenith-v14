@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from database import get_db, User, Announcement, settings
-from auth import get_current_user_from_cookie, is_staff, is_owner, get_role, require_vault
+from auth import get_current_user_from_cookie, is_staff, is_owner, get_role, require_vault, is_trusted
 from audit import log_action
 
 router = APIRouter(prefix="/api/admin/system", tags=["admin-system"])
@@ -94,7 +94,7 @@ async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = De
 @router.post("/maintenance", dependencies=[Depends(require_vault)])
 async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if not is_owner(user):
+    if not (is_owner(user) or is_trusted(user)):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "maintenance_mode", req.value)
     if req.value == "on":
@@ -122,7 +122,7 @@ async def toggle_maintenance(req: SettingRequest, request: Request, db: AsyncSes
 @router.post("/registrations", dependencies=[Depends(require_vault)])
 async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if not is_owner(user):
+    if not (is_owner(user) or is_trusted(user)):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "registrations", req.value)
     if req.value == "off":
@@ -134,7 +134,7 @@ async def toggle_registrations(req: SettingRequest, request: Request, db: AsyncS
 @router.post("/messaging", dependencies=[Depends(require_vault)])
 async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if not is_owner(user):
+    if not (is_owner(user) or is_trusted(user)):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "messaging", req.value)
     if req.value == "off":
@@ -146,7 +146,7 @@ async def toggle_messaging(req: SettingRequest, request: Request, db: AsyncSessi
 @router.post("/ai", dependencies=[Depends(require_vault)])
 async def toggle_ai(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    if not is_owner(user):
+    if not (is_owner(user) or is_trusted(user)):
         raise HTTPException(status_code=403, detail="Owner only")
     await _set_setting(db, "ai_enabled", req.value)
     if req.value == "off":

@@ -186,6 +186,40 @@ async def _last_generated(db: AsyncSession, chat_id: int):
     return base, seed, url
 
 
+async def make_image(db: AsyncSession, user, prompt: str, w: int = 1024, h: int = 1024):
+    """Generate one image for `user` (limits checked). Returns (url, model).
+    Used by the /generate endpoint and when the AI asks for an image itself."""
+    await check_limit(user, db, "image_gen")
+    prompt = (prompt or "").strip()[:500]
+    if not prompt:
+        raise HTTPException(status_code=400, detail="Prompt required")
+    w, h = _clamp_dim(w), _clamp_dim(h)
+    url, model = await _openrouter_image(prompt, w, h)
+    if not url:
+        url = _image_url(prompt, w, h, secrets.randbelow(1_000_000_000))
+        model = "flux"
+    return url, model
+
+
+async def edit_last_image(db: AsyncSession, user, chat_id: int, change: str, w: int = 1024, h: int = 1024):
+    """Apply `change` to the newest generated image in the chat. Returns (url, merged_prompt)."""
+    await check_limit(user, db, "image_gen")
+    change = (change or "").strip()[:200]
+    base, seed, last_url = await _last_generated(db, chat_id)
+    if not base:
+        url, _ = await make_image(db, user, change, w, h)
+        return url, change
+    merged = f"{base}, {change}".strip(" ,")[:500]
+    w, h = _clamp_dim(w), _clamp_dim(h)
+    ref = _ref_for_edit(last_url)
+    url = None
+    if ref:
+        url, _ = await _openrouter_image(f"Apply this edit to the reference image: {change}", w, h, ref_urls=[ref])
+    if not url:
+        url = _image_url(merged, w, h, seed if seed is not None else secrets.randbelow(1_000_000_000))
+    return url, merged
+
+
 @router.get("/serve/{name}")
 async def serve_image(name: str):
     """Stream a generated image from disk (Railway volume or static/generated)."""

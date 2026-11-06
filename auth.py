@@ -300,6 +300,7 @@ class UserResponse(BaseModel):
     display_name: str = ""
     is_pro: bool = False
     is_ultimate: bool = False
+    tags: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -341,6 +342,24 @@ def get_role(user) -> str:
 
 def is_owner(user) -> bool:
     return get_role(user) == "owner"
+
+
+VALID_TAGS = ("friend", "trusted")
+
+
+def user_tags(user) -> set:
+    raw = (getattr(user, "tags", "") or "").lower()
+    return {t.strip() for t in raw.split(",") if t.strip() in VALID_TAGS}
+
+
+def is_friend(user) -> bool:
+    """Friend of the Owner: Ultimate-level perks, early access, extra videos."""
+    return "friend" in user_tags(user)
+
+
+def is_trusted(user) -> bool:
+    """Trusted Admin: an admin with extra powers (never owner-only ones)."""
+    return get_role(user) == "admin" and "trusted" in user_tags(user)
 
 
 def is_staff(user) -> bool:
@@ -643,7 +662,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
         raise HTTPException(status_code=403, detail=f"Account banned. Reason: {user.ban_reason or 'No reason provided'}")
     # Maintenance mode: only the Owner and chosen helpers can log in
     is_chosen = getattr(user, "is_chosen", False) or False
-    if get_role(user) != "owner" and not is_chosen:
+    if get_role(user) != "owner" and not is_chosen and not is_trusted(user):
         try:
             from sqlalchemy import text
             res = await db.execute(text("SELECT value FROM system_settings WHERE key='maintenance_mode'"))
@@ -965,7 +984,7 @@ async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, d
         raise HTTPException(status_code=400, detail="The Owner cannot be banned")
     if target_role == "admin" and get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Admins cannot take action on fellow admins")
-    if get_role(admin) == "admin":
+    if get_role(admin) == "admin" and not is_trusted(admin):
         import json
         perms = {}
         if admin.permissions:
@@ -1006,7 +1025,7 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if len(req.new_password) < 6: raise HTTPException(status_code=400, detail="Password min 6 chars")
-    if get_role(admin) == "admin":
+    if get_role(admin) == "admin" and not is_trusted(admin):
         import json
         perms = {}
         if admin.permissions:
@@ -1037,7 +1056,7 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
-    if get_role(admin) == "admin":
+    if get_role(admin) == "admin" and not is_trusted(admin):
         import json
         perms = {}
         if admin.permissions:
@@ -1065,7 +1084,7 @@ async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = D
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
-    if get_role(admin) == "admin":
+    if get_role(admin) == "admin" and not is_trusted(admin):
         import json
         perms = {}
         if admin.permissions:
@@ -1101,7 +1120,7 @@ async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: 
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
-    if get_role(admin) == "admin":
+    if get_role(admin) == "admin" and not is_trusted(admin):
         import json
         perms = {}
         if admin.permissions:
@@ -1156,6 +1175,7 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
     target.role = new_role
     if new_role == "user":
         target.is_admin = False
+        target.tags = ",".join(sorted(user_tags(target) - {"trusted"}))
         target.pending_notification = 'demoted'
     elif new_role == "admin":
         target.is_admin = True
@@ -1163,6 +1183,38 @@ async def admin_change_role(user_id: int, request: Request, db: AsyncSession = D
     await db.commit()
     await log_action(db=db, request=request, actor=admin, action="role_change", target_id=target.id, target_username=target.username, detail=f"Role changed to {new_role}")
     return {"message": f"User role changed to {new_role}", "role": new_role}
+
+
+@router.post("/admin/users/{user_id}/tags")
+async def admin_set_tag(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
+    """Owner-only: give or remove the Friend / Trusted Admin tag."""
+    actor = await get_current_user_from_cookie(request, db)
+    if not is_owner(actor):
+        raise HTTPException(status_code=403, detail="Only the Owner can give tags")
+    body = await request.json()
+    tag = str(body.get("tag", "")).strip().lower()
+    on = bool(body.get("on", True))
+    if tag not in VALID_TAGS:
+        raise HTTPException(status_code=400, detail="Unknown tag")
+    target = await db.get(User, user_id)
+    if not target or getattr(target, "is_deleted", False):
+        raise HTTPException(status_code=404, detail="User not found")
+    if get_role(target) == "owner":
+        raise HTTPException(status_code=400, detail="The Owner doesn't need tags")
+    if tag == "friend" and (target.username or "").startswith("guest_"):
+        raise HTTPException(status_code=400, detail="Guests can't be friends — ask them to make an account")
+    if tag == "trusted" and on and get_role(target) != "admin":
+        raise HTTPException(status_code=400, detail="Only admins can be made Trusted Admins — promote them first")
+    tags = user_tags(target)
+    (tags.add if on else tags.discard)(tag)
+    target.tags = ",".join(sorted(tags))
+    if on:
+        target.pending_notification = "tag_" + tag
+    await db.commit()
+    label = "Friend" if tag == "friend" else "Trusted Admin"
+    await log_action(db=db, request=request, actor=actor, action="tag", target_id=target.id,
+                     target_username=target.username, detail=f"{label} {'given' if on else 'removed'}")
+    return {"message": f"{target.username} is {'now' if on else 'no longer'} a {label}", "tags": target.tags}
 
 
 @router.get("/admin/users/{user_id}/permissions")

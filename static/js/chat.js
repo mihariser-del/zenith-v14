@@ -908,7 +908,7 @@ const Chat = {
                 method: 'PATCH',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: trimmed }),
+                body: JSON.stringify({ content: trimmed, tz: Chat._tz() }),
                 signal: this.abortController.signal
             });
             if (!res.ok) {
@@ -1383,8 +1383,19 @@ const Chat = {
         if (force || this._stickBottom !== false) c.scrollTop = c.scrollHeight;
     },
 
+    // The user's time zone, so "remind me at 9" means 9 o'clock where they are.
+    _tz() {
+        try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; }
+    },
+
     // Extra server events that ride along the reply stream.
     _handleStreamMeta(parsed, bubble, state) {
+        (parsed.video_jobs || []).forEach(job => {
+            if (!job || !job.id || this._videoTimers[job.id]) return;
+            const vb = this.appendMessage('assistant', '', true);
+            this._videoCard(vb, job.prompt || '', job.duration || 6, job.aspect || '16:9');
+            this._pollVideo(job.id, vb, this.activeId);
+        });
         if (parsed.files || parsed.content) {
             if (parsed.content) state.text = parsed.content;
             this.finalizeBubble(bubble, state.text);
@@ -1556,7 +1567,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: fullContent, images, think, research, factcheck }),
+                body: JSON.stringify({ content: fullContent, images, think, research, factcheck, tz: Chat._tz() }),
                 signal: this.abortController.signal,
             });
 
@@ -1876,7 +1887,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active') }),
+                body: JSON.stringify({ content: lastUserMsg.content, think: $('think-btn').classList.contains('active'), research: $('research-btn').classList.contains('active'), factcheck: $('factcheck-btn').classList.contains('active'), tz: Chat._tz() }),
                 signal: this.abortController.signal,
             });
 

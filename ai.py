@@ -351,13 +351,115 @@ def _sse(obj):
     return f"data: {json.dumps(obj)}\n\n"
 
 
-async def _after_reply(chat_id, user_id, user_text):
-    """Turn <zfile> blocks in the reply just saved into real stored files.
+_TOOL_RE = re.compile(r"<(zimage|zvideo|zremind)\b([^>]*?)(?:/>|>(.*?)(?:</\1>|$))", re.S | re.I)
+_TOOL_ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 
-    Also catches the case where the user asked for a file but the model forgot
-    the tag: the reply (minus a chatty first/last line) becomes the file.
-    Yields one SSE event: {"files": [...], "content": updated message} or
-    {"file_error": "..."} when the user's file allowance is used up."""
+
+def _tool_attrs(s):
+    import html as _h
+    return {k.lower(): _h.unescape(v) for k, v in _TOOL_ATTR_RE.findall(s or "")}
+
+
+def _local_now(tz_name):
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo(tz_name) if tz_name else timezone.utc
+    except Exception:
+        tz = timezone.utc
+    return datetime.now(tz), tz
+
+
+async def _run_tools(db, user, chat_id, text, tz_name):
+    """Carry out <zimage>/<zvideo>/<zremind> tags the AI wrote. Returns
+    (new_text, video_jobs, notes). Each tag is replaced by its result, or by a
+    short note when the user's plan/limit doesn't allow it."""
+    from fastapi import HTTPException as _HTTPExc
+    found = list(_TOOL_RE.finditer(text or ""))
+    if not found:
+        return text, [], []
+    from image import make_image, edit_last_image
+    from video import start_video_job
+    from database import Reminder
+    jobs, notes = [], []
+    counts = {"zimage": 0, "zvideo": 0, "zremind": 0}
+    caps = {"zimage": 4, "zvideo": 1, "zremind": 5}
+    out = text
+    for m in reversed(found):
+        kind = m.group(1).lower()
+        a = _tool_attrs(m.group(2))
+        inner = (m.group(3) or "").strip()
+        counts[kind] += 1
+        repl = ""
+        if counts[kind] > caps[kind]:
+            out = out[:m.start()] + out[m.end():]
+            continue
+        try:
+            if kind == "zimage":
+                prompt = (a.get("prompt") or inner).strip()
+                shape = (a.get("shape") or "square").lower()
+                w, h = {"wide": (1344, 768), "tall": (768, 1344)}.get(shape, (1024, 1024))
+                if a.get("edit", "").lower() in ("true", "1", "yes"):
+                    url, merged = await edit_last_image(db, user, chat_id, prompt, w, h)
+                    repl = f"**Prompt:** {merged}\n\n**Changed:** {prompt}\n\n![Generated image]({url})"
+                else:
+                    url, _ = await make_image(db, user, prompt, w, h)
+                    repl = f"**Prompt:** {prompt}\n\n![Generated image]({url})"
+            elif kind == "zvideo":
+                prompt = (a.get("prompt") or inner).strip()
+                try:
+                    secs = int(a.get("seconds") or 6)
+                except ValueError:
+                    secs = 6
+                aspect = "9:16" if (a.get("shape") or "").lower() in ("tall", "vertical", "9:16") else "16:9"
+                job = await start_video_job(db, user, prompt, secs, aspect, chat_id)
+                jobs.append(job)
+                shape_word = "tall" if aspect == "9:16" else "wide"
+                repl = (f"> [!NOTE]\n> 🎬 Making your {job['duration']}-second {shape_word} video. It usually takes 1–3 minutes "
+                        f"and will appear below by itself. ({job['remaining']} left today)")
+            elif kind == "zremind":
+                what = (inner or a.get("text") or "").strip()[:500]
+                if not what:
+                    raise ValueError("empty reminder")
+                local_now, tz = _local_now(tz_name)
+                when_s = (a.get("at") or "").strip().replace("T", " ")
+                when = None
+                for fmt in ("%Y-%m-%d %H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+                    try:
+                        when = datetime.strptime(when_s[:19], fmt).replace(tzinfo=tz)
+                        if fmt == "%Y-%m-%d":
+                            when = when.replace(hour=9)
+                        break
+                    except ValueError:
+                        continue
+                if when is None:
+                    raise ValueError("bad time")
+                if when <= local_now:
+                    repl = "> [!WARNING]\n> ⏰ That time has already passed, so I didn't set the reminder. Tell me a time in the future."
+                else:
+                    rep = (a.get("repeat") or "none").lower()
+                    days = 1 if rep == "daily" else (7 if rep == "weekly" else 0)
+                    db.add(Reminder(user_id=user.id, text=what, next_run_at=when.astimezone(timezone.utc), repeat_days=days))
+                    await db.commit()
+                    nice = when.strftime("%a %d %b, %H:%M").replace(" 0", " ")
+                    again = {1: ", every day", 7: ", every week"}.get(days, "")
+                    repl = f"> [!TIP]\n> ⏰ Reminder set for **{nice}**{again}: {what}"
+        except _HTTPExc as e:
+            notes.append(str(e.detail))
+            repl = f"> [!WARNING]\n> {e.detail}"
+        except Exception as e:
+            print(f"[tools] {kind} failed: {type(e).__name__}: {e}")
+            label = {"zimage": "make that image", "zvideo": "start that video", "zremind": "set that reminder"}[kind]
+            repl = f"> [!WARNING]\n> Sorry, I couldn't {label} just now. Please try again."
+        out = out[:m.start()] + "\n\n" + repl + "\n\n" + out[m.end():]
+    out = re.sub(r"\n{3,}", "\n\n", out).strip()
+    return out, jobs, notes
+
+
+async def _after_reply(chat_id, user_id, user_text, tz_name=None):
+    """After a reply is saved: build files from <zfile> blocks and carry out
+    tool tags (<zimage>, <zvideo>, <zremind>). Also catches the case where the
+    user asked for a file but the model forgot the tag. Yields one SSE event:
+    {"files", "content", "video_jobs", "notes"} or {"file_error"}."""
     import docgen
     from fastapi import HTTPException as _HTTPExc
     from sqlalchemy import select as _sel
@@ -371,29 +473,27 @@ async def _after_reply(chat_id, user_id, user_text):
         )).scalar_one_or_none()
         if not msg or not msg.content:
             return
-        text = docgen._strip_outer_fence_markers(msg.content)
-        blocks = docgen.extract_files(text)
-        if not blocks:
-            if "<zfile" in text.lower() or len(text) < 250 or not looks_like_file_request(user_text):
-                return
-            intro, body, name, fmt, outro = docgen.wrap_untagged(text, user_text)
-            if len(body) < 200:
-                return
-            text = "\n\n".join(x for x in (intro, f'<zfile name="{name}">\n{body}\n</zfile>', outro) if x)
-            blocks = docgen.extract_files(text)
-        todo = [b for b in blocks if not b["attrs"].get("id") and b["body"].strip()]
-        if not todo:
-            return
         user = await db.get(_User, user_id)
         if not user:
             return
-        try:
-            await check_limit(user, db, "file_tool")
-        except _HTTPExc as e:
-            yield _sse({"file_error": str(e.detail)})
-            return
-        files = []
-        new_text = text
+        original = msg.content
+        text = docgen._strip_outer_fence_markers(original)
+        files, file_error = [], None
+
+        blocks = docgen.extract_files(text)
+        if not blocks and "<zfile" not in text.lower() and len(text) >= 250 and looks_like_file_request(user_text) \
+                and not _TOOL_RE.search(text):
+            intro, body, name, fmt, outro = docgen.wrap_untagged(text, user_text)
+            if len(body) >= 200:
+                text = "\n\n".join(x for x in (intro, f'<zfile name="{name}">\n{body}\n</zfile>', outro) if x)
+                blocks = docgen.extract_files(text)
+        todo = [b for b in blocks if not b["attrs"].get("id") and b["body"].strip()]
+        if todo:
+            try:
+                await check_limit(user, db, "file_tool")
+            except _HTTPExc as e:
+                file_error = str(e.detail)
+                todo = []
         for b in reversed(blocks):
             if b not in todo:
                 continue
@@ -404,15 +504,32 @@ async def _after_reply(chat_id, user_id, user_text):
                 files.insert(0, {"name": b["name"], "error": "Couldn't build this file. Ask me to try again."})
                 continue
             tag = docgen.build_tag(row.id, b["name"], size, b["body"], b["attrs"].get("title", ""))
-            new_text = new_text[:b["span"][0]] + tag + new_text[b["span"][1]:]
+            text = text[:b["span"][0]] + tag + text[b["span"][1]:]
             files.insert(0, {
                 "id": row.id, "name": b["name"], "format": b["fmt"], "size": size, "stats": info,
                 "label": docgen.format_label(b["fmt"]), "url": f"/api/files/{row.id}/download",
                 "preview": f"/api/generate/preview/{row.id}", "truncated": not b["closed"],
             })
-        msg.content = new_text
+
+        # Tool tags outside file blocks only (a file may legitimately contain the text "<zimage").
+        jobs, notes = [], []
+        if _TOOL_RE.search(text):
+            parts = re.split(r"(<zfile\b.*?(?:</zfile>|$))", text, flags=re.S | re.I)
+            for i in range(0, len(parts), 2):
+                if _TOOL_RE.search(parts[i]):
+                    parts[i], j, n = await _run_tools(db, user, chat_id, parts[i], tz_name)
+                    jobs += j
+                    notes += n
+            text = "".join(parts)
+
+        if file_error:
+            yield _sse({"file_error": file_error})
+        if text == original and not files:
+            return
+        msg = await db.get(Message, msg.id)
+        msg.content = text
         await db.commit()
-        yield _sse({"files": files, "content": new_text, "message_id": msg.id})
+        yield _sse({"files": files, "content": text, "message_id": msg.id, "video_jobs": jobs, "notes": notes})
 
 
 def _provisional_title(text):
@@ -481,7 +598,7 @@ async def _auto_title(chat_id, user_text):
     yield _sse({"title": title, "chat_id": chat_id})
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None):
     user_id = None
     messages = []
     user_model = "openai/gpt-6-luna"
@@ -548,6 +665,18 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_temperature = 0.3
 
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
+    # Tell the AI what it can actually do for THIS user (tools, plan, what's left today).
+    try:
+        from tools_prompt import capabilities_prompt
+        from database import User as _UT
+        _now_local, _tz = _local_now(client_tz)
+        async with async_session() as _tdb:
+            _u = await _tdb.get(_UT, user_id)
+            if _u:
+                system_prompt += (f"\n\nThe user's local time is {_now_local.strftime('%A %d %B %Y, %H:%M')} "
+                                  f"({client_tz or 'UTC'}).\n" + await capabilities_prompt(_tdb, _u))
+    except Exception as _e:
+        print(f"[tools_prompt] {type(_e).__name__}: {_e}")
     messages.insert(0, {"role": "system", "content": system_prompt})
 
     if images and messages:
@@ -799,7 +928,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             if not done_sent and chunk.strip() == "data: [DONE]":
                 done_sent = True
                 try:
-                    async for extra in _after_reply(chat_id, user_id, _user_ask):
+                    async for extra in _after_reply(chat_id, user_id, _user_ask, client_tz):
                         yield extra
                 except Exception as e:  # never break the reply over a file/title problem
                     print(f"[after_reply] {type(e).__name__}: {e}")

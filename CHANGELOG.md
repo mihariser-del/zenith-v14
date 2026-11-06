@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 21.0 — AI tools, Friend & Trusted Admin tags, Vault PIN
+
+- **AI knows its tools** (`tools_prompt.py`): every reply's instructions now list each real feature, how it's triggered, the user's plan, what's left today (images, files, videos), memory on/off, and who the user is (guest, Friend, Admin, Trusted Admin, Owner). The user's local time zone is sent with each message
+- **AI uses tools itself**: it can write `<zimage prompt shape>` (or `edit="true"` to change the last picture), `<zvideo prompt seconds shape>` and `<zremind at repeat>`; `ai.py` carries them out after the reply (limits and plans enforced, max 4 images / 1 video / 5 reminders per reply) and swaps in the picture, a "video is coming" note (the clip lands in the chat by itself) or a "Reminder set" card. While working, the chat shows a small "Creating your image…" card
+- **Friend tag** (owner-only, from the Vault user list 🤝): teal FRIEND badge, Ultimate-level limits, 15 videos/day on the faster model (`VIDEO_DAILY_FRIEND`), early access, and the AI treats them as a friend of Wanzu; a welcome card pops up for them
+- **Trusted Admin tag** (owner-only, 🛡️ on admins): Global Controls (maintenance, registrations, messaging, AI on/off), password resets/unbans/ban/delete without the per-admin permission switches, login during maintenance, TRUSTED badge and "Trusted Vault" label. Emergency controls, admin management, backups and the owner account stay owner-only. Demoting an admin removes the tag
+- **Vault button** now goes straight to the PIN page and clears any earlier unlock in that tab
+- Image and video generation were split into reusable helpers (`image.make_image`, `image.edit_last_image`, `video.start_video_job`, `video.video_allowance`)
+
 ## 20.9 — Tools on top, icon row below
 
 - **Sidebar**: Files, Memory, Knowledge, Reminders and Run Code (plus Live Chat and Broadcast for staff) sit under New Chat as compact rows; a "Chats" label separates them from your conversations

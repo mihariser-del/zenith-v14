@@ -22,6 +22,7 @@ allowance. Everything is tunable with environment variables on Railway:
     VIDEO_DAILY_PRO          clips per day on Pro      (3)
     VIDEO_DAILY_ULTIMATE     clips per day on Ultimate (10)
     VIDEO_DAILY_STAFF        clips per day for admins/owner (20)
+    VIDEO_DAILY_FRIEND       clips per day for the Owner's Friends (15)
     VIDEO_ENABLED            set to "false" to switch the feature off
 """
 import asyncio
@@ -52,6 +53,7 @@ DAILY = {
     "pro": int(os.environ.get("VIDEO_DAILY_PRO", "3")),
     "ultimate": int(os.environ.get("VIDEO_DAILY_ULTIMATE", "10")),
     "staff": int(os.environ.get("VIDEO_DAILY_STAFF", "20")),
+    "friend": int(os.environ.get("VIDEO_DAILY_FRIEND", "15")),
 }
 DURATIONS = (4, 6, 8)          # what the Veo 3.1 family accepts
 ASPECTS = ("16:9", "9:16")
@@ -85,6 +87,8 @@ def _tier(user):
         return "none"
     if getattr(user, "role", "") in ("owner", "admin") or getattr(user, "is_admin", False):
         return "staff"
+    if "friend" in (getattr(user, "tags", "") or "").lower().split(","):
+        return "friend"
     if _is_ultimate(user):
         return "ultimate"
     if _is_pro(user):
@@ -93,7 +97,7 @@ def _tier(user):
 
 
 def _model_for(tier: str) -> str:
-    return VIDEO_MODEL_ULTIMATE if tier in ("ultimate", "staff") else VIDEO_MODEL
+    return VIDEO_MODEL_ULTIMATE if tier in ("ultimate", "staff", "friend") else VIDEO_MODEL
 
 
 async def _used_today(db: AsyncSession, user_id: int) -> int:
@@ -140,9 +144,10 @@ async def video_config(request: Request, db: AsyncSession = Depends(get_db)):
     }
 
 
-@router.post("/generate")
-async def generate_video(req: VideoRequest, request: Request, db: AsyncSession = Depends(get_db)):
-    user = await get_current_user_from_cookie(request, db)
+async def start_video_job(db: AsyncSession, user, prompt: str, duration: int = 6, aspect: str = "16:9",
+                          chat_id=None, image=None, user_text=None) -> dict:
+    """Submit a clip for `user` (plan + daily allowance checked). Raises HTTPException.
+    Used by the Video button/dialog and when the AI asks for a video itself."""
     if not _enabled():
         raise HTTPException(status_code=503, detail="Video generation is switched off right now.")
     tier = _tier(user)
@@ -150,14 +155,14 @@ async def generate_video(req: VideoRequest, request: Request, db: AsyncSession =
         msg = ("Video generation is a Pro feature. Log in and upgrade to make videos."
                if _is_guest(user) else "Video generation is a Pro feature. Upgrade to make videos.")
         raise HTTPException(status_code=403, detail=msg)
-    prompt = (req.prompt or "").strip()
+    prompt = (prompt or "").strip()
     if len(prompt) < 3:
         raise HTTPException(status_code=400, detail="Describe the video you want.")
     if len(prompt) > 800:
         raise HTTPException(status_code=400, detail="Prompt too long (max 800 characters).")
-    duration = req.duration if req.duration in DURATIONS else 6
-    aspect = req.aspect if req.aspect in ASPECTS else "16:9"
-    image = (req.image or "").strip() or None
+    duration = duration if duration in DURATIONS else 6
+    aspect = aspect if aspect in ASPECTS else "16:9"
+    image = (image or "").strip() or None
     if image and not (image.startswith("data:image/") or image.startswith("https://")):
         image = None
     if image and len(image) > 8_000_000:
@@ -169,8 +174,8 @@ async def generate_video(req: VideoRequest, request: Request, db: AsyncSession =
         raise HTTPException(status_code=429, detail=f"You've used all {limit} videos for today. Your allowance resets at midnight (UTC).")
 
     chat = None
-    if req.chat_id:
-        r = await db.execute(select(Chat).where(Chat.id == req.chat_id, Chat.user_id == user.id))
+    if chat_id:
+        r = await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))
         chat = r.scalar_one_or_none()
 
     keys = _keys()
@@ -220,8 +225,8 @@ async def generate_video(req: VideoRequest, request: Request, db: AsyncSession =
     job = VideoJob(user_id=user.id, chat_id=chat.id if chat else None, provider_job_id=str(job_id), model=model,
                    prompt=prompt, duration=duration, aspect=aspect, status="pending", usage_log_id=log.id)
     db.add(job)
-    if chat and (req.user_text or "").strip():
-        db.add(Message(chat_id=chat.id, role="user", content=req.user_text.strip()[:2000]))
+    if chat and (user_text or "").strip():
+        db.add(Message(chat_id=chat.id, role="user", content=user_text.strip()[:2000]))
     if chat and (chat.title or "").startswith("New Chat"):
         chat.title = ("Video: " + prompt)[:60]
     await db.commit()
@@ -230,8 +235,22 @@ async def generate_video(req: VideoRequest, request: Request, db: AsyncSession =
     t = asyncio.create_task(_watch(job.id))
     _watchers.add(t)
     t.add_done_callback(_watchers.discard)
-    return {"id": job.id, "status": job.status, "duration": duration, "aspect": aspect,
+    return {"id": job.id, "status": job.status, "duration": duration, "aspect": aspect, "prompt": prompt,
             "remaining": max(0, limit - used - 1), "chat_title": chat.title if chat else None}
+
+
+@router.post("/generate")
+async def generate_video(req: VideoRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    return await start_video_job(db, user, req.prompt, req.duration, req.aspect, req.chat_id, req.image, req.user_text)
+
+
+async def video_allowance(db: AsyncSession, user) -> dict:
+    """(for the AI's tool list) plan tier, daily limit and what's left today."""
+    tier = _tier(user)
+    limit = DAILY.get(tier, 0) if _enabled() else 0
+    used = await _used_today(db, user.id) if limit else 0
+    return {"tier": tier, "limit": limit, "left": max(0, limit - used)}
 
 
 async def _finish(db: AsyncSession, job: VideoJob, status: str, url: str = "", error: str = ""):

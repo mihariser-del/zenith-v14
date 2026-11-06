@@ -157,6 +157,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             _showHelperThanksPopup();
             api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
             return true;
+        } else if (n === 'tag_friend' || n === 'tag_trusted') {
+            _lastHandled = '';
+            _showTagPopup(n === 'tag_friend' ? 'friend' : 'trusted');
+            api('/api/auth/me/clear-notification', { method: 'POST' }).catch(() => {});
+            return true;
         } else if (n === 'unchosen') {
             _lastHandled = '';
             _showRolesToast('You are no longer a chosen helper.');
@@ -174,6 +179,27 @@ document.addEventListener('DOMContentLoaded', async () => {
             return true;
         }
         return false;
+    }
+    // "You're now a Friend / Trusted Admin" welcome card.
+    function _showTagPopup(kind) {
+        const friend = kind === 'friend';
+        const wrap = document.createElement('div');
+        wrap.className = 'zp-tagpop';
+        wrap.setAttribute('role', 'dialog');
+        wrap.setAttribute('aria-modal', 'true');
+        wrap.innerHTML = `<div class="zp-tagpop-card ${friend ? 'friend' : 'trusted'}">
+            <div class="zp-tagpop-ic">${friend ? '🤝' : '🛡️'}</div>
+            <div class="zp-tagpop-tag">${friend ? 'FRIEND' : 'TRUSTED ADMIN'}</div>
+            <h3>${friend ? "You're a Friend of Wanzu!" : "You're now a Trusted Admin"}</h3>
+            <p>${friend
+                ? 'Wanzu added you as a friend. You now get Ultimate-level limits, more videos every day and early access to new features. Enjoy!'
+                : 'Wanzu trusts you with more: Global Controls (maintenance, sign-ups, messaging, AI), password resets and unbans without asking, and the full stats. Emergency tools stay with the Owner.'}</p>
+            <button type="button">Awesome</button></div>`;
+        const close = () => wrap.remove();
+        wrap.querySelector('button').addEventListener('click', close);
+        wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
+        document.body.appendChild(wrap);
+        setTimeout(() => { const b = wrap.querySelector('button'); if (b) b.focus(); }, 50);
     }
     let _persistentScreen = '';
     function _showMaintenanceScreen(kind) {
@@ -349,11 +375,18 @@ document.addEventListener('DOMContentLoaded', async () => {
     if ('Notification' in window && Notification.permission === 'default') {
         setTimeout(() => Notification.requestPermission().catch(()=>{}), 2000);
     }
+    // Owner-given tags: FRIEND badge (anyone), TRUSTED replaces ADMIN for trusted admins.
+    const _tags = String(user.tags || '').toLowerCase().split(',').map(t => t.trim());
+    window.__userTags = _tags;
+    if (badgeEl && _tags.includes('friend') && !isOwner) {
+        badgeEl.insertAdjacentHTML('beforeend', '<span class="zp-badge zp-badge-friend" title="Friend of Wanzu">FRIEND</span>');
+    }
     if (isAdmin) {
         const badgeHtml = isOwner
             ? '<span style="color:#C0C7D1; font-size:10px; background:rgba(221,228,238,0.12); padding:2px 6px; border-radius:4px; border:1px solid rgba(221,228,238,0.4); white-space:nowrap; flex-shrink:0;">OWNER</span>'
             : '<span style="color:#FFD700; font-size:10px; background:rgba(255,215,0,0.15); padding:2px 6px; border-radius:4px; border:1px solid rgba(255,215,0,0.4); white-space:nowrap; flex-shrink:0;">ADMIN</span>';
-        if (badgeEl) badgeEl.innerHTML = badgeHtml;
+        const _trusted = !isOwner && _tags.includes('trusted');
+        if (badgeEl) badgeEl.innerHTML = (_trusted ? '<span class="zp-badge zp-badge-trusted" title="Trusted Admin">TRUSTED</span>' : badgeHtml) + (_tags.includes('friend') ? '<span class="zp-badge zp-badge-friend" title="Friend of Wanzu">FRIEND</span>' : '');
         else if ($('user-name-display')) $('user-name-display').innerHTML = displayName + ' ' + badgeHtml;
         if (nameTextEl && badgeEl) nameTextEl.textContent = displayName;
         const goldBorder = isOwner ? 'rgba(221,228,238,0.35)' : 'rgba(255,215,0,0.4)';
@@ -368,7 +401,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         adminBtn.addEventListener('mouseleave', () => { adminBtn.style.background = 'linear-gradient(135deg, ' + adminAccentA + ', ' + adminAccentB + ')'; adminBtn.style.borderColor = goldBorder; });
         document.querySelector('.bottom-bar').insertBefore(adminBtn, $('settings-btn'));
         adminBtn.addEventListener('click', () => {
-            window.location.href = '/vault';
+            // Always ask for the PIN when entering from the button: drop any
+            // earlier unlock in this tab and go straight to the PIN page.
+            try { sessionStorage.removeItem('zenith_vault_token'); } catch (e) {}
+            window.location.href = '/app/vault-auth';
         });
         if (isOwner) {
             // Owner Vault titanium styling (override inline gold)

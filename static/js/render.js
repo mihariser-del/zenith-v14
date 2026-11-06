@@ -117,6 +117,11 @@
             files.push({ attrs: attrs(a), body: body.replace(/^\n+|\n+$/g, ''), closed: !!close });
             return '\n\n<div class="zf-slot" data-i="' + (files.length - 1) + '"></div>\n\n';
         });
+        // Tool requests the AI writes (image / video / reminder) show as a small
+        // "working on it" card until the server swaps in the real result.
+        out = out.replace(/<(zimage|zvideo|zremind)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
+            return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
+        });
         return { md: out, files: files };
     }
 
@@ -402,6 +407,15 @@
             if (streaming && fences % 2) md += '\n```';
             md = protectMath(md);
             el.innerHTML = toHtml(md);
+            el.querySelectorAll('.zt-slot').forEach(function (slot) {
+                var k = slot.getAttribute('data-kind');
+                var label = { zimage: 'Creating your image', zvideo: 'Starting your video', zremind: 'Setting your reminder' }[k] || 'Working on it';
+                var icon = { zimage: '🎨', zvideo: '🎬', zremind: '⏰' }[k] || '✨';
+                var card = document.createElement('div');
+                card.className = 'zt-card';
+                card.innerHTML = '<span class="zt-ic" aria-hidden="true">' + icon + '</span><span class="zt-t">' + label + '\u2026</span><span class="zf-spin" aria-hidden="true"></span>';
+                slot.replaceWith(card);
+            });
             el.querySelectorAll('.zf-slot').forEach(function (slot) {
                 var f = parsed.files[Number(slot.getAttribute('data-i'))];
                 if (f) slot.replaceWith(buildFileCard(f, streaming && !f.closed));
@@ -425,6 +439,7 @@
         plain: function (text) {
             return String(text || '')
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
+                .replace(/<(zimage|zvideo|zremind)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
                 .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)');
         }
     };

@@ -51,7 +51,8 @@ def _is_pro(user):
 
 
 def _is_ultimate(user):
-    return bool(user.is_ultimate)
+    # Friends of the Owner get Ultimate-level limits.
+    return bool(user.is_ultimate) or "friend" in (getattr(user, "tags", "") or "").lower().split(",")
 
 
 def _fmt_wait(seconds):

@@ -27,6 +27,13 @@
             document.getElementById('vault-top-role').textContent = this._isOwner ? 'The One Above All' : 'Admin';
             const ownerSec = document.getElementById('vault-owner-section');
             if (ownerSec) ownerSec.style.display = this._isOwner ? 'block' : 'none';
+            this._isTrusted = !this._isOwner && String(user.tags || '').split(',').includes('trusted');
+            const trustedSec = document.getElementById('vault-trusted-section');
+            if (trustedSec) trustedSec.style.display = this._isTrusted ? 'block' : 'none';
+            if (this._isTrusted) {
+                document.getElementById('vault-role-label').textContent = 'TRUSTED VAULT';
+                document.getElementById('vault-top-role').textContent = 'Trusted Admin';
+            }
             if (!this._isOwner && !user.is_admin) { window.location.href = '/app'; return; }
         } catch { window.location.href = '/'; return; }
         this.bindNav();
@@ -1233,7 +1240,7 @@
                 <td style="color:#8B949E;">${i + 1}</td>
                 <td><div style="font-weight:600;display:flex;align-items:center;">${this.esc(u.username)}${onlineDot}</div></td>
                 <td style="color:#8B949E;">${this.esc(u.email)}</td>
-                <td><span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span></td>
+                <td><span class="badge ${u.role === 'owner' ? 'badge-purple' : (u.role === 'admin' ? 'badge-yellow' : 'badge-gray')}">${u.role}</span>${this._tagBadges(u)}</td>
                 <td><span class="badge ${sc}">${st}</span></td>
                 <td>${u.chat_count || 0}</td>
                 <td>${u.message_count || 0}</td>
@@ -1241,6 +1248,8 @@
                 <td><div style="display:flex;gap:4px;flex-wrap:wrap;">
                     ${canAct ? `<button class="vault-btn" onclick="Vault.viewUserChats(${u.id},'${this.escAttr(u.username)}')">💬</button>` : ''}
                     ${canAct ? `<button class="vault-btn" title="Export all data for ${this.esc(u.username)}" onclick="Vault.exportUserData(${u.id},'${this.escAttr(u.username)}')">⬇️</button>` : ''}
+                    ${isOwner && u.role !== 'owner' && !u.is_deleted && !u.username.startsWith('guest_') ? `<button class="vault-btn ${this._hasTag(u, 'friend') ? 'success' : ''}" title="${this._hasTag(u, 'friend') ? 'Remove Friend tag' : 'Make Friend'}" onclick="Vault.toggleTag(${u.id},'${this.escAttr(u.username)}','friend',${!this._hasTag(u, 'friend')})">🤝</button>` : ''}
+                    ${isOwner && u.role === 'admin' && !u.is_deleted ? `<button class="vault-btn ${this._hasTag(u, 'trusted') ? 'success' : ''}" title="${this._hasTag(u, 'trusted') ? 'Remove Trusted Admin' : 'Make Trusted Admin'}" onclick="Vault.toggleTag(${u.id},'${this.escAttr(u.username)}','trusted',${!this._hasTag(u, 'trusted')})">🛡️</button>` : ''}
                     ${isOwner && u.role === 'user' && !u.is_banned && !u.is_deleted ? `<button class="vault-btn success" onclick="Vault.promoteToAdmin(${u.id},'${this.escAttr(u.username)}')" title="Promote to Admin">⬆️</button>` : ''}
                     ${canAct ? `<button class="vault-btn" onclick="Vault.resetUser(${u.id},'${this.escAttr(u.username)}')">🔑</button>
                     <button class="vault-btn ${u.is_banned ? 'success' : 'danger'}" onclick="Vault.banUser(${u.id},'${this.escAttr(u.username)}',${u.is_banned})">${u.is_banned ? 'Unban' : 'Ban'}</button>
@@ -1248,6 +1257,29 @@
                     : '<span style="color:#8B949E;font-size:10px;align-self:center;">—</span>'}
                 </div></td></tr>`;
         }).join('');
+    },
+
+    _hasTag(u, t) { return String(u.tags || '').toLowerCase().split(',').includes(t); },
+    _tagBadges(u) {
+        let h = '';
+        if (this._hasTag(u, 'trusted')) h += ' <span class="badge" style="background:rgba(139,92,246,.18);color:#c4b5fd;border:1px solid #a78bfa66;">TRUSTED</span>';
+        if (this._hasTag(u, 'friend')) h += ' <span class="badge" style="background:rgba(45,212,191,.15);color:#2dd4bf;border:1px solid #2dd4bf66;">FRIEND</span>';
+        return h;
+    },
+    async toggleTag(id, name, tag, on) {
+        const label = tag === 'friend' ? 'Friend' : 'Trusted Admin';
+        const ok = await showConfirm(on ? `Make ${name} a ${label}?` : `Remove ${label} from ${name}?`,
+            tag === 'friend'
+                ? (on ? 'They get Ultimate-level limits, extra videos, early access and a FRIEND badge.' : 'They go back to their normal plan limits.')
+                : (on ? 'They get Global Controls, password resets and unbans without permission checks, and full stats. Emergency tools stay yours.' : 'They go back to being a normal admin.'));
+        if (!ok) return;
+        try {
+            const r = await api(`/api/auth/admin/users/${id}/tags`, { method: 'POST', body: JSON.stringify({ tag, on }) });
+            showToast(r.message || 'Done', 'success');
+            const u = (this._cache.users || []).find(x => x.id === id);
+            if (u) u.tags = r.tags || '';
+            this.filterUsers();
+        } catch (e) { showToast(e.message, 'error'); }
     },
 
     filterUsers() {

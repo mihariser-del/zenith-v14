@@ -203,6 +203,20 @@ class User(Base):
     requests = relationship("UserRequest", back_populates="user", cascade="all, delete-orphan")
 
 
+class CodeProject(Base):
+    """A Coding AGT. project: a small set of files saved for one user."""
+    __tablename__ = "code_projects"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(80), default="Untitled project")
+    kind = Column(String(20), default="web")      # web | python | sql | blank
+    files = Column(Text, default="{}")            # JSON {"path": "content"}
+    share_id = Column(String(64), unique=True, index=True, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class UsageLog(Base):
     __tablename__ = "usage_logs"
 

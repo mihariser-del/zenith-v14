@@ -1,0 +1,16 @@
+{
+  "appId": "com.zelpophai.app",
+  "appName": "Zelpophai AI",
+  "webDir": "www",
+  "server": {
+    "url": "https://zelpophai.up.railway.app/app",
+    "androidScheme": "https",
+    "allowNavigation": ["zelpophai.up.railway.app"],
+    "errorPath": "offline.html"
+  },
+  "android": {
+    "backgroundColor": "#070a17",
+    "appendUserAgent": "ZelpophaiAndroid/__VERSION__",
+    "allowMixedContent": false
+  }
+}

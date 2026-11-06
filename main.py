@@ -22,6 +22,8 @@ from files import router as files_router
 from generate import router as generate_router
 from security import router as security_router
 from codeexec import router as codeexec_router
+from codeagent import router as codeagent_router
+from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
 from feedback import router as feedback_router
@@ -39,10 +41,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.1"
+VERSION = "21.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.2 Brand-new Coding AGT.: a real coding workspace with projects, a proper code editor and its own AI agent that writes code, shows you exactly what it changes and fixes errors with one tap. Websites, Python (even charts with pandas and matplotlib) and SQL run right in your browser. Templates, sharing and .zip download included",
+    "The Zelpophai app is here for Windows and Android — get it from the new phone icon in the sidebar or zelpophai.up.railway.app/download. Notifications, a Ctrl+Shift+Space quick-ask shortcut, automatic updates, and on Windows Coding AGT. can run your code on your own computer",
     "21.1 Safer sharing: files you attached only show their name on a shared page (never their contents), you can hide your name, and a shared link is a snapshot — new messages stay private until you tap Update link. Shared links now show the chat's real title and a preview in WhatsApp, X and Telegram",
     "21.0 The AI now knows everything it can do — and does it: ask in your own words for a picture, a video or a reminder (\"remind me Friday at 9 to pay rent\") and it just happens, right in the chat. It also knows your plan and what you have left today",
     "New Friend tag: people Wanzu adds as friends get a FRIEND badge, Ultimate-level limits, extra videos and early access",
@@ -158,6 +162,8 @@ app.include_router(files_router)
 app.include_router(generate_router)
 app.include_router(security_router)
 app.include_router(codeexec_router)
+app.include_router(codeagent_router)
+app.include_router(appdist_router)
 app.include_router(image_router)
 app.include_router(video_router)
 app.include_router(feedback_router)
@@ -829,6 +835,12 @@ async def coding_agent_page():
     return FileResponse("static/coding-agent.html")
 
 
+@app.get("/code/{share_id}", response_class=HTMLResponse)
+async def shared_code_page(share_id: str):
+    # Read-only view of a shared Coding AGT. project (the page loads it by id).
+    return FileResponse("static/coding-agent.html")
+
+
 # ---------------------------------------------------------------- SEO ----
 # Public base URL used for canonical links, Open Graph and the sitemap.
 SITE_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app").rstrip("/")
@@ -880,6 +892,7 @@ async def seo_headers(request: Request, call_next):
         or path.startswith("/denied")
         or path.startswith("/s/")
         or path.startswith("/i/")
+        or path.startswith("/code/")
     ):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
     # Every page registers /static/sw.js with scope "/". Browsers refuse a scope

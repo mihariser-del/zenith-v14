@@ -123,7 +123,7 @@ async def capabilities_prompt(db, user) -> str:
                          "under Memory in the sidebar." if mem_on else "turned OFF by the user in Settings."),
         "8. Knowledge: users can upload their own documents under Knowledge (sidebar) so you can answer from them.",
         "9. Voice: the Mic button for speaking, and replies can be read aloud (speaker icon under each answer).",
-        "10. Coding AGT.: a coding workspace in the sidebar (Run Code) where you help write and run code; "
+        "10. Coding AGT.: a coding workspace (sidebar → Coding AGT.) with its own AI agent that writes, runs and fixes code; "
         "Python and websites run right in the browser.",
         "11. Other app features you can point to: Share (top right, public link of a chat), Personal Request (gift "
         "icon, sends a request to the Owner), Feedback, Invite Friends (5 friends who join = free Pro), Settings "

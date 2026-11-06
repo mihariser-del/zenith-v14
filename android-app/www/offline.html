@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zelpophai AI — offline</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #070a17; color: #e6ebfa; font: 15px/1.6 "Segoe UI", system-ui, sans-serif; }
+  body { display: grid; place-items: center; text-align: center; padding: 24px; box-sizing: border-box; }
+  .z { width: 64px; height: 64px; margin: 0 auto 16px; border-radius: 18px; display: grid; place-items: center; font: 800 32px "Segoe UI"; color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); box-shadow: 0 10px 30px rgba(37,99,235,.4); }
+  h1 { font-size: 22px; margin: 0 0 6px; }
+  p { color: #8b97bd; margin: 0 0 20px; }
+  button { padding: 11px 24px; border: none; border-radius: 11px; font-weight: 700; color: #fff; cursor: pointer; background: linear-gradient(135deg, #2563eb, #7c3aed); }
+</style>
+</head>
+<body>
+  <main>
+    <div class="z">Z</div>
+    <h1>You're offline</h1>
+    <p>Zelpophai AI needs the internet. We'll reconnect by ourselves as soon as you're back.</p>
+    <button id="retry">Try again</button>
+  </main>
+<script>
+  const to = new URLSearchParams(location.search).get('to') || 'https://zelpophai.up.railway.app/app';
+  const go = () => { if (/^https:\/\/zelpophai\.up\.railway\.app\//.test(to)) location.href = to; };
+  document.getElementById('retry').onclick = go;
+  addEventListener('online', go);
+  setInterval(() => { if (navigator.onLine) go(); }, 15000);
+</script>
+</body>
+</html>

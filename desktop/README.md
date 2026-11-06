@@ -1,0 +1,16 @@
+# Zelpophai AI for Windows
+
+Electron shell around https://zelpophai.up.railway.app with a tray icon,
+notifications, Ctrl+Shift+Space quick ask, local code running for Coding AGT.
+(`runner.js`, asks first) and self-updates from
+`https://zelpophai.up.railway.app/downloads/win/latest.yml`.
+
+## Release a new version
+1. Bump `version` in `package.json`.
+2. Build: `npm install && npx electron-builder --win --x64 --publish never`
+   (on Linux this needs `wine64` + `wine32:i386`).
+3. Upload `dist/Zelpophai-Setup.exe`, `dist/Zelpophai-Setup.exe.blockmap` and
+   `dist/latest.yml` (in that order — latest.yml last) to
+   `POST /api/app/upload?platform=win&name=<file>` with the `X-Upload-Token`
+   header (token hash lives in `appdist.py` / `APP_UPLOAD_TOKEN_SHA256`).
+Installed apps pick the update up within a few hours (or via tray → Check for updates).

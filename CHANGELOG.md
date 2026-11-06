@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 21.2 — New Coding AGT., Windows & Android apps
+
+- **Coding AGT. rebuilt** (`codeagent.py`, `static/coding-agent.html`, `static/js/coding-agent.js`, `static/css/coding-agent.css`): saved projects (`code_projects` table), file tree, tabs, CodeMirror editor, live web preview with console capture, Python via Pyodide in a Web Worker (packages auto-loaded, matplotlib charts shown in the console), SQL via sql.js, templates (website, Python, data analysis, game, SQL, blank), share read-only links (`/code/<id>`, "Open my own copy"), .zip download, mobile tab layout
+- **AI coding agent** (`POST /api/code/agent`, streams): sees the project, active file, selection and console; proposes whole-file changes as `<zfile>` blocks shown as change cards with +/− counts, a line diff view, Apply / Apply all (undo-able); "Fix with AI" sends the error. Daily limits: guest 2, free 5, Pro 60, Ultimate/Friend/staff 200 (`CODE_AGENT_DAILY_*`); models `CODE_AGENT_MODEL(_FREE)`
+- Free users and guests see a warning banner about the website's limits with **Download the app** / Upgrade
+- **Windows app** (`desktop/`, Electron 33): tray, notifications, Ctrl+Shift+Space quick ask, start with Windows, close-to-tray, offline page, downloads with notifications, Google sign-in opens in the browser, self-updates (`electron-updater`, generic provider at `/downloads/win`) with a "Restart & update" prompt, and **local code running** for Coding AGT. (`runner.js`: Python, Node, Java, C/C++, Go, Ruby, PHP; asks first, temp folder, 2-minute limit)
+- **Android app** (`android-app/`, Capacitor 6): live site in an app, file downloads with login, mic/camera permissions, and an in-app "update available → Install" prompt
+- **Downloads** (`appdist.py`): `/download` page, `/downloads/<platform>/<file>` on the Railway volume, `/api/app/latest`, token-protected `POST /api/app/upload`; "Get the app" icon in the sidebar (hidden inside the apps)
+- Sidebar entry renamed from "Run Code" to "Coding AGT."
+
 ## 21.1 — Shared chat privacy
 
 - Attached-file contents never appear on a shared page: user messages show "📎 file name" instead (`_public_message_text`)

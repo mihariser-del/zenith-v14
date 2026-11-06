@@ -1,0 +1,63 @@
+{
+  "name": "zelpophai-desktop",
+  "productName": "Zelpophai AI",
+  "version": "1.0.0",
+  "description": "Zelpophai AI for Windows",
+  "author": "Wanzu Ibrahim",
+  "homepage": "https://zelpophai.up.railway.app",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "dependencies": {
+    "electron-updater": "6.3.9"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.zelpophai.desktop",
+    "productName": "Zelpophai AI",
+    "artifactName": "Zelpophai-Setup.${ext}",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "runner.js",
+      "offline.html",
+      "build/icon.png"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Zelpophai AI"
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://zelpophai.up.railway.app/downloads/win",
+        "channel": "latest"
+      }
+    ]
+  }
+}

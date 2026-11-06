@@ -1,0 +1,6 @@
+node_modules/
+android/
+*.apk
+*.jks
+out-aligned.apk
+capacitor.config.json.*

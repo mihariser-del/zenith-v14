@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 21.4.2 — Search engines
+
+- Sitemap now lists `/`, `/download` and `/whats-new` with `lastmod` (deploy date); dropped `/invite.html` (it's noindex)
+- Landing: clearer title/description/OG/Twitter text (chat, pictures, videos, files, Coding AGT., apps), richer `SoftwareApplication` JSON-LD (Windows/Android, downloadUrl, featureList, author); only one `<h1>` (login card title is now `<h2>`)
+- `/download` and `/whats-new`: canonical URLs, robots index, OG/Twitter tags; `/download` gets `SoftwareApplication` JSON-LD
+- IndexNow: key served at `/<INDEXNOW_KEY>.txt`; about a minute after each deploy the public pages are submitted to Bing, Yandex and other IndexNow engines (`INDEXNOW_DISABLE=1` turns it off)
+- Google / Bing ownership: set `GOOGLE_SITE_VERIFICATION` / `BING_SITE_VERIFICATION` in Railway (already supported)
+
 ## 21.4.1 — Sidebar icon row cleanup
 
 - Icon row reduced to Upgrade, Vault (staff), Settings, Invite, What's new, Get the app and **More (⋯)**; all 34px squares, no wrapping, no stray borders in light theme

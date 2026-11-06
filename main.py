@@ -41,7 +41,7 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.4.1"
+VERSION = "21.4.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -141,6 +141,7 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
     reminder_task = asyncio.create_task(_reminder_loop())
+    asyncio.create_task(_indexnow_ping())
     try:
         await _resume_videos()   # keep watching clips that were rendering during a restart
     except Exception as e:
@@ -931,13 +932,18 @@ async def robots_txt():
     return PlainTextResponse(body, media_type="text/plain")
 
 
+# Public pages search engines should list. lastmod = when this build started,
+# which on Railway is the last deploy.
+_SITEMAP_PAGES = [("/", "1.0", "weekly"), ("/download", "0.8", "weekly"), ("/whats-new", "0.6", "weekly")]
+_DEPLOYED = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
 @app.get("/sitemap.xml", include_in_schema=False)
 async def sitemap_xml():
-    pages = [("/", "1.0", "weekly"), ("/invite.html", "0.4", "monthly")]
     entries = "".join(
-        f"<url><loc>{SITE_BASE}{path}</loc>"
+        f"<url><loc>{SITE_BASE}{path}</loc><lastmod>{_DEPLOYED}</lastmod>"
         f"<changefreq>{freq}</changefreq><priority>{prio}</priority></url>"
-        for path, prio, freq in pages
+        for path, prio, freq in _SITEMAP_PAGES
     )
     xml = (
         '<?xml version="1.0" encoding="UTF-8"?>'
@@ -945,6 +951,36 @@ async def sitemap_xml():
         f"{entries}</urlset>"
     )
     return Response(content=xml, media_type="application/xml")
+
+
+# IndexNow (Bing, Yandex, Seznam, Naver…): tells them right away when the
+# public pages change. The key is public by design; it only proves we own the site.
+INDEXNOW_KEY = os.getenv("INDEXNOW_KEY", "da804247d282f872304442b631ee5271").strip()
+
+
+@app.get("/{key}.txt", include_in_schema=False)
+async def indexnow_key(key: str):
+    if not INDEXNOW_KEY or key != INDEXNOW_KEY:
+        raise HTTPException(status_code=404, detail="Not found")
+    return PlainTextResponse(INDEXNOW_KEY)
+
+
+async def _indexnow_ping():
+    """Once per deploy, ask IndexNow engines to recrawl the public pages."""
+    if not INDEXNOW_KEY or not SITE_BASE.startswith("https://") or os.getenv("INDEXNOW_DISABLE"):
+        return
+    await asyncio.sleep(60)  # let the new deploy take traffic first
+    try:
+        import httpx
+        host = SITE_BASE.split("://", 1)[1].split("/", 1)[0]
+        async with httpx.AsyncClient(timeout=15) as c:
+            r = await c.post("https://api.indexnow.org/indexnow", json={
+                "host": host, "key": INDEXNOW_KEY, "keyLocation": f"{SITE_BASE}/{INDEXNOW_KEY}.txt",
+                "urlList": [SITE_BASE + p for p, _, _ in _SITEMAP_PAGES],
+            })
+            print(f"IndexNow ping: {r.status_code}")
+    except Exception as e:
+        print(f"IndexNow ping skipped: {e}")
 
 
 @app.middleware("http")

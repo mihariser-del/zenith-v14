@@ -1187,7 +1187,47 @@ const Chat = {
             fig.appendChild(cap);
             const host = a.closest('p') && a.closest('p').textContent.trim() === a.textContent.trim() ? a.closest('p') : a;
             host.replaceWith(fig);
+            this._featureBtn('video', src, cap, fig);
         });
+        root.querySelectorAll('img[src^="/api/image/serve/"]').forEach(img => {
+            if (img.dataset.zpFeat) return;
+            img.dataset.zpFeat = '1';
+            const holder = document.createElement('div');
+            holder.className = 'zp-feat-row';
+            img.insertAdjacentElement('afterend', holder);
+            if (!this._featureBtn('image', img.getAttribute('src'), holder, img)) holder.remove();
+        });
+    },
+
+    // Owner only: put a real image / video from a chat on the welcome page.
+    _featureBtn(kind, src, host, el) {
+        const u = window.user || {};
+        if (!(u.role === 'owner' || u.username === 'WANZU-IBRAHIM')) return false;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'zp-feat';
+        b.textContent = '⭐ Show on welcome page';
+        b.title = 'Use this ' + kind + ' as the example on the welcome page';
+        b.addEventListener('click', async () => {
+            let prompt = '';
+            try {
+                const wrap = el.closest('.msg-wrapper');
+                let prev = wrap && wrap.previousElementSibling;
+                while (prev && !prev.classList.contains('user')) prev = prev.previousElementSibling;
+                if (prev) prompt = (prev.querySelector('.msg-bubble') || prev).textContent.trim().slice(0, 200);
+            } catch (e) {}
+            b.disabled = true;
+            try {
+                await api('/api/showcase', { method: 'POST', body: JSON.stringify({ kind, src, prompt }) });
+                b.textContent = '✓ On the welcome page';
+                if (typeof showToast === 'function') showToast('Now showing on the welcome page', 'success');
+            } catch (e) {
+                b.disabled = false;
+                if (typeof showToast === 'function') showToast(e.message || 'Could not feature it', 'error');
+            }
+        });
+        host.appendChild(b);
+        return true;
     },
 
     _videoCard(bubble, prompt, duration, aspect) {

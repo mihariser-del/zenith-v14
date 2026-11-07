@@ -202,3 +202,22 @@ body.auth-page { background: #07080f; }
     .wl-orb, .wl-star, .wl-shine, .wl-glow, .wl-frame::before, .wl-bar i, .wl-wave, .wl-rain, .wl-demo.swap { animation: none !important; }
     .landing-page .wl-card:hover, .wl-btn:hover { transform: none; }
 }
+
+/* Real preview: image, video, news, download, try-it */
+a.wl-doc { color: inherit; text-decoration: none; transition: border-color .2s, background .2s; }
+a.wl-doc:hover { border-color: #3b82f6; background: #151b31; }
+a.wl-doc:hover .wl-doc-dl { text-decoration: underline; }
+.wl-media img, .wl-media video { display: block; width: 100%; height: auto; max-height: 260px; object-fit: cover; background: #0b1024; }
+.wl-media video { aspect-ratio: 16 / 9; }
+.wl-news[hidden], .wl-try[hidden] { display: none; }
+.wl-news ol { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 8px; counter-reset: n; }
+.wl-news li { position: relative; padding: 9px 12px 9px 36px; border-radius: 12px; background: #121626; border: 1px solid #262e4c; counter-increment: n; display: flex; flex-direction: column; gap: 2px; }
+.wl-news li::before { content: counter(n); position: absolute; left: 11px; top: 10px; width: 18px; height: 18px; border-radius: 6px; background: #1e2a4a; color: #93b4ff; font: 700 11px/18px Inter, sans-serif; text-align: center; }
+.wl-news a { color: #e8edfb; font-weight: 600; font-size: 13.5px; line-height: 1.35; text-decoration: none; }
+.wl-news a:hover { color: #93c5fd; text-decoration: underline; }
+.wl-news span { font-size: 12.5px; color: #9aa6c9; line-height: 1.4; }
+.wl-news small { font-size: 11px; color: #6f7a9c; font-weight: 600; }
+.wl-news-wait { margin: 0; font-size: 13px; color: #9aa6c9; }
+.wl-try { align-self: flex-start; margin-top: 2px; padding: 7px 13px; border-radius: 10px; border: 1px solid rgba(96, 165, 250, .45); background: rgba(59, 130, 246, .12); color: #bfdbfe; font: 700 13px Inter, sans-serif; cursor: pointer; }
+.wl-try:hover { background: rgba(59, 130, 246, .25); color: #fff; }
+.wl-chips button[hidden] { display: none; }

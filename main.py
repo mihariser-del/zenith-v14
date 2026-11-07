@@ -24,6 +24,7 @@ from security import router as security_router
 from codeexec import router as codeexec_router
 from codeagent import router as codeagent_router
 from miniagent import router as miniagent_router
+from showcase import router as showcase_router
 from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
@@ -42,10 +43,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.5.1"
+VERSION = "21.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.6 New Privacy Policy and Terms of Service pages, linked across the site. The welcome page now shows real things Zelpophai made — a real Word file you can download, a real image and video, and today's actual news — each with a Try this yourself button",
     "21.5.1 Zelpophai Mini can now open any app on your PC in Do mode — games like Roblox and Minecraft, VPNs, Steam, Discord and more. Just say \"Open Roblox\" (Windows app 1.2.0)",
     "21.5 Zelpophai Mini: in the Windows app press Ctrl+Shift+Z anywhere to ask about your screen — explain, summarise, translate, fix or reply in one tap, select just part of the screen, use what you copied, or speak your question. Switch to Do and Mini can even use your mouse and keyboard to finish tasks for you (it asks first, and Esc stops it). Update the Windows app to get it",
     "21.4.1 Tidier sidebar: the icon row under your chats now has just your main buttons, all the same size, with Feedback, Personal Request, Security, About and Clear history tucked into a neat More (⋯) menu",
@@ -173,6 +175,7 @@ app.include_router(security_router)
 app.include_router(codeexec_router)
 app.include_router(codeagent_router)
 app.include_router(miniagent_router)
+app.include_router(showcase_router)
 app.include_router(appdist_router)
 app.include_router(image_router)
 app.include_router(video_router)
@@ -908,6 +911,33 @@ async def coding_agent_page():
     return FileResponse("static/coding-agent.html")
 
 
+def _legal_page(name: str) -> HTMLResponse:
+    """Privacy / Terms with the contact line filled in from CONTACT_EMAIL."""
+    import html as _h
+    page = open(os.path.join("static", "legal", name), encoding="utf-8").read()
+    email = (os.getenv("CONTACT_EMAIL") or "").strip()
+    if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[A-Za-z]{2,}", email):
+        e = _h.escape(email)
+        contact = (f'email <a href="mailto:{e}">{e}</a>, or use <b>Feedback</b> / <b>Personal Request</b> '
+                   'in the app (sidebar → More).')
+    else:
+        contact = ('use <b>Feedback</b> or <b>Personal Request</b> in the app (sidebar → More) — '
+                   '<a href="/app">open Zelpophai</a>. For account deletion, send the request while logged in to that account.')
+    return HTMLResponse(page.replace("{{CONTACT}}", contact), headers={"Cache-Control": "public, max-age=600"})
+
+
+@app.get("/privacy", response_class=HTMLResponse)
+@app.get("/privacy-policy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_page():
+    return _legal_page("privacy.html")
+
+
+@app.get("/terms", response_class=HTMLResponse)
+@app.get("/terms-of-service", response_class=HTMLResponse, include_in_schema=False)
+async def terms_page():
+    return _legal_page("terms.html")
+
+
 @app.get("/mini", response_class=HTMLResponse)
 async def mini_page():
     # Zelpophai Mini panel (opened by Ctrl+Shift+Z in the Windows app).
@@ -944,7 +974,8 @@ async def robots_txt():
 
 # Public pages search engines should list. lastmod = when this build started,
 # which on Railway is the last deploy.
-_SITEMAP_PAGES = [("/", "1.0", "weekly"), ("/download", "0.8", "weekly"), ("/whats-new", "0.6", "weekly")]
+_SITEMAP_PAGES = [("/", "1.0", "weekly"), ("/download", "0.8", "weekly"), ("/whats-new", "0.6", "weekly"),
+                  ("/privacy", "0.3", "monthly"), ("/terms", "0.3", "monthly")]
 _DEPLOYED = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 

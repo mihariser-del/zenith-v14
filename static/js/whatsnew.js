@@ -199,6 +199,12 @@
                 .then(d => { if (d && d.link_id) location.href = '/app/c/' + encodeURIComponent(d.link_id); })
                 .catch(() => {});
         }
+        // "Try this yourself" on the welcome page: fill in that example prompt.
+        const pendingAsk = store.get('zp_pending_ask');
+        if (pendingAsk) {
+            try { localStorage.removeItem('zp_pending_ask'); } catch (e) {}
+            setTimeout(() => runAction({ ask: String(pendingAsk).slice(0, 300) }), 900);
+        }
         const q = new URLSearchParams(location.search);
         const ask = q.get('ask'), doIt = q.get('do');
         if (!ask && !doIt) return;

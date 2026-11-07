@@ -454,3 +454,9 @@ html.light-theme body.light-theme .sb-more-menu > .btn svg { color: #64748b; }
 html.light-theme body.light-theme .sidebar .sb-icons > #upgrade-btn { background: #fff5e0 !important; border-color: #f5c46b !important; }
 html.light-theme body.light-theme .sidebar .sb-icons > .btn:not(#upgrade-btn) { border-color: transparent !important; background: transparent !important; box-shadow: none !important; }
 html.light-theme body.light-theme .sidebar .sb-icons > .btn:not(#upgrade-btn):hover { background: #eef3ff !important; }
+/* Owner: "Show on welcome page" under generated images / videos */
+.zp-feat { margin: 4px 0 0 8px; padding: 3px 9px; border-radius: 8px; border: 1px solid rgba(255, 196, 99, .45); background: rgba(255, 196, 99, .1); color: #ffd58a; font: 600 12px Inter, system-ui, sans-serif; cursor: pointer; }
+.zp-feat:hover { background: rgba(255, 196, 99, .2); }
+.zp-feat[disabled] { opacity: .8; cursor: default; }
+.zp-feat-row { margin: 4px 0 8px; }
+.zp-feat-row .zp-feat { margin-left: 0; }

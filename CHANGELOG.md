@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 21.6 — Privacy & Terms, real welcome preview
+
+- `/privacy` and `/terms` (also `/privacy-policy`, `/terms-of-service`): plain-language Privacy Policy and Terms (`static/legal/`, `static/css/legal.css`); contact line from `CONTACT_EMAIL` (otherwise points to Feedback / Personal Request in the app); added to the sitemap
+- Linked from the welcome footer, the sign-up form and guest/Google login ("By creating an account you agree…"), the invite page, shared chats, download, What's new and the app's About box
+- Welcome preview is now real output (`showcase.py`, `GET /api/showcase`): cover letter `.docx` made by the app's document generator (downloadable), a real image from the site's image provider, today's top headlines from a web-search model (`SHOWCASE_NEWS_MODEL`, default perplexity/sonar; cached 6 h, written in the model's own words with source links), and a video the Owner picks
+- Owner: "⭐ Show on welcome page" under generated images and videos in chats (`POST /api/showcase`, owner only, only `/api/image/serve/…` and `/api/video/serve/…` files); the video example stays hidden until one is chosen
+- "Try this yourself" under each example signs the visitor in as a guest and fills that prompt into the message box
+
 ## 21.5.1 — Mini opens installed apps, Owner unlimited (Windows app 1.2.0)
 
 - New Do action `launch` `{app}`: the app lists everything in the Start menu (`Get-StartApps`, so Store apps like Minecraft Launcher too) plus Start-menu/desktop `.lnk`/`.url` shortcuts (Steam games, Roblox, VPN clients), sends the names with each step (`apps`, max 400), and launches the best name match via `shell:AppsFolder\<AppID>` or the shortcut. Only apps from that list can be launched; names like Uninstall/Reset/Command Prompt/PowerShell are marked risky

@@ -1,0 +1,30 @@
+/* Privacy Policy and Terms pages */
+:root { --bg: #070a17; --ink: #e6ebfa; --dim: #9aa6c8; --line: rgba(122, 152, 255, .18); }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: radial-gradient(900px 500px at 85% -10%, rgba(37, 99, 235, .18), transparent 60%), var(--bg); background-attachment: fixed; color: var(--ink); font: 16px/1.7 Inter, system-ui, -apple-system, "Segoe UI", sans-serif; }
+a { color: #93c5fd; }
+.wrap { max-width: 780px; margin: 0 auto; padding: 24px 18px 60px; }
+.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 30px; }
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; font-size: 17px; }
+.z { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); }
+.brand b { background: linear-gradient(90deg, #60a5fa, #a78bfa); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; }
+.tabs a { padding: 6px 14px; border-radius: 8px; color: var(--dim); text-decoration: none; font-weight: 600; font-size: 14px; }
+.tabs a.on { background: linear-gradient(135deg, #2563eb, #7c3aed); color: #fff; }
+h1 { font-size: clamp(30px, 5vw, 40px); line-height: 1.15; margin: 0 0 6px; letter-spacing: -.02em; }
+.meta { margin: 0 0 14px; color: var(--dim); font-size: 14px; }
+.lead { color: #c9d2ee; margin: 0 0 22px; }
+.toc { display: flex; flex-wrap: wrap; gap: 6px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(13, 20, 48, .55); margin-bottom: 30px; }
+.toc a { padding: 4px 10px; border-radius: 999px; background: rgba(59, 130, 246, .1); color: #bfdbfe; text-decoration: none; font-size: 13px; font-weight: 600; }
+.toc a:hover { background: rgba(59, 130, 246, .22); }
+section { padding-top: 6px; scroll-margin-top: 16px; }
+h2 { font-size: 21px; margin: 26px 0 8px; }
+h3 { font-size: 16px; margin: 16px 0 6px; color: #dbe4ff; }
+p, li { color: #cfd6ee; }
+ul { padding-left: 22px; margin: 6px 0 12px; }
+li { margin: 5px 0; }
+b { color: #fff; }
+.foot { margin-top: 44px; padding-top: 18px; border-top: 1px solid var(--line); text-align: center; color: #7f8bb0; font-size: 13.5px; }
+.foot div { margin-top: 6px; color: #5d688c; }
+@media print { body { background: #fff; color: #000; } p, li, b, h1, h2, h3 { color: #000 !important; } .toc, .tabs { display: none; } }

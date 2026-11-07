@@ -915,7 +915,7 @@ def _legal_page(name: str) -> HTMLResponse:
     """Privacy / Terms with the contact line filled in from CONTACT_EMAIL."""
     import html as _h
     page = open(os.path.join("static", "legal", name), encoding="utf-8").read()
-    email = (os.getenv("CONTACT_EMAIL") or "").strip()
+    email = (os.getenv("CONTACT_EMAIL") or "mihariser@gmail.com").strip()
     if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[A-Za-z]{2,}", email):
         e = _h.escape(email)
         contact = (f'email <a href="mailto:{e}">{e}</a>, or use <b>Feedback</b> / <b>Personal Request</b> '

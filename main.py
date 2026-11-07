@@ -42,10 +42,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.5"
+VERSION = "21.5.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.5.1 Zelpophai Mini can now open any app on your PC in Do mode — games like Roblox and Minecraft, VPNs, Steam, Discord and more. Just say \"Open Roblox\" (Windows app 1.2.0)",
     "21.5 Zelpophai Mini: in the Windows app press Ctrl+Shift+Z anywhere to ask about your screen — explain, summarise, translate, fix or reply in one tap, select just part of the screen, use what you copied, or speak your question. Switch to Do and Mini can even use your mouse and keyboard to finish tasks for you (it asks first, and Esc stops it). Update the Windows app to get it",
     "21.4.1 Tidier sidebar: the icon row under your chats now has just your main buttons, all the same size, with Feedback, Personal Request, Security, About and Clear history tucked into a neat More (⋯) menu",
     "21.4 Continue a shared chat: open someone's shared conversation and tap Continue this chat — it's copied into your own chats so you can keep asking from where it left off",

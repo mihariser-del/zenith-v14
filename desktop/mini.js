@@ -9,6 +9,8 @@
 const { BrowserWindow, desktopCapturer, screen, clipboard, dialog, globalShortcut, ipcMain, shell } = require('electron');
 const path = require('path');
 const input = require('./input');
+const fs = require('fs');
+const { execFile, spawn } = require('child_process');
 
 const MAX_SIDE = 1366;           // screenshots sent to the AI are at most this wide
 const PANEL = { width: 430, height: 640 };
@@ -102,6 +104,7 @@ async function toggle() {
         shot = await captureNow(display);
     } catch (e) { shot = { error: String(e.message || e) }; }
     if (!panel) createPanel();
+    listApps().catch(() => {});   // warm the installed-apps list in the background
     placePanel(display);
     panel.show();
     panel.focus();
@@ -149,6 +152,83 @@ async function selectArea() {
     });
 }
 
+/* ─────────────────────────── installed apps ── */
+// Everything in the Start menu (desktop programs and Store apps, e.g. Roblox,
+// Minecraft Launcher, VPN apps) plus shortcuts on the desktop. Mini can only
+// launch things from this list — never an arbitrary command.
+let appsCache = null, appsAt = 0, appsLoading = null;
+const norm = (s) => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+
+function startApps() {
+    return new Promise((resolve) => {
+        const cmd = "[Console]::OutputEncoding=[System.Text.Encoding]::UTF8; Get-StartApps | Select-Object Name,AppID | ConvertTo-Json -Compress";
+        execFile('powershell.exe', ['-NoLogo', '-NoProfile', '-NonInteractive', '-Command', cmd],
+            { windowsHide: true, timeout: 25000, maxBuffer: 16 * 1024 * 1024 }, (err, out) => {
+                try {
+                    const j = JSON.parse(String(out || '').trim() || '[]');
+                    resolve((Array.isArray(j) ? j : [j]).filter((a) => a && a.Name && a.AppID).map((a) => ({ name: String(a.Name), id: String(a.AppID) })));
+                } catch (e) { resolve([]); }
+            });
+    });
+}
+
+function shortcutApps() {
+    const env = process.env, out = [];
+    const roots = [
+        path.join(env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+        path.join(env.APPDATA || '', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+        path.join(env.USERPROFILE || '', 'Desktop'),
+        path.join(env.PUBLIC || 'C:\\Users\\Public', 'Desktop'),
+        path.join(env.USERPROFILE || '', 'OneDrive', 'Desktop'),
+    ];
+    const walk = (dir, depth) => {
+        let items = [];
+        try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+        for (const it of items) {
+            const full = path.join(dir, it.name);
+            if (it.isDirectory()) { if (depth < 3) walk(full, depth + 1); continue; }
+            if (/\.(lnk|url)$/i.test(it.name)) out.push({ name: it.name.replace(/\.(lnk|url)$/i, ''), path: full });
+        }
+    };
+    roots.forEach((r) => r && walk(r, 0));
+    return out;
+}
+
+async function listApps() {
+    if (process.platform !== 'win32') return [];
+    if (appsCache && Date.now() - appsAt < 10 * 60 * 1000) return appsCache;
+    if (appsLoading) return appsLoading;
+    appsLoading = (async () => {
+        const seen = new Set(), list = [];
+        const add = (a) => { const k = norm(a.name); if (!k || seen.has(k)) return; seen.add(k); list.push(a); };
+        (await startApps()).forEach(add);
+        shortcutApps().forEach(add);
+        list.sort((a, b) => a.name.localeCompare(b.name));
+        appsCache = list; appsAt = Date.now(); appsLoading = null;
+        return list;
+    })();
+    return appsLoading;
+}
+
+async function launchApp(name) {
+    const want = norm(name);
+    if (!want) throw new Error('Which app?');
+    const apps = await listApps();
+    let hit = apps.find((a) => norm(a.name) === want)
+        || apps.filter((a) => norm(a.name).startsWith(want)).sort((a, b) => a.name.length - b.name.length)[0]
+        || apps.filter((a) => norm(a.name).includes(want) || want.includes(norm(a.name)) && norm(a.name).length >= 4)
+            .sort((a, b) => a.name.length - b.name.length)[0];
+    if (!hit) throw new Error(`"${name}" isn't installed (or isn't in the Start menu)`);
+    if (hit.id) {
+        const p = spawn('explorer.exe', ['shell:AppsFolder\\' + hit.id], { detached: true, stdio: 'ignore', windowsHide: true });
+        p.on('error', () => {}); p.unref();
+    } else {
+        const err = await shell.openPath(hit.path);
+        if (err) throw new Error(err);
+    }
+    return hit.name;
+}
+
 /* ─────────────────────────────── control ── */
 function stopControl() {
     if (!control) return;
@@ -172,6 +252,7 @@ async function runAction(a) {
         return toScreen(x, y);
     };
     if (t === 'wait') { await sleep(Math.max(100, Math.min(3000, num(a.ms || 800)))); return; }
+    if (t === 'launch') { await launchApp(String(a.app || '').slice(0, 120)); await sleep(2500); return; }
     if (t === 'open') {
         const url = String(a.url || '');
         if (!/^https?:\/\/[^\s]+$/i.test(url)) throw new Error('Only web addresses can be opened');
@@ -207,6 +288,7 @@ function setup(o) {
         if (panel && !panel.isDestroyed()) { panel.show(); panel.focus(); }
         return r;
     }));
+    ipcMain.handle('mini-apps', guard(async () => (await listApps()).map((a) => a.name).slice(0, 400)));
     ipcMain.handle('mini-clipboard', guard(async () => String(clipboard.readText() || '').slice(0, 20000)));
     ipcMain.handle('mini-copy', guard(async (e, text) => { clipboard.writeText(String(text || '')); return true; }));
     ipcMain.handle('mini-paste', guard(async (e, text) => {

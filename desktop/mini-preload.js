@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('zelpophaiMini', {
     capture: (opts) => ipcRenderer.invoke('mini-capture', opts || {}),
     selectArea: () => ipcRenderer.invoke('mini-select-area'),
     clipboard: () => ipcRenderer.invoke('mini-clipboard'),
+    // names of apps installed on this PC (Start menu + desktop shortcuts)
+    apps: () => ipcRenderer.invoke('mini-apps'),
     copy: (text) => ipcRenderer.invoke('mini-copy', String(text || '')),
     pasteToApp: (text) => ipcRenderer.invoke('mini-paste', String(text || '')),
     // Do mode

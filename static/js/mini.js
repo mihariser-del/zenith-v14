@@ -95,7 +95,7 @@
         $('quick').innerHTML = QUICK.map((q, i) => `<button type="button" class="qa" data-i="${i}"><i>${q[0]}</i>${esc(q[1])}</button>`).join('');
         $('quickrow').innerHTML = QUICK.map((q, i) => `<button type="button" class="chip" data-i="${i}">${q[0]} ${esc(q[1])}</button>`).join('');
         document.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const q = QUICK[+b.dataset.i]; ask(q[2], q[1]); });
-        const EX = ['Open Notepad and type a to-do list for today', 'Search YouTube for lo-fi music and play the first video', 'Turn on dark mode in Windows settings', 'Copy the email address on this page into a new email'];
+ const EX = ['Open Roblox', 'Connect my VPN', 'Open Notepad and type a to-do list for today', 'Search YouTube for lo-fi music and play the first video', 'Turn on dark mode in Windows settings', 'Copy the email address on this page into a new email'];
         $('examples').innerHTML = EX.map(e => `<button type="button" class="ex">${esc(e)}</button>`).join('');
         document.querySelectorAll('.ex').forEach(b => b.onclick = () => { $('input').value = b.textContent; grow(); $('input').focus(); });
     }
@@ -142,7 +142,7 @@
                     if (data === '[DONE]') continue;
                     let o; try { o = JSON.parse(data); } catch (e) { continue; }
                     if (o.error) throw new Error(o.error);
-                    if (typeof o.left === 'number') setLeft(o.left);
+                    if ('left' in o) setLeft(o.left);
                     if (o.token) {
                         text += o.token;
                         const now = Date.now();
@@ -199,6 +199,7 @@
             case 'scroll': return 'Scroll ' + (a.amount < 0 ? 'down' : 'up') + (a.why ? ' — ' + a.why : '');
             case 'wait': return 'Wait a moment' + (a.why ? ' — ' + a.why : '');
             case 'open': return 'Open ' + a.url;
+            case 'launch': return 'Open the app “' + a.app + '”' + (a.why ? ' — ' + a.why : '');
             default: return a.type;
         }
     };
@@ -253,6 +254,8 @@
         run = { stopped: null, notes: [], allowAll: !$('askEach').checked, answer: '' };
         busy = true; setSending(true);
         const clip = useClip ? clipText : '';
+        let apps = [];
+        try { apps = M.apps ? (await M.apps()) || [] : []; } catch (e) { apps = []; }
         let stepNo = 0, summary = '';
         try {
             while (!run.stopped) {
@@ -267,12 +270,12 @@
                 let res;
                 try {
                     const r = await fetch('/api/mini/step', { method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin', signal: abortCtl.signal,
-                        body: JSON.stringify({ task, screenshot: s.image, width: s.width, height: s.height, notes: run.notes.slice(-12), answer: run.answer, clipboard: clip, step: stepNo }) });
+                        body: JSON.stringify({ task, screenshot: s.image, width: s.width, height: s.height, notes: run.notes.slice(-12), answer: run.answer, clipboard: clip, step: stepNo, apps }) });
                     res = await r.json().catch(() => ({}));
                     if (!r.ok) throw new Error(res.detail || 'Something went wrong (' + r.status + ')');
                 } finally { w.done(); abortCtl = null; }
                 run.answer = '';
-                if (typeof res.left === 'number') setLeft(res.left);
+                if ('left' in res) setLeft(res.left);
                 const card = logEl(`<div class="n">Step ${stepNo}</div><div class="say">${esc(res.say || '')}</div>`, 'step');
                 if (res.question) {
                     const q = document.createElement('div'); q.className = 'say'; q.style.marginTop = '6px'; q.innerHTML = '❓ ' + esc(res.question); card.appendChild(q);
@@ -381,7 +384,7 @@
         s.classList.toggle('stop', on); s.innerHTML = on ? IC.stop : IC.send; s.title = on ? 'Stop' : 'Send (Enter)';
         $('hint').textContent = on ? (run ? 'Esc stops Mini' : 'Working…') : 'Enter to send · Esc to close';
     }
-    function setLeft(n) { $('left').textContent = n + ' left today'; }
+    function setLeft(n) { $('left').textContent = n == null ? 'Unlimited' : n + ' left today'; }
     function submit() {
         if (busy) { if (run) stopRun('You stopped Mini.'); else if (abortCtl) abortCtl.abort(); return; }
         const t = $('input').value.trim();

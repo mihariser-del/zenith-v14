@@ -117,7 +117,7 @@
     }
     function showLeft() {
         if (!S.status) return;
-        $('ca-left').textContent = `${S.status.left} of ${S.status.limit} left today`;
+        $('ca-left').textContent = S.status.tier === 'owner' ? 'Unlimited' : `${S.status.left} of ${S.status.limit} left today`;
     }
 
     /* ─────────────────────────────── editor ── */

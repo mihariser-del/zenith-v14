@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 21.5.1 — Mini opens installed apps, Owner unlimited (Windows app 1.2.0)
+
+- New Do action `launch` `{app}`: the app lists everything in the Start menu (`Get-StartApps`, so Store apps like Minecraft Launcher too) plus Start-menu/desktop `.lnk`/`.url` shortcuts (Steam games, Roblox, VPN clients), sends the names with each step (`apps`, max 400), and launches the best name match via `shell:AppsFolder\<AppID>` or the shortcut. Only apps from that list can be launched; names like Uninstall/Reset/Command Prompt/PowerShell are marked risky
+- Owner: no daily limit for Zelpophai Mini (`tier "owner"`, `left: null` → "Unlimited") and up to 150 steps per task; Coding AGT. is unlimited for the Owner too
+
 ## 21.5 — Zelpophai Mini (Windows app 1.1.0)
 
 - **Ctrl+Shift+Z** (tray toggle to turn it off) screenshots the display under the mouse, then opens a small always-on-top panel loading `/mini` (`static/mini.html`, `static/js/mini.js`, `static/css/mini.css`)

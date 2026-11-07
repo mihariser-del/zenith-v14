@@ -37,6 +37,7 @@ DAILY = {
     "free": int(os.getenv("CODE_AGENT_DAILY_FREE", "5")),
     "pro": int(os.getenv("CODE_AGENT_DAILY_PRO", "60")),
     "max": int(os.getenv("CODE_AGENT_DAILY_MAX", "200")),
+    "owner": 10**9,          # the Owner has no daily limit
 }
 MAX_FILES = 60
 MAX_FILE_CHARS = 200_000
@@ -48,6 +49,8 @@ PATH_RE = re.compile(r"^[\w\-. ()]+(/[\w\-. ()]+)*$")
 def _tier(user) -> str:
     if _is_guest(user):
         return "guest"
+    if get_role(user) == "owner":
+        return "owner"
     tags = (getattr(user, "tags", "") or "").lower().split(",")
     if get_role(user) in ("owner", "admin") or _is_ultimate(user) or "friend" in tags:
         return "max"

@@ -109,6 +109,18 @@ function createWindow() {
     win.on('move', saveState);
 }
 
+// Choices made in the installer's "Customize" screen (written by the installer
+// to %APPDATA%\\Zelpophai AI\\installer-options.json) are applied once.
+function applyInstallerOptions() {
+    const f = path.join(app.getPath('userData'), 'installer-options.json');
+    let o = null;
+    try { o = JSON.parse(fs.readFileSync(f, 'utf8').replace(/^\uFEFF/, '')); } catch (e) { return; }
+    try { fs.unlinkSync(f); } catch (e) {}
+    if (o && typeof o.startWithWindows === 'boolean') {
+        app.setLoginItemSettings({ openAtLogin: o.startWithWindows, args: ['--hidden'] });
+    }
+}
+
 function showWindow() {
     if (!win) return;
     if (win.isMinimized()) win.restore();
@@ -213,8 +225,12 @@ ipcMain.handle('zp-run', async (e, req) => {
 });
 ipcMain.handle('zp-stop', () => runner.stop());
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
+    // Start every launch with fresh pages, scripts and styles from the website
+    // (sign-ins and settings are kept — those live in cookies and storage).
+    try { await session.defaultSession.clearCache(); } catch (e) {}
+    applyInstallerOptions();
     createWindow();
     buildTray();
     if (process.argv.includes('--hidden')) win.once('ready-to-show', () => win.hide());

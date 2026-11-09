@@ -25,6 +25,7 @@
     let lastLink = '';
     let run = null;           // Do mode: { stopped, notes, ... }
     let lastShown = 0;
+    window.zpBusy = () => busy || !!run || !!rec;
 
     let toastT;
     function toast(msg) { const t = $('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2000); }

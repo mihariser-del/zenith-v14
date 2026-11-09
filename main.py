@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse, Response
 from pydantic import BaseModel
 
 import os
 import re
+import time
 import secrets
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -43,10 +44,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.6"
+VERSION = "21.7"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.7 The Windows and Android apps now update themselves the moment Zelpophai changes — no waiting for a new app version. If you're in the middle of something you'll see a small Refresh button instead",
+    "New Windows installer in Zelpophai's look: one click on Install sets everything up and opens the app, or choose Customize to pick the folder, a desktop shortcut and Start with Windows (Windows app 1.3.0)",
     "21.6 New Privacy Policy and Terms of Service pages, linked across the site. The welcome page now shows real things Zelpophai made — a real Word file you can download, a real image and video, and today's actual news — each with a Try this yourself button",
     "21.5.1 Zelpophai Mini can now open any app on your PC in Do mode — games like Roblox and Minecraft, VPNs, Steam, Discord and more. Just say \"Open Roblox\" (Windows app 1.2.0)",
     "21.5 Zelpophai Mini: in the Windows app press Ctrl+Shift+Z anywhere to ask about your screen — explain, summarise, translate, fix or reply in one tap, select just part of the screen, use what you copied, or speak your question. Switch to Do and Mini can even use your mouse and keyboard to finish tasks for you (it asks first, and Esc stops it). Update the Windows app to get it",
@@ -769,6 +772,16 @@ async def debug_keys(request: Request, db=Depends(get_db)):
     keys = _get_openrouter_keys()
     return {"count": len(keys), "prefixes": [k[:12] + "..." for k in keys]}
 
+# Changes on every deploy (Railway restarts the app), so open pages can tell
+# when a newer website is live and refresh themselves (static/js/freshness.js).
+BUILD_ID = os.getenv("RAILWAY_DEPLOYMENT_ID") or os.getenv("RAILWAY_GIT_COMMIT_SHA") or str(int(time.time()))
+
+
+@app.get("/api/version")
+async def api_version():
+    return JSONResponse({"version": VERSION, "build": BUILD_ID}, headers={"Cache-Control": "no-store"})
+
+
 @app.get("/api/changelog")
 async def get_changelog(request: Request, db=Depends(get_db)):
     """Returns only NEWLY-ADDED changelog entries for the logged-in user (prepended
@@ -1046,6 +1059,14 @@ async def seo_headers(request: Request, call_next):
     # worker (installable app, offline cache, push notifications) never started.
     if path == "/static/sw.js":
         response.headers["Service-Worker-Allowed"] = "/"
+    # Always check for a newer copy of pages and app code (a quick 304 when
+    # nothing changed), so the website, the Windows app and the Android app show
+    # a new design the moment it's deployed instead of an old cached copy.
+    if "cache-control" not in response.headers:
+        ctype = response.headers.get("content-type", "")
+        if (path.endswith((".js", ".css", ".html", ".json", ".webmanifest"))
+                or ctype.startswith("text/html")):
+            response.headers["Cache-Control"] = "no-cache"
     return response
 
 

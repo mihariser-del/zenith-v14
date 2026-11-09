@@ -12,6 +12,12 @@ mouse/keyboard through `input.js` (a hidden PowerShell process with a C# SendInp
 helper). Control only runs during a task the user starts, after a one-time
 permission dialog, and Esc stops it.
 
+## Installer
+`build/installer.nsh` customises electron-builder's NSIS wizard: a welcome page
+with **Install** (quick: no other pages, opens the app) and **Customize
+installation** (folder + extras). Artwork: `build/installerSidebar.bmp`
+(164×314), `build/installerHeader.bmp` (150×57), `build/icon.ico`.
+
 ## Release a new version
 1. Bump `version` in `package.json`.
 2. Build: `npm install && npx electron-builder --win --x64 --publish never`

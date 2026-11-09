@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 21.7 — Always up to date, custom installer (Windows app 1.3.0)
+
+- Pages and app code (`.js`, `.css`, `.html`, `.json`, HTML routes) are now sent with `Cache-Control: no-cache` (a quick 304 when unchanged), so browsers and the apps no longer keep old copies after a deploy
+- `GET /api/version` → `{version, build}` (`build` = Railway deployment id); `static/js/freshness.js` (app, Coding AGT., Mini) checks it on focus, every 10 min and when back online: hidden windows (e.g. the Windows app in the tray) reload silently; visible ones show a "Zelpophai was updated · Refresh" bar and reload the next time they're hidden unless something is being typed or streamed (`window.zpBusy` hook)
+- Windows app clears its HTTP cache on every launch (sign-ins and settings are kept)
+- Custom NSIS installer (`desktop/build/installer.nsh` + artwork): branded welcome with **Install** (current user, desktop shortcut, opens the app and closes — no other pages) and **Customize installation** (folder, desktop shortcut, Start with Windows, finish page with "Open Zelpophai AI now"), Terms/Privacy links, branded header/sidebar/icon and uninstaller; options are handed to the app via `%APPDATA%\Zelpophai AI\installer-options.json`; silent auto-updates skip all pages and keep the user's choices
+
 ## 21.6 — Privacy & Terms, real welcome preview
 
 - `/privacy` and `/terms` (also `/privacy-policy`, `/terms-of-service`): plain-language Privacy Policy and Terms (`static/legal/`, `static/css/legal.css`); contact line from `CONTACT_EMAIL` (otherwise points to Feedback / Personal Request in the app); added to the sitemap

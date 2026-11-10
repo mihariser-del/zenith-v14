@@ -155,11 +155,20 @@
       })(),
     };
   }
+  function chartFail(id, msg) {
+    const el = $(id); if (!el || !el.parentNode) return;
+    console.error('[vault] chart ' + id + ':', msg);
+    const small = el.parentNode.classList.contains('spark');
+    el.parentNode.innerHTML = small ? '' : `<div class="chart-fail">${esc(window.Chart ? "This chart couldn't be drawn" : "Charts couldn't load")}<small>${esc(String(msg).slice(0, 160))}</small></div>`;
+  }
   function mk(id, cfg) {
-    const el = $(id); if (!el || !window.Chart) return null;
+    const el = $(id); if (!el) return null;
+    if (!window.Chart) { chartFail(id, 'The chart library did not load. Refresh the page.'); return null; }
     const ch = new Chart(el.getContext('2d'), cfg); S.charts.push(ch); return ch;
   }
-  function lineChart(id, labels, step, sets, extra = {}) {
+  // Each chart is drawn on its own: one failing never blanks the others.
+  const safe = (fn) => (id, ...a) => { try { return fn(id, ...a); } catch (e) { chartFail(id, e && e.message || e); return null; } };
+  const lineChart = safe(function lineChart(id, labels, step, sets, extra = {}) {
     const el = $(id); if (!el) return;
     const ctx = el.getContext('2d');
     return mk(id, {
@@ -171,26 +180,26 @@
       }) },
       options: baseOpts(extra),
     });
-  }
-  function barChart(id, labels, step, sets, extra = {}) {
+  });
+  const barChart = safe(function barChart(id, labels, step, sets, extra = {}) {
     return mk(id, {
       type: 'bar',
       data: { labels: step ? labels.map((l) => labelOf(l, step)) : labels, datasets: sets.map((s, i) => ({ label: s.label, data: s.data, backgroundColor: s.color || COLORS[i % COLORS.length], borderRadius: 6, borderSkipped: false, maxBarThickness: 28 })) },
       options: { ...baseOpts(extra), indexAxis: extra.horizontal ? 'y' : 'x' },
     });
-  }
-  function donut(id, labels, data, colors, extra = {}) {
+  });
+  const donut = safe(function donut(id, labels, data, colors, extra = {}) {
     return mk(id, {
       type: 'doughnut', data: { labels, datasets: [{ data, backgroundColor: colors || COLORS, borderColor: cvar('--card'), borderWidth: 3, hoverOffset: 6 }] },
       options: { ...baseOpts({ noScales: true, legend: extra.legend !== false }), cutout: extra.cutout || '72%', plugins: { ...baseOpts({ noScales: true, legend: extra.legend !== false }).plugins } },
     });
-  }
-  function spark(id, data, color) {
+  });
+  const spark = safe(function spark(id, data, color) {
     const el = $(id); if (!el) return;
     const ctx = el.getContext('2d');
     mk(id, { type: 'line', data: { labels: data.map((_, i) => i), datasets: [{ data, borderColor: color, borderWidth: 1.8, fill: true, backgroundColor: grad(ctx, color, .22), tension: .35, cubicInterpolationMode: 'monotone', pointRadius: 0 }] },
       options: { responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false, beginAtZero: true } } } });
-  }
+  });
   function clearPage() {
     S.charts.forEach((c) => { try { c.destroy(); } catch (e) {} }); S.charts = [];
     S.timers.forEach(clearInterval); S.timers = [];

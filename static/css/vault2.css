@@ -271,3 +271,5 @@ kbd { font: 600 10.5px Inter, sans-serif; padding: 2px 6px; border-radius: 6px; 
 .bk-act { text-align: right; white-space: nowrap; }
 @media (max-width: 860px) { .bk-act { white-space: normal; } .bk-act .btn { display: block; width: 100%; margin: 3px 0; } }
 @media (max-width: 520px) { .g4 { grid-template-columns: 1fr 1fr; gap: 10px; } .card { padding: 14px; border-radius: 14px; } .kpi .spark { display: none; } .kpi .foot { flex-wrap: wrap; row-gap: 4px; } .u-actions { margin-left: 0; } }
+.chart-fail { height: 100%; min-height: 120px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; text-align: center; color: var(--dim); font-size: 13px; font-weight: 600; }
+.chart-fail small { font-weight: 400; opacity: .8; max-width: 90%; }

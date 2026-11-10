@@ -45,7 +45,7 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.9"
+VERSION = "21.9.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -125,6 +125,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "21.9.1 Vault charts fixed: the chart library is now served by Zelpophai itself instead of an outside site, so charts no longer show up as empty boxes when a browser or network blocks that site. If a chart ever can't be drawn it now says so instead of staying blank",
     "21.9 Brand-new Vault (/vault; the old one stays at /vault/classic): Overview with live KPIs and charts for 24h/7d/30d/90d, Growth & revenue (DAU/WAU/MAU, retention cohorts, invites, MRR and payments), AI cost & usage (spend per day, feature, model and user, OpenRouter credit and days left), Live monitor (who's online and on which app, live activity, errors), and Ctrl+K search to jump anywhere",
     "Vault people tools: Users list with filters (online, new, Pro, paying, friends, staff, guests, banned), a full User 360 profile (activity, usage, chats, logins, apps, payments, invites, flags, private notes) with ban, reset password, gift/change plan, Friend tag and role actions, plus a Friends & customers page listing friends, paying customers, gifted plans, trials and staff",
     "Vault safety and system: Content safety queue (auto-flagged messages and reported shares — nothing is blocked automatically), Alerts with browser notifications (low credit, error or AI-failure spikes, sign-up spikes, new safety flags), Controls & broadcast, App releases (drag-and-drop upload + versions in use), Backups (automatic daily backup, newest 14 kept, download and restore) and the Activity log. Dark and light themes, works on phones. Revenue is tracked from this release on; AI costs are estimates from OpenRouter prices",

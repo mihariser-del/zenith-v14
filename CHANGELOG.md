@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 21.9.1 — Vault charts fix
+
+- Chart.js 4.4.1 is self-hosted at `/static/vendor/chart-4.4.1.umd.min.js` (was cdnjs; when the CDN was blocked every chart rendered as an empty card)
+- Chart helpers are wrapped individually (`safe()`); a failed chart shows "Charts couldn't load" / "This chart couldn't be drawn" with the reason instead of a blank box, and never stops the other charts
+
 ## 21.9 — New Vault
 
 - New Vault SPA at `/vault` (`static/vault2.html`, `static/css/vault2.css`, `static/js/vault2.js`; Chart.js 4.4.1): Overview, Growth & revenue, AI cost & usage (owner), Live monitor, Users + User 360, Friends & customers, Content safety, Controls & broadcast, App releases, Backups & data (owner), Activity log; date ranges 24h/7d/30d/90d, dark/light, mobile drawer, Ctrl+K command palette, alerts bell + desktop notifications, PIN lockscreen (same `X-Vault-Token` flow, 15-minute idle lock). Old Vault kept at `/vault/classic`

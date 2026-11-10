@@ -420,6 +420,11 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
 
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()
+    try:
+        from vault_events import check_message
+        check_message(user.id, chat.id, user_msg.id, content or "")
+    except Exception:
+        pass
 
     # Global AI toggle (Owner control): when AI responses are off, the user message is
     # saved but the AI stays completely silent ("talking to nothing") for everyone except

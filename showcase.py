@@ -105,6 +105,8 @@ async def _refresh_news():
                         continue
                     items.append({"title": title, "summary": str(it.get("summary", "")).strip()[:220],
                                   "source": str(it.get("source", "")).strip()[:60], "url": url})
+                import ai_meter
+                ai_meter.record("news", NEWS_MODEL, None, prompt, text)
                 if items:
                     _news.update(items=items, at=time.time())
                     return

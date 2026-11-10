@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 21.9 — New Vault
+
+- New Vault SPA at `/vault` (`static/vault2.html`, `static/css/vault2.css`, `static/js/vault2.js`; Chart.js 4.4.1): Overview, Growth & revenue, AI cost & usage (owner), Live monitor, Users + User 360, Friends & customers, Content safety, Controls & broadcast, App releases, Backups & data (owner), Activity log; date ranges 24h/7d/30d/90d, dark/light, mobile drawer, Ctrl+K command palette, alerts bell + desktop notifications, PIN lockscreen (same `X-Vault-Token` flow, 15-minute idle lock). Old Vault kept at `/vault/classic`
+- `vault_api.py` (`/api/vault/*`, all behind `require_vault`; revenue, AI, backups and plan gifts owner-only): overview, growth (cohorts, invites, revenue), ai, live, alerts, users, users/{id} (360), notes, plan gifts (`gift_ultimate_until` handled in `limits.py`), people, safety, releases, backups, search
+- New tables: `ai_usage`, `payments`, `admin_notes`, `error_events`, `vault_alerts`, `content_flags`, `client_seen`
+- `ai_meter.py`: every AI call (chat, search, titles, router, Mini, voice, code, news, video) is recorded with estimated tokens (chars/4) × OpenRouter public prices (cached 12 h); credit from `/api/v1/credits`
+- `vault_events.py`: 5xx/exception and AI-stream error logging, app/platform/version tracking from the User-Agent, conservative safety filters on user messages (self-harm, violence, sexual content involving minors, hate) and `POST /api/s/{share_id}/report` (5/hour per IP; "Report this chat" on shared pages)
+- `vault_jobs.py`: daily SQLite snapshot (backup API, newest `VAULT_KEEP_BACKUPS`=14 kept) under the volume's `backups/`; restore swaps the file at next start (`RESTORE_PENDING`, a `before-restore` copy is kept) and restarts; alert checks every 5 min (`ALERT_CREDIT_USD`=5, `ALERT_SIGNUPS_PER_HOUR`=25), each kind at most once an hour
+- `billing.py` records a `Payment` on Stripe `checkout.session.completed`
+
 ## 21.8 — Auto search & models, greetings, Mini login, antivirus fix (Windows app 1.4.0)
 
 - `router_ai.py`: `plan_request()` asks a small fast model (`CHAT_ROUTER_MODEL`, 4.5 s limit; rules as fallback; small talk skips it) whether a message needs the **web**, a **heavy** model and **photos**

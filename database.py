@@ -1,6 +1,6 @@
 ﻿import os
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, create_engine
+from sqlalchemy import Column, Integer, String, Text, Boolean, DateTime, Float, ForeignKey, create_engine, UniqueConstraint
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, relationship
 from pydantic_settings import BaseSettings
@@ -503,6 +503,98 @@ class Reminder(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User")
+
+
+# ─────────────────────────────────────────── Vault (owner dashboard) data ──
+class AiUsage(Base):
+    """One AI call: which feature, which model, rough tokens and cost (USD)."""
+    __tablename__ = "ai_usage"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    feature = Column(String(30), default="chat", index=True)   # chat, search, router, title, mini, code, image, video, news, voice
+    model = Column(String(100), default="")
+    in_tokens = Column(Integer, default=0)
+    out_tokens = Column(Integer, default=0)
+    cost = Column(Float, default=0.0)
+    ok = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class Payment(Base):
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    username = Column(String(50), default="")
+    plan = Column(String(40), default="")
+    amount = Column(Float, default=0.0)          # in `currency`
+    currency = Column(String(8), default="usd")
+    source = Column(String(20), default="stripe")  # stripe | gift | mock
+    note = Column(String(300), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class AdminNote(Base):
+    __tablename__ = "admin_notes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    author = Column(String(50), default="")
+    text = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class ErrorEvent(Base):
+    __tablename__ = "error_events"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kind = Column(String(20), default="server", index=True)   # server | ai | client
+    message = Column(Text, default="")
+    path = Column(String(300), default="")
+    user_id = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class VaultAlert(Base):
+    __tablename__ = "vault_alerts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kind = Column(String(40), default="", index=True)
+    level = Column(String(10), default="warn")   # info | warn | critical
+    title = Column(String(200), default="")
+    detail = Column(Text, default="")
+    acknowledged = Column(Boolean, default=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class ContentFlag(Base):
+    __tablename__ = "content_flags"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    kind = Column(String(20), default="message")   # message | share_report
+    category = Column(String(30), default="")      # self_harm, violence, sexual_minors, hate, spam, report
+    user_id = Column(Integer, nullable=True, index=True)
+    chat_id = Column(Integer, nullable=True)
+    message_id = Column(Integer, nullable=True)
+    share_id = Column(String(64), default="")
+    excerpt = Column(Text, default="")
+    reason = Column(String(500), default="")
+    status = Column(String(20), default="open", index=True)   # open | dismissed | actioned
+    handled_by = Column(String(50), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class ClientSeen(Base):
+    """Which app (web / Windows / Android) and version each user last used."""
+    __tablename__ = "client_seen"
+    __table_args__ = (UniqueConstraint("user_id", "platform", name="uq_client_seen_user_platform"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    platform = Column(String(20), default="web")
+    version = Column(String(30), default="")
+    last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
 async def init_db():

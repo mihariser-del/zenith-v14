@@ -190,6 +190,7 @@ async def ask(req: AskIn, request: Request, db: AsyncSession = Depends(get_db)):
             yield f"data: {json.dumps({'error': 'The AI is not configured yet.'})}\n\n"
             return
         for i, key in enumerate(keys):
+            _out = []
             try:
                 async with httpx.AsyncClient(timeout=120) as client:
                     async with client.stream("POST", f"{OR_BASE}/chat/completions",
@@ -214,7 +215,10 @@ async def ask(req: AskIn, request: Request, db: AsyncSession = Depends(get_db)):
                             except Exception:
                                 continue
                             if delta:
+                                _out.append(delta)
                                 yield f"data: {json.dumps({'token': delta})}\n\n"
+                import ai_meter
+                ai_meter.record("mini", model, user.id, messages, "".join(_out))
                 yield "data: [DONE]\n\n"
                 return
             except httpx.TimeoutException:
@@ -382,6 +386,8 @@ async def step(req: StepIn, request: Request, db: AsyncSession = Depends(get_db)
 
     data = await _post({"model": model, "messages": messages, "max_tokens": 1200, "temperature": 0.1})
     raw = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    import ai_meter
+    ai_meter.record("mini", model, user.id, messages, raw)
     if isinstance(raw, list):
         raw = "".join(p.get("text", "") for p in raw if isinstance(p, dict))
     out = _parse_json(raw)
@@ -434,6 +440,8 @@ async def transcribe(req: AudioIn, request: Request, db: AsyncSession = Depends(
         {"role": "user", "content": [{"type": "input_audio", "input_audio": {"data": b64, "format": fmt}}]},
     ]}, timeout=60)
     text = (data.get("choices") or [{}])[0].get("message", {}).get("content") or ""
+    import ai_meter
+    ai_meter.record("voice", AUDIO_MODEL, user.id, None, text if isinstance(text, str) else "", in_tokens=len(b64) // 40)
     if isinstance(text, list):
         text = "".join(p.get("text", "") for p in text if isinstance(p, dict))
     return {"text": str(text).strip().strip('"')[:4000]}

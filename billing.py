@@ -94,6 +94,12 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
 
     if not STRIPE_SECRET or not STRIPE_PRICE_IDS.get(req.plan_id):
         _apply_plan(user, req.plan_id)
+        try:
+            from database import Payment
+            db.add(Payment(user_id=user.id, username=user.username, plan=req.plan_id, amount=0.0,
+                           source="mock", note="Granted without payment (Stripe not configured)"))
+        except Exception:
+            pass
         await db.commit()
         return {
             "url": req.success_url or "/app?checkout=mock",
@@ -179,6 +185,14 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 user = result.scalar_one_or_none()
                 if user:
                     _apply_plan(user, plan_id)
+                    try:
+                        from database import Payment
+                        db.add(Payment(user_id=user.id, username=user.username, plan=plan_id,
+                                       amount=round((session.get("amount_total") or 0) / 100, 2),
+                                       currency=(session.get("currency") or "usd")[:8], source="stripe",
+                                       note=str(session.get("id") or "")[:300]))
+                    except Exception as _pe:
+                        print(f"[billing] payment record failed: {_pe}")
                     if plan_id == "pro_trial":
                         user.trial_end = datetime.now(timezone.utc) + timedelta(days=5)
                     user.stripe_customer_id = customer_id or getattr(user, "stripe_customer_id", "") or ""

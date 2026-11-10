@@ -52,6 +52,11 @@ def _is_pro(user):
 
 def _is_ultimate(user):
     # Friends of the Owner get Ultimate-level limits.
+    if (getattr(user, "pro_plan", "") or "") == "gift_ultimate_until":
+        # Ultimate gifted from the Vault for a set number of days.
+        end = getattr(user, "trial_end", None)
+        if not end or _as_utc(end) <= datetime.now(timezone.utc):
+            return "friend" in (getattr(user, "tags", "") or "").lower().split(",")
     return bool(user.is_ultimate) or "friend" in (getattr(user, "tags", "") or "").lower().split(",")
 
 

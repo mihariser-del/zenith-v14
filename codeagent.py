@@ -297,6 +297,7 @@ async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_d
             yield f"data: {json.dumps({'error': 'The AI is not configured yet.'})}\n\n"
             return
         for i, key in enumerate(keys):
+            _out = []
             try:
                 async with httpx.AsyncClient(timeout=180) as client:
                     async with client.stream("POST", f"{OR_BASE}/chat/completions",
@@ -320,7 +321,10 @@ async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_d
                             except Exception:
                                 continue
                             if delta:
+                                _out.append(delta)
                                 yield f"data: {json.dumps({'token': delta})}\n\n"
+                import ai_meter
+                ai_meter.record("code", model, user.id, messages, "".join(_out))
                 yield "data: [DONE]\n\n"
                 return
             except httpx.TimeoutException:

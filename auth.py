@@ -1281,6 +1281,11 @@ async def admin_set_permissions(user_id: int, request: Request, db: AsyncSession
 @router.get("/me")
 async def me(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    try:
+        from vault_events import client_seen
+        client_seen(user.id, request.headers.get("user-agent", ""))
+    except Exception:
+        pass
     return {"user": UserResponse.model_validate(user)}
 
 

@@ -225,6 +225,11 @@ async def start_video_job(db: AsyncSession, user, prompt: str, duration: int = 6
     job = VideoJob(user_id=user.id, chat_id=chat.id if chat else None, provider_job_id=str(job_id), model=model,
                    prompt=prompt, duration=duration, aspect=aspect, status="pending", usage_log_id=log.id)
     db.add(job)
+    try:
+        import ai_meter
+        ai_meter.record_video(user.id, model, duration)
+    except Exception:
+        pass
     if chat and (user_text or "").strip():
         db.add(Message(chat_id=chat.id, role="user", content=user_text.strip()[:2000]))
     if chat and (chat.title or "").startswith("New Chat"):

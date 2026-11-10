@@ -2,6 +2,7 @@
 import os
 import re
 import asyncio
+import ai_meter
 import httpx
 from datetime import datetime, timezone, timedelta
 from fastapi.responses import StreamingResponse
@@ -581,6 +582,7 @@ async def _auto_title(chat_id, user_text):
                                                 "max_tokens": 24, "temperature": 0.3})
                 if r.status_code == 200:
                     title = (r.json().get("choices", [{}])[0].get("message", {}).get("content") or "").strip()
+                    ai_meter.record("title", os.getenv("TITLE_MODEL", "openai/gpt-6-luna"), None, prompt, title)
                     break
             except Exception:
                 continue
@@ -736,6 +738,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 async with async_session() as db:
                     db.add(Message(chat_id=chat_id, role="assistant", content=full_response))
                     await db.commit()
+                ai_meter.record("search", "perplexity/sonar", user_id, messages, text)
                 yield "data: [DONE]\n\n"
                 return
             # Search failed: answer normally, and say so honestly.
@@ -842,6 +845,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             full_response = strip_citations(full_response)
             if img_task and not img_task.done():
                 img_task.cancel()
+            ai_meter.record("chat", user_model, user_id, messages, full_response)
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)
@@ -852,6 +856,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     async def generate_wrapped():
         done_sent = False
         async for chunk in generate():
+            if chunk.startswith('data: {"error"'):
+                try:
+                    from vault_events import log_error
+                    log_error("ai", json.loads(chunk[6:]).get("error", ""), f"chat:{chat_id} model:{user_model}", user_id)
+                except Exception:
+                    pass
             if not done_sent and chunk.strip() == "data: [DONE]":
                 done_sent = True
                 try:

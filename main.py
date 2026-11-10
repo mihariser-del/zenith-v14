@@ -26,6 +26,7 @@ from codeexec import router as codeexec_router
 from codeagent import router as codeagent_router
 from miniagent import router as miniagent_router
 from showcase import router as showcase_router
+from vault_api import router as vault_router
 from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
@@ -44,10 +45,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.8"
+VERSION = "21.9"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.9 You can now report a shared chat: tap \"Report this chat\" at the bottom of any shared page if something in it shouldn't be there, and the Zelpophai team will take a look",
     "21.8 Smarter answers: Zelpophai now decides by itself when to search the web — you'll see \"Searching the web…\" — and answers with real, clickable sources and a list of the pages it used. It also adds real photos when they help (places, animals, landmarks…)",
     "No more picking AI models: each message automatically gets a fast model for simple things and a stronger one for hard tasks like code, maths and long writing",
     "Zelpophai remembers what you were working on: say hello and it greets you and offers to pick up where you left off, and every new chat now opens with a personal greeting",
@@ -123,6 +125,9 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "21.9 Brand-new Vault (/vault; the old one stays at /vault/classic): Overview with live KPIs and charts for 24h/7d/30d/90d, Growth & revenue (DAU/WAU/MAU, retention cohorts, invites, MRR and payments), AI cost & usage (spend per day, feature, model and user, OpenRouter credit and days left), Live monitor (who's online and on which app, live activity, errors), and Ctrl+K search to jump anywhere",
+    "Vault people tools: Users list with filters (online, new, Pro, paying, friends, staff, guests, banned), a full User 360 profile (activity, usage, chats, logins, apps, payments, invites, flags, private notes) with ban, reset password, gift/change plan, Friend tag and role actions, plus a Friends & customers page listing friends, paying customers, gifted plans, trials and staff",
+    "Vault safety and system: Content safety queue (auto-flagged messages and reported shares — nothing is blocked automatically), Alerts with browser notifications (low credit, error or AI-failure spikes, sign-up spikes, new safety flags), Controls & broadcast, App releases (drag-and-drop upload + versions in use), Backups (automatic daily backup, newest 14 kept, download and restore) and the Activity log. Dark and light themes, works on phones. Revenue is tracked from this release on; AI costs are estimates from OpenRouter prices",
     "20.2 Stripe billing restored: reverted PesaPal -> Stripe Checkout (stripe==12.5.0 re-added to requirements.txt); env vars STRIPE_SECRET_KEY/STRIPE_WEBHOOK_SECRET/STRIPE_PRICE_PRO_MONTHLY etc/APP_BASE_URL; create-checkout returns {url,mock,plan}; mock mode when stripe unconfigured; webhook processes checkout.session.completed (checkout.session.completed) + customer.subscription.deleted; keep OfflineDirectory untouched; VERSION -> 20.2",
     "20.1 Zelpophai AI rebrand: user-affecting 'Quolvex/Quolvex AI' branding replaced with 'Zelpophai AI' (titles, headers, meta/og tags, About text, share/invite/status pages, AI prompts); functional identifiers unchanged (zenith_token cookie, zenith_device_id localStorage, DB filename, Railway domain) so sessions/logins keep working; window.QuolvexDirectory -> window.ZelpophaiDirectory; VERSION -> 20.1",
     "20.0 Zelpophai AI rebrand: user-visible 'Zenith' branding replaced with Zelpophai (titles, headers, meta/og tags, About text, share/invite/status pages); functional identifiers unchanged (zenith_token cookie, zenith_device_id localStorage, DB filename, Railway domain) so sessions/logins keep working; VERSION -> 20.0",
@@ -176,11 +181,18 @@ async def _owner_pin_reset_once():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
+        from vault_jobs import apply_pending_restore
+        apply_pending_restore()          # a restore chosen in the Vault happens here, before the DB opens
+    except Exception as e:
+        print(f"[vault] restore check skipped: {e}")
+    try:
         await init_db()
     except Exception as e:
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
     await _owner_pin_reset_once()
     reminder_task = asyncio.create_task(_reminder_loop())
+    from vault_jobs import alert_loop, backup_loop
+    vault_tasks = [asyncio.create_task(backup_loop()), asyncio.create_task(alert_loop())]
     asyncio.create_task(_indexnow_ping())
     try:
         await _resume_videos()   # keep watching clips that were rendering during a restart
@@ -190,6 +202,8 @@ async def lifespan(app: FastAPI):
         yield
     finally:
         reminder_task.cancel()
+        for _t in vault_tasks:
+            _t.cancel()
         try:
             await reminder_task
         except asyncio.CancelledError:
@@ -211,6 +225,7 @@ app.include_router(codeexec_router)
 app.include_router(codeagent_router)
 app.include_router(miniagent_router)
 app.include_router(showcase_router)
+app.include_router(vault_router)
 app.include_router(appdist_router)
 app.include_router(image_router)
 app.include_router(video_router)
@@ -543,6 +558,32 @@ async def shared_chat_page(share_id: str, request: Request):
         extra = extra.replace('    <meta name="robots" content="noindex">\n', "")
     page = page.replace("</head>", "    " + extra + "</head>", 1)
     return HTMLResponse(page)
+
+
+_report_hits: dict = {}
+
+
+@app.post("/api/s/{share_id}/report")
+async def report_shared_chat(share_id: str, request: Request, db=Depends(get_db)):
+    """Anyone can report a shared chat; it goes to the Vault's Safety queue."""
+    ip = (request.headers.get("x-forwarded-for", "").split(",")[0].strip() or (request.client.host if request.client else ""))
+    now = time.time()
+    hits = [t for t in _report_hits.get(ip, []) if now - t < 3600]
+    if len(hits) >= 5:
+        raise HTTPException(status_code=429, detail="Thanks — you've already sent several reports. Please try later.")
+    _report_hits[ip] = hits + [now]
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    reason = re.sub(r"\s+", " ", str(body.get("reason") or "")).strip()[:400]
+    chat, msgs = await _load_share(db, share_id[:64])
+    if not chat:
+        raise HTTPException(status_code=404, detail="Shared chat not found")
+    excerpt = " | ".join((m.content or "")[:150] for m in msgs[:3])
+    from vault_events import report_share
+    report_share(share_id[:64], chat.id, chat.user_id, reason or "Reported by a visitor", excerpt)
+    return {"ok": True}
 
 
 @app.post("/api/s/{share_id}/continue")
@@ -943,6 +984,13 @@ async def admin_page():
 
 @app.get("/vault", response_class=HTMLResponse)
 async def vault_page():
+    # The new Vault (2026). The previous one stays at /vault/classic for the
+    # tools that haven't moved yet (emergency controls, admin permissions…).
+    return FileResponse("static/vault2.html")
+
+
+@app.get("/vault/classic", response_class=HTMLResponse)
+async def vault_classic_page():
     return FileResponse("static/vault.html")
 
 
@@ -1072,8 +1120,16 @@ async def _indexnow_ping():
 @app.middleware("http")
 async def seo_headers(request: Request, call_next):
     """Keep private/authenticated areas out of search indexes."""
-    response = await call_next(request)
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        from vault_events import log_error
+        log_error("server", f"{type(e).__name__}: {e}", f"{request.method} {request.url.path}")
+        raise
     path = request.url.path
+    if response.status_code >= 500:
+        from vault_events import log_error
+        log_error("server", f"HTTP {response.status_code}", f"{request.method} {path}")
     if (
         path.startswith("/app")
         or path.startswith("/api")

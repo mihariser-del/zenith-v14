@@ -97,6 +97,9 @@ async def plan_request(text: str, history: list, *, has_images=False, think=Fals
     except Exception:
         data = None
     d = _json(((data or {}).get("choices") or [{}])[0].get("message", {}).get("content", "")) if data else {}
+    if data:
+        import ai_meter
+        ai_meter.record("router", ROUTER_MODEL, None, convo, json.dumps(d))
     if d:
         plan["why"] = "router"
         plan["web"] = plan["web"] or bool(d.get("web"))

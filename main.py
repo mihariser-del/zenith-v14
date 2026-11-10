@@ -45,7 +45,7 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.9.1"
+VERSION = "21.9.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -125,6 +125,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "21.9.2 Everything from the classic Vault now lives in the new one (the old address opens the new Vault): Conversations (read any chat), Security & emergency (sign-in health, server health, lock every account, maintenance, emergency backup, new owner password, sign everyone out), Staff & permissions (add/remove admins, trusted, per-admin permissions, chosen helpers), Settings & exports (change your Vault PIN, download users/chats/messages), bulk-delete in Users and Export data on every profile",
+    "User profiles now show their exact plan (e.g. Pro · monthly, Ultimate gift) with a live countdown — tap it to see days, hours, minutes and seconds until it renews or ends, the renewal date (live from Stripe when available), price and last payment",
     "21.9.1 Vault charts fixed: the chart library is now served by Zelpophai itself instead of an outside site, so charts no longer show up as empty boxes when a browser or network blocks that site. If a chart ever can't be drawn it now says so instead of staying blank",
     "21.9 Brand-new Vault (/vault; the old one stays at /vault/classic): Overview with live KPIs and charts for 24h/7d/30d/90d, Growth & revenue (DAU/WAU/MAU, retention cohorts, invites, MRR and payments), AI cost & usage (spend per day, feature, model and user, OpenRouter credit and days left), Live monitor (who's online and on which app, live activity, errors), and Ctrl+K search to jump anywhere",
     "Vault people tools: Users list with filters (online, new, Pro, paying, friends, staff, guests, banned), a full User 360 profile (activity, usage, chats, logins, apps, payments, invites, flags, private notes) with ban, reset password, gift/change plan, Friend tag and role actions, plus a Friends & customers page listing friends, paying customers, gifted plans, trials and staff",
@@ -985,14 +987,13 @@ async def admin_page():
 
 @app.get("/vault", response_class=HTMLResponse)
 async def vault_page():
-    # The new Vault (2026). The previous one stays at /vault/classic for the
-    # tools that haven't moved yet (emergency controls, admin permissions…).
     return FileResponse("static/vault2.html")
 
 
-@app.get("/vault/classic", response_class=HTMLResponse)
+@app.get("/vault/classic")
 async def vault_classic_page():
-    return FileResponse("static/vault.html")
+    # Everything from the old Vault now lives in the new one.
+    return RedirectResponse(url="/vault", status_code=302)
 
 
 @app.get("/app/vault-auth", response_class=HTMLResponse)

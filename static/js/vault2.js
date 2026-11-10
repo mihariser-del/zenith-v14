@@ -217,6 +217,10 @@
     releases: '<rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 7v7M9 11l3 3 3-3"/>',
     backups: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.7-4 3-9 3s-9-1.3-9-3M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/>',
     controls: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+    chats: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/>',
+    staff: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/><path d="M19 8l1.5 1.5L23 7"/>',
+    settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     logs: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
   };
   const PAGES = [
@@ -225,12 +229,16 @@
     { id: 'ai', label: 'AI cost & usage', grp: 'Insights', range: true, owner: true },
     { id: 'live', label: 'Live monitor', grp: 'Insights' },
     { id: 'users', label: 'Users', grp: 'People' },
+    { id: 'chats', label: 'Conversations', grp: 'People' },
     { id: 'people', label: 'Friends & customers', grp: 'People' },
     { id: 'safety', label: 'Content safety', grp: 'People', badge: 'safety' },
     { id: 'controls', label: 'Controls & broadcast', grp: 'System' },
+    { id: 'security', label: 'Security & emergency', grp: 'System', owner: true },
+    { id: 'staff', label: 'Staff & permissions', grp: 'System', owner: true },
     { id: 'releases', label: 'App releases', grp: 'System' },
     { id: 'backups', label: 'Backups & data', grp: 'System', owner: true },
     { id: 'logs', label: 'Activity log', grp: 'System' },
+    { id: 'settings', label: 'Settings & exports', grp: 'System' },
   ];
   function renderNav() {
     let html = '', grp = '';
@@ -258,7 +266,8 @@
     try {
       if (page === 'users' && arg) await pageUser(+arg);
       else await ({ overview: pageOverview, growth: pageGrowth, ai: pageAI, live: pageLive, users: pageUsers, people: pagePeople,
-        safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs }[def.id])();
+        safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs,
+        chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings }[def.id])();
     } catch (e) {
       $('view').innerHTML = card('Something went wrong', empty('Couldn\'t load this page', e.message) + '<div style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></div>');
     }
@@ -446,17 +455,20 @@
   const UF = { all: 'Everyone', registered: 'Accounts', online: 'Online', new: 'New (7d)', pro: 'Pro & Ultimate', paying: 'Paying', friends: 'Friends', staff: 'Staff', guests: 'Guests', banned: 'Banned', deleted: 'Deleted' };
   async function pageUsers() {
     const st = { q: '', filter: 'registered', sort: 'new', page: 1 };
+    const sel = new Set();
+    const syncSel = () => { $('u-bulk').hidden = !sel.size; $('u-bulk').textContent = `Delete ${sel.size} selected`; };
     $('view').innerHTML = `<div class="card fade">
       <div class="toolbar"><input class="input" id="u-q" placeholder="Search name or email…" autocomplete="off">
         <select class="select" id="u-sort" style="width:auto"><option value="new">Newest first</option><option value="active">Recently active</option><option value="old">Oldest first</option><option value="name">Name A–Z</option></select>
+        <button class="btn sm danger" id="u-bulk" hidden>Delete selected</button>
         <span class="muted small" id="u-total" style="margin-left:auto"></span></div>
       <div class="chips" id="u-filters" style="margin-bottom:12px">${Object.entries(UF).map(([k, v]) => `<button class="chip${k === st.filter ? ' on' : ''}" data-f="${k}">${v}</button>`).join('')}</div>
-      <div class="tbl-wrap"><table class="tbl"><thead><tr><th>User</th><th>Plan</th><th class="num hide-m">Messages (30d)</th><th class="hide-m">Joined</th><th>Last seen</th></tr></thead><tbody id="u-rows"></tbody></table></div>
+      <div class="tbl-wrap"><table class="tbl"><thead><tr><th class="ck"><input type="checkbox" id="u-all" aria-label="Select all"></th><th>User</th><th>Plan</th><th class="num hide-m">Messages (30d)</th><th class="hide-m">Joined</th><th>Last seen</th></tr></thead><tbody id="u-rows"></tbody></table></div>
       <div class="pager"><span id="u-range"></span><span><button class="btn sm" id="u-prev">‹ Prev</button> <button class="btn sm" id="u-next">Next ›</button></span></div></div>`;
     const load = async () => {
       const d = await api(`/api/vault/users?q=${encodeURIComponent(st.q)}&filter=${st.filter}&sort=${st.sort}&page=${st.page}&per=25`);
       $('u-total').textContent = fmt.n(d.total) + ' people';
-      $('u-rows').innerHTML = d.users.length ? d.users.map((u) => `<tr class="click" data-u="${u.id}"><td>${person(u, u.email ? esc(u.email) : '@' + esc(u.username))}</td><td>${planTag(u)}</td><td class="num hide-m">${fmt.n(u.messages_30d)}</td><td class="muted hide-m">${fmt.date(u.created_at)}</td><td class="muted">${u.online ? '<span class="tag good">Online</span>' : fmt.ago(u.last_seen)}</td></tr>`).join('') : `<tr><td colspan="5">${empty('No one matches', 'Try another search or filter.')}</td></tr>`;
+      $('u-rows').innerHTML = d.users.length ? d.users.map((u) => `<tr class="click" data-u="${u.id}"><td class="ck">${u.role === 'owner' || u.deleted ? '' : `<input type="checkbox" data-sel="${u.id}"${sel.has(u.id) ? ' checked' : ''}>`}</td><td>${person(u, u.email ? esc(u.email) : '@' + esc(u.username))}</td><td>${planTag(u)}</td><td class="num hide-m">${fmt.n(u.messages_30d)}</td><td class="muted hide-m">${fmt.date(u.created_at)}</td><td class="muted">${u.online ? '<span class="tag good">Online</span>' : fmt.ago(u.last_seen)}</td></tr>`).join('') : `<tr><td colspan="6">${empty('No one matches', 'Try another search or filter.')}</td></tr>`;
       const a = (st.page - 1) * 25 + 1, b = Math.min(d.total, st.page * 25);
       $('u-range').textContent = d.total ? `${a}–${b} of ${fmt.n(d.total)}` : '';
       $('u-prev').disabled = st.page <= 1; $('u-next').disabled = b >= d.total;
@@ -466,7 +478,17 @@
     $('u-sort').onchange = () => { st.sort = $('u-sort').value; st.page = 1; load(); };
     $('u-filters').onclick = (e) => { const b = e.target.closest('.chip'); if (!b) return; st.filter = b.dataset.f; st.page = 1; $('u-filters').querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); load(); };
     $('u-prev').onclick = () => { st.page--; load(); }; $('u-next').onclick = () => { st.page++; load(); };
-    $('u-rows').onclick = (e) => { const tr = e.target.closest('tr[data-u]'); if (tr) location.hash = '#/users/' + tr.dataset.u; };
+    $('u-rows').onclick = (e) => {
+      const cb = e.target.closest('input[data-sel]');
+      if (cb) { cb.checked ? sel.add(+cb.dataset.sel) : sel.delete(+cb.dataset.sel); syncSel(); return; }
+      if (e.target.closest('td.ck')) return;
+      const tr = e.target.closest('tr[data-u]'); if (tr) location.hash = '#/users/' + tr.dataset.u;
+    };
+    $('u-all').onchange = () => { $('u-rows').querySelectorAll('input[data-sel]').forEach((c) => { c.checked = $('u-all').checked; c.checked ? sel.add(+c.dataset.sel) : sel.delete(+c.dataset.sel); }); syncSel(); };
+    $('u-bulk').onclick = async () => {
+      if (!(await confirmBox(`Delete ${sel.size} account${sel.size > 1 ? 's' : ''}?`, 'They are removed and can no longer log in. Owner and staff accounts are skipped.', 'Delete', true))) return;
+      try { const r = await api('/api/auth/admin/users/bulk-delete', { method: 'POST', body: { user_ids: [...sel] } }); toast(`Deleted ${r.deleted ?? sel.size}`); sel.clear(); syncSel(); $('u-all').checked = false; load(); } catch (e) { toast(e.message, true); }
+    };
     await load();
     $('u-q').focus();
   }
@@ -483,14 +505,16 @@
       S.owner && !u.guest ? `<button class="btn" data-act="friend">${u.tags.includes('friend') ? 'Remove Friend' : 'Make Friend'}</button>` : '',
       S.owner && !u.guest && u.role !== 'owner' ? `<button class="btn pri" data-act="plan">Gift / change plan</button>` : '',
       canRole ? `<button class="btn" data-act="role">${u.role === 'admin' ? 'Remove admin' : 'Make admin'}</button>` : '',
+      canRole && u.role === 'admin' ? `<button class="btn" data-act="perms">Permissions</button>` : '',
       canRole && u.role === 'admin' ? `<button class="btn" data-act="trusted">${u.tags.includes('trusted') ? 'Untrust' : 'Make trusted'}</button>` : '',
+      !u.guest ? `<button class="btn" data-act="export">Export data</button>` : '',
       !isMe && u.role !== 'owner' && !u.deleted ? `<button class="btn danger" data-act="delete">Delete</button>` : '',
     ].filter(Boolean).join('');
     const USAGE = { message: 'Messages', image_gen: 'Images', video_gen: 'Videos', file_upload: 'Uploads', file_edit: 'File edits', document_gen: 'Documents', code_agent: 'Coding AGT.', mini_agent: 'Mini', file_tool: 'File tools' };
     $('view').innerHTML = `
       <div class="card fade"><div class="u-head">${avatar(u, true)}<div><h2>${esc(u.display_name || u.username)}</h2>
         <div class="meta"><span>@${esc(u.username)}</span>${u.email ? `<span>${esc(u.email)}</span>` : ''}<span>Joined ${fmt.date(u.created_at)}</span><span>${u.online ? '<b style="color:var(--good)">● Online now</b>' : 'Last seen ' + fmt.ago(u.last_seen)}</span></div>
-        <div style="margin-top:8px">${planTag(u)}</div></div><div class="u-actions">${actions}</div></div>
+        <div class="u-plan">${planTag(u)}${planPill(u.plan_info)}</div></div><div class="u-actions">${actions}</div></div>
         ${u.banned ? `<div class="flag critical" style="margin:14px 0 0"><b>Banned</b> by ${esc(u.banned_by || 'staff')}<div class="ex">${esc(u.ban_reason || 'No reason given')}</div></div>` : ''}</div>
       <div class="grid g4 mt">
         ${kpi('Messages (30d)', fmt.n(s.messages_30d), undefined, '#22d3ee', null, { note: fmt.n(s.messages_total) + ' all time' })}
@@ -501,7 +525,7 @@
       <div class="grid g21 mt">
         ${card('Activity', '<div class="chart sm"><canvas id="ch-uact"></canvas></div>', '', 'messages per day, last 30 days')}
         ${card('Details', `<dl class="kv">
-          <dt>Plan</dt><dd>${esc(u.plan)}${u.pro_plan ? ` <span class="muted">(${esc(u.pro_plan.replace(/_/g, ' '))})</span>` : ''}${u.trial_end ? `<div class="muted small">until ${fmt.date(u.trial_end)}</div>` : ''}</dd>
+          <dt>Plan</dt><dd>${esc(planName(u.plan_info))}${u.plan_info.end ? `<div class="muted small">${u.plan_info.kind === 'renews' ? 'renews' : 'ends'} ${fmt.dt(u.plan_info.end)}</div>` : ''}</dd>
           <dt>Role</dt><dd>${esc(u.role)}${u.is_chosen ? ' · chosen helper' : ''}</dd>
           <dt>Apps</dt><dd>${d.apps.length ? d.apps.map((a) => `${a.platform === 'web' ? 'Website' : a.platform === 'windows' ? 'Windows' : 'Android'} ${esc(a.version)} <span class="muted small">${fmt.ago(a.last_seen)}</span>`).join('<br>') : '—'}</dd>
           <dt>Invited by</dt><dd>${d.invited_by ? '@' + esc(d.invited_by) : '—'}</dd>
@@ -510,7 +534,7 @@
       <div class="grid g2 mt">
         ${card('Notes', `<div id="notes">${d.notes.map((n) => `<div class="note">${esc(n.text)}<small><span>${esc(n.author)} · ${fmt.ago(n.t)}</span><a href="#" data-del="${n.id}">Delete</a></small></div>`).join('') || '<div class="muted small" style="margin-bottom:10px">Private notes about this person, only staff see them.</div>'}</div>
           <textarea class="input" id="note-in" rows="2" placeholder="Add a note…"></textarea><div style="text-align:right;margin-top:8px"><button class="btn sm pri" id="note-add">Add note</button></div>`)}
-        ${card('Recent chats', d.chats.length ? `<div class="list">${d.chats.map((c) => `<div class="li"><span class="ev-ic">💬</span><div class="grow small"><b>${esc(c.title)}</b>${c.folder ? ` <span class="tag">${esc(c.folder)}</span>` : ''}${c.shared ? ' <span class="tag warn">Shared</span>' : ''}</div><span class="t">${fmt.ago(c.updated_at)}</span></div>`).join('')}</div>` : empty('No chats yet'), '', 'titles only')}
+        ${card('Recent chats', d.chats.length ? `<div class="list">${d.chats.map((c) => `<div class="li click" data-chat="${c.id}"><span class="ev-ic">💬</span><div class="grow small"><b>${esc(c.title)}</b>${c.folder ? ` <span class="tag">${esc(c.folder)}</span>` : ''}${c.shared ? ' <span class="tag warn">Shared</span>' : ''}</div><span class="t">${fmt.ago(c.updated_at)}</span></div>`).join('')}</div>` : empty('No chats yet'), '', 'tap one to read it')}
       </div>
       <div class="grid g2 mt">
         ${card('Logins', d.logins.length ? `<div class="list">${d.logins.map((l) => `<div class="li"><span class="ev-ic">${l.ok ? '🔑' : '⚠️'}</span><div class="grow small"><div>${l.ok ? 'Logged in' : '<b style="color:var(--bad)">Failed login</b>'}${l.ip ? ` · <span class="muted">${esc(l.ip)}</span>` : ''}</div><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.ua)}</div></div><span class="t">${fmt.ago(l.t)}</span></div>`).join('')}</div>` : empty('No logins recorded'))}
@@ -526,6 +550,13 @@
     };
     $('notes').onclick = async (e) => { const a = e.target.closest('[data-del]'); if (!a) return; e.preventDefault(); await api(`/api/vault/users/${id}/notes/${a.dataset.del}`, { method: 'DELETE' }); pageUser(id); };
     $('view').querySelector('.u-actions').onclick = (e) => { const b = e.target.closest('[data-act]'); if (b) userAction(b.dataset.act, u); };
+    $('view').querySelectorAll('[data-chat]').forEach((el) => el.onclick = () => viewChat(+el.dataset.chat));
+    const pill = $('plan-pill');
+    if (pill) {
+      pill.onclick = () => planModal(u);
+      const tick = () => { const t = pill.querySelector('[data-left]'); if (t) t.textContent = shortLeft(t.dataset.left); };
+      S.timers.push(setInterval(tick, 1000));
+    }
   }
 
   async function userAction(act, u) {
@@ -559,6 +590,10 @@
           $('m-plan').onchange = () => { $('m-days').disabled = $('m-plan').value === 'none'; };
           $('m-ok').onclick = async () => { try { const r = await api(`/api/vault/users/${u.id}/plan`, { method: 'POST', body: { plan: $('m-plan').value, days: +$('m-days').value } }); close(); toast('Done — ' + r.detail); reload(); } catch (e) { toast(e.message, true); } };
         });
+      } else if (act === 'export') {
+        toast('Preparing export…'); if (await dl(`/api/auth/admin/analytics/export/user/${u.id}`)) toast('Export downloaded');
+      } else if (act === 'perms') {
+        await permsModal(u);
       } else if (act === 'delete') {
         if (!(await confirmBox(`Delete @${u.username}?`, 'Their account is removed and they can no longer log in.', 'Delete', true))) return;
         await api(`/api/auth/admin/users/${u.id}`, { method: 'DELETE' }); toast('Deleted'); location.hash = '#/users';
@@ -625,7 +660,7 @@
     $('view').innerHTML = `<div class="grid g2">
       ${card('Global controls', C.map(([ep, key, t, sub, danger]) => `<div class="ctrl"><div class="grow"><b>${t}</b><span class="muted small">${sub}</span></div><button class="switch${danger ? ' danger' : ''}${st[key] === 'on' ? ' on' : ''}" data-ep="${ep}" data-key="${key}" aria-label="${t}"></button></div>`).join('') +
         `<div class="ctrl"><div class="grow"><b>Sign everyone out</b><span class="muted small">Ends every session (staff too). Use after a security problem.</span></div><button class="btn sm danger" id="force-out">Sign out all</button></div>
-         <p class="muted small" style="margin-top:12px">Emergency lock and admin permissions are in the <a href="/vault/classic">classic Vault</a>.</p>`)}
+         <p class="muted small" style="margin-top:12px">Locking every account, the emergency backup and the owner password reset are in <a href="#/security">Security &amp; emergency</a>.</p>`)}
       ${card('Broadcast', `<p class="muted small" style="margin-top:-6px">A message that pops up for people in Zelpophai.</p>
         <label class="muted small">Who sees it</label><select class="select" id="b-aud" style="margin:6px 0 10px"><option value="all">Everyone</option><option value="users">Users only</option><option value="admins">Staff only</option></select>
         <textarea class="input" id="b-text" rows="5" maxlength="2000" placeholder="e.g. New: Zelpophai Mini is here — press Ctrl+Shift+Z in the Windows app!"></textarea>
@@ -769,6 +804,262 @@
     refreshAlerts();
   }
 
+  /* ─────────────────────────────── plans & timers ─────────────────────────────── */
+  const PLAN_NAMES = { pro_monthly: 'Pro · monthly', pro_annual: 'Pro · yearly', pro_lifetime: 'Pro · lifetime', ultimate_monthly: 'Ultimate · monthly',
+    ultimate_annual: 'Ultimate · yearly', ultimate_lifetime: 'Ultimate · lifetime', pro_trial: 'Pro trial', gift_pro: 'Pro (gift)', gift_ultimate: 'Ultimate (gift)', gift_ultimate_until: 'Ultimate (gift)' };
+  function planName(pi) {
+    if (!pi) return 'Free';
+    if (PLAN_NAMES[pi.pro_plan]) return PLAN_NAMES[pi.pro_plan];
+    if (pi.kind === 'trial') return 'Pro trial';
+    return { friend: 'Friend (Ultimate perks)', guest: 'Guest', free: 'Free', pro: 'Pro', ultimate: 'Ultimate' }[pi.plan] || pi.plan;
+  }
+  function parts(ms) { ms = Math.max(0, ms); const s = Math.floor(ms / 1000); return { d: Math.floor(s / 86400), h: Math.floor(s / 3600) % 24, m: Math.floor(s / 60) % 60, s: s % 60 }; }
+  const p2 = (n) => String(n).padStart(2, '0');
+  function shortLeft(iso) {
+    const ms = new Date(iso) - Date.now(); if (ms <= 0) return 'ended';
+    const t = parts(ms);
+    return t.d ? `${t.d}d ${p2(t.h)}h ${p2(t.m)}m ${p2(t.s)}s` : `${p2(t.h)}:${p2(t.m)}:${p2(t.s)}`;
+  }
+  function planPill(pi) {
+    if (!pi) return '';
+    const paidish = ['renews', 'ends', 'trial', 'gift', 'forever'].includes(pi.kind);
+    const txt = pi.end ? `${pi.kind === 'renews' ? 'renews in' : 'ends in'} <b data-left="${esc(pi.end)}">${shortLeft(pi.end)}</b>`
+      : pi.kind === 'forever' ? 'no end date' : pi.kind === 'friend' ? 'Friend perks' : pi.kind === 'renews' ? 'renewal date unknown' : 'Free plan';
+    return `<button class="plan-pill ${paidish ? 'paid ' + pi.kind : 'free'}" id="plan-pill" title="See plan details"><span class="dot"></span><span>${esc(planName(pi))}</span><span class="sep">·</span><span>${txt}</span><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg></button>`;
+  }
+  function planModal(u) {
+    const pi = u.plan_info || {};
+    const head = { renews: 'Renews automatically in', ends: 'Ends in', trial: 'Trial ends in', gift: 'Gift ends in' }[pi.kind];
+    const SRC = { stripe: 'Date from Stripe (live).', estimate: 'Estimated from their last payment — Stripe will confirm the exact date.', set: 'Set from the Vault or a trial.', gift: 'Gifted from the Vault with no end date.', plan: 'Lifetime plan — paid once.', unknown: 'No payment found yet, so the renewal date is unknown.' };
+    let body;
+    if (pi.end) {
+      body = `<p class="muted small" style="margin:0 0 10px">${head}</p>
+        <div class="count" id="cd">${['Days', 'Hours', 'Minutes', 'Seconds'].map((l) => `<div><b data-u="${l[0]}">00</b><span>${l}</span></div>`).join('')}</div>
+        <div class="count-bar"><i id="cd-bar"></i></div>
+        <dl class="kv" style="margin-top:14px"><dt>${pi.kind === 'renews' ? 'Renews on' : 'Ends on'}</dt><dd>${fmt.dt(pi.end)}</dd>
+          ${pi.start ? `<dt>Last paid</dt><dd>${fmt.dt(pi.start)}</dd>` : ''}
+          ${pi.price != null ? `<dt>Price</dt><dd>${fmt.usd(pi.price)}${pi.interval === 'month' ? ' / month' : pi.interval === 'year' ? ' / year' : ''}</dd>` : ''}
+          <dt>What happens</dt><dd>${pi.kind === 'renews' ? 'Their card is charged again and the plan keeps going.' : pi.kind === 'ends' ? 'They cancelled — the plan stops and they go back to Free.' : 'They go back to Free unless they upgrade.'}</dd></dl>`;
+    } else {
+      body = `<div class="empty" style="padding:18px 0"><b>${pi.kind === 'forever' ? 'This plan has no end date' : pi.kind === 'friend' ? 'Friends keep their perks until you remove the tag' : pi.kind === 'renews' ? "Renewal date isn't known yet" : 'Free plan — nothing to count down'}</b>${pi.start ? 'Last paid ' + fmt.dt(pi.start) : ''}</div>`;
+    }
+    const close = modal(`<h3>${esc(planName(pi))} <span class="muted" style="font-weight:500">· @${esc(u.username)}</span></h3>${body}
+      ${pi.source ? `<p class="muted small" style="margin-top:12px">${esc(SRC[pi.source] || '')}</p>` : ''}
+      <div class="modal-actions">${S.owner && u.role !== 'owner' && !u.guest ? '<button class="btn" id="pm-change">Change plan</button>' : ''}<button class="btn pri" data-close>Close</button></div>`, (cl) => {
+      if ($('pm-change')) $('pm-change').onclick = () => { cl(); userAction('plan', u); };
+    });
+    if (!pi.end) return;
+    const end = new Date(pi.end).getTime();
+    const start = pi.start ? new Date(pi.start).getTime() : end - (pi.interval === 'year' ? 365 : 30) * 864e5;
+    const tick = () => {
+      const box = $('cd'); if (!box || $('modal').hidden) { clearInterval(iv); return; }
+      const t = parts(end - Date.now());
+      box.querySelector('[data-u="D"]').textContent = t.d; box.querySelector('[data-u="H"]').textContent = p2(t.h);
+      box.querySelector('[data-u="M"]').textContent = p2(t.m); box.querySelector('[data-u="S"]').textContent = p2(t.s);
+      const pct = Math.min(100, Math.max(0, (Date.now() - start) / Math.max(1, end - start) * 100));
+      $('cd-bar').style.width = pct.toFixed(2) + '%';
+    };
+    const iv = setInterval(tick, 1000); tick();
+  }
+
+  /* ─────────────────────────────── chat viewer ─────────────────────────────── */
+  async function viewChat(id) {
+    modal('<div class="empty">Loading chat…</div>');
+    $('modal-box').classList.add('wide');
+    try {
+      const d = await api('/api/auth/admin/analytics/chat/' + id + '/messages');
+      $('modal-box').innerHTML = `<div class="chat-head"><div><h3 style="margin:0">${esc(d.chat.title || 'Untitled chat')}</h3><span class="muted small">@${esc(d.chat.username)} · ${d.messages.length} messages</span></div><button class="ib" data-close aria-label="Close">✕</button></div>
+        <div class="chat-view">${d.messages.map((m) => `<div class="msg ${m.role === 'user' ? 'me' : ''}"><div class="who">${m.role === 'user' ? '@' + esc(d.chat.username) : 'Zelpophai'} <span>${esc(m.created_at)}</span></div><div class="txt">${esc(m.content)}</div></div>`).join('') || '<div class="empty">No messages</div>'}</div>`;
+    } catch (e) { $('modal-box').innerHTML = `<h3>Couldn't open chat</h3><p>${esc(e.message)}</p><div class="modal-actions"><button class="btn" data-close>Close</button></div>`; }
+    const obs = setInterval(() => { if ($('modal').hidden) { $('modal-box').classList.remove('wide'); clearInterval(obs); } }, 300);
+  }
+  // Downloads go through api() so the Vault token is sent (plain links would be refused).
+  async function dl(url) {
+    try {
+      const r = await api(url);
+      const blob = await r.blob();
+      const name = (r.headers.get('Content-Disposition') || '').match(/filename="?([^";]+)"?/)?.[1] || url.split('/').pop();
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name.replace(/^zenith_/, 'zelpophai_');
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+      return true;
+    } catch (e) { toast(e.message || 'Download failed', true); return false; }
+  }
+
+  async function pageChats() {
+    let mode = 'chats', off = 0;
+    $('view').innerHTML = `<div class="card fade"><div class="toolbar"><div class="chips" id="c-tabs"><button class="chip on" data-m="chats">Latest chats</button><button class="chip" data-m="messages">Latest messages</button></div><span class="muted small" id="c-total" style="margin-left:auto"></span></div>
+      <p class="muted small" style="margin-top:-4px">Read conversations when you need to — e.g. to check a report. ${S.owner ? '' : 'Staff chats are hidden for admins.'}</p><div id="c-list"></div>
+      <div class="pager"><span id="c-range"></span><span><button class="btn sm" id="c-prev">‹ Newer</button> <button class="btn sm" id="c-next">Older ›</button></span></div></div>`;
+    const per = 40;
+    const load = async () => {
+      const d = await api(`/api/auth/admin/analytics/all-${mode}?limit=${per}&offset=${off}`);
+      $('c-total').textContent = fmt.n(d.total) + (mode === 'chats' ? ' chats' : ' messages');
+      if (mode === 'chats') {
+        $('c-list').innerHTML = d.chats.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Chat</th><th>Person</th><th class="num">Messages</th><th class="hide-m">Last update</th></tr></thead><tbody>
+          ${d.chats.map((c) => `<tr class="click" data-chat="${c.id}"><td><b>${esc(c.title || 'Untitled')}</b></td><td><a href="#/users/${c.user_id}" data-stop>@${esc(c.username)}</a></td><td class="num">${fmt.n(c.message_count)}</td><td class="hide-m muted">${esc(c.updated_at)}</td></tr>`).join('')}</tbody></table></div>` : empty('No chats yet');
+      } else {
+        $('c-list').innerHTML = d.messages.length ? `<div class="list">${d.messages.map((m) => `<div class="li click" data-chat="${m.chat_id}"><span class="tag ${m.role === 'user' ? 'pro' : ''}">${m.role === 'user' ? 'User' : 'AI'}</span><div class="grow small"><b>${esc(m.chat_title || 'Untitled')}</b><div class="muted" style="overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">${esc(m.content)}</div></div><span class="t">${esc(m.created_at)}</span></div>`).join('')}</div>` : empty('No messages yet');
+      }
+      $('c-range').textContent = d.total ? `${off + 1}–${Math.min(d.total, off + per)} of ${fmt.n(d.total)}` : '';
+      $('c-prev').disabled = off <= 0; $('c-next').disabled = off + per >= d.total;
+    };
+    $('c-tabs').onclick = (e) => { const b = e.target.closest('.chip'); if (!b) return; mode = b.dataset.m; off = 0; $('c-tabs').querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === b)); load(); };
+    $('c-list').onclick = (e) => { if (e.target.closest('[data-stop]')) return; const r = e.target.closest('[data-chat]'); if (r) viewChat(+r.dataset.chat); };
+    $('c-prev').onclick = () => { off = Math.max(0, off - per); load(); }; $('c-next').onclick = () => { off += per; load(); };
+    await load();
+  }
+
+  /* ─────────────────────────────── security & emergency ─────────────────────────────── */
+  function upFor(s) { const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }
+  function meter(label, pct, note) { const c = pct > 85 ? 'var(--bad)' : pct > 65 ? 'var(--warn)' : 'var(--good)'; return `<div class="bar-row"><span>${label}</span><div class="track"><div class="fill" style="width:${Math.min(100, pct)}%;background:${c}"></div></div><span class="num">${Math.round(pct)}%</span></div>${note ? `<div class="muted small" style="margin:-2px 0 8px">${note}</div>` : ''}`; }
+  async function pageSecurity() {
+    const d = await api('/api/vault/security');
+    const sv = d.server;
+    $('view').innerHTML = `<div class="grid g4">
+        ${kpi('Sign-ins (24h)', fmt.n(d.logins_24h), undefined, '#34d399', null, { note: fmt.n(d.unique_ips_24h) + ' different places' })}
+        ${kpi('Failed sign-ins (24h)', fmt.n(d.failed_24h), undefined, d.failed_24h > 20 ? '#f87171' : '#fbbf24', null, { note: d.failed_24h > 20 ? 'higher than usual — check below' : 'wrong passwords' })}
+        ${kpi('Accounts', d.locked === 'on' ? 'Locked' : 'Open', undefined, d.locked === 'on' ? '#f87171' : '#34d399', null, { note: d.locked === 'on' ? 'everyone except you and helpers is locked out' : 'people can sign in normally' })}
+        ${kpi('Server', sv ? upFor(sv.uptime_s) : '—', undefined, '#6d7cff', null, { note: sv ? 'running since the last deploy' : 'stats unavailable' })}
+      </div>
+      <div class="grid g21 mt">
+        ${card('Sign-ins', '<div class="chart"><canvas id="ch-sec"></canvas></div>', '', 'last 7 days')}
+        ${card('Server health', sv ? meter('CPU', sv.cpu) + meter('Memory', sv.ram, `${sv.ram_used_gb} of ${sv.ram_total_gb} GB · Zelpophai uses ${sv.app_ram_mb} MB`) + meter('Disk', sv.disk, `${sv.disk_free_gb} GB free`) : empty('No server stats'))}
+      </div>
+      <div class="card fade mt emergency"><div class="card-h"><h3>Emergency controls</h3><span class="sub">for when something goes badly wrong</span></div>
+        <div class="em-grid">
+          <div class="em"><b>${d.locked === 'on' ? 'Unlock every account' : 'Lock every account'}</b><span class="muted small">${d.locked === 'on' ? 'Let everyone sign in again.' : 'Instantly locks everyone out except you and your chosen helpers.'}</span><button class="btn ${d.locked === 'on' ? 'pri' : 'danger solid'}" id="em-lock">${d.locked === 'on' ? 'Unlock all' : 'Lock all'}</button></div>
+          <div class="em"><b>Maintenance mode</b><span class="muted small">${d.maintenance === 'on' ? 'On — only staff can use Zelpophai.' : 'Show a maintenance screen to everyone but staff.'}</span><button class="btn ${d.maintenance === 'on' ? 'pri' : 'danger'}" id="em-maint">${d.maintenance === 'on' ? 'Turn off' : 'Turn on'}</button></div>
+          <div class="em"><b>Emergency backup</b><span class="muted small">Download a copy of the whole database right now.</span><button class="btn" id="em-backup">Download backup</button></div>
+          <div class="em"><b>My password leaked</b><span class="muted small">Gives you a new random password and signs out every other session.</span><button class="btn danger" id="em-pw">New password</button></div>
+          <div class="em"><b>Sign everyone out</b><span class="muted small">Ends every session, including yours.</span><button class="btn danger" id="em-out">Sign out all</button></div>
+        </div></div>
+      <div class="grid g21 mt">
+        ${card('Recent sign-ins', `<div class="list">${d.recent.map((l) => `<div class="li"><span class="ev-ic">${l.ok ? '🔑' : '⚠️'}</span><div class="grow small"><div><a href="#/users/${l.user_id}">@${esc(l.username)}</a> ${l.ok ? 'signed in' : '<b style="color:var(--bad)">wrong password</b>'}${l.ip ? ` · <span class="muted">${esc(l.ip)}</span>` : ''}</div><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.ua)}</div></div><span class="t">${fmt.ago(l.t)}</span></div>`).join('') || empty('No sign-ins yet')}</div>`)}
+        ${card('Most failed (24h)', `<div class="muted small" style="margin-bottom:6px">Accounts</div>${d.top_failed_users.map((x) => `<div class="li"><div class="grow small">@${esc(x.username)}</div><b>${x.count}</b></div>`).join('') || '<div class="muted small">None — all good.</div>'}
+          <div class="muted small" style="margin:14px 0 6px">Places (IP)</div>${d.top_failed_ips.map((x) => `<div class="li"><div class="grow small"><code>${esc(x.ip)}</code></div><b>${x.count}</b></div>`).join('') || '<div class="muted small">None.</div>'}`)}
+      </div>`;
+    barChart('ch-sec', d.labels, 'day', [{ label: 'Signed in', data: d.ok_series, color: '#34d399' }, { label: 'Wrong password', data: d.failed_series, color: '#f87171' }], { stacked: true, legend: true });
+    $('em-lock').onclick = async () => {
+      const lockIt = d.locked !== 'on';
+      if (lockIt && !(await confirmBox('Lock every account?', 'Everyone except you and your chosen helpers is signed out and can\'t sign in until you unlock.', 'Lock all', true))) return;
+      try { const r = await api('/api/admin/system/' + (lockIt ? 'lock-all' : 'unlock-all'), { method: 'POST' }); toast(lockIt ? `Locked ${r.locked} accounts` : `Unlocked ${r.unlocked} accounts`); route(); } catch (e) { toast(e.message, true); }
+    };
+    $('em-maint').onclick = async () => {
+      const on = d.maintenance !== 'on';
+      if (on && !(await confirmBox('Turn on maintenance?', 'Everyone except staff sees the maintenance screen.', 'Turn on', true))) return;
+      try { await api('/api/admin/system/maintenance', { method: 'POST', body: { value: on ? 'on' : 'off' } }); toast(on ? 'Maintenance on' : 'Maintenance off'); route(); } catch (e) { toast(e.message, true); }
+    };
+    $('em-backup').onclick = async () => {
+      $('em-backup').disabled = true;
+      try {
+        const r = await api('/api/admin/system/backup', { method: 'POST' });
+        const blob = await r.blob();
+        const name = (r.headers.get('Content-Disposition') || '').match(/filename="?([^"]+)"?/)?.[1] || `zelpophai-emergency-${Date.now()}.db`;
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+        toast('Backup downloaded');
+      } catch (e) { toast(e.message, true); }
+      $('em-backup').disabled = false;
+    };
+    $('em-pw').onclick = async () => {
+      if (!(await confirmBox('Get a new owner password?', 'Your password changes to a new random one and every other session is signed out. Make sure nobody can see your screen — the new password is shown once.', 'Change it', true))) return;
+      try {
+        const r = await api('/api/auth/emergency-password', { method: 'POST' });
+        modal(`<h3>Your new password</h3><p>Save it somewhere safe — it's shown only this once.</p><div class="secret"><code id="np">${esc(r.new_password)}</code></div>
+          <div class="modal-actions"><button class="btn" id="np-copy">Copy</button><button class="btn pri" data-close>I saved it</button></div>`, () => {
+          $('np-copy').onclick = () => navigator.clipboard.writeText(r.new_password).then(() => toast('Copied')).catch(() => toast('Copy failed', true));
+        });
+      } catch (e) { toast(e.message, true); }
+    };
+    $('em-out').onclick = async () => { if (!(await confirmBox('Sign everyone out?', 'All sessions end, including yours.', 'Sign out all', true))) return; try { await api('/api/admin/system/force-logout', { method: 'POST' }); toast('Everyone signed out'); } catch (e) { toast(e.message, true); } };
+  }
+
+  /* ─────────────────────────────── staff & permissions ─────────────────────────────── */
+  const PERMS = [['ban_users', 'Ban and unban people'], ['reset_password', 'Reset passwords'], ['view_messages', 'Read messages'], ['manage_chats', 'See and manage chats'], ['delete_users', 'Delete accounts']];
+  async function permsModal(u) {
+    let perms = {};
+    try { perms = (await api(`/api/auth/admin/users/${u.id}/permissions`)).permissions || {}; } catch (e) { return toast(e.message, true); }
+    modal(`<h3>What can @${esc(u.username)} do?</h3><p>Admins can open the Vault. Turn off anything you don't want them doing.${(u.tags || []).includes('trusted') ? ' <b>Trusted admins</b> can do everything regardless.' : ''}</p>
+      ${PERMS.map(([k, l]) => `<div class="ctrl"><div class="grow"><b>${l}</b></div><button class="switch${perms[k] !== false ? ' on' : ''}" data-perm="${k}" aria-label="${l}"></button></div>`).join('')}
+      <div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn pri" id="pm-save">Save</button></div>`, (close) => {
+      $('modal-box').querySelectorAll('[data-perm]').forEach((b) => b.onclick = () => b.classList.toggle('on'));
+      $('pm-save').onclick = async () => {
+        const out = {}; $('modal-box').querySelectorAll('[data-perm]').forEach((b) => { out[b.dataset.perm] = b.classList.contains('on'); });
+        try { await api(`/api/auth/admin/users/${u.id}/permissions`, { method: 'POST', body: { permissions: out } }); close(); toast('Permissions saved'); if (S.route === 'staff') route(); } catch (e) { toast(e.message, true); }
+      };
+    });
+  }
+  function pickUser(title, note, onPick) {
+    modal(`<h3>${esc(title)}</h3><p>${esc(note)}</p><input class="input" id="pk-q" placeholder="Type a name or email…" autocomplete="off"><div class="list" id="pk-list" style="margin-top:8px;max-height:300px;overflow:auto"></div>
+      <div class="modal-actions"><button class="btn" data-close>Cancel</button></div>`, (close) => {
+      let t;
+      $('pk-q').oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+        const q = $('pk-q').value.trim(); if (q.length < 2) { $('pk-list').innerHTML = ''; return; }
+        const d = await api('/api/vault/search?q=' + encodeURIComponent(q));
+        $('pk-list').innerHTML = d.users.filter((x) => !x.guest).map((x) => `<div class="li click" data-id="${x.id}">${person(x)}<span style="margin-left:auto">${planTag(x)}</span></div>`).join('') || '<div class="muted small">No one found.</div>';
+      }, 220); };
+      $('pk-list').onclick = (e) => { const r = e.target.closest('[data-id]'); if (r) { close(); onPick(+r.dataset.id, r.querySelector('b').textContent); } };
+    });
+  }
+  async function pageStaff() {
+    const d = await api('/api/vault/staff');
+    const permSummary = (p) => { const off = PERMS.filter(([k]) => p[k] === false).map(([, l]) => l.toLowerCase()); return off.length ? 'Can\'t: ' + off.join(', ') : 'Everything'; };
+    $('view').innerHTML = `<div class="grid g21">
+      ${card('Staff', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Role</th><th class="hide-m">Allowed</th><th></th></tr></thead><tbody>
+        ${d.staff.map((u) => `<tr data-u="${u.id}"><td><a href="#/users/${u.id}" style="color:inherit">${person(u)}</a></td><td>${planTag({ ...u, plan: '' })}</td><td class="hide-m muted small">${u.role === 'owner' ? 'Everything' : (u.tags.includes('trusted') ? 'Everything (trusted)' : permSummary(u.permissions || {}))}</td>
+          <td class="bk-act">${u.role === 'admin' ? `<button class="btn sm" data-a="perms">Permissions</button> <button class="btn sm" data-a="trusted">${u.tags.includes('trusted') ? 'Untrust' : 'Trust'}</button> <button class="btn sm danger" data-a="demote">Remove</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`,
+        '<button class="btn pri sm" id="st-add">Add an admin</button>')}
+      ${card('Chosen helpers', `<p class="muted small" style="margin-top:-6px">Helpers stay online and keep access during maintenance or when every account is locked, so they can help you.</p>
+        <div class="list" id="ch-list">${d.chosen.map((u) => `<div class="li" data-id="${u.id}">${person(u)}<button class="btn sm danger" style="margin-left:auto" data-rm="${u.id}">Remove</button></div>`).join('') || '<div class="muted small">No helpers chosen.</div>'}</div>
+        <div style="margin-top:12px;display:flex;gap:8px"><button class="btn sm" id="ch-add">Add helper</button>${d.chosen.length ? '<button class="btn sm danger" id="ch-clear">Clear all</button>' : ''}</div>`)}
+    </div>`;
+    const ids = d.chosen.map((u) => u.id);
+    const saveChosen = async (list) => { try { await api('/api/admin/system/set-chosen', { method: 'POST', body: { user_ids: list } }); toast('Helpers saved'); route(); } catch (e) { toast(e.message, true); } };
+    $('ch-add').onclick = () => pickUser('Add a chosen helper', 'They keep access during shutdowns.', (id) => { if (!ids.includes(id)) saveChosen([...ids, id]); });
+    $('ch-list').onclick = (e) => { const b = e.target.closest('[data-rm]'); if (b) saveChosen(ids.filter((x) => x !== +b.dataset.rm)); };
+    if ($('ch-clear')) $('ch-clear').onclick = async () => { if (await confirmBox('Remove all helpers?', 'Nobody keeps special access during shutdowns.', 'Remove all', true)) saveChosen([]); };
+    $('st-add').onclick = () => pickUser('Add an admin', 'They\'ll be able to open the Vault with their own PIN.', async (id, name) => {
+      if (!(await confirmBox(`Make ${name} an admin?`, 'They can open the Vault and manage users (you can limit what they do with Permissions).', 'Make admin'))) return;
+      try { await api(`/api/auth/admin/users/${id}/role`, { method: 'POST', body: { role: 'admin' } }); toast('Admin added'); route(); } catch (e) { toast(e.message, true); }
+    });
+    $('view').querySelector('tbody').onclick = async (e) => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const u = d.staff.find((x) => x.id === +b.closest('tr').dataset.u);
+      try {
+        if (b.dataset.a === 'perms') await permsModal(u);
+        else if (b.dataset.a === 'trusted') { await api(`/api/auth/admin/users/${u.id}/tags`, { method: 'POST', body: { tag: 'trusted', on: !u.tags.includes('trusted') } }); toast('Saved'); route(); }
+        else if (b.dataset.a === 'demote') { if (!(await confirmBox(`Remove @${u.username} as admin?`, 'They become a normal user and lose Vault access.', 'Remove', true))) return; await api(`/api/auth/admin/users/${u.id}/role`, { method: 'POST', body: { role: 'user' } }); toast('Removed'); route(); }
+      } catch (err) { toast(err.message, true); }
+    };
+  }
+
+  /* ─────────────────────────────── settings & exports ─────────────────────────────── */
+  async function pageSettings() {
+    $('view').innerHTML = `<div class="grid g2">
+      ${card('Change my Vault PIN', `<p class="muted small" style="margin-top:-6px">4–6 digits. You'll need your current PIN and your account password.</p>
+        <label class="muted small">Current PIN</label><input class="input" id="pc-old" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+        <label class="muted small" style="display:block;margin-top:10px">New PIN</label><input class="input" id="pc-new" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
+        <label class="muted small" style="display:block;margin-top:10px">Account password</label><input class="input" id="pc-pw" type="password" autocomplete="current-password">
+        <div style="text-align:right;margin-top:12px"><button class="btn pri" id="pc-go">Change PIN</button></div>`)}
+      ${card('Export data', `<p class="muted small" style="margin-top:-6px">Download everything as files you can open on your computer.</p>
+        <div class="ctrl"><div class="grow"><b>All users</b><span class="muted small">Spreadsheet (CSV) with every account.</span></div><button class="btn sm" data-dl="users">Download</button></div>
+        <div class="ctrl"><div class="grow"><b>All chats</b><span class="muted small">Text file listing every chat.</span></div><button class="btn sm" data-dl="chats">Download</button></div>
+        <div class="ctrl"><div class="grow"><b>All messages</b><span class="muted small">Text file with every message.</span></div><button class="btn sm" data-dl="messages">Download</button></div>
+        <p class="muted small" style="margin-top:10px">One person's data: open them in Users → Export data.</p>`)}
+    </div>
+    ${card('This Vault', `<div class="ctrl"><div class="grow"><b>Theme</b><span class="muted small">Light or dark.</span></div><button class="btn sm" id="se-theme">Switch</button></div>
+      <div class="ctrl"><div class="grow"><b>Desktop alerts</b><span class="muted small">Get a notification for new alerts while the Vault is open.</span></div><button class="btn sm" id="se-notif">${'Notification' in window && Notification.permission === 'granted' ? 'On' : 'Turn on'}</button></div>
+      <div class="ctrl"><div class="grow"><b>Auto-lock</b><span class="muted small">The Vault locks itself after 15 minutes without activity, and when you close the tab.</span></div><button class="btn sm" id="se-lock">Lock now</button></div>`).replace('class="card fade"', 'class="card fade mt"')}`;
+    $('pc-go').onclick = async () => {
+      const old_pin = $('pc-old').value.trim(), new_pin = $('pc-new').value.trim(), password = $('pc-pw').value;
+      if (!/^\d{4,6}$/.test(new_pin)) return toast('New PIN must be 4–6 digits', true);
+      try { await api('/api/auth/admin/pin-change', { method: 'POST', body: { old_pin, new_pin, password } }); toast('PIN changed'); ['pc-old', 'pc-new', 'pc-pw'].forEach((i) => { $(i).value = ''; }); } catch (e) { toast(e.message, true); }
+    };
+    $('view').querySelectorAll('[data-dl]').forEach((b) => b.onclick = async () => { b.disabled = true; if (await dl('/api/auth/admin/analytics/export/' + b.dataset.dl)) toast('Downloaded'); b.disabled = false; });
+    $('se-theme').onclick = () => toggleTheme();
+    $('se-notif').onclick = async () => { if (!('Notification' in window)) return toast('Not supported in this browser', true); const p = await Notification.requestPermission(); $('se-notif').textContent = p === 'granted' ? 'On' : 'Turn on'; toast(p === 'granted' ? 'Desktop alerts on' : 'Notifications are blocked'); };
+    $('se-lock').onclick = () => lock();
+  }
+
   /* ─────────────────────────────── command palette ─────────────────────────────── */
   const ACTIONS = [
     { t: 'Turn maintenance on', ic: '🛠️', run: async () => { if (await confirmBox('Turn on maintenance?', 'Everyone except staff sees the maintenance screen.', 'Turn on', true)) { await api('/api/admin/system/maintenance', { method: 'POST', body: { value: 'on' } }); toast('Maintenance on'); } } },
@@ -778,7 +1069,9 @@
     { t: 'Check alerts now', ic: '🔔', run: async () => { await api('/api/vault/alerts/check', { method: 'POST' }); refreshAlerts(); toast('Checked'); } },
     { t: 'Switch light / dark', ic: '🌓', run: () => toggleTheme() },
     { t: 'Lock the Vault', ic: '🔒', run: () => lock() },
-    { t: 'Open the classic Vault', ic: '🗂️', run: () => { location.href = '/vault/classic'; } },
+    { t: 'Lock every account (emergency)', ic: '🚨', owner: true, run: () => { location.hash = '#/security'; } },
+    { t: 'Change my Vault PIN', ic: '🔑', run: () => { location.hash = '#/settings'; } },
+    { t: 'Export all users (CSV)', ic: '⬇️', run: () => dl('/api/auth/admin/analytics/export/users') },
   ];
   let kSel = 0, kItems = [];
   function openK() {

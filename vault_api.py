@@ -120,6 +120,85 @@ def _monthly_value(plan: str) -> float:
     return 0.0
 
 
+
+# ───────────────────────────────────────────────────── plan timing ──
+_PERIOD_DAYS = {"month": 30, "year": 365}
+_sub_cache: dict = {}
+
+
+def _stripe_period(sub_id: str):
+    """(end datetime, cancel_at_period_end) from Stripe, cached 10 min. None if unavailable."""
+    hit = _sub_cache.get(sub_id)
+    if hit and hit[0] > datetime.now(timezone.utc).timestamp():
+        return hit[1]
+    res = None
+    try:
+        from billing import STRIPE_SECRET
+        if STRIPE_SECRET:
+            import stripe
+            stripe.api_key = STRIPE_SECRET
+            sub = stripe.Subscription.retrieve(sub_id)
+            end = sub.get("current_period_end")
+            if not end:
+                items = (sub.get("items") or {}).get("data") or []
+                end = items[0].get("current_period_end") if items else None
+            if sub.get("cancel_at"):
+                end = sub.get("cancel_at")
+            if end:
+                res = (datetime.fromtimestamp(int(end), timezone.utc),
+                       bool(sub.get("cancel_at_period_end") or sub.get("cancel_at")), sub.get("status") or "")
+    except Exception as e:
+        print(f"[vault] stripe period lookup failed: {e}")
+    _sub_cache[sub_id] = (datetime.now(timezone.utc).timestamp() + 600, res)
+    return res
+
+
+async def _plan_info(db, u) -> dict:
+    """What plan someone has and when it ends.
+    kind: free | friend | trial | gift | renews | ends | forever"""
+    now = datetime.now(timezone.utc)
+    plan = _plan_of(u)
+    pp = u.pro_plan or ""
+    out = {"plan": plan, "pro_plan": pp, "kind": "free", "end": None, "start": None, "source": None, "price": None, "interval": None}
+    try:
+        from billing import PLANS
+        meta = PLANS.get(pp)
+    except Exception:
+        meta = None
+    if meta:
+        out["price"], out["interval"] = meta.get("price"), meta.get("interval")
+    trial_end = _utc(u.trial_end)
+    if trial_end and trial_end > now and (pp in ("pro_trial", "gift_pro", "gift_ultimate_until", "") or not u.is_pro):
+        out.update(kind="gift" if pp.startswith("gift") else "trial", end=_iso(trial_end), source="set")
+    elif _paid_plan(u):
+        last = (await db.execute(select(Payment).where(Payment.user_id == u.id, Payment.source == "stripe")
+                                 .order_by(Payment.created_at.desc()))).scalars().first()
+        if last:
+            out["start"] = _iso(last.created_at)
+        if pp.endswith("_lifetime"):
+            out.update(kind="forever", source="plan")
+        else:
+            got = await asyncio.to_thread(_stripe_period, u.stripe_subscription_id) if u.stripe_subscription_id else None
+            if got:
+                out.update(kind="ends" if got[1] else "renews", end=_iso(got[0]), source="stripe")
+            else:
+                days = _PERIOD_DAYS.get((meta or {}).get("interval") or ("year" if "annual" in pp else "month"), 30)
+                base = _utc(last.created_at) if last else None
+                if base:
+                    end = base + timedelta(days=days)
+                    while end < now:
+                        end += timedelta(days=days)
+                    out.update(kind="renews", end=_iso(end), source="estimate")
+                else:
+                    out.update(kind="renews", source="unknown")
+    elif pp.startswith("gift") and (u.is_pro or u.is_ultimate):
+        out.update(kind="forever", source="gift")
+    elif plan == "friend":
+        out.update(kind="friend")
+    elif plan in ("pro", "ultimate"):
+        out.update(kind="forever", source="set")
+    return out
+
 def _user_brief(u, online_cut=None):
     online_cut = online_cut or (datetime.now(timezone.utc) - ONLINE_WINDOW)
     return {"id": u.id, "username": u.username, "display_name": getattr(u, "display_name", "") or "", "role": get_role(u),
@@ -470,6 +549,14 @@ async def user_360(user_id: int, user=Depends(require_vault), db: AsyncSession =
         d["email"] = u.email
     d.update({"trial_end": _iso(u.trial_end), "ban_reason": u.ban_reason or "", "banned_by": u.banned_by or "",
               "is_chosen": bool(u.is_chosen), "stripe": bool(u.stripe_customer_id) if owner else None})
+    d["plan_info"] = await _plan_info(db, u)
+    if not owner:
+        d["plan_info"]["price"] = None
+    if get_role(u) == "admin":
+        try:
+            d["permissions"] = json.loads(u.permissions) if u.permissions else {}
+        except Exception:
+            d["permissions"] = {}
     chats = (await db.execute(select(Chat).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()))).scalars().all()
     msgs = await _user_msgs(db, now - timedelta(days=30), now + timedelta(minutes=1))
     mine = [m for m in msgs if m[1] == u.id]
@@ -783,3 +870,74 @@ async def search(q: str = "", user=Depends(require_vault), db: AsyncSession = De
     rows = (await db.execute(select(User).where(or_(User.username.ilike(like), User.email.ilike(like)))
                              .order_by(User.last_seen.desc()).limit(8))).scalars().all()
     return {"users": [_user_brief(u) for u in rows]}
+
+
+# ───────────────────────────────────────────── staff & security ──
+@router.get("/staff")
+async def staff(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Owner: staff with their permissions, and the chosen helpers."""
+    _need_owner(user)
+    us = (await db.execute(select(User).where(User.is_deleted == False, or_(User.role.in_(("admin", "owner")), User.is_chosen == True))  # noqa: E712
+                           .order_by(User.created_at.asc()))).scalars().all()
+    defaults = {"ban_users": True, "reset_password": True, "view_messages": True, "manage_chats": True, "delete_users": True}
+    out = []
+    for u in us:
+        d = _user_brief(u)
+        d["is_chosen"] = bool(u.is_chosen)
+        if get_role(u) == "admin":
+            try:
+                perms = json.loads(u.permissions) if u.permissions else {}
+            except Exception:
+                perms = {}
+            d["permissions"] = {**defaults, **{k: bool(v) for k, v in perms.items() if k in defaults}}
+        out.append(d)
+    return {"staff": [d for d in out if d["role"] in ("owner", "admin")], "chosen": [d for d in out if d["is_chosen"]]}
+
+
+@router.get("/security")
+async def security(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Sign-in health for the last 24 hours, lock state and server load."""
+    now = datetime.now(timezone.utc)
+    day = now - timedelta(hours=24)
+    owner = is_owner(user)
+    rows = (await db.execute(select(LoginHistory, User.username).join(User, User.id == LoginHistory.user_id)
+                             .where(LoginHistory.login_at >= now - timedelta(days=7))
+                             .order_by(LoginHistory.login_at.desc()).limit(2000))).all()
+    last24 = [(l, n) for l, n in rows if _utc(l.login_at) >= day]
+    failed = [(l, n) for l, n in last24 if not l.success]
+    by_user = Counter(n for _, n in failed)
+    by_ip = Counter(l.ip_address for l, _ in failed if l.ip_address)
+    start, end, step = _range("7d")
+    series_ok = _series([(l.login_at,) for l, _ in rows if l.success], start, end, step)
+    series_bad = _series([(l.login_at,) for l, _ in rows if not l.success], start, end, step)
+    try:
+        from global_controls import _get_setting
+        locked = await _get_setting(db, "locked", "off")
+        maint = await _get_setting(db, "maintenance_mode", "off")
+    except Exception:
+        locked = maint = "off"
+    server = None
+    try:
+        import psutil
+        vm = psutil.virtual_memory()
+        try:
+            disk = psutil.disk_usage("/data")
+        except Exception:
+            disk = psutil.disk_usage("/")
+        proc = psutil.Process()
+        server = {"cpu": psutil.cpu_percent(interval=0.2), "ram": vm.percent, "ram_used_gb": round(vm.used / 1024 ** 3, 2),
+                  "ram_total_gb": round(vm.total / 1024 ** 3, 2), "disk": disk.percent,
+                  "disk_free_gb": round(disk.free / 1024 ** 3, 2), "app_ram_mb": round(proc.memory_info().rss / 1024 ** 2),
+                  "uptime_s": int(now.timestamp() - proc.create_time())}
+    except Exception:
+        pass
+    return {
+        "logins_24h": len(last24) - len(failed), "failed_24h": len(failed),
+        "unique_ips_24h": len({l.ip_address for l, _ in last24 if l.ip_address}),
+        "top_failed_users": [{"username": n, "count": c} for n, c in by_user.most_common(6)],
+        "top_failed_ips": [{"ip": ip if owner else "hidden", "count": c} for ip, c in by_ip.most_common(6)],
+        "labels": _labels(start, end, step), "ok_series": series_ok, "failed_series": series_bad,
+        "recent": [{"username": n, "user_id": l.user_id, "ok": bool(l.success), "ip": l.ip_address if owner else "",
+                    "ua": (l.user_agent or "")[:100], "t": _iso(l.login_at)} for l, n in rows[:40]],
+        "locked": locked, "maintenance": maint, "server": server,
+    }

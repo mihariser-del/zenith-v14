@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 21.9.2 — Classic Vault merged, plan countdowns
+
+- `/vault/classic` now redirects to `/vault`; the sidebar link and palette action are gone
+- New Vault pages: **Conversations** (`/api/auth/admin/analytics/all-chats|all-messages`, chat viewer via `/chat/{id}/messages`), **Security & emergency** (owner; `GET /api/vault/security`: 24 h sign-ins/failures, 7-day chart, top failed accounts/IPs, psutil server health; lock-all/unlock-all, maintenance, `/api/admin/system/backup` download, `/api/auth/emergency-password`, force-logout), **Staff & permissions** (owner; `GET /api/vault/staff`; role, trusted tag, `/users/{id}/permissions`, `set-chosen`), **Settings & exports** (`/api/auth/admin/pin-change`, users/chats/messages exports)
+- Users: multi-select + `/api/auth/admin/users/bulk-delete`; User 360: Export data, Permissions (admins), clickable chats
+- Exports and downloads go through the token-aware `api()` (plain links were refused with "Vault is locked")
+- `plan_info` on `GET /api/vault/users/{id}`: kind (renews/ends/trial/gift/forever/friend/free), end date from Stripe (`current_period_end`/`cancel_at`, cached 10 min) or estimated from the last Stripe payment, trial/gift end, price (owner only); plan pill with live countdown + countdown modal
+
 ## 21.9.1 — Vault charts fix
 
 - Chart.js 4.4.1 is self-hosted at `/static/vendor/chart-4.4.1.umd.min.js` (was cdnjs; when the CDN was blocked every chart rendered as an empty card)

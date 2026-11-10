@@ -200,3 +200,19 @@ html.halloween body { --zr-accent: #ff7a1a; --zr-accent2: #a855f7; --zr-chip: rg
 /* AI tool request in progress (image / video / reminder) */
 .zt-card { display: inline-flex; align-items: center; gap: 10px; margin: .6em 0; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--zr-line); background: var(--zr-card); color: var(--zr-ink); font-size: 13.5px; font-weight: 600; }
 .zt-card .zt-ic { font-size: 18px; line-height: 1; }
+
+/* Web photos in answers */
+.zr-gallery { display: grid !important; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; margin: 2px 0 14px !important; }
+.zr-gallery a { display: block; border-radius: 12px; overflow: hidden; border: 1px solid var(--zr-line); background: var(--zr-card); aspect-ratio: 4 / 3; }
+.zr-gallery a:hover { border-color: var(--zr-accent); }
+.zr-gallery img { width: 100%; height: 100%; object-fit: cover; display: block; margin: 0 !important; border-radius: 0 !important; transition: transform .25s; }
+.zr-gallery a:hover img { transform: scale(1.04); }
+@media (max-width: 520px) { .zr-gallery { grid-template-columns: repeat(3, 1fr); } }
+
+/* "Searching the web…" */
+.zp-searching { display: inline-flex; align-items: center; gap: 9px; padding: 8px 13px; border-radius: 999px; background: var(--zr-chip); color: var(--zr-chip-ink); border: 1px solid var(--zr-line); font-size: 13.5px; font-weight: 600; }
+.zp-searching small { font-weight: 500; opacity: .75; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zp-search-ic { width: 16px; height: 16px; display: grid; place-items: center; animation: zpSearchPulse 1.1s ease-in-out infinite; }
+.zp-search-ic svg { width: 16px; height: 16px; }
+.zp-searching.off { color: var(--zr-dim); }
+@keyframes zpSearchPulse { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(2px, -1px); } 75% { transform: translate(-2px, 1px); } }

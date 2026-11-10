@@ -275,6 +275,19 @@
         root.querySelectorAll('img').forEach(function (img) {
             if (!img.getAttribute('loading')) img.setAttribute('loading', 'lazy');
             img.setAttribute('decoding', 'async');
+            img.addEventListener('error', function () { var a = img.closest('a'); (a && a.parentNode && a.parentNode.classList.contains('zr-gallery') ? a : img).remove(); }, { once: true });
+        });
+        // Photos from the web come as a row of linked images: show them as a gallery.
+        root.querySelectorAll('p').forEach(function (p) {
+            var kids = Array.prototype.filter.call(p.childNodes, function (n) { return !(n.nodeType === 3 && !n.textContent.trim()); });
+            if (kids.length < 1 || !kids.every(function (n) { return n.nodeName === 'A' && n.children.length === 1 && n.firstElementChild.nodeName === 'IMG'; })) return;
+            p.classList.add('zr-gallery');
+            kids.forEach(function (a) {
+                a.target = '_blank'; a.rel = 'noopener noreferrer';
+                var img = a.firstElementChild;
+                a.title = (img.getAttribute('alt') || '') + ' — open source page';
+                a.classList.remove('zr-src');
+            });
         });
     }
 

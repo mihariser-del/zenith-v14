@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import re
+import asyncio
 import httpx
 from datetime import datetime, timezone, timedelta
 from fastapi.responses import StreamingResponse
@@ -625,13 +626,16 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             select(UserSettings).where(UserSettings.user_id == user_id)
         )
         user_settings_obj = settings_result.scalar_one_or_none()
+        _is_owner_chat = getattr(chat.user, "role", "") == "owner"
+        pinned_model = ""
         if user_settings_obj:
-            user_model = user_settings_obj.model
             user_max_tokens = user_settings_obj.max_tokens
             user_temperature = user_settings_obj.temperature
-        # Per-chat model override (set from the chat header selector)
-        if chat.model:
-            user_model = chat.model
+            # Models are chosen automatically now; only the Owner can still pin one.
+            if _is_owner_chat and (user_settings_obj.model or "").startswith("pin:"):
+                pinned_model = user_settings_obj.model[4:]
+        if _is_owner_chat and chat.model:
+            pinned_model = chat.model
 
     has_images = bool(images)
 
@@ -654,11 +658,18 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         # Whole documents need room: the default 2048 tokens cuts CVs/decks short.
         user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
 
-    if not has_images and (web_search or research or factcheck or auto_web):
-        user_model = "perplexity/sonar"
+    # Decide automatically: web search? light or heavy model? photos?
+    from router_ai import plan_request, model_for, web_answer, web_images, images_markdown
+    _history = [m for m in messages[:-1] if m.get("role") in ("user", "assistant")]
+    plan = await plan_request(_user_ask, _history, has_images=has_images, think=think, wants_file=_wants_file,
+                              force_web=bool(web_search or research or factcheck), live_hint=auto_web)
+    user_model = pinned_model or model_for(plan)
+    use_web = (not has_images) and plan["web"] and not (_wants_file and "[File" in last_user_msg)
+    if research or factcheck:
+        plan["heavy"] = True
 
-    if has_images and (research or factcheck):
-        user_model = "openai/gpt-4o"
+    if has_images and (research or factcheck) and not pinned_model:
+        user_model = model_for({"heavy": True})
 
     if research or factcheck:
         user_max_tokens = 4096
@@ -674,7 +685,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             _u = await _tdb.get(_UT, user_id)
             if _u:
                 system_prompt += (f"\n\nThe user's local time is {_now_local.strftime('%A %d %B %Y, %H:%M')} "
-                                  f"({client_tz or 'UTC'}).\n" + await capabilities_prompt(_tdb, _u))
+                                  f"({client_tz or 'UTC'}).\n" + await capabilities_prompt(_tdb, _u, chat_id))
     except Exception as _e:
         print(f"[tools_prompt] {type(_e).__name__}: {_e}")
     messages.insert(0, {"role": "system", "content": system_prompt})
@@ -698,132 +709,46 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     async def generate():
         full_response = ""
 
-        # True links path for web/research/factcheck (perplexity) - non-stream to get real citation URLs
-        is_perplexity = user_model == "perplexity/sonar"
-        if is_perplexity:
+        img_task = None
+        if plan.get("images") and plan.get("image_query"):
+            img_task = asyncio.create_task(web_images(plan["image_query"], 3))
+
+        async def _gallery(wait):
+            if not img_task:
+                return ""
             try:
-                keys = _get_openrouter_keys()
-                if not keys:
-                    yield f"data: {json.dumps({'error': 'Zelpophai AI is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
-                    return
-                last_err = ""
-                last_status = 0
-                success = False
-                for idx, _key in enumerate(keys):
-                    try:
-                        async with httpx.AsyncClient(timeout=120) as client:
-                            r = await client.post(
-                                OPENROUTER_URL,
-                                headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"},
-                                json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature},
-                            )
-                            if r.status_code != 200:
-                                err = r.text[:500]
-                                last_err = err
-                                last_status = r.status_code
-                                if _is_exhausted(r.status_code, err) and idx < len(keys) - 1:
-                                    continue
-                                if _is_exhausted(r.status_code, err):
-                                    # Single retry after 1s before fallback (non-disruptive queue)
-                                    try:
-                                        import asyncio as _aio_retry
-                                        await _aio_retry.sleep(1.0)
-                                        async with httpx.AsyncClient(timeout=60) as fb_retry:
-                                            fr_retry = await fb_retry.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {_key}", "Content-Type": "application/json"}, json={"model": user_model, "messages": messages, "max_tokens": user_max_tokens, "temperature": user_temperature})
-                                            if fr_retry.status_code == 200:
-                                                fobj_retry = fr_retry.json()
-                                                fcontent_retry = fobj_retry.get("choices", [{}])[0].get("message", {}).get("content", "")
-                                                if fcontent_retry:
-                                                    citations_retry = fobj_retry.get("citations", []) or fobj_retry.get("choices", [{}])[0].get("message", {}).get("citations", [])
-                                                    if citations_retry:
-                                                        full_response = convert_citations_to_links(fcontent_retry, citations_retry)
-                                                    else:
-                                                        full_response = strip_citations(fcontent_retry) if fcontent_retry else ""
-                                                    for i in range(0, len(full_response), 20):
-                                                        yield f"data: {json.dumps({'token': full_response[i:i+20]})}\n\n"
-                                                        import asyncio as _aio_retry2
-                                                        await _aio_retry2.sleep(0.02)
-                                                    if full_response:
-                                                        async with async_session() as db2_retry:
-                                                            ai_msg2_retry = Message(chat_id=chat_id, role="assistant", content=full_response)
-                                                            db2_retry.add(ai_msg2_retry)
-                                                            await db2_retry.commit()
-                                                    yield "data: [DONE]\n\n"
-                                                    return
-                                    except: pass
-                                    # Try free fallback before giving up
-                                    try:
-                                        async with httpx.AsyncClient(timeout=60) as fb:
-                                            fr = await fb.post(OPENROUTER_URL, headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"}, json={"model": "openai/gpt-6-luna", "messages": messages, "max_tokens": min(user_max_tokens, 1024), "temperature": 0.7})
-                                            if fr.status_code == 200:
-                                                fobj = fr.json()
-                                                fcontent = fobj.get("choices", [{}])[0].get("message", {}).get("content", "")
-                                                if fcontent:
-                                                    full_response = strip_citations(fcontent)
-                                                    for i in range(0, len(full_response), 20):
-                                                        yield f"data: {json.dumps({'token': full_response[i:i+20]})}\n\n"
-                                                        import asyncio as _aio2
-                                                        await _aio2.sleep(0.02)
-                                                    async with async_session() as db2:
-                                                        ai_msg2 = Message(chat_id=chat_id, role="assistant", content=full_response)
-                                                        db2.add(ai_msg2)
-                                                        await db2.commit()
-                                                    yield "data: [DONE]\n\n"
-                                                    return
-                                    except: pass
-                                    yield f"data: {json.dumps({'error': 'Zelpophai AI is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
-                                else:
-                                    yield f"data: {json.dumps({'error': f'API error {r.status_code}: {err[:300]}'})}\n\n"
-                                return
-                            obj = r.json()
-                            content = obj.get("choices", [{}])[0].get("message", {}).get("content", "")
-                            citations = obj.get("citations", [])
-                            if not citations:
-                                citations = obj.get("choices", [{}])[0].get("message", {}).get("citations", [])
-                            if citations:
-                                full_response = convert_citations_to_links(content, citations)
-                                # Ensure source links footer for web/research/factcheck (fact button links)
-                                try:
-                                    norm_urls = []
-                                    for u in citations:
-                                        if isinstance(u, str): norm_urls.append(u)
-                                        elif isinstance(u, dict): norm_urls.append(u.get("url") or u.get("link") or "")
-                                        else: norm_urls.append(str(u))
-                                    if full_response and norm_urls and "Sources" not in full_response:
-                                        src = "\n\n**Sources:**\n" + "\n".join(f"- [{i+1}]({url})" for i, url in enumerate(norm_urls) if url.startswith("http"))
-                                        if src.strip() != "**Sources:**":
-                                            full_response += src
-                                except: pass
-                            else:
-                                full_response = strip_citations(content) if content else ""
-                            chunk_size = 20
-                            for i in range(0, len(full_response), chunk_size):
-                                chunk = full_response[i:i+chunk_size]
-                                yield f"data: {json.dumps({'token': chunk})}\n\n"
-                                import asyncio as _aio
-                                await _aio.sleep(0.02)
-                            if full_response:
-                                async with async_session() as db:
-                                    ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
-                                    db.add(ai_msg)
-                                    await db.commit()
-                            yield "data: [DONE]\n\n"
-                            success = True
-                            return
-                    except Exception as inner_e:
-                        last_err = str(inner_e)
-                        if idx < len(keys) - 1 and ("402" in last_err or "429" in last_err or "in_flight_budget" in last_err.lower() or "rate limit" in last_err.lower()):
-                            continue
-                        raise
-                if not success and last_err:
-                    if _is_exhausted(last_status, last_err):
-                        yield f"data: {json.dumps({'error': 'Zelpophai AI is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
-                    else:
-                        yield f"data: {json.dumps({'error': f'API error {last_status}: {last_err[:300]}'})}\n\n"
-                    return
-            except Exception as e:
-                yield f"data: {json.dumps({'error': str(e)})}\n\n"
+                imgs = await asyncio.wait_for(asyncio.shield(img_task), timeout=wait)
+            except Exception:
+                return ""
+            return images_markdown(imgs)
+
+        if use_web:
+            # Tell the app we're searching so it can show "Searching the web…".
+            yield _sse({"status": "searching", "query": plan.get("query", "")[:120]})
+            text, sources = await web_answer(messages, plan.get("query") or _user_ask, max(user_max_tokens or 0, 2048))
+            if text:
+                full_response = (await _gallery(4.0)) + text
+                if sources:
+                    yield _sse({"sources": sources[:10]})
+                for i in range(0, len(full_response), 24):
+                    yield _sse({"token": full_response[i:i + 24]})
+                    await asyncio.sleep(0.012)
+                async with async_session() as db:
+                    db.add(Message(chat_id=chat_id, role="assistant", content=full_response))
+                    await db.commit()
+                yield "data: [DONE]\n\n"
                 return
+            # Search failed: answer normally, and say so honestly.
+            yield _sse({"status": "search_failed"})
+            messages[0]["content"] += ("\n\nNOTE: a live web search was needed but failed just now. Answer from what you "
+                                       "know, and say clearly that you couldn't check the latest information.")
+
+        # Photos for the answer (when they help): show them first, like a search result.
+        if img_task:
+            g = await _gallery(2.5)
+            if g:
+                full_response += g
+                yield _sse({"token": g})
 
         # Normal streaming path (no web or has images) - with key rotation on 402/429
         keys = _get_openrouter_keys()
@@ -915,6 +840,8 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
         if full_response:
             full_response = strip_citations(full_response)
+            if img_task and not img_task.done():
+                img_task.cancel()
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)

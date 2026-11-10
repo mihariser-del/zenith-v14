@@ -1,5 +1,18 @@
 ﻿# Changelog
 
+## 21.8 — Auto search & models, greetings, Mini login, antivirus fix (Windows app 1.4.0)
+
+- `router_ai.py`: `plan_request()` asks a small fast model (`CHAT_ROUTER_MODEL`, 4.5 s limit; rules as fallback; small talk skips it) whether a message needs the **web**, a **heavy** model and **photos**
+- Models chosen per message: `CHAT_MODEL_LIGHT` (openai/gpt-6-luna) or `CHAT_MODEL_HEAVY` (openai/gpt-6-sol; also for Think, Research/Fact, file requests). Model pickers hidden for everyone but the Owner (Owner: "Auto" or a pinned model, stored as `pin:<id>`); `PATCH /api/settings` and `/api/chats/{id}/prefs` ignore model changes from non-owners
+- Web answers: SSE `{"status":"searching","query"}` → "Searching the web…" pill; `web_answer()` (`CHAT_SEARCH_MODEL`, perplexity/sonar) reads sources from `citations` / `search_results` / `annotations`; `cite()` turns [1] markers into clickable source chips and appends a **Sources** list with page titles; if search fails the AI answers normally and says so
+- Photos: `web_images()` (Wikipedia page images, Openverse fallback; openly licensed) shown as a gallery above the answer, each linking to its source page; broken images hide themselves
+- AI context: recent chats (title, when, last question) and greeting behaviour ("hello" → greet by name + offer to continue); Owner privacy rule (no personal info about Wanzu; people who know him are congratulated and pointed to a Friend request)
+- New-chat screen greeting card (`GET /api/chats/greeting`): time-of-day greeting by name, last chat with Continue chips; guests get a welcome + sign-up chip
+- Zelpophai Mini re-checks the shared login every time it opens or gets focus (sign in/out in the app is picked up immediately)
+- Theme switch now also sets `html.light-theme`, so the sidebar and app shell change too
+- One-time Owner Vault PIN reset (bcrypt hash only; marker file prevents re-runs)
+- Windows app 1.4.0: Mini's input moved from a PowerShell `-EncodedCommand` + runtime-compiled `SendInput` helper (a classic antivirus trigger) to the prebuilt native module `@nut-tree-fork/libnut-win32` (unpacked from the asar)
+
 ## 21.7 — Always up to date, custom installer (Windows app 1.3.0)
 
 - Pages and app code (`.js`, `.css`, `.html`, `.json`, HTML routes) are now sent with `Cache-Control: no-cache` (a quick 304 when unchanged), so browsers and the apps no longer keep old copies after a deploy

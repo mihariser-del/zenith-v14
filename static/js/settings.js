@@ -4,16 +4,18 @@ function populateModelSelects(models) {
     if (!Array.isArray(models) || !models.length) return;
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     const opts = models.map(m => `<option value="${esc(m.id)}">${esc(m.name)}</option>`).join('');
+    // Models are picked automatically (light or heavy, per message). Only the
+    // Owner can still pin one, for testing.
     const ms = document.getElementById('model-select');
     if (ms) {
         const prev = ms.value;
-        ms.innerHTML = opts;
-        if (prev && models.some(m => m.id === prev)) ms.value = prev;
+        ms.innerHTML = '<option value="auto">Auto — picks the right model (recommended)</option>' + opts;
+        ms.value = prev && (prev === 'auto' || models.some(m => m.id === prev)) ? prev : 'auto';
     }
     const cs = document.getElementById('chat-model-select');
     if (cs) {
         const prev = cs.value;
-        cs.innerHTML = '<option value="">Default (settings)</option>' + opts;
+        cs.innerHTML = '<option value="">Auto model</option>' + opts;
         cs.value = prev || '';
     }
 }
@@ -62,7 +64,7 @@ const Settings = {
         const serverData = await this.loadServer();
         if (serverData) {
             const srv = serverData.settings;
-            $('model-select').value = srv.model;
+            if ($('model-select')) $('model-select').value = (srv.model || '').startsWith('pin:') ? srv.model.slice(4) : 'auto';
             $('max-tokens').value = srv.max_tokens;
             $('temperature').value = srv.temperature;
             $('system-prompt').value = srv.system_prompt;
@@ -98,6 +100,7 @@ const Settings = {
     applyTheme(choice) {
         const useLight = choice === 'light' || (choice !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
         document.body.classList.toggle('light-theme', useLight);
+        document.documentElement.classList.toggle('light-theme', useLight);   // the sidebar/app styles key off <html> too
         if (!document.body.classList.contains('admin-owner') && !document.body.classList.contains('admin-gold')) {
             const m = document.querySelector('meta[name="theme-color"]');
             if (m) m.content = useLight ? '#f6f2ff' : '#000000';
@@ -188,7 +191,8 @@ const Settings = {
         await api('/api/settings', {
             method: 'PATCH',
             body: JSON.stringify({
-                model: $('model-select').value,
+                ...(window.user && window.user.role === 'owner' && $('model-select')
+                    ? { model: $('model-select').value === 'auto' ? 'auto' : 'pin:' + $('model-select').value } : {}),
                 max_tokens: parseInt($('max-tokens').value),
                 temperature: parseFloat($('temperature').value),
                 system_prompt: $('system-prompt').value,

@@ -1,4 +1,4 @@
-﻿from fastapi import APIRouter, Depends, Request, HTTPException
+from fastapi import APIRouter, Depends, Request, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,6 +79,12 @@ async def update_settings(req: UpdateSettingsRequest, request: Request, db: Asyn
     user = await get_current_user_from_cookie(request, db)
     s = await get_user_settings(user.id, db)
     update_data = req.model_dump(exclude_unset=True)
+    # The AI chooses its model automatically; only the Owner may pin one.
+    if "model" in update_data:
+        from auth import get_role
+        m = str(update_data.get("model") or "")
+        if get_role(user) != "owner" or not (m == "auto" or m.startswith("pin:")):
+            update_data.pop("model")
     for k, v in update_data.items():
         setattr(s, k, v)
     # Keep the profile display name (surfaced by /api/auth/me) in sync with settings

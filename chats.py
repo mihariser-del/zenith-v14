@@ -54,6 +54,19 @@ async def _ai_off(db: AsyncSession, user) -> bool:
         return False
 
 
+@router.get("/greeting")
+async def greeting(request: Request, db: AsyncSession = Depends(get_db)):
+    """What the new-chat screen says: your name and where you left off."""
+    from tools_prompt import recent_chats
+    from limits import _is_guest
+    user = await get_current_user_from_cookie(request, db)
+    guest = _is_guest(user)
+    name = "" if guest else ((getattr(user, "display_name", "") or user.username or "").strip())
+    recent = [] if guest else await recent_chats(db, user, limit=3)
+    return {"guest": guest, "name": name, "first": name.split()[0] if name else "",
+            "recent": [{k: r[k] for k in ("title", "link_id", "updated_at", "last")} for r in recent]}
+
+
 @router.get("")
 async def list_chats(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
@@ -182,7 +195,7 @@ async def update_chat_prefs(chat_id: int, req: ChatPrefsRequest, request: Reques
         chat.pinned = req.pinned
     if req.folder is not None:
         chat.folder = (req.folder or "").strip()[:50]
-    if req.model is not None:
+    if req.model is not None and getattr(user, "role", "") == "owner":
         chat.model = (req.model or "").strip()[:100]
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()

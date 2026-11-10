@@ -406,8 +406,40 @@
     $('pin').onclick = () => { const on = $('pin').getAttribute('aria-pressed') !== 'true'; $('pin').setAttribute('aria-pressed', on ? 'true' : 'false'); store.set('zp_mini_pin', on ? '1' : ''); M && M.setPinned(on); };
 
     /* ─────────── start ─────────── */
+    // Mini shares the app's sign-in (same cookies), so it re-checks every time it
+    // opens: log in or out in the app and Mini follows straight away.
+    let authUser = null;
+    async function checkAuth() {
+        let d = null, status = 0;
+        try {
+            const r = await fetch('/api/mini/status', { credentials: 'same-origin', cache: 'no-store' });
+            status = r.status;
+            if (r.ok) d = await r.json();
+        } catch (e) { status = -1; }
+        if (d && !d.guest) {
+            if (authUser && authUser !== d.name) { history = []; $('thread').innerHTML = ''; $('askEmpty').hidden = false; $('log').innerHTML = ''; $('doEmpty').hidden = false; lastLink = ''; }
+            authUser = d.name;
+            $('blocker').hidden = true;
+            setLeft(d.left);
+            return true;
+        }
+        authUser = null;
+        if (status === -1) {
+            block('📡', 'You\'re offline', 'Check your internet connection, then press Ctrl + Shift + Z again.', [{ label: 'Try again', pri: true, onclick: () => checkAuth() }]);
+        } else {
+            block('🔐', d && d.guest ? 'Create a free account to use Mini' : 'Log in to use Mini',
+                d && d.guest ? 'Mini needs a Zelpophai account. Sign up or log in in the app — Mini will be ready right away.'
+                             : 'Log in to Zelpophai in the app — Mini will be ready right away.',
+                [{ label: 'Open Zelpophai', pri: true, onclick: () => M.openInApp('/') }, { label: 'I\'ve logged in', onclick: () => checkAuth() }]);
+        }
+        return false;
+    }
+    // Also re-check when the panel gets focus (e.g. after logging in while it was pinned).
+    window.addEventListener('focus', () => { if (!run && !$('blocker').hidden) checkAuth(); });
+
     async function onShown(info) {
         if (run) return;
+        if (!(await checkAuth())) return;
         // A fresh session after a few minutes away; otherwise keep the conversation.
         if (Date.now() - lastShown > 5 * 60 * 1000 && !busy) { history = []; $('thread').innerHTML = ''; $('askEmpty').hidden = false; $('log').innerHTML = ''; $('doEmpty').hidden = false; $('quickrow').classList.remove('on'); }
         lastShown = Date.now();
@@ -426,21 +458,13 @@
                 [{ label: 'Get the Windows app', href: '/download', pri: true }]);
             return;
         }
-        try {
-            const r = await fetch('/api/mini/status', { credentials: 'same-origin' });
-            if (r.status === 401) throw Object.assign(new Error('login'), { login: true });
-            const d = await r.json();
-            if (d.guest) throw Object.assign(new Error('login'), { login: true });
-            setLeft(d.left);
-        } catch (e) {
-            if (e.login) block('🔐', 'Log in to use Mini', 'Log in to Zelpophai in the app (not as a guest), then press Ctrl + Shift + Z again.',
-                [{ label: 'Open Zelpophai', pri: true, onclick: () => M.openInApp('/') }]);
-        }
+        await checkAuth();
         if (store.get('zp_mini_pin', '')) { $('pin').setAttribute('aria-pressed', 'true'); M.setPinned(true); }
         $('askEach').checked = store.get('zp_mini_askeach', '1') === '1';
         $('askEach').onchange = () => store.set('zp_mini_askeach', $('askEach').checked ? '1' : '0');
         setMode(store.get('zp_mini_mode', 'ask') === 'do' ? 'do' : 'ask');
         M.onShown(onShown);
+        if (!$('blocker').hidden) return;
         onShown({});
     }
     init();

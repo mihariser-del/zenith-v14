@@ -100,6 +100,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const displayName = user.display_name || user.username;
     window.user = user; // expose for voice meter / billing guest fallback
+    // The AI picks its model automatically; only the Owner sees the model pickers.
+    if (user.role !== 'owner') {
+        const cms = document.getElementById('chat-model-select'); if (cms) cms.remove();
+        const ms = document.getElementById('model-select');
+        if (ms) { const lab = ms.previousElementSibling; if (lab && lab.tagName === 'LABEL') lab.remove(); ms.style.display = 'none'; }
+    }
     const nameTextEl = $('user-name-text') || $('user-name-display');
     const badgeEl = $('user-role-badge');
     const mobileNameEl = $('mobile-uname');

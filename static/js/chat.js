@@ -355,7 +355,7 @@ const Chat = {
             }
             this.showShareExport(this.chats[id]);
         });
-        $('chat-model-select').addEventListener('change', async (e) => {
+        if ($('chat-model-select')) $('chat-model-select').addEventListener('change', async (e) => {
             const id = createTarget();
             if (!id) return;
             const val = e.target.value;
@@ -568,6 +568,7 @@ const Chat = {
                 <div class="welcome-z-logo">Z</div>
                 <h2>Hello! I'm <span>Zelpophai AI.</span></h2>
                 <p class="welcome-sub">How can I help you today?</p>
+                <div class="zp-greetcard" id="zp-greetcard" hidden></div>
             </div>`;
         }
         return `
@@ -575,6 +576,7 @@ const Chat = {
             <div class="welcome-z-logo">Z</div>
             <h2>Hello! I'm <span>Zelpophai AI.</span></h2>
             <p class="welcome-sub">Pick a starting point or ask anything below.</p>
+            <div class="zp-greetcard" id="zp-greetcard" hidden></div>
             <div class="template-grid" id="template-grid">
                 <button class="template-card" data-tpl="1">
                     <div class="tpl-ic">✍️</div>
@@ -602,6 +604,51 @@ const Chat = {
                 </button>
             </div>
         </div>`;
+    },
+
+    // The new-chat screen greets you: by name, at the right time of day, and with
+    // a one-tap way back into what you were doing last time.
+    async loadGreeting() {
+        const box = document.getElementById('zp-greetcard');
+        if (!box) return;
+        let g = this._greet && Date.now() - this._greet.at < 120000 ? this._greet.data : null;
+        if (!g) {
+            try { g = await api('/api/chats/greeting'); this._greet = { at: Date.now(), data: g }; } catch (e) { return; }
+        }
+        if (!document.body.contains(box)) return;
+        const h = new Date().getHours();
+        const tod = h < 5 ? 'Hey' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Hey';
+        const esc = (t) => this.escapeHtml(String(t || ''));
+        const cur = (this.chats[this.activeId] || {}).link_id;
+        const recent = (g.recent || []).filter(r => r.link_id && r.link_id !== cur);
+        let text, chips = '';
+        if (g.guest) {
+            text = `Hi there 👋 Welcome to <b>Zelpophai AI</b>! Ask me anything — I can search the web, make pictures, videos and documents, and help you code. <span class="zg-dim">Create a free account to keep your chats.</span>`;
+            chips = `<button type="button" class="zg-chip pri" data-act="signup">Create a free account</button>`;
+        } else if (recent.length) {
+            const r = recent[0];
+            text = `${tod}, <b>${esc(g.first || g.name)}</b> 👋 Welcome back! Last time we were on <b>“${esc(r.title)}”</b>${r.last ? ` <span class="zg-dim">— “${esc(r.last.slice(0, 70))}${r.last.length > 70 ? '…' : ''}”</span>` : ''}. Want to pick up where we left off, or start something new?`;
+            chips = recent.slice(0, 2).map((x, i) => `<button type="button" class="zg-chip${i ? '' : ' pri'}" data-link="${esc(x.link_id)}">↩ ${i ? '' : 'Continue '}“${esc(x.title.length > 34 ? x.title.slice(0, 33) + '…' : x.title)}”</button>`).join('') +
+                `<button type="button" class="zg-chip" data-act="new">✨ Something new</button>`;
+        } else {
+            text = `${tod}, <b>${esc(g.first || g.name || 'there')}</b> 👋 What would you like to do today? Ask me anything, or pick a starting point.`;
+        }
+        box.innerHTML = `<span class="zg-z" aria-hidden="true">Z</span><div class="zg-body"><p>${text}</p>${chips ? `<div class="zg-chips">${chips}</div>` : ''}</div>`;
+        box.hidden = false;
+        const sub = box.parentElement.querySelector('.welcome-sub'); if (sub) sub.hidden = true;
+        box.onclick = async (e) => {
+            const b = e.target.closest('.zg-chip'); if (!b) return;
+            if (b.dataset.link) {
+                const chat = Object.values(this.chats).find(c => c.link_id === b.dataset.link);
+                if (chat) this.switchTo(chat.id);
+                else location.href = '/app/c/' + encodeURIComponent(b.dataset.link);
+            } else if (b.dataset.act === 'signup') {
+                location.href = '/?login=register';
+            } else {
+                const inp = document.getElementById('user-input'); if (inp) inp.focus();
+                box.querySelector('.zg-chips') && box.querySelector('.zg-chips').remove();
+            }
+        };
     },
 
     initTemplates() {
@@ -635,6 +682,7 @@ const Chat = {
             container.innerHTML = this.renderWelcome();
             this.initTemplates();
             this.renderHeader();
+            this.loadGreeting();
             return;
         }
 
@@ -646,6 +694,7 @@ const Chat = {
         if (messages.length === 0) {
             container.innerHTML = this.renderWelcome();
             this.initTemplates();
+            this.loadGreeting();
             return;
         }
 
@@ -956,6 +1005,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.status && !fullResponse) this._showStatus(assistantBubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(assistantBubble, fullResponse);
@@ -1453,6 +1503,19 @@ const Chat = {
     },
 
     // Extra server events that ride along the reply stream.
+    // "Searching the web…" while the AI looks things up (the server decides on its own).
+    _showStatus(bubble, parsed) {
+        if (!bubble) return;
+        if (parsed.status === 'searching') {
+            const q = String(parsed.query || '').slice(0, 90);
+            bubble.innerHTML = '<div class="zp-searching" role="status"><span class="zp-search-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><span>Searching the web\u2026</span>' +
+                (q ? '<small></small>' : '') + '</div>';
+            if (q) bubble.querySelector('small').textContent = '\u201c' + q + '\u201d';
+        } else if (parsed.status === 'search_failed') {
+            bubble.innerHTML = '<div class="zp-searching off" role="status"><span>Couldn\u2019t reach the web \u2014 answering from what I know\u2026</span></div>';
+        }
+    },
+
     _handleStreamMeta(parsed, bubble, state) {
         (parsed.video_jobs || []).forEach(job => {
             if (!job || !job.id || this._videoTimers[job.id]) return;
@@ -1662,6 +1725,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.status && !fullResponse) this._showStatus(bubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);
@@ -1980,6 +2044,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.status && !fullResponse) this._showStatus(bubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);

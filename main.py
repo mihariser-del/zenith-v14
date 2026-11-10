@@ -44,10 +44,15 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.7"
+VERSION = "21.8"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "21.8 Smarter answers: Zelpophai now decides by itself when to search the web — you'll see \"Searching the web…\" — and answers with real, clickable sources and a list of the pages it used. It also adds real photos when they help (places, animals, landmarks…)",
+    "No more picking AI models: each message automatically gets a fast model for simple things and a stronger one for hard tasks like code, maths and long writing",
+    "Zelpophai remembers what you were working on: say hello and it greets you and offers to pick up where you left off, and every new chat now opens with a personal greeting",
+    "Zelpophai Mini now logs in and out together with the app — no more restarting after you sign in. Light and dark themes now switch the whole app",
+    "Windows app 1.4.0: rebuilt Mini's mouse-and-keyboard control in a way antivirus programs no longer mistake for malware",
     "21.7 The Windows and Android apps now update themselves the moment Zelpophai changes — no waiting for a new app version. If you're in the middle of something you'll see a small Refresh button instead",
     "New Windows installer in Zelpophai's look: one click on Install sets everything up and opens the app, or choose Customize to pick the folder, a desktop shortcut and Start with Windows (Windows app 1.3.0)",
     "21.6 New Privacy Policy and Terms of Service pages, linked across the site. The welcome page now shows real things Zelpophai made — a real Word file you can download, a real image and video, and today's actual news — each with a Try this yourself button",
@@ -142,12 +147,39 @@ STAFF_CHANGELOG = [
 ]
 
 
+# One-time Owner Vault PIN reset (requested by the Owner, who forgot the PIN).
+# Only the bcrypt hash is stored here; it runs once, then a marker file on the
+# volume stops it from running again, so a PIN changed later in the Vault stays.
+_OWNER_PIN_RESET_HASH = "$2b$12$yDgGjwq5oYUI5dInMTdMbeO9HahFvA//1NofkAbua.rRtjx6f0UOC"
+_OWNER_PIN_RESET_ID = "owner-pin-reset-2026-11-10"
+
+
+async def _owner_pin_reset_once():
+    try:
+        from appdist import _dir
+        marker = _dir() / f".{_OWNER_PIN_RESET_ID}"
+        if marker.exists():
+            return
+        from database import async_session as _as, User as _U
+        from sqlalchemy import select as _sel
+        async with _as() as db:
+            owners = (await db.execute(_sel(_U).where(_U.role == "owner"))).scalars().all()
+            for o in owners:
+                o.pin_hash = _OWNER_PIN_RESET_HASH
+            await db.commit()
+        marker.write_text("done")
+        print(f"[vault] Owner PIN reset for {len(owners)} owner account(s)")
+    except Exception as e:
+        print(f"[vault] owner PIN reset skipped: {e}")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
         await init_db()
     except Exception as e:
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
+    await _owner_pin_reset_once()
     reminder_task = asyncio.create_task(_reminder_loop())
     asyncio.create_task(_indexnow_ping())
     try:

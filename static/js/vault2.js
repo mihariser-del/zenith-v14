@@ -218,6 +218,7 @@
     backups: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.7-4 3-9 3s-9-1.3-9-3M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/>',
     controls: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
     chats: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    feedback: '<path d="M21 11.500a8.400 8.400 0 0 1-12.300 7.400L3 21l2.100-5.700A8.400 8.400 0 1 1 21 11.500z"/><path d="M12 7.500l1.200 2.500 2.800.400-2 1.900.500 2.700-2.500-1.300-2.500 1.300.500-2.700-2-1.900 2.800-.400z"/>',
     security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/>',
     staff: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/><path d="M19 8l1.5 1.5L23 7"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
@@ -231,6 +232,7 @@
     { id: 'users', label: 'Users', grp: 'People' },
     { id: 'chats', label: 'Conversations', grp: 'People' },
     { id: 'people', label: 'Friends & customers', grp: 'People' },
+    { id: 'feedback', label: 'Feedback', grp: 'People', badge: 'feedback', range: true },
     { id: 'safety', label: 'Content safety', grp: 'People', badge: 'safety' },
     { id: 'controls', label: 'Controls & broadcast', grp: 'System' },
     { id: 'security', label: 'Security & emergency', grp: 'System', owner: true },
@@ -259,12 +261,13 @@
     document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('on', a.dataset.p === def.id));
     $('page-title').textContent = page === 'users' && arg ? 'User profile' : def.label;
     $('crumb').textContent = page === 'users' && arg ? 'Users' : (def.grp || 'Vault');
-    $('ranges').classList.toggle('off', !def.range);
+    $('ranges').classList.toggle('off', !def.range || (page === 'feedback' && arg !== 'answers'));
     $('side').classList.remove('open'); $('scrim').classList.remove('on');
     $('view').innerHTML = `<div class="grid g4">${'<div class="card skeleton" style="height:120px"></div>'.repeat(4)}</div><div class="card skeleton mt" style="height:320px"></div>`;
     window.scrollTo(0, 0);
     try {
       if (page === 'users' && arg) await pageUser(+arg);
+      else if (page === 'feedback') await pageFeedback(arg);
       else await ({ overview: pageOverview, growth: pageGrowth, ai: pageAI, live: pageLive, users: pageUsers, people: pagePeople,
         safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs,
         chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings }[def.id])();
@@ -801,6 +804,7 @@
       $('online-pill').querySelector('b').textContent = d.online.length;
     } catch (e) {}
     try { const s = await api('/api/vault/safety?status=open'); setBadge('safety', s.counts.open || 0); } catch (e) {}
+    try { const f = await api('/api/feedback/unread'); setBadge('feedback', f.staff_open || 0); } catch (e) {}
     refreshAlerts();
   }
 
@@ -1058,6 +1062,178 @@
     $('se-theme').onclick = () => toggleTheme();
     $('se-notif').onclick = async () => { if (!('Notification' in window)) return toast('Not supported in this browser', true); const p = await Notification.requestPermission(); $('se-notif').textContent = p === 'granted' ? 'On' : 'Turn on'; toast(p === 'granted' ? 'Desktop alerts on' : 'Notifications are blocked'); };
     $('se-lock').onclick = () => lock();
+  }
+
+  /* ─────────────────────────────── feedback ─────────────────────────────── */
+  const FB_KIND = { bug: ['Bug', 'bad'], idea: ['Idea', 'warn'], praise: ['Praise', 'ultimate'], problem: ['Problem', 'warn'], request: ['Personal request', 'pro'], pulse: ['Quick rating', ''], other: ['Feedback', ''] };
+  const FB_STATUS = { new: ['New', 'bad'], seen: ['Seen', ''], in_progress: ['In progress', 'pro'], planned: ['Planned', 'ultimate'], done: ['Done', 'good'], declined: ['Not planned', ''] };
+  const fbKind = (k) => `<span class="tag ${(FB_KIND[k] || FB_KIND.other)[1]}">${(FB_KIND[k] || FB_KIND.other)[0]}</span>`;
+  const fbStatus = (st) => `<span class="tag ${(FB_STATUS[st] || ['', ''])[1]}">${(FB_STATUS[st] || [st])[0]}</span>`;
+  const starsHtml = (n) => n ? `<span class="stars" title="${n} out of 5">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>` : '';
+  const FB_TABS = [['', 'Inbox'], ['ideas', 'Ideas board'], ['answers', 'Answer ratings'], ['summary', 'AI summary']];
+  const fbTabs = (cur, counts) => `<div class="chips fb-tabs">${FB_TABS.map(([k, l]) => `<a class="chip${k === cur ? ' on' : ''}" href="#/feedback${k ? '/' + k : ''}">${l}${k === '' && counts && counts.unread ? ` <span class="dotn">${counts.unread}</span>` : ''}${k === 'ideas' && counts && counts.review ? ` <span class="dotn">${counts.review}</span>` : ''}</a>`).join('')}</div>`;
+
+  async function pageFeedback(arg) {
+    if (arg && /^\d+$/.test(arg)) { $('page-title').textContent = 'Feedback'; $('crumb').textContent = 'Feedback'; return fbThread(+arg); }
+    if (arg === 'ideas') return fbIdeas();
+    if (arg === 'answers') return fbAnswers();
+    if (arg === 'summary') return fbSummary();
+    const st = { status: 'open', kind: '', q: '', page: 1 };
+    const first = await api('/api/vault/feedback?status=open');
+    const k = first.kpis;
+    $('view').innerHTML = `<div class="grid g4">
+        ${kpi('Waiting for you', fmt.n(k.unread), undefined, k.unread ? '#f87171' : '#34d399', null, { note: fmt.n(k.open) + ' open in total' })}
+        ${kpi('Star rating (30d)', k.avg_rating != null ? k.avg_rating.toFixed(1) + ' / 5' : '—', undefined, '#fbbf24', null, { note: k.ratings ? `from ${fmt.n(k.ratings)} rating${k.ratings > 1 ? 's' : ''}` : 'no ratings yet' })}
+        ${kpi('Good answers (30d)', k.satisfaction != null ? k.satisfaction + '%' : '—', undefined, '#34d399', null, { note: `${fmt.n(k.answers_up)} 👍 · ${fmt.n(k.answers_down)} 👎` })}
+        ${kpi('Your reply time', k.first_reply_hours != null ? (k.first_reply_hours < 1 ? Math.max(1, Math.round(k.first_reply_hours * 60)) + ' min' : k.first_reply_hours + ' h') : '—', undefined, '#6d7cff', null, { note: 'typical time to first reply' })}
+      </div>
+      <div class="card fade mt">${fbTabs('', first.counts)}
+        <div class="toolbar" style="margin-top:12px"><input class="input" id="fb-q" placeholder="Search feedback or a name…" autocomplete="off">
+          <select class="select" id="fb-kind" style="width:auto"><option value="">All types</option>${Object.entries(first.kinds).map(([kk, l]) => `<option value="${kk}">${esc(l)}</option>`).join('')}</select>
+          <span class="muted small" id="fb-total" style="margin-left:auto"></span></div>
+        <div class="chips" id="fb-status" style="margin-bottom:12px"></div>
+        <div id="fb-list"></div>
+        <div class="pager"><span id="fb-range"></span><span><button class="btn sm" id="fb-prev">‹ Prev</button> <button class="btn sm" id="fb-next">Next ›</button></span></div></div>`;
+    const draw = (d) => {
+      const SC = [['open', 'Open'], ['unread', 'Needs reply'], ['in_progress', 'In progress'], ['planned', 'Planned'], ['done', 'Done'], ['declined', 'Not planned'], ['all', 'Everything']];
+      $('fb-status').innerHTML = SC.map(([kk, l]) => `<button class="chip${kk === st.status ? ' on' : ''}" data-s="${kk}">${l} <span class="muted">${d.counts[kk] || 0}</span></button>`).join('');
+      $('fb-total').textContent = fmt.n(d.total) + (d.total === 1 ? ' item' : ' items');
+      $('fb-list').innerHTML = d.tickets.length ? `<div class="list">${d.tickets.map((t) => `<a class="li click fb-row${t.unread ? ' unread' : ''}" href="#/feedback/${t.id}">
+          <span class="fb-dot"></span><div class="grow"><div class="fb-row-top">${fbKind(t.kind)}<b>${esc(t.title || t.content.slice(0, 90) || 'Rating only')}</b>${starsHtml(t.rating)}</div>
+          <div class="muted small fb-ex">${t.title && t.content ? esc(t.content.slice(0, 160)) + ' · ' : ''}@${esc(t.guest ? 'guest' : t.username)}${t.context ? ' · ' + esc(t.context) : ''}${t.has_screenshot ? ' · 📎 screenshot' : ''}${t.public ? ` · on the board · ${t.votes} vote${t.votes === 1 ? '' : 's'}` : ''}</div></div>
+          ${fbStatus(t.status)}<span class="t">${fmt.ago(t.updated_at)}</span></a>`).join('')}</div>` : empty(st.status === 'open' ? 'Inbox zero 🎉' : 'Nothing here', st.status === 'open' ? 'Nothing is waiting. New feedback shows up here.' : 'Try another filter.');
+      const a = (st.page - 1) * d.per + 1, b = Math.min(d.total, st.page * d.per);
+      $('fb-range').textContent = d.total ? `${a}–${b} of ${fmt.n(d.total)}` : '';
+      $('fb-prev').disabled = st.page <= 1; $('fb-next').disabled = b >= d.total;
+      setBadge('feedback', d.kpis.unread);
+    };
+    const load = async () => draw(await api(`/api/vault/feedback?status=${st.status}&kind=${st.kind}&q=${encodeURIComponent(st.q)}&page=${st.page}`));
+    draw(first);
+    let qt;
+    $('fb-q').oninput = () => { clearTimeout(qt); qt = setTimeout(() => { st.q = $('fb-q').value.trim(); st.page = 1; load(); }, 250); };
+    $('fb-kind').onchange = () => { st.kind = $('fb-kind').value; st.page = 1; load(); };
+    $('fb-status').onclick = (e) => { const b = e.target.closest('[data-s]'); if (!b) return; st.status = b.dataset.s; st.page = 1; load(); };
+    $('fb-prev').onclick = () => { st.page--; load(); }; $('fb-next').onclick = () => { st.page++; load(); };
+    S.timers.push(setInterval(() => { if (!document.hidden && !$('fb-q').value) load(); }, 30000));
+  }
+
+  async function fbThread(id) {
+    const d = await api('/api/vault/feedback/' + id);
+    const t = d.ticket;
+    const QUICK = ['Thanks for telling us — we\'re looking into it.', 'Fixed! Please refresh and try again.', 'Great idea — it\'s on our list.', 'Could you tell us a bit more? What did you do just before it happened?', 'Thank you, that means a lot!'];
+    $('view').innerHTML = `<div class="grid g21">
+      <div class="card fade">
+        <div class="fb-head"><a class="btn sm" href="#/feedback">‹ Inbox</a><div class="grow"></div>${fbKind(t.kind)}${fbStatus(t.status)}</div>
+        <h2 class="fb-title">${esc(t.title || (t.content.length > 70 ? t.content.slice(0, 68) + '…' : t.content) || (FB_KIND[t.kind] || FB_KIND.other)[0])}</h2>
+        <div class="muted small">from <a href="#/users/${t.user_id}">@${esc(t.username)}</a>${t.guest ? ' (guest)' : ''} · ${fmt.dt(t.created_at)}${t.context ? ' · ' + esc(t.context) : ''}${t.source === 'legacy' ? ' · from the old inbox' : t.source === 'pulse' ? ' · answered "How is Zelpophai so far?"' : ''}</div>
+        <div class="chat-view fb-msgs" id="fb-msgs">
+          <div class="msg"><div class="who">@${esc(t.username)} <span>${fmt.ago(t.created_at)}</span></div><div class="txt">${t.content ? esc(t.content) : '<em class="muted">(no text)</em>'}</div>${starsHtml(t.rating)}
+            ${t.has_screenshot ? `<a href="/api/feedback/shot/${t.id}" target="_blank" rel="noopener"><img class="fb-shot" src="/api/feedback/shot/${t.id}" alt="Screenshot from the user" loading="lazy"></a>` : ''}</div>
+          ${d.messages.map((m) => m.system ? `<div class="fb-sys"><span>${esc(m.content)} — ${esc(m.author)}</span></div>` : `<div class="msg ${m.staff ? 'me' : ''}"><div class="who">${m.staff ? esc(m.author || m.label) + (m.role === 'owner' ? ' (Owner)' : ' (Admin)') : '@' + esc(m.author)} <span>${fmt.ago(m.t)}</span></div><div class="txt">${esc(m.content)}</div></div>`).join('')}
+        </div>
+        <div class="fb-reply"><div class="chips" id="fb-quick">${QUICK.map((q, i) => `<button class="chip" data-q="${i}">${esc(q.length > 34 ? q.slice(0, 32) + '…' : q)}</button>`).join('')}</div>
+          <textarea class="input" id="fb-text" rows="3" maxlength="4000" placeholder="Write a reply — they get a notification in the app…"></textarea>
+          <div class="fb-reply-row"><label class="muted small">Then mark as <select class="select" id="fb-after" style="width:auto;display:inline-block;margin-left:6px"><option value="">(leave as is)</option>${Object.entries(d.statuses).filter(([kk]) => kk !== 'new').map(([kk, l]) => `<option value="${kk}">${esc(l)}</option>`).join('')}</select></label>
+            <button class="btn pri" id="fb-send">Send reply</button></div></div>
+      </div>
+      <div>
+        ${card('Status', `<div class="fb-statuses" id="fb-st">${Object.entries(d.statuses).filter(([kk]) => kk !== 'new').map(([kk, l]) => `<button class="chip${t.status === kk ? ' on' : ''}" data-s="${kk}">${esc(l)}</button>`).join('')}</div>
+          <p class="muted small" style="margin:10px 0 0">Changing it tells the person (except "Seen").</p>`)}
+        ${card('Details', `<dl class="kv"><dt>Type</dt><dd><select class="select" id="fb-kind-set" style="width:auto">${Object.entries(d.kinds).filter(([kk]) => kk !== 'pulse' || t.kind === 'pulse').map(([kk, l]) => `<option value="${kk}"${kk === t.kind ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></dd>
+          <dt>Person</dt><dd><a href="#/users/${t.user_id}">@${esc(t.username)}</a>${d.author.other_tickets ? ` <span class="muted small">· ${d.author.other_tickets} other</span>` : ''}</dd>
+          <dt>Rating</dt><dd>${t.rating ? starsHtml(t.rating) : '—'}</dd>
+          <dt>First reply</dt><dd>${t.first_reply_at ? fmt.dt(t.first_reply_at) : 'not yet'}</dd></dl>`).replace('class="card fade"', 'class="card fade mt"')}
+        ${t.kind === 'idea' ? card('Ideas board', `<div class="ctrl" style="padding-top:0"><div class="grow"><b>Show on the board</b><span class="muted small">${t.wants_public ? (t.public ? `Public · ${t.votes} vote${t.votes === 1 ? '' : 's'}${t.anonymous ? ' · name hidden' : ''}` : 'Hidden from other people.') : 'The author chose to keep it private.'}</span></div><button class="switch${t.public ? ' on' : ''}" id="fb-pub" ${t.wants_public ? '' : 'disabled'} aria-label="Show on the ideas board"></button></div>
+          <label class="muted small" style="display:block;margin:10px 0 6px">Title on the board</label><input class="input" id="fb-title-in" maxlength="140" value="${esc(t.title)}">
+          <label class="muted small" style="display:block;margin:10px 0 6px">Official answer (everyone sees it)</label><textarea class="input" id="fb-official" rows="3" maxlength="1500" placeholder="e.g. Coming in December!">${esc(t.public_reply)}</textarea>
+          <div style="text-align:right;margin-top:8px"><button class="btn sm" id="fb-save-board">Save</button></div>`).replace('class="card fade"', 'class="card fade mt"') : ''}
+        <button class="btn danger wide mt" id="fb-del">Delete this feedback</button>
+      </div></div>`;
+    const box = $('fb-msgs'); box.scrollTop = box.scrollHeight;
+    const upd = async (body, msg) => { try { await api(`/api/vault/feedback/${id}/update`, { method: 'POST', body }); toast(msg || 'Saved'); fbThread(id); } catch (e) { toast(e.message, true); } };
+    $('fb-quick').onclick = (e) => { const b = e.target.closest('[data-q]'); if (b) { $('fb-text').value = QUICK[+b.dataset.q]; $('fb-text').focus(); } };
+    const send = async () => {
+      const v = $('fb-text').value.trim(); if (!v) return toast('Write a reply first', true);
+      $('fb-send').disabled = true;
+      try { await api(`/api/vault/feedback/${id}/reply`, { method: 'POST', body: { content: v, status: $('fb-after').value } }); toast('Reply sent'); fbThread(id); } catch (e) { toast(e.message, true); $('fb-send').disabled = false; }
+    };
+    $('fb-send').onclick = send;
+    $('fb-text').onkeydown = (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) send(); };
+    $('fb-st').onclick = (e) => { const b = e.target.closest('[data-s]'); if (b && b.dataset.s !== t.status) upd({ status: b.dataset.s }, 'Status changed'); };
+    $('fb-kind-set').onchange = () => upd({ kind: $('fb-kind-set').value }, 'Type changed');
+    if ($('fb-pub')) $('fb-pub').onclick = () => upd({ public: !t.public }, t.public ? 'Hidden from the board' : 'Now on the ideas board');
+    if ($('fb-save-board')) $('fb-save-board').onclick = () => upd({ title: $('fb-title-in').value, public_reply: $('fb-official').value });
+    $('fb-del').onclick = async () => { if (!(await confirmBox('Delete this feedback?', 'It is removed for you and for the person who sent it, with all replies.', 'Delete', true))) return; try { await api('/api/vault/feedback/' + id, { method: 'DELETE' }); toast('Deleted'); location.hash = '#/feedback'; } catch (e) { toast(e.message, true); } };
+  }
+
+  async function fbIdeas() {
+    let mode = 'all';
+    const load = async () => {
+      const d = await api(`/api/vault/feedback?kind=idea&status=${mode === 'review' ? 'review' : 'all'}&sort=votes&per=100`);
+      $('view').innerHTML = `<div class="card fade">${fbTabs('ideas', d.counts)}
+        <div class="ctrl"><div class="grow"><b>Check ideas before they go public</b><span class="muted small">Off: ideas appear on the board straight away (anything the safety filter catches still waits). On: nothing appears until you approve it.</span></div><button class="switch${d.ideas_review ? ' on' : ''}" id="fb-review" aria-label="Review ideas first"></button></div>
+        <div class="chips" id="fb-im" style="margin:12px 0"><button class="chip${mode === 'all' ? ' on' : ''}" data-m="all">All ideas <span class="muted">${d.counts.all || 0}</span></button><button class="chip${mode === 'review' ? ' on' : ''}" data-m="review">Waiting for approval <span class="muted">${d.counts.review || 0}</span></button></div>
+        ${d.tickets.length ? `<div class="list">${d.tickets.map((t) => `<div class="li fb-idea" data-id="${t.id}"><div class="fb-votes"><b>${t.votes}</b><span>vote${t.votes === 1 ? '' : 's'}</span></div>
+          <div class="grow"><a href="#/feedback/${t.id}" style="color:inherit"><b>${esc(t.title || t.content.slice(0, 80))}</b></a> ${fbStatus(t.status)}${t.public ? '<span class="tag good">Public</span>' : t.wants_public ? '<span class="tag warn">Hidden</span>' : '<span class="tag">Private</span>'}
+            <div class="muted small fb-ex">${esc(t.content.slice(0, 200))} · @${esc(t.username)} · ${fmt.ago(t.created_at)}</div>${t.public_reply ? `<div class="small" style="margin-top:4px">↳ ${esc(t.public_reply)}</div>` : ''}</div>
+          <div class="bk-act">${t.wants_public ? `<button class="btn sm" data-a="pub">${t.public ? 'Hide' : 'Publish'}</button> ` : ''}<select class="select fb-set" data-a="status" style="width:auto;display:inline-block">${Object.entries(d.statuses).map(([kk, l]) => `<option value="${kk}"${kk === t.status ? ' selected' : ''}>${esc(l)}</option>`).join('')}</select></div></div>`).join('')}</div>`
+          : empty(mode === 'review' ? 'Nothing waiting for approval' : 'No ideas yet', 'Ideas people share from the app appear here.')}</div>`;
+      $('fb-review').onclick = async () => { try { await api('/api/vault/feedback/settings', { method: 'POST', body: { ideas_review: !d.ideas_review } }); toast('Saved'); load(); } catch (e) { toast(e.message, true); } };
+      $('fb-im').onclick = (e) => { const b = e.target.closest('[data-m]'); if (b) { mode = b.dataset.m; load(); } };
+      $('view').querySelectorAll('.fb-idea').forEach((row) => {
+        const t = d.tickets.find((x) => x.id === +row.dataset.id);
+        const pb = row.querySelector('[data-a="pub"]');
+        if (pb) pb.onclick = async () => { try { await api(`/api/vault/feedback/${t.id}/update`, { method: 'POST', body: { public: !t.public } }); toast(t.public ? 'Hidden' : 'Published'); load(); } catch (e) { toast(e.message, true); } };
+        row.querySelector('[data-a="status"]').onchange = async (e) => { try { await api(`/api/vault/feedback/${t.id}/update`, { method: 'POST', body: { status: e.target.value } }); toast('Status changed'); load(); } catch (err) { toast(err.message, true); } };
+      });
+    };
+    await load();
+  }
+
+  async function fbAnswers() {
+    const d = await api('/api/vault/feedback/insights?range=' + S.range);
+    const total = d.up_total + d.down_total;
+    $('view').innerHTML = `<div class="grid g4">
+        ${kpi('Good answers', d.satisfaction != null ? d.satisfaction + '%' : '—', undefined, '#34d399', null, { note: total ? `of ${fmt.n(total)} rated answers` : 'nobody has rated an answer yet' })}
+        ${kpi('Thumbs up', fmt.n(d.up_total), undefined, '#34d399', null, { note: 'this period' })}
+        ${kpi('Thumbs down', fmt.n(d.down_total), undefined, '#f87171', null, { note: 'this period' })}
+        ${kpi('Top complaint', d.reasons.length ? esc(d.reasons[0].label) : '—', undefined, '#fbbf24', null, { note: d.reasons.length ? d.reasons[0].count + ' times' : 'no thumbs down' })}
+      </div>
+      <div class="card fade mt">${fbTabs('answers')}</div>
+      <div class="grid g21 mt">
+        ${card('Answer ratings over time', '<div class="chart"><canvas id="ch-fb-ans"></canvas></div>', '', 'thumbs under AI answers')}
+        ${card('Why thumbs down', d.reasons.length ? d.reasons.map((r) => `<div class="bar-row"><span>${esc(r.label)}</span><div class="track"><div class="fill" style="width:${Math.round(r.count / d.reasons[0].count * 100)}%;background:#f87171"></div></div><span class="num">${r.count}</span></div>`).join('') : empty('No thumbs down', 'Reasons people give appear here.'))}
+      </div>
+      <div class="grid g21 mt">
+        ${card('Feedback and star ratings', '<div class="chart"><canvas id="ch-fb-stars"></canvas></div>', '', 'feedback sent per day, with the average star rating')}
+        ${card('Stars given', d.star_dist.some(Boolean) ? [5, 4, 3, 2, 1].map((n) => `<div class="bar-row" style="grid-template-columns:82px 1fr 40px"><span class="stars">${'★'.repeat(n)}</span><div class="track"><div class="fill" style="width:${Math.round(d.star_dist[n - 1] / Math.max(...d.star_dist) * 100)}%;background:#fbbf24"></div></div><span class="num">${d.star_dist[n - 1]}</span></div>`).join('') : empty('No star ratings yet'))}
+      </div>
+      ${card('Latest thumbs down', d.recent_down.length ? d.recent_down.map((r) => `<div class="flag warn"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><span class="tag bad">${esc(r.reason_label)}</span><a href="#/users/${r.user_id}">@${esc(r.username)}</a><span class="muted small">in “${esc(r.chat_title || 'a chat')}” · ${fmt.ago(r.t)}</span></div>
+          ${r.comment ? `<div class="ex">“${esc(r.comment)}”</div>` : ''}
+          ${r.question || r.answer ? `<div class="fb-qa"><div><span class="muted small">They asked</span>${esc(r.question || '—')}</div><div><span class="muted small">Zelpophai answered</span>${esc(r.answer)}${r.answer.length >= 500 ? '…' : ''}</div></div>` : '<div class="muted small">Staff chat — hidden.</div>'}
+          <button class="btn sm" data-chat="${r.chat_id}">Open the chat</button></div>`).join('') : empty('No thumbs down in this period', 'When someone marks an answer as bad you can read it here.'), '', 'the question, the answer, and what they said').replace('class="card fade"', 'class="card fade mt"')}`;
+    lineChart('ch-fb-ans', d.labels, 'day', [{ label: 'Thumbs up', data: d.up, color: '#34d399' }, { label: 'Thumbs down', data: d.down, color: '#f87171' }], { legend: true });
+    barChart('ch-fb-stars', d.labels, 'day', [{ label: 'Feedback sent', data: d.sent, color: '#6d7cff' }]);
+    $('view').querySelectorAll('[data-chat]').forEach((b) => b.onclick = () => viewChat(+b.dataset.chat));
+  }
+
+  async function fbSummary() {
+    const d = await api('/api/vault/feedback/summary');
+    const MOOD = { good: ['😊', 'good'], bad: ['😟', 'bad'], mixed: ['😐', 'warn'] };
+    const s = d.summary;
+    const listCard = (title, items, icon) => items && items.length ? card(title, `<ul class="fb-ul">${items.map((x) => `<li><span>${icon}</span>${esc(x)}</li>`).join('')}</ul>`) : '';
+    $('view').innerHTML = `<div class="card fade">${fbTabs('summary')}
+        <div class="fb-sum-head"><div class="grow">${s ? `<h2 class="fb-title" style="margin-top:14px">${esc(s.headline)}</h2><div class="muted small">From ${fmt.n(s.items)} pieces of feedback and ${fmt.n(s.up + s.down)} answer ratings in the last ${s.days} days · written ${fmt.ago(s.made_at)} by AI</div>`
+          : '<h2 class="fb-title" style="margin-top:14px">What are people saying?</h2><div class="muted small">Let the AI read the recent feedback and answer ratings and sum them up for you.</div>'}</div>
+          <div class="fb-sum-act"><select class="select" id="fs-days" style="width:auto"><option value="7">Last 7 days</option><option value="30">Last 30 days</option><option value="90">Last 90 days</option></select><button class="btn pri" id="fs-go">${s ? 'Write a new one' : 'Write summary'}</button></div></div></div>
+      ${s ? `${s.themes.length ? `<div class="grid g3 mt">${s.themes.map((th) => `<div class="card fade"><div class="fb-theme"><span class="fb-mood">${(MOOD[th.mood] || MOOD.mixed)[0]}</span><b>${esc(th.title)}</b>${th.count ? `<span class="tag ${(MOOD[th.mood] || MOOD.mixed)[1]}">${th.count}×</span>` : ''}</div><p class="muted" style="margin:8px 0 0;font-size:13.5px;line-height:1.5">${esc(th.detail)}</p></div>`).join('')}</div>` : ''}
+        <div class="grid g2 mt">${listCard('Fix first', s.problems, '🔧')}${listCard('Most wanted', s.ideas, '💡')}${listCard('What people like', s.praise, '💜')}${listCard('Suggested next steps', s.next_steps, '➡️')}</div>
+        <p class="muted small mt">The summary is written by AI from the feedback text, so check the Inbox before acting on something important.</p>` : ''}`;
+    if (s) $('fs-days').value = String(s.days);
+    $('fs-go').onclick = async () => {
+      const b = $('fs-go'); b.disabled = true; b.textContent = 'Reading feedback…';
+      try { await api('/api/vault/feedback/summary?days=' + $('fs-days').value, { method: 'POST' }); toast('Summary ready'); fbSummary(); } catch (e) { toast(e.message, true); b.disabled = false; b.textContent = s ? 'Write a new one' : 'Write summary'; }
+    };
   }
 
   /* ─────────────────────────────── command palette ─────────────────────────────── */

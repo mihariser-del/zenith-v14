@@ -597,6 +597,81 @@ class ClientSeen(Base):
     last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+class FbTicket(Base):
+    """One piece of feedback: a bug, idea, praise, problem, personal request or a quick rating."""
+    __tablename__ = "fb_tickets"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    username = Column(String(50), nullable=False)
+    kind = Column(String(20), default="other", index=True)      # bug | idea | praise | problem | request | pulse | other
+    rating = Column(Integer, default=0)                         # 0 = none, 1-5 stars
+    title = Column(String(140), default="")
+    content = Column(Text, default="")
+    screenshot = Column(String(300), default="")                # file path on the upload volume
+    status = Column(String(20), default="new", index=True)      # new | seen | in_progress | planned | done | declined
+    public = Column(Boolean, default=False, index=True)         # shown on the ideas board
+    wants_public = Column(Boolean, default=False)               # author agreed to show it on the board
+    anonymous = Column(Boolean, default=False)                  # hide the author's name on the board
+    votes = Column(Integer, default=0)
+    public_reply = Column(Text, default="")                     # official answer shown on the board
+    context = Column(String(200), default="")                   # platform / app version
+    source = Column(String(20), default="form")                 # form | pulse | legacy
+    user_unread = Column(Integer, default=0)
+    staff_unread = Column(Integer, default=1)
+    first_reply_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class FbMessage(Base):
+    """A reply inside a feedback thread."""
+    __tablename__ = "fb_messages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id = Column(Integer, nullable=False, index=True)
+    author_id = Column(Integer, nullable=True)
+    author = Column(String(50), default="")
+    role = Column(String(10), default="user")                   # user | admin | owner | system
+    content = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class FbVote(Base):
+    __tablename__ = "fb_votes"
+    __table_args__ = (UniqueConstraint("ticket_id", "user_id", name="uq_fb_vote"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AnswerRating(Base):
+    """Thumbs up / down on one AI answer."""
+    __tablename__ = "answer_ratings"
+    __table_args__ = (UniqueConstraint("message_id", "user_id", name="uq_answer_rating"),)
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer, nullable=False, index=True)
+    chat_id = Column(Integer, nullable=False, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
+    value = Column(Integer, default=1)                          # 1 = helpful, -1 = not helpful
+    reason = Column(String(30), default="")
+    comment = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class FbPulse(Base):
+    """When each person was last asked "How is Zelpophai so far?" (at most once a month)."""
+    __tablename__ = "fb_pulse"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, unique=True)
+    asked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    answered = Column(Boolean, default=False)
+
+
 async def init_db():
     print(f"Using DB: {settings.database_url[:60]}...")
     async with engine.begin() as conn:

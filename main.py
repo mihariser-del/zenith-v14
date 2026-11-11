@@ -30,7 +30,7 @@ from vault_api import router as vault_router
 from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
-from feedback import router as feedback_router
+from feedback import router as feedback_router, vault_router as feedback_vault_router
 from staff import router as staff_router
 from announcements import router as announcements_router
 from billing import router as billing_router
@@ -38,17 +38,19 @@ from google_auth import router as google_router
 from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
-from personal_requests import router as personal_requests_router
 from personality import router as personality_router
 from audit import router as audit_router
 
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "21.9.2"
+VERSION = "22.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.0 Brand-new Feedback (sidebar → More → Feedback): choose Bug, Idea, Praise, Problem or Personal request, add a star rating and a screenshot, and chat back and forth with the team — you can see when it's Seen, In progress or Done, and you get a notification when they reply",
+    "New Ideas board: see what other people have suggested, vote for the ideas you want most, and watch them move to Planned and Done",
+    "Rate any answer with a thumbs up or down right under it — if an answer was bad, tell us why in one tap and we use it to make Zelpophai better",
     "21.9 You can now report a shared chat: tap \"Report this chat\" at the bottom of any shared page if something in it shouldn't be there, and the Zelpophai team will take a look",
     "21.8 Smarter answers: Zelpophai now decides by itself when to search the web — you'll see \"Searching the web…\" — and answers with real, clickable sources and a list of the pages it used. It also adds real photos when they help (places, animals, landmarks…)",
     "No more picking AI models: each message automatically gets a fast model for simple things and a stronger one for hard tasks like code, maths and long writing",
@@ -125,6 +127,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.0 Feedback moved into the Vault (People → Feedback): one inbox for feedback and personal requests with search, filters, statuses, quick replies and screenshots; manage the Ideas board (publish/hide, official answers, optional approve-first); Answer ratings (thumbs up/down over time, reasons, and the exact question and answer for each thumbs down); and an AI summary of what people are saying. Old feedback and personal requests were moved over. The in-app inbox popups and the Personal Request button are gone",
     "21.9.2 Everything from the classic Vault now lives in the new one (the old address opens the new Vault): Conversations (read any chat), Security & emergency (sign-in health, server health, lock every account, maintenance, emergency backup, new owner password, sign everyone out), Staff & permissions (add/remove admins, trusted, per-admin permissions, chosen helpers), Settings & exports (change your Vault PIN, download users/chats/messages), bulk-delete in Users and Export data on every profile",
     "User profiles now show their exact plan (e.g. Pro · monthly, Ultimate gift) with a live countdown — tap it to see days, hours, minutes and seconds until it renews or ends, the renewal date (live from Stripe when available), price and last payment",
     "21.9.1 Vault charts fixed: the chart library is now served by Zelpophai itself instead of an outside site, so charts no longer show up as empty boxes when a browser or network blocks that site. If a chart ever can't be drawn it now says so instead of staying blank",
@@ -195,6 +198,8 @@ async def lifespan(app: FastAPI):
     await _owner_pin_reset_once()
     reminder_task = asyncio.create_task(_reminder_loop())
     from vault_jobs import alert_loop, backup_loop
+    from feedback import migrate_legacy
+    await migrate_legacy()            # old Feedback + Personal Requests → new inbox (once)
     vault_tasks = [asyncio.create_task(backup_loop()), asyncio.create_task(alert_loop())]
     asyncio.create_task(_indexnow_ping())
     try:
@@ -232,6 +237,7 @@ app.include_router(vault_router)
 app.include_router(appdist_router)
 app.include_router(image_router)
 app.include_router(video_router)
+app.include_router(feedback_vault_router)   # before the vault router so /api/vault/feedback/* is matched here
 app.include_router(feedback_router)
 app.include_router(staff_router)
 app.include_router(announcements_router)
@@ -240,7 +246,6 @@ app.include_router(google_router)
 app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(global_controls_router)
-app.include_router(personal_requests_router)
 app.include_router(personality_router)
 app.include_router(audit_router)
 
@@ -1013,10 +1018,10 @@ def _legal_page(name: str) -> HTMLResponse:
     email = (os.getenv("CONTACT_EMAIL") or "mihariser@gmail.com").strip()
     if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[A-Za-z]{2,}", email):
         e = _h.escape(email)
-        contact = (f'email <a href="mailto:{e}">{e}</a>, or use <b>Feedback</b> / <b>Personal Request</b> '
+        contact = (f'email <a href="mailto:{e}">{e}</a>, or use <b>Feedback</b> '
                    'in the app (sidebar → More).')
     else:
-        contact = ('use <b>Feedback</b> or <b>Personal Request</b> in the app (sidebar → More) — '
+        contact = ('use <b>Feedback</b> in the app (sidebar → More) — '
                    '<a href="/app">open Zelpophai</a>. For account deletion, send the request while logged in to that account.')
     return HTMLResponse(page.replace("{{CONTACT}}", contact), headers={"Cache-Control": "public, max-age=600"})
 

@@ -334,7 +334,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (isGuest) {
         showToast('Guest mode — some features limited', '');
         ['memory-btn','kb-btn','files-btn','security-btn','code-btn'].forEach(id => { const el=$(id); if(el) { el.style.opacity='0.5'; el.title='Not available for guests'; } });
-        const reqBtn = $('request-btn'); if (reqBtn) reqBtn.style.display = 'none';
     }
     function requireLogin() { if (isGuest) { showToast('Access restricted please login to use', 'error'); return false; } return true; }
     // In-app + real device/browser push (OS notification center + mobile panel), uses showDiscordToast
@@ -433,9 +432,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 } catch {}
                 return r;
             };
-            // Ensure all owner colors are titanium — override any lingering gold inline on feedback admin modal too
-            const fam = document.querySelector('#feedback-admin-modal .modal-content');
-            if (fam) { fam.style.background = 'linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20)'; fam.style.border = '1px solid rgba(221,228,238,0.18)'; }
         }
         // Staff-only: Live Chat + Attention buttons
         const toolsBox = $('sidebar-tools');
@@ -1036,105 +1032,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- What's new (cards, welcome tour, sidebar icon) — see whatsnew.js ---
     if (window.ZPWhatsNew) window.ZPWhatsNew.init({ user, staffView: isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM' });
 
-    // --- Feedback system ---
-    const feedbackBadge = $('feedback-badge');
-    let lastFeedbackCount = parseInt(localStorage.getItem('zenith_last_feedback_unanswered') || '0', 10);
-    async function refreshFeedbackBadge() {
-        if (!isAdmin) return;
-        try {
-            const { feedbacks } = await api('/api/feedback/admin');
-            const unanswered = feedbacks.filter(f => !f.response).length;
-            if (unanswered > 0) {
-                feedbackBadge.textContent = unanswered;
-                feedbackBadge.style.display = 'block';
-                if (unanswered > lastFeedbackCount) { showToast(`New feedback: ${unanswered} unanswered`, ''); devicePush('Zelpophai AI Feedback', `${unanswered} new feedback awaiting reply`, 'feedback-admin'); showDiscordToast('Zelpophai AI', 'New Feedback', `${unanswered} awaiting reply`, 'F'); }
-            } else feedbackBadge.style.display = 'none';
-            lastFeedbackCount = unanswered;
-            localStorage.setItem('zenith_last_feedback_unanswered', String(unanswered));
-        } catch (e) {}
-    }
-    async function refreshUserBadge() {
-        if (isAdmin || isGuest) return;
-        try {
-            const { feedbacks } = await api('/api/feedback');
-            const replied = feedbacks.filter(f => f.response).length;
-            const seen = parseInt(localStorage.getItem('zenith_feedback_seen') || '0', 10);
-            const unseen = replied - seen;
-            if (unseen > 0) {
-                feedbackBadge.textContent = unseen; feedbackBadge.style.display = 'block';
-                if (unseen > 0 && replied > seen) {
-                    // show popup for latest reply (wait offline until dismissed)
-                    const latest = feedbacks.filter(f=>f.response).slice(-1)[0];
-                    if (latest && !document.getElementById('feedback-reply-popup')) {
-                        const fbPopup = document.createElement('div');
-                        fbPopup.id = 'feedback-reply-popup';
-                        fbPopup.style.cssText = 'position:fixed; inset:0; z-index:9996; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px);';
-                        const safe = s=>{const d=document.createElement('div'); d.textContent=s; return d.innerHTML;};
-                        const byOwner = latest.response_by === 'owner';
-                        const col = byOwner ? '#C0C7D1' : '#FFD700';
-                        const who = byOwner ? 'The Owner' : 'Admin';
-                        fbPopup.innerHTML = `<div style="width:100%; max-width:520px; background:linear-gradient(160deg,#1A1D21,#22262B); border:1px solid ${col}44; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;"><span style="font-weight:700; color:${col};">Feedback Reply</span><span style="font-size:10px; background:${col}22; color:${col}; padding:2px 6px; border-radius:4px;">${who}</span></div><div style="font-size:13px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px; border-left:3px solid ${col}; white-space:pre-wrap;">${safe(latest.response)}</div><button id="fb-reply-dismiss" style="margin-top:14px; width:100%; padding:12px; background:${byOwner?'linear-gradient(135deg,#8B949E,#5d666f)':'#FFD700'}; color:${byOwner?'#f4f6f8':'#000'}; border:none; border-radius:10px; font-weight:700; cursor:pointer;">DISMISS</button></div>`;
-                        fbPopup.querySelector('#fb-reply-dismiss').addEventListener('click', ()=>{ fbPopup.remove(); localStorage.setItem('zenith_feedback_seen', String(replied)); feedbackBadge.style.display='none'; });
-                        document.body.appendChild(fbPopup);
-                        devicePush('Zelpophai AI Feedback Reply — ' + who, latest.response, 'feedback-reply');
-                        showDiscordToast('Zelpophai AI', who, latest.response.slice(0,80), who.charAt(0));
-                    }
-                }
-            }
-            else feedbackBadge.style.display = 'none';
-        } catch (e) {}
-    }
-    if (isAdmin) { refreshFeedbackBadge(); setInterval(refreshFeedbackBadge, 10000); }
-    else if (!isGuest) { refreshUserBadge(); setInterval(refreshUserBadge, 10000); }
-
-    // --- Personal Request system ---
-    const requestBadge = $('request-badge');
-    let lastRequestCount = parseInt(localStorage.getItem('zenith_last_requests_unanswered') || '0', 10);
-    async function refreshRequestBadge() {
-        if (!isAdmin) return;
-        try {
-            const { requests } = await api('/api/requests/admin');
-            const unanswered = requests.filter(r => !r.reply).length;
-            if (unanswered > 0) {
-                requestBadge.textContent = unanswered;
-                requestBadge.style.display = 'block';
-                if (unanswered > lastRequestCount) { showToast(`New personal request: ${unanswered} awaiting reply`, ''); devicePush('Zelpophai AI Personal Request', `${unanswered} new request awaiting reply`, 'request-admin'); showDiscordToast('Zelpophai AI', 'New Personal Request', `${unanswered} awaiting reply`, 'R'); }
-            } else requestBadge.style.display = 'none';
-            lastRequestCount = unanswered;
-            localStorage.setItem('zenith_last_requests_unanswered', String(unanswered));
-        } catch (e) {}
-    }
-    async function refreshUserRequestBadge() {
-        if (isAdmin || isGuest) return;
-        try {
-            const { requests } = await api('/api/requests/my');
-            const repliedCount = requests.filter(r => r.reply).length;
-            const seen = parseInt(localStorage.getItem('zenith_requests_seen') || '0', 10);
-            const unseen = repliedCount - seen;
-            if (unseen > 0) {
-                requestBadge.textContent = unseen; requestBadge.style.display = 'block';
-                if (repliedCount > seen) {
-                    const latest = requests.filter(r=>r.reply).slice(-1)[0];
-                    if (latest && !document.getElementById('request-reply-popup')) {
-                        const rp = document.createElement('div');
-                        rp.id = 'request-reply-popup';
-                        rp.style.cssText = 'position:fixed; inset:0; z-index:9996; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.78); backdrop-filter:blur(6px);';
-                        const rSafe = s=>{const d=document.createElement('div'); d.textContent=s; return d.innerHTML;};
-                        const byOwner = latest.reply_by === 'owner';
-                        const col = byOwner ? '#C0C7D1' : '#4CC9F0';
-                        const who = byOwner ? 'The Owner' : 'Admin';
-                        rp.innerHTML = `<div style="width:100%; max-width:520px; background:linear-gradient(160deg,#0d1a2a,#102a3a); border:1px solid ${col}44; border-radius:16px; padding:24px; box-shadow:0 20px 60px rgba(0,0,0,0.5);"><div style="display:flex; align-items:center; gap:6px; margin-bottom:10px;"><span style="font-weight:700; color:${col};">Request Reply</span><span style="font-size:10px; background:${col}22; color:${col}; padding:2px 6px; border-radius:4px;">${who}</span></div><div style="font-size:13px; padding:10px; background:rgba(0,0,0,0.25); border-radius:8px; border-left:3px solid ${col}; white-space:pre-wrap;">${rSafe(latest.reply)}</div><button id="request-reply-dismiss" style="margin-top:14px; width:100%; padding:12px; background:${col}; color:#06121a; border:none; border-radius:10px; font-weight:700; cursor:pointer;">DISMISS</button></div>`;
-                        rp.querySelector('#request-reply-dismiss').addEventListener('click', ()=>{ rp.remove(); localStorage.setItem('zenith_requests_seen', String(repliedCount)); requestBadge.style.display='none'; });
-                        document.body.appendChild(rp);
-                        devicePush('Zelpophai AI Request Reply — ' + who, latest.reply, 'request-reply');
-                        showDiscordToast('Zelpophai AI', who, latest.reply.slice(0,80), who.charAt(0));
-                    }
-                }
-            } else requestBadge.style.display = 'none';
-        } catch (e) {}
-    }
-    if (isAdmin) { refreshRequestBadge(); setInterval(refreshRequestBadge, 10000); }
-    else if (!isGuest) { refreshUserRequestBadge(); setInterval(refreshUserRequestBadge, 10000); }
+    // --- Feedback (send, replies, ideas board, answer thumbs, monthly rating) — see feedback.js ---
+    if (window.ZPFeedback) window.ZPFeedback.init({ user, isStaff: !!(isAdmin || isOwner), isGuest });
     // Broadcast polling — all users get popup when staff broadcasts
     // Dedup state is PER-USER and tracked by the broadcast's created_at_ts timestamp,
     // NOT its integer id (ids reset to 1 after "clear broadcast cache" on SQLite, which
@@ -1417,161 +1316,6 @@ document.addEventListener('DOMContentLoaded', async () => {
                 if (isNaN(d)) return s;
                 return d.toLocaleString([], { year:'numeric', month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit' });
             } catch { return s; } }
-    function renderFeedbackThread(listEl, feedbacks, isAdminView) {
-        listEl.innerHTML = '';
-        if (feedbacks.length === 0) { listEl.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No feedback yet.</p>'; return; }
-        feedbacks.forEach(f => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
-            const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-            let username = String(f.username || '').startsWith('guest_') ? 'Guest' : safe(f.username);
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${username}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${safe(fmtTimeLocal(f.created_at))}${isAdminView ? `<button data-fbdel="${f.id}" title="Delete feedback" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>` : ''}</span></div>`;
-            html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid var(--accent-solid);">${safe(f.content)}</div>`;
-            if (f.response) {
-                const replyBy = f.response_by === 'owner'
-                    ? '<span style="color:#C0C7D1;">The Owner</span> replied'
-                    : 'Admin reply';
-                html += `<div style="margin-top:8px; padding:8px; background:rgba(0,255,136,0.08); border:1px solid rgba(0,255,136,0.2); border-radius:8px; border-left:3px solid #00ff88;"><div style="font-size:11px; color:#00ff88; font-weight:600; margin-bottom:4px;">${replyBy} ${f.responded_at ? '· '+fmtTimeLocal(f.responded_at) : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${safe(f.response)}</div></div>`;
-            } else if (isAdminView) {
-                html += `<div style="margin-top:8px; display:flex; gap:6px;"><input type="text" placeholder="Write a reply..." data-reply="${f.id}" style="flex:1; padding:8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none;"><button data-send="${f.id}" style="padding:8px 12px; background:#FFD700; color:#000; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">Reply</button></div>`;
-            } else {
-                html += `<div style="margin-top:6px; font-size:11px; color:#888; font-style:italic;">Awaiting admin reply...</div>`;
-            }
-            div.innerHTML = html;
-            listEl.appendChild(div);
-        });
-        if (isAdminView) {
-            listEl.querySelectorAll('[data-send]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.getAttribute('data-send');
-                    const inp = listEl.querySelector(`[data-reply=\"${id}\"]`);
-                    const txt = inp.value.trim();
-                    if (!txt) { showToast('Reply cannot be empty','error'); return; }
-                    try { await api(`/api/feedback/${id}/respond`, {method:'POST', body:JSON.stringify({response:txt})}); showToast('Reply sent','success'); openAdminFeedback(); refreshFeedbackBadge(); } catch(e){ showToast(e.message,'error'); }
-                });
-            });
-            listEl.querySelectorAll('[data-fbdel]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.getAttribute('data-fbdel');
-                    const ok = await showConfirm('Delete feedback?', 'This feedback and its reply will be removed permanently.', true);
-                    if (!ok) return;
-                    try { await api(`/api/feedback/${id}`, { method: 'DELETE' }); showToast('Feedback deleted','success'); openAdminFeedback(); refreshFeedbackBadge(); } catch(e){ showToast(e.message,'error'); }
-                });
-            });
-        }
-    }
-    async function openUserFeedback() {
-        $('feedback-modal').style.display='flex';
-        const list = $('feedback-list');
-        list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">Loading...</p>';
-        try {
-            const {feedbacks}=await api('/api/feedback');
-            renderFeedbackThread(list, feedbacks, false);
-            const replied = feedbacks.filter(f => f.response).length;
-            localStorage.setItem('zenith_feedback_seen', String(replied));
-            feedbackBadge.style.display = 'none';
-        } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
-    }
-    async function openAdminFeedback() {
-        $('feedback-admin-modal').style.display='flex';
-        const list = $('feedback-admin-list');
-        list.innerHTML = '<p style="color:#FFD700; text-align:center; padding:20px;">Loading...</p>';
-        try { const {feedbacks}=await api('/api/feedback/admin'); renderFeedbackThread(list, feedbacks, true); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
-    }
-    $('feedback-btn').addEventListener('click', () => {
-        if (isAdmin) { openAdminFeedback(); } else { openUserFeedback(); }
-        closeSidebar();
-    });
-    $('close-feedback').addEventListener('click', () => $('feedback-modal').style.display='none');
-    $('feedback-modal').addEventListener('click', e => { if (e.target === $('feedback-modal')) $('feedback-modal').style.display='none'; });
-    $('close-feedback-admin').addEventListener('click', () => $('feedback-admin-modal').style.display='none');
-    $('feedback-admin-modal').addEventListener('click', e => { if (e.target === $('feedback-admin-modal')) $('feedback-admin-modal').style.display='none'; });
-    $('feedback-submit').addEventListener('click', async () => {
-        const inp = $('feedback-input');
-        const txt = inp.value.trim();
-        if (!txt) { showToast('Please write feedback','error'); return; }
-        try { await api('/api/feedback', {method:'POST', body:JSON.stringify({content:txt})}); inp.value=''; showToast('Feedback sent','success'); openUserFeedback(); refreshUserBadge(); } catch(e){ showToast(e.message,'error'); }
-    });
-
-    // --- Personal Request system ---
-    function renderRequestThread(listEl, requests, isAdminView) {
-        listEl.innerHTML = '';
-        if (requests.length === 0) { listEl.innerHTML = '<p style="color:#888; text-align:center; padding:20px; font-size:13px;">No personal requests yet.</p>'; return; }
-        requests.forEach(r => {
-            const div = document.createElement('div');
-            div.style.cssText = 'padding:12px; background:var(--input-bg); border:1px solid var(--border); border-radius:10px;';
-            const rSafe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-            let username = String(r.username || '').startsWith('guest_') ? 'Guest' : rSafe(r.username);
-            const delBtn = isAdminView
-                ? `<button data-reqdel="${r.id}" title="Delete request" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>`
-                : `<button data-reqdel="${r.id}" title="Withdraw request" style="background:none; border:none; cursor:pointer; color:var(--error); font-size:14px; padding:0;">&#128465;</button>`;
-            let html = `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;"><span style="font-weight:600; font-size:13px; color:var(--text);">${username}</span><span style="display:flex; align-items:center; gap:8px; font-size:11px; color:#888;">${rSafe(fmtTimeLocal(r.created_at))}${delBtn}</span></div>`;
-            html += `<div style="font-size:13px; line-height:1.5; color:var(--text); white-space:pre-wrap; word-wrap:break-word; padding:8px; background:var(--bg); border-radius:8px; border-left:3px solid #4CC9F0;">${rSafe(r.content)}</div>`;
-            if (r.reply) {
-                const replyBy = r.reply_by === 'owner'
-                    ? '<span style="color:#C0C7D1;">The Owner</span> replied'
-                    : 'Admin reply';
-                html += `<div style="margin-top:8px; padding:8px; background:rgba(76,201,240,0.08); border:1px solid rgba(76,201,240,0.2); border-radius:8px; border-left:3px solid #4CC9F0;"><div style="font-size:11px; color:#4CC9F0; font-weight:600; margin-bottom:4px;">${replyBy} ${r.responded_at ? '· '+fmtTimeLocal(r.responded_at) : ''}</div><div style="font-size:13px; white-space:pre-wrap; word-wrap:break-word;">${rSafe(r.reply)}</div></div>`;
-            } else if (isAdminView) {
-                html += `<div style="margin-top:8px; display:flex; gap:6px;"><input type="text" placeholder="Write a reply..." data-reqreply="${r.id}" style="flex:1; padding:8px; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:6px; font-size:13px; outline:none;"><button data-reqsend="${r.id}" style="padding:8px 12px; background:#4CC9F0; color:#06121a; border:none; border-radius:6px; cursor:pointer; font-size:12px; font-weight:600;">Reply</button></div>`;
-            } else {
-                html += `<div style="margin-top:6px; font-size:11px; color:#888; font-style:italic;">Awaiting admin reply...</div>`;
-            }
-            div.innerHTML = html;
-            listEl.appendChild(div);
-        });
-        if (isAdminView) {
-            listEl.querySelectorAll('[data-reqsend]').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.getAttribute('data-reqsend');
-                    const inp = listEl.querySelector(`[data-reqreply=\"${id}\"]`);
-                    const txt = inp.value.trim();
-                    if (!txt) { showToast('Reply cannot be empty','error'); return; }
-                    try { await api(`/api/requests/${id}/respond`, {method:'POST', body:JSON.stringify({response:txt})}); showToast('Reply sent','success'); openAdminRequests(); refreshRequestBadge(); } catch(e){ showToast(e.message,'error'); }
-                });
-            });
-        }
-        listEl.querySelectorAll('[data-reqdel]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const id = btn.getAttribute('data-reqdel');
-                const ok = await showConfirm(isAdminView ? 'Delete request?' : 'Withdraw request?', 'This personal request will be removed permanently.', true);
-                if (!ok) return;
-                try { await api(`/api/requests/${id}`, { method: 'DELETE' }); showToast(isAdminView ? 'Request deleted':'Request withdrawn','success'); if (isAdminView) { openAdminRequests(); refreshRequestBadge(); } else { openUserRequests(); refreshUserRequestBadge(); } } catch(e){ showToast(e.message,'error'); }
-            });
-        });
-    }
-    async function openUserRequests() {
-        $('request-modal').style.display='flex';
-        const list = $('request-list');
-        list.innerHTML = '<p style="color:#888; text-align:center; padding:20px;">Loading...</p>';
-        try {
-            const {requests}=await api('/api/requests/my');
-            renderRequestThread(list, requests, false);
-            const replied = requests.filter(r => r.reply).length;
-            localStorage.setItem('zenith_requests_seen', String(replied));
-            requestBadge.style.display = 'none';
-        } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
-    }
-    async function openAdminRequests() {
-        $('request-admin-modal').style.display='flex';
-        const list = $('request-admin-list');
-        list.innerHTML = '<p style="color:#4CC9F0; text-align:center; padding:20px;">Loading...</p>';
-        try { const {requests}=await api('/api/requests/admin'); renderRequestThread(list, requests, true); } catch(e){ list.innerHTML=`<p style="color:var(--error); text-align:center;">${e.message}</p>`; }
-    }
-    $('request-btn').addEventListener('click', () => {
-        if (isAdmin) { openAdminRequests(); } else { openUserRequests(); }
-        closeSidebar();
-    });
-    $('close-request').addEventListener('click', () => $('request-modal').style.display='none');
-    $('request-modal').addEventListener('click', e => { if (e.target === $('request-modal')) $('request-modal').style.display='none'; });
-    $('close-request-admin').addEventListener('click', () => $('request-admin-modal').style.display='none');
-    $('request-admin-modal').addEventListener('click', e => { if (e.target === $('request-admin-modal')) $('request-admin-modal').style.display='none'; });
-    $('request-submit').addEventListener('click', async () => {
-        const inp = $('request-input');
-        const txt = inp.value.trim();
-        if (!txt) { showToast('Please write your request','error'); return; }
-        try { await api('/api/requests', {method:'POST', body:JSON.stringify({content:txt})}); inp.value=''; showToast('Request sent to admin','success'); openUserRequests(); refreshUserRequestBadge(); } catch(e){ showToast(e.message,'error'); }
-    });
 });
 
 function showBannedScreen(reason, bannedBy) {

@@ -15,7 +15,7 @@
     }
 
     function syncBadges() {
-        ['feedback-badge', 'request-badge', 'live-chat-badge'].forEach(function (id) {
+        ['feedback-badge', 'live-chat-badge'].forEach(function (id) {
             var b = $(id);
             if (b && b.style.display !== 'none' && (b.textContent || '').trim() === '0') b.style.display = 'none';
         });
@@ -24,7 +24,7 @@
 
     // Less-used actions live in a "More" menu so the row stays calm:
     // Upgrade, (Vault), Settings, Invite, What's new, Get the app, More.
-    var MORE_IDS = ['feedback-btn', 'request-btn', 'security-btn', 'info-btn', 'clear-all-btn'];
+    var MORE_IDS = ['feedback-btn', 'security-btn', 'info-btn', 'clear-all-btn'];
     function buildMore(row) {
         if ($('sb-more-btn')) return;
         var more = document.createElement('button');
@@ -69,7 +69,7 @@
     }
     function moreDot() {
         var dot = $('sb-more-dot'); if (!dot) return;
-        var on = ['feedback-badge', 'request-badge'].some(function (id) {
+        var on = ['feedback-badge'].some(function (id) {
             var b = $(id); return b && b.style.display !== 'none' && (b.textContent || '').trim() !== '0';
         });
         dot.style.display = on ? 'block' : 'none';
@@ -85,7 +85,7 @@
         if (window.MutationObserver) {
             new MutationObserver(all).observe(row, { childList: true });
             var mo = new MutationObserver(syncBadges);
-            ['feedback-badge', 'request-badge', 'live-chat-badge'].forEach(function (id) {
+            ['feedback-badge', 'live-chat-badge'].forEach(function (id) {
                 var b = $(id); if (b) mo.observe(b, { attributes: true, attributeFilter: ['style'], childList: true, characterData: true, subtree: true });
             });
         }

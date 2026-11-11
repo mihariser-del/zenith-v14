@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 22.0 — Feedback rework
+
+- `feedback.py` rewritten. Tables `fb_tickets`, `fb_messages`, `fb_votes`, `answer_ratings`, `fb_pulse`; old `feedbacks` / `user_requests` rows are copied in once at startup (`fb_migrated` setting). `personal_requests.py` and `/api/requests/*` removed
+- People (`/api/feedback`): create (multipart: kind bug/idea/praise/problem/request, 1–5 stars, screenshot ≤5 MB png/jpg/webp/gif stored under `UPLOAD_DIR/feedback`, served only to the author and staff), `/mine`, `/{id}` thread, `/{id}/reply`, delete, `/unread`, `/ideas` + `/{id}/vote`, `/rate` + `/ratings` (thumbs on AI answers with reasons), `/pulse` ("How is Zelpophai so far?": ≥2 days old account, ≥12 messages, at most every 30 days). Guests can send (3/hour; no personal requests, public ideas or votes); everything is rate-limited
+- Ideas go public at once when the author agrees and the safety filter finds nothing, unless "Check ideas before they go public" is on (`fb_ideas_review`)
+- Staff (`/api/vault/feedback`, behind the Vault PIN): inbox with counts/KPIs/search/filters, thread (opening marks it Seen), reply (+ optional status), update (status with a system note to the user, type, board visibility, title, official answer), delete, `/insights` (stars, thumbs, reasons, latest thumbs-down with question + answer; staff chats hidden from admins), `/summary` (light model, JSON, saved in settings; feedback text is passed as data), `/settings`
+- App: `static/js/feedback.js` + `static/css/feedback.css` (`zfb-` classes): Send / My feedback / Ideas board modal, reply card + system notification, badge, pulse card, thumbs under answers (`ZPFeedback.attachRating` from `chat.js`). Old feedback/request modals, inbox popups and the Personal Request button removed
+- Vault: People → Feedback (`#/feedback`, `/ideas`, `/answers`, `/summary`, `/{id}`) with a nav badge
+
 ## 21.9.2 — Classic Vault merged, plan countdowns
 
 - `/vault/classic` now redirects to `/vault`; the sidebar link and palette action are gone

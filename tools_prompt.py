@@ -178,8 +178,9 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "9. Voice: the Mic button for speaking, and replies can be read aloud (speaker icon under each answer).",
         "10. Coding AGT.: a coding workspace (sidebar → Coding AGT.) with its own AI agent that writes, runs and fixes code; "
         "Python and websites run right in the browser.",
-        "11. Other app features you can point to: Share (top right, public link of a chat), Personal Request (gift "
-        "icon, sends a request to the Owner), Feedback, Invite Friends (5 friends who join = free Pro), Settings "
+        "11. Other app features you can point to: Share (top right, public link of a chat), Feedback (sidebar → More: "
+        "report a bug, share an idea, send praise or a personal request to the Owner, get replies there, and vote on the "
+        "public Ideas board), thumbs up/down under each of your answers, Invite Friends (5 friends who join = free Pro), Settings "
         "(personality, theme), Save as Word/PDF under any answer, and the Zelpophai desktop app (Windows: Ctrl+Shift+Z opens Zelpophai Mini, which can see the screen and even click and type to do tasks).",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",

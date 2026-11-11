@@ -67,11 +67,11 @@ async def staff_attention(request: Request, db: AsyncSession = Depends(get_db)):
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
     from sqlalchemy import func
-    from database import UserRequest
-    unanswered_feedback = (await db.execute(select(func.count()).select_from(Feedback).where(Feedback.response == ""))).scalar() or 0
-    pending_requests = (await db.execute(select(func.count()).select_from(UserRequest).where(UserRequest.reply == ""))).scalar() or 0
+    from database import FbTicket
+    unanswered_feedback = (await db.execute(select(func.count()).select_from(FbTicket).where(FbTicket.staff_unread > 0, FbTicket.kind != "request", FbTicket.kind != "pulse"))).scalar() or 0
+    pending_requests = (await db.execute(select(func.count()).select_from(FbTicket).where(FbTicket.staff_unread > 0, FbTicket.kind == "request"))).scalar() or 0
     recent_ban_result = await db.execute(select(User).where(User.is_banned == True, User.is_deleted == False).order_by(User.id.desc()).limit(10))
     banned_users = [{"username": u.username, "reason": u.ban_reason or "", "by": u.banned_by or "admin"} for u in recent_ban_result.scalars().all()]
-    recent_feeds = (await db.execute(select(Feedback).order_by(Feedback.created_at.desc()).limit(10))).scalars().all()
-    pending = [{"id": f.id, "username": f.username, "content": (f.content or "")[:120], "created_at": f.created_at.strftime("%Y-%m-%d %H:%M") if f.created_at else ""} for f in recent_feeds if not f.response]
+    recent_feeds = (await db.execute(select(FbTicket).where(FbTicket.staff_unread > 0, FbTicket.kind != "pulse").order_by(FbTicket.updated_at.desc()).limit(10))).scalars().all()
+    pending = [{"id": f.id, "username": f.username, "content": (f.content or "")[:120], "created_at": f.created_at.strftime("%Y-%m-%d %H:%M") if f.created_at else ""} for f in recent_feeds]
     return {"unanswered_feedback": unanswered_feedback, "pending_requests": pending_requests, "banned_users": banned_users, "pending_feedback": pending}

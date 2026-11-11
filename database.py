@@ -184,6 +184,14 @@ class User(Base):
     # entries are prepended to the top, so unseen = list[: len - seen].
     changelog_seen_user = Column(Integer, default=0)
     changelog_seen_staff = Column(Integer, default=0)
+    # Email: "" not checked · "checked" passed the checks · "verified" confirmed with a code
+    email_status = Column(String(12), default="")
+    pending_email = Column(String(120), default="")
+    email_code_hash = Column(String(64), default="")
+    email_code_expires = Column(DateTime, nullable=True)
+    email_code_tries = Column(Integer, default=0)
+    email_prompt_at = Column(DateTime, nullable=True)      # when the 7-day grace period started
+    invite_rewards = Column(String(120), default="")       # invite milestones already rewarded, e.g. "1,3,5"
     # Vault PIN gate — true once the staff member has enabled the PIN lock.
     # The PIN itself is stored server-side only (bcrypt). pin_attempts /
     # pin_locked_until implement the server-side lockout.
@@ -295,6 +303,10 @@ class Memory(Base):
     category = Column(String(50), default="general")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    pinned = Column(Boolean, default=False)
+    source = Column(String(10), default="you")          # you | auto | chat
+    uses = Column(Integer, default=0)
+    last_used_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="memories")
 
@@ -311,6 +323,7 @@ class UserSettings(Base):
     temperature = Column(Float, default=0.7)
     memory_enabled = Column(Boolean, default=True)
     display_name = Column(String(50), default="")
+    persona = Column(Text, default="")                 # JSON: chosen personality, sliders, nickname, own personas
 
     user = relationship("User", back_populates="settings")
 
@@ -412,6 +425,8 @@ class Referral(Base):
     referred_device = Column(String(64), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     rewarded = Column(Boolean, default=False)
+    counted = Column(Boolean, default=False)            # the friend became active, so this invite counts
+    counted_at = Column(DateTime, nullable=True)
 
     referrer = relationship("User", foreign_keys=[referrer_id])
     referred = relationship("User", foreign_keys=[referred_user_id])
@@ -428,6 +443,7 @@ class InviteToken(Base):
     used_by_username = Column(String(50), default="")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     used_at = Column(DateTime, nullable=True)
+    clicks = Column(Integer, default=0)
 
     referrer = relationship("User", foreign_keys=[referrer_id], backref="invite_tokens")
 
@@ -456,6 +472,9 @@ class StaffMessage(Base):
     role = Column(String(20), default="admin")  # admin | owner
     content = Column(Text, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    reply_to = Column(Integer, nullable=True)
+    edited = Column(Boolean, default=False)
+    reactions = Column(Text, default="{}")
 
     user = relationship("User")
 
@@ -597,6 +616,17 @@ class ClientSeen(Base):
     last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+class PlanInterest(Base):
+    """People who asked to be told when paid plans open."""
+    __tablename__ = "plan_interest"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, nullable=False, unique=True)
+    username = Column(String(50), default="")
+    plan = Column(String(20), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class FbTicket(Base):
     """One piece of feedback: a bug, idea, praise, problem, personal request or a quick rating."""
     __tablename__ = "fb_tickets"
@@ -715,6 +745,13 @@ async def init_db():
             ("pin_hash", "VARCHAR(255) DEFAULT NULL"),
             ("pin_attempts", "INTEGER DEFAULT 0"),
             ("pin_locked_until", "DATETIME"),
+            ("email_status", "VARCHAR(12) DEFAULT ''"),
+            ("pending_email", "VARCHAR(120) DEFAULT ''"),
+            ("email_code_hash", "VARCHAR(64) DEFAULT ''"),
+            ("email_code_expires", "DATETIME"),
+            ("email_code_tries", "INTEGER DEFAULT 0"),
+            ("email_prompt_at", "DATETIME"),
+            ("invite_rewards", "VARCHAR(120) DEFAULT ''"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {col} {ddl}")
@@ -728,6 +765,23 @@ async def init_db():
             await conn.exec_driver_sql("ALTER TABLE user_settings ADD COLUMN display_name VARCHAR(50) DEFAULT ''")
         except Exception as e:
             print(f"migration display_name: {e}")
+        for _t, _col, _ddl in [
+            ("user_settings", "persona", "TEXT DEFAULT ''"),
+            ("memories", "pinned", "BOOLEAN DEFAULT 0"),
+            ("memories", "source", "VARCHAR(10) DEFAULT 'you'"),
+            ("memories", "uses", "INTEGER DEFAULT 0"),
+            ("memories", "last_used_at", "DATETIME"),
+            ("referrals", "counted", "BOOLEAN DEFAULT 0"),
+            ("referrals", "counted_at", "DATETIME"),
+            ("invite_tokens", "clicks", "INTEGER DEFAULT 0"),
+            ("staff_messages", "reply_to", "INTEGER"),
+            ("staff_messages", "edited", "BOOLEAN DEFAULT 0"),
+            ("staff_messages", "reactions", "TEXT DEFAULT '{}'"),
+        ]:
+            try:
+                await conn.exec_driver_sql(f"ALTER TABLE {_t} ADD COLUMN {_col} {_ddl}")
+            except Exception as e:
+                print(f"migration {_t}.{_col}: {e}")
         try:
             await conn.exec_driver_sql("ALTER TABLE chats ADD COLUMN link_id VARCHAR(64)")
         except Exception as e:

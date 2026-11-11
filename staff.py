@@ -14,27 +14,56 @@ class StaffMessageRequest(BaseModel):
     content: str
 
 
+REACTIONS = ("👍", "❤️", "😂", "🎉", "👀", "✅")
+_typing: dict = {}          # user_id -> (username, role, unix time)
+
+
+def _iso(dt):
+    if not dt:
+        return None
+    return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+
+
 @router.get("/chat")
 async def get_staff_chat(request: Request, db: AsyncSession = Depends(get_db)):
+    import json
+    import time as _time
+    from datetime import timedelta
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
-    result = await db.execute(select(StaffMessage).order_by(StaffMessage.created_at.desc()).limit(200))
-    msgs = result.scalars().all()
-    msgs = list(reversed(msgs))
-    return {"messages": [
-        {
-            "id": m.id,
-            "username": m.username,
-            "role": m.role,
-            "content": m.content,
-            "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "",
-        } for m in msgs
-    ]}
+    msgs = list(reversed((await db.execute(select(StaffMessage).order_by(StaffMessage.id.desc()).limit(200))).scalars().all()))
+    by_id = {m.id: m for m in msgs}
+    out = []
+    for m in msgs:
+        try:
+            reacts = json.loads(m.reactions or "{}")
+        except Exception:
+            reacts = {}
+        parent = by_id.get(m.reply_to) if m.reply_to else None
+        out.append({"id": m.id, "user_id": m.user_id, "username": m.username, "role": m.role, "content": m.content,
+                    "t": _iso(m.created_at), "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "",
+                    "mine": m.user_id == user.id, "edited": bool(m.edited),
+                    "reactions": {k: v for k, v in reacts.items() if k in REACTIONS and v},
+                    "reply": ({"id": parent.id, "username": parent.username, "text": parent.content[:120]} if parent else None)})
+    cut = datetime.now(timezone.utc) - timedelta(minutes=5)
+    staff = (await db.execute(select(User).where(User.is_deleted == False, (User.role.in_(("admin", "owner"))) | (User.is_admin == True))  # noqa: E712
+                              .order_by(User.role.desc(), User.username.asc()))).scalars().all()
+    now = _time.time()
+    return {"messages": out,
+            "staff": [{"id": u.id, "username": u.username, "role": get_role(u),
+                       "online": bool(u.last_seen and (u.last_seen if u.last_seen.tzinfo else u.last_seen.replace(tzinfo=timezone.utc)) >= cut)} for u in staff],
+            "typing": [name for uid, (name, _r, ts) in _typing.items() if uid != user.id and now - ts < 6],
+            "reactions": list(REACTIONS), "me": {"id": user.id, "role": get_role(user)}}
+
+
+class StaffPost(BaseModel):
+    content: str
+    reply_to: int | None = None
 
 
 @router.post("/chat")
-async def post_staff_chat(req: StaffMessageRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def post_staff_chat(req: StaffPost, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
@@ -43,11 +72,93 @@ async def post_staff_chat(req: StaffMessageRequest, request: Request, db: AsyncS
         raise HTTPException(status_code=400, detail="Message required")
     if len(content) > 2000:
         raise HTTPException(status_code=400, detail="Message too long")
-    msg = StaffMessage(user_id=user.id, username=user.username, role=get_role(user), content=content)
+    reply_to = None
+    if req.reply_to:
+        parent = await db.get(StaffMessage, int(req.reply_to))
+        reply_to = parent.id if parent else None
+    msg = StaffMessage(user_id=user.id, username=user.username, role=get_role(user), content=content, reply_to=reply_to)
     db.add(msg)
     await db.commit()
     await db.refresh(msg)
+    _typing.pop(user.id, None)
     return {"id": msg.id, "message": "Sent"}
+
+
+@router.post("/chat/typing")
+async def staff_typing(request: Request, db: AsyncSession = Depends(get_db)):
+    import time as _time
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Staff only")
+    _typing[user.id] = (user.username, get_role(user), _time.time())
+    return {"ok": True}
+
+
+class StaffEdit(BaseModel):
+    content: str
+
+
+@router.patch("/chat/{message_id}")
+async def edit_staff_message(message_id: int, req: StaffEdit, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Staff only")
+    m = await db.get(StaffMessage, message_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if m.user_id != user.id:
+        raise HTTPException(status_code=403, detail="You can only edit your own messages")
+    content = req.content.strip()
+    if not content or len(content) > 2000:
+        raise HTTPException(status_code=400, detail="A message needs 1–2000 characters")
+    m.content, m.edited = content, True
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/chat/{message_id}")
+async def delete_staff_message(message_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Staff only")
+    m = await db.get(StaffMessage, message_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if m.user_id != user.id and not is_owner(user):
+        raise HTTPException(status_code=403, detail="You can only delete your own messages")
+    await db.delete(m)
+    await db.commit()
+    return {"ok": True}
+
+
+class StaffReact(BaseModel):
+    emoji: str
+
+
+@router.post("/chat/{message_id}/react")
+async def react_staff_message(message_id: int, req: StaffReact, request: Request, db: AsyncSession = Depends(get_db)):
+    import json
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Staff only")
+    if req.emoji not in REACTIONS:
+        raise HTTPException(status_code=400, detail="Unknown reaction")
+    m = await db.get(StaffMessage, message_id)
+    if not m:
+        raise HTTPException(status_code=404, detail="Message not found")
+    try:
+        reacts = json.loads(m.reactions or "{}")
+    except Exception:
+        reacts = {}
+    who = [n for n in reacts.get(req.emoji, []) if isinstance(n, str)]
+    if user.username in who:
+        who.remove(user.username)
+    else:
+        who.append(user.username)
+    reacts[req.emoji] = who
+    m.reactions = json.dumps({k: v for k, v in reacts.items() if v})
+    await db.commit()
+    return {"ok": True}
 
 
 @router.delete("/chat")

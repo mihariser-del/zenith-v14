@@ -195,8 +195,6 @@ const Settings = {
                     ? { model: $('model-select').value === 'auto' ? 'auto' : 'pin:' + $('model-select').value } : {}),
                 max_tokens: parseInt($('max-tokens').value),
                 temperature: parseFloat($('temperature').value),
-                system_prompt: $('system-prompt').value,
-                personality: $('personality-select').value,
                 memory_enabled: $('memory-enabled').value === 'true',
                 display_name: name,
             }),

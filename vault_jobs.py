@@ -198,4 +198,9 @@ async def alert_loop():
             await check_alerts()
         except Exception as e:
             print(f"[vault] alert check failed: {e}")
+        try:
+            from limits import expire_timed_plans
+            await expire_timed_plans()
+        except Exception as e:
+            print(f"[vault] plan expiry failed: {e}")
         await asyncio.sleep(300)

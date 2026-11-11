@@ -168,8 +168,8 @@ async def _plan_info(db, u) -> dict:
     if meta:
         out["price"], out["interval"] = meta.get("price"), meta.get("interval")
     trial_end = _utc(u.trial_end)
-    if trial_end and trial_end > now and (pp in ("pro_trial", "gift_pro", "gift_ultimate_until", "") or not u.is_pro):
-        out.update(kind="gift" if pp.startswith("gift") else "trial", end=_iso(trial_end), source="set")
+    if trial_end and trial_end > now and (pp in ("pro_trial", "gift_pro", "gift_ultimate_until", "invite_pro", "invite_ultimate", "referral_pro", "") or not u.is_pro):
+        out.update(kind="gift" if pp.startswith("gift") else "trial", end=_iso(trial_end), source="invite" if "invite" in pp or "referral" in pp else "set")
     elif _paid_plan(u):
         last = (await db.execute(select(Payment).where(Payment.user_id == u.id, Payment.source == "stripe")
                                  .order_by(Payment.created_at.desc()))).scalars().first()
@@ -941,3 +941,46 @@ async def security(user=Depends(require_vault), db: AsyncSession = Depends(get_d
                     "ua": (l.user_agent or "")[:100], "t": _iso(l.login_at)} for l, n in rows[:40]],
         "locked": locked, "maintenance": maint, "server": server,
     }
+
+
+# ───────────────────────────────────────── email + paid plans ──
+@router.get("/email")
+async def email_overview(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Is email sending set up, and how many accounts have a real email."""
+    import emailcheck
+    from billing import BILLING_LIVE
+    from database import PlanInterest
+    us = (await db.execute(select(User).where(User.is_deleted == False))).scalars().all()  # noqa: E712
+    real = [u for u in us if not (u.username or "").startswith("guest_")]
+    verified = sum(1 for u in real if (u.email_status or "") == "verified")
+    checked = sum(1 for u in real if (u.email_status or "") == "checked")
+    missing = [u for u in real if (u.email_status or "") not in ("verified", "checked")]
+    waiting = (await db.execute(select(PlanInterest).order_by(PlanInterest.created_at.desc()))).scalars().all()
+    return {"configured": emailcheck.mail_configured(), "sender": emailcheck.mail_sender() if is_owner(user) else "",
+            "provider": "Brevo" if os.getenv("BREVO_API_KEY", "").strip() else ("SMTP" if os.getenv("SMTP_HOST", "").strip() else ""),
+            "accounts": len(real), "verified": verified, "checked": checked, "missing": len(missing),
+            "missing_users": [{"id": u.id, "username": u.username} for u in missing[:30]],
+            "grace_days": emailcheck.EMAIL_GRACE_DAYS,
+            "billing_live": BILLING_LIVE, "plan_interest": len(waiting),
+            "plan_interest_users": [{"id": w.user_id, "username": w.username, "plan": w.plan, "t": _iso(w.created_at)} for w in waiting[:30]]}
+
+
+class TestMailIn(BaseModel):
+    to: str
+
+
+@router.post("/email/test")
+async def email_test(req: TestMailIn, user=Depends(require_vault)):
+    _need_owner(user)
+    import emailcheck
+    ok, why = await emailcheck.check_email(req.to)
+    if not ok:
+        raise HTTPException(status_code=400, detail=why)
+    if not emailcheck.mail_configured():
+        raise HTTPException(status_code=400, detail="Email sending isn't set up yet — add BREVO_API_KEY and SMTP_FROM on Railway first.")
+    sent, why = await emailcheck.send_mail(emailcheck.normalize(req.to), "Zelpophai test email",
+                                           "This is a test email from your Zelpophai Vault.\n\nIf you can read this, email sending works: "
+                                           "new accounts will get a confirmation code and password resets will arrive.\n\n— Zelpophai AI")
+    if not sent:
+        raise HTTPException(status_code=502, detail=f"The email could not be sent. {why}")
+    return {"ok": True}

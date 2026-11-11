@@ -46,17 +46,29 @@ def _as_utc(dt):
     return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
 
 
+# Plans that only last until users.trial_end (free trial, invite rewards, timed gifts).
+TIMED_PLANS = ("pro_trial", "referral_pro", "invite_pro", "invite_ultimate", "gift_ultimate_until")
+
+
+def _timed_active(user) -> bool:
+    return bool(user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc))
+
+
 def _is_pro(user):
-    return bool(user.is_pro or (user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc)))
+    if (getattr(user, "pro_plan", "") or "") in TIMED_PLANS:
+        return _timed_active(user)          # a trial or reward stops when its time is up
+    return bool(user.is_pro or _timed_active(user))
 
 
 def _is_ultimate(user):
     # Friends of the Owner get Ultimate-level limits.
-    if (getattr(user, "pro_plan", "") or "") == "gift_ultimate_until":
-        # Ultimate gifted from the Vault for a set number of days.
+    if (getattr(user, "pro_plan", "") or "") in ("gift_ultimate_until", "invite_ultimate"):
+        # Ultimate gifted from the Vault (or earned by inviting) for a set number of days.
         end = getattr(user, "trial_end", None)
         if not end or _as_utc(end) <= datetime.now(timezone.utc):
             return "friend" in (getattr(user, "tags", "") or "").lower().split(",")
+    elif (getattr(user, "pro_plan", "") or "") in TIMED_PLANS:
+        return "friend" in (getattr(user, "tags", "") or "").lower().split(",")
     return bool(user.is_ultimate) or "friend" in (getattr(user, "tags", "") or "").lower().split(",")
 
 
@@ -143,6 +155,9 @@ def _pro_timer_minutes(prof):
 
 async def check_limit(user: User, db: AsyncSession, action: str):
     # actions: image_gen, file_upload, file_edit, file_tool, document_gen, message
+    # An account without a real email can't keep using the AI once its grace period is over.
+    import emailcheck
+    emailcheck.require_ok(user)
     is_guest = _is_guest(user)
     is_pro = _is_pro(user)
     is_ultimate = _is_ultimate(user)
@@ -279,3 +294,21 @@ async def check_chat_media_window(user: User, db: AsyncSession, chat_id: int):
             raise HTTPException(status_code=429, detail=f"Guest limit reached (media window in this chat). Cooldown active — wait {_fmt_wait(minutes * 60)}. Please login for unlimited chat.")
         raise HTTPException(status_code=429, detail=f"Limit reached (media window in this chat). Cooldown active — wait {_fmt_wait(minutes * 60)}.")
     return True
+
+
+async def expire_timed_plans():
+    """Switch off trials and rewards whose time is up (called every few minutes)."""
+    from sqlalchemy import select
+    from database import async_session
+    now = datetime.now(timezone.utc)
+    async with async_session() as db:
+        rows = (await db.execute(select(User).where(User.pro_plan.in_(TIMED_PLANS), User.trial_end != None))).scalars().all()  # noqa: E711
+        n = 0
+        for u in rows:
+            if _as_utc(u.trial_end) <= now and (u.is_pro or u.is_ultimate):
+                u.is_pro = False
+                u.is_ultimate = False
+                n += 1
+        if n:
+            await db.commit()
+            print(f"[plans] {n} trial/reward plan(s) ended")

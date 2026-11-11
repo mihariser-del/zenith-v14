@@ -425,6 +425,12 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
         check_message(user.id, chat.id, user_msg.id, content or "")
     except Exception:
         pass
+    try:
+        import asyncio as _aio
+        from invites import friend_progress
+        _aio.get_running_loop().create_task(friend_progress(user.id))   # an invited friend who is now active counts
+    except Exception:
+        pass
 
     # Global AI toggle (Owner control): when AI responses are off, the user message is
     # saved but the AI stays completely silent ("talking to nothing") for everyone except

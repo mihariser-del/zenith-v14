@@ -11,7 +11,8 @@ import uuid
 
 router = APIRouter(prefix="/api/auth/google", tags=["google-auth"])
 
-GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+# Public identifier of Zelpophai's Google sign-in (the same one the login page uses).
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "").strip() or "1035003334215-veihtcrojq0spse60ium7jgfqr8flbto.apps.googleusercontent.com"
 
 class GoogleAuthRequest(BaseModel):
     id_token: str
@@ -22,17 +23,24 @@ class GoogleAuthRequest(BaseModel):
 async def google_auth(req: GoogleAuthRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     if not req.id_token:
         raise HTTPException(status_code=400, detail="Missing id_token")
+    # Without our own client ID we can't tell whether a token was issued for Zelpophai or for
+    # some other website, so Google sign-in stays off rather than trusting any token.
+    if not GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=503, detail="Google sign-in isn't set up yet. Please use your username and password.")
     # Verify with Google
     try:
         async with httpx.AsyncClient(timeout=10) as client:
-            r = await client.get(f"https://oauth2.googleapis.com/tokeninfo?id_token={req.id_token}")
+            r = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": req.id_token})
             if r.status_code != 200:
                 raise HTTPException(status_code=401, detail="Invalid Google token")
             data = r.json()
-            # Optionally verify aud
-            if GOOGLE_CLIENT_ID and data.get("aud") != GOOGLE_CLIENT_ID:
+            if data.get("aud") != GOOGLE_CLIENT_ID:
                 raise HTTPException(status_code=401, detail="Token aud mismatch")
-            email = data.get("email")
+            if data.get("iss") not in ("accounts.google.com", "https://accounts.google.com"):
+                raise HTTPException(status_code=401, detail="Invalid Google token")
+            if str(data.get("email_verified", "")).lower() != "true":
+                raise HTTPException(status_code=401, detail="Your Google email isn't verified yet. Verify it with Google and try again.")
+            email = (data.get("email") or "").strip().lower()
             name = data.get("name") or email.split("@")[0]
             sub = data.get("sub")
             if not email or not sub:
@@ -40,11 +48,26 @@ async def google_auth(req: GoogleAuthRequest, request: Request, response: Respon
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Google verify failed: {str(e)}")
+        print(f"[google] verify failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail="Couldn't reach Google to check your sign-in. Please try again.")
 
     # Find or create user
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
+    from sqlalchemy import func as _func
+    result = await db.execute(select(User).where(_func.lower(User.email) == email))
+    user = result.scalars().first()
+    if user:
+        if getattr(user, "is_deleted", False):
+            raise HTTPException(status_code=403, detail="This account was deleted.")
+        if getattr(user, "is_banned", False):
+            raise HTTPException(status_code=403, detail="This account is banned.")
+        if (getattr(user, "email_status", "") or "") != "verified":
+            # First Google sign-in to an account whose email was never confirmed: whoever made it
+            # with a password may not own this address, so the old password and sessions stop working.
+            user.password_hash = hash_password(uuid.uuid4().hex)
+            user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+            user.email_status = "verified"
+            await db.commit()
+            await db.refresh(user)
     if not user:
         # Check username taken
         username = email.split("@")[0][:40]
@@ -57,7 +80,7 @@ async def google_auth(req: GoogleAuthRequest, request: Request, response: Respon
                 break
             username = f"{base}{i}"
             i += 1
-        user = User(username=username, email=email, password_hash=hash_password(uuid.uuid4().hex), is_admin=False)
+        user = User(username=username, email=email, password_hash=hash_password(uuid.uuid4().hex), is_admin=False, email_status="verified")
         db.add(user)
         await db.flush()
         # New account from an invite link (Continue with Google on the invite page):

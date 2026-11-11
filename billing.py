@@ -38,6 +38,15 @@ STRIPE_PRICE_IDS = {
     "ultimate_lifetime": os.getenv("STRIPE_PRICE_ULTIMATE_LIFETIME", ""),
 }
 APP_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app")
+# Paid plans are only on sale when Stripe is fully set up AND the Owner switched them on
+# (BILLING_LIVE=1). Otherwise the app shows "Coming soon" and nothing can be bought or granted.
+BILLING_LIVE = bool(STRIPE_SECRET and STRIPE_WEBHOOK_SECRET and os.getenv("BILLING_LIVE", "").strip() == "1")
+
+
+def _safe_return_url(url: str, fallback: str) -> str:
+    """Only ever send people back to Zelpophai after checkout (never to a URL someone slipped in)."""
+    url = (url or "").strip()
+    return url if url.startswith(APP_BASE.rstrip("/") + "/") else fallback
 
 
 class CheckoutRequest(BaseModel):
@@ -59,7 +68,47 @@ def _apply_plan(user, plan_id):
 
 @router.get("/plans")
 async def get_plans():
-    return {"plans": list(PLANS.values())}
+    return {"plans": list(PLANS.values()), "live": BILLING_LIVE, "coming_soon": not BILLING_LIVE}
+
+
+class NotifyIn(BaseModel):
+    plan: str = ""
+
+
+@router.get("/notify-me")
+async def notify_state(request: Request, db: AsyncSession = Depends(get_db)):
+    from database import PlanInterest
+    user = await get_current_user_from_cookie(request, db)
+    row = (await db.execute(select(PlanInterest).where(PlanInterest.user_id == user.id))).scalars().first()
+    return {"on": bool(row), "plan": row.plan if row else "", "coming_soon": not BILLING_LIVE}
+
+
+@router.post("/notify-me")
+async def notify_me(req: NotifyIn, request: Request, db: AsyncSession = Depends(get_db)):
+    """'Tell me when paid plans are ready.'"""
+    from database import PlanInterest
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Create an account first so we know who to tell.")
+    plan = req.plan if req.plan in ("pro", "ultimate") else ""
+    row = (await db.execute(select(PlanInterest).where(PlanInterest.user_id == user.id))).scalars().first()
+    if row:
+        row.plan = plan or row.plan
+    else:
+        db.add(PlanInterest(user_id=user.id, username=user.username, plan=plan))
+    await db.commit()
+    return {"on": True, "plan": plan}
+
+
+@router.delete("/notify-me")
+async def notify_off(request: Request, db: AsyncSession = Depends(get_db)):
+    from database import PlanInterest
+    user = await get_current_user_from_cookie(request, db)
+    row = (await db.execute(select(PlanInterest).where(PlanInterest.user_id == user.id))).scalars().first()
+    if row:
+        await db.delete(row)
+        await db.commit()
+    return {"on": False}
 
 
 @router.get("/status")
@@ -68,9 +117,11 @@ async def get_status(request: Request, db: AsyncSession = Depends(get_db)):
     trial_active = False
     if user.trial_end and _as_utc(user.trial_end) > datetime.now(timezone.utc):
         trial_active = True
+    from limits import _is_pro, _is_ultimate
     return {
-        "is_pro": user.is_pro or trial_active,
-        "is_ultimate": user.is_ultimate,
+        "is_pro": _is_pro(user),
+        "is_ultimate": _is_ultimate(user),
+        "coming_soon": not BILLING_LIVE,
         "pro_plan": user.pro_plan,
         "trial_end": user.trial_end.isoformat() if user.trial_end else None,
         "trial_active": trial_active,
@@ -92,21 +143,11 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
     if req.plan_id not in PLANS:
         raise HTTPException(status_code=400, detail="Invalid plan")
 
-    if not STRIPE_SECRET or not STRIPE_PRICE_IDS.get(req.plan_id):
-        _apply_plan(user, req.plan_id)
-        try:
-            from database import Payment
-            db.add(Payment(user_id=user.id, username=user.username, plan=req.plan_id, amount=0.0,
-                           source="mock", note="Granted without payment (Stripe not configured)"))
-        except Exception:
-            pass
-        await db.commit()
-        return {
-            "url": req.success_url or "/app?checkout=mock",
-            "mock": True,
-            "message": "Stripe not configured — plan granted in dev mode. Set STRIPE_SECRET_KEY and STRIPE_PRICE_* on Railway for real billing.",
-            "plan": PLANS[req.plan_id],
-        }
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Create an account first.")
+    if not BILLING_LIVE or not STRIPE_PRICE_IDS.get(req.plan_id):
+        # No demo grants: a plan is only ever switched on by a signed Stripe payment or by the Owner.
+        raise HTTPException(status_code=503, detail="Paid plans are coming soon. Tap “Tell me when it's ready” and we'll let you know.")
 
     stripe = _need_stripe()
     stripe.api_key = STRIPE_SECRET
@@ -122,8 +163,8 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
             user.stripe_customer_id = customer_id
             await db.commit()
         is_lifetime = req.plan_id in ("pro_lifetime", "ultimate_lifetime")
-        success_url = req.success_url or f"{APP_BASE}/app?checkout=success"
-        cancel_url = req.cancel_url or f"{APP_BASE}/app?checkout=cancel"
+        success_url = _safe_return_url(req.success_url, f"{APP_BASE}/app?checkout=success")
+        cancel_url = _safe_return_url(req.cancel_url, f"{APP_BASE}/app?checkout=cancel")
         session = stripe.checkout.Session.create(
             customer=customer_id,
             payment_method_types=["card"],
@@ -135,7 +176,8 @@ async def create_checkout(req: CheckoutRequest, request: Request, db: AsyncSessi
         )
         return {"url": session.url, "mock": False, "plan": PLANS[req.plan_id]}
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Payment provider unavailable (checkout): {e}")
+        print(f"[billing] checkout failed: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=502, detail="The payment page couldn't be opened right now. Please try again in a minute.")
 
 
 @router.post("/trial/start")
@@ -211,4 +253,5 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 await db.commit()
         return {"received": True}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Webhook error: {str(e)}")
+        print(f"[billing] webhook error: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=400, detail="Webhook error")

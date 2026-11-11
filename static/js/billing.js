@@ -4,6 +4,7 @@ const Billing = {
         try {
             const data = await api('/api/billing/plans');
             this.plans = data.plans;
+            this.comingSoon = !!data.coming_soon;   // paid plans not on sale yet
             return data.plans;
         } catch { return []; }
     },
@@ -18,8 +19,11 @@ const Billing = {
         modal.style.background = 'rgba(10,3,22,.86)';
         const isGuest = (reason && reason.includes('Guest')) || (window.user && window.user.username && window.user.username.startsWith('guest_'));
         const isLimit = reason && (reason.includes('limit') || reason.includes('reached') || reason.includes('pause') || reason.includes('Free limit') || reason.includes('Guest limit'));
-        const title = isGuest ? 'Login Required' : (isLimit ? 'Upgrade to Continue' : 'Choose Your Plan');
-        const sub = isGuest ? 'Guests have limited access.' : (isLimit ? reason : 'Unlock Pro and Ultimate for unlimited features.');
+        const soon = !!this.comingSoon && !isGuest;
+        const title = isGuest ? 'Login Required' : (soon ? (isLimit ? 'You\'ve reached a limit' : 'Paid plans are coming soon') : (isLimit ? 'Upgrade to Continue' : 'Choose Your Plan'));
+        const sub = isGuest ? 'Guests have limited access.' : (soon
+            ? (isLimit ? reason + ' Paid plans aren\'t open yet — your limit resets by itself, or invite friends to earn free Pro.' : 'Here\'s what Pro and Ultimate will include. You can\'t buy them yet — we\'ll tell you the moment they open.')
+            : (isLimit ? reason : 'Unlock Pro and Ultimate for unlimited features.'));
         const proMonthly = plans.find(p=>p.id==='pro_monthly') || {price:5.99};
         const proAnnual = plans.find(p=>p.id==='pro_annual') || {price:59.99};
         const proLifetime = plans.find(p=>p.id==='pro_lifetime') || {price:200};
@@ -133,6 +137,10 @@ const Billing = {
                 .zp-login:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(255,61,180,.55);}
                 .zp-maybe{display:block;margin:12px auto 0;background:transparent;border:none;color:#8b7fb8;cursor:pointer;font-size:12px;transition:color .15s;}
                 .zp-maybe:hover{color:#c4b5fd;}
+                .zp-btn.zp-soon{background:rgba(255,255,255,.08) !important;color:#e9e3ff !important;box-shadow:none !important;animation:none !important;border:1px dashed rgba(255,255,255,.3);}
+                .zp-soon-bar{display:flex;flex-direction:column;gap:3px;margin:0 0 14px;padding:11px 14px;border-radius:12px;background:rgba(255,210,63,.09);border:1px solid rgba(255,210,63,.4);text-align:left;font-size:12.5px;line-height:1.5;color:#e9e3ff;}
+                .zp-soon-bar b{color:#ffd23f;font-size:11px;letter-spacing:.08em;text-transform:uppercase;}
+                .zp-soon-bar a{color:#7dd3fc;}
                 @keyframes zpDrift{0%,100%{background-position:0% 50%;}50%{background-position:100% 50%;}}
                 @keyframes zpBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-6px);}}
             </style>
@@ -140,6 +148,34 @@ const Billing = {
         document.body.appendChild(modal);
         const attachPlanHandlers = () => {
             if (isGuest) return;
+            if (soon) {
+                // Not on sale yet: every plan button becomes "Tell me when it's ready".
+                modal.querySelectorAll('[data-plan]').forEach(btn => {
+                    const want = btn.dataset.plan.startsWith('ultimate') ? 'ultimate' : 'pro';
+                    btn.textContent = Billing._notified ? '✓ We\'ll tell you' : 'Coming soon · Tell me';
+                    btn.classList.add('zp-soon');
+                    btn.onclick = async () => {
+                        try {
+                            await api('/api/billing/notify-me', { method: 'POST', body: JSON.stringify({ plan: want }) });
+                            Billing._notified = true;
+                            modal.querySelectorAll('[data-plan]').forEach(b => { b.textContent = '✓ We\'ll tell you'; });
+                            showToast('Done — we\'ll tell you when paid plans open', 'success');
+                        } catch (e) { showToast(e && e.message ? e.message : 'Could not save that', 'error'); }
+                    };
+                });
+                if (!modal.querySelector('.zp-soon-bar')) {
+                    const cards = modal.querySelector('.zp-cards');
+                    if (cards) {
+                        const bar = document.createElement('div');
+                        bar.className = 'zp-soon-bar';
+                        bar.innerHTML = '<b>Coming soon</b><span>Payments aren\'t switched on yet, so nothing can be bought. Want Pro now? <a href="#" id="zp-soon-invite">Invite friends</a> — your first friend gives you 3 days free.</span>';
+                        cards.parentNode.insertBefore(bar, cards);
+                        const inv = bar.querySelector('#zp-soon-invite');
+                        inv.onclick = (e) => { e.preventDefault(); window.__modalOpen = false; modal.remove(); const b = document.getElementById('invite-btn'); if (b) b.click(); };
+                    }
+                }
+                return;
+            }
             modal.querySelectorAll('[data-plan]').forEach(btn=>{
                 btn.addEventListener('click', async ()=>{
                     const planId = btn.dataset.plan;

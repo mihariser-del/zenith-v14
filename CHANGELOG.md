@@ -1,5 +1,35 @@
 ﻿# Changelog
 
+## 22.1 — Personality studio, memory, invites, real emails, team chat, security pass
+
+**Personality** (`persona.py`, `static/js/persona.js`)
+- Ten personalities, five sliders (warmth, humour, detail, formality, emoji), nickname, "about you", reply language, up to 6 custom personalities, live preview (`POST /api/personality/preview`, 20/h). Stored as JSON in `user_settings.persona`
+- `style_block()` is appended to the system prompt; the user's own instructions (old "system prompt" box) no longer *replace* the base prompt. Research / fact-check modes ignore it. Mirror keeps working on top
+
+**Memory** (`memories.py`, `static/js/memory.js`)
+- Categories, pin, source (you / learned), use counter; `for_prompt()` sends pinned + best keyword matches + newest (22 max) and honours the Memory switch (it used to send the latest 30 even when switched off)
+- Extraction returns structured items, updates an existing memory instead of adding a near-copy, reads only the user's own messages, skips secrets; `POST /tidy` (dedupe + model-assisted merge/re-file), `GET /export`, `POST /forget-all`, 300 max
+
+**Invites** (`invites.py`, `static/js/invite.js`)
+- Ladder 1/3/5/10/25 friends → 3/7/14/30 days Pro, 30 days Ultimate; an invite counts when the friend has a valid email and 3 messages; the friend gets 3 days Pro. `GET /api/invite/overview` (link, opens, ladder, friends, monthly leaderboard). Old `/api/referral/claim` and the 5-for-3-days auto reward removed
+
+**Email** (`emailcheck.py`, `static/js/account.js`)
+- `check_email()`: format, typo hints, placeholder / throw-away domains, MX/A lookup over DNS-over-HTTPS. `users.email_status` ""/checked/verified. With `BREVO_API_KEY` + `SMTP_FROM` (or SMTP) a 6-digit code confirms the address; without it a checked address is accepted
+- Accounts created before 2026-11-12 get `EMAIL_GRACE_DAYS` (7) from their first prompt, then `limits.check_limit` returns 403 + `X-Email-Required`; new accounts need one at sign-up. Owner is asked but never locked; guests are exempt
+- `GET /api/vault/email`, `POST /api/vault/email/test`
+
+**Plans**
+- `BILLING_LIVE=1` (+ Stripe secret + webhook secret) is required to sell; otherwise `create-checkout` returns 503 and the UI shows "Coming soon" with `POST /api/billing/notify-me` (`plan_interest`). The mock path that granted any plan for free is removed; checkout return URLs must be on `APP_BASE_URL`
+- `pro_trial`, `referral_pro`, `invite_*` now end at `trial_end` (`limits._is_pro`, `expire_timed_plans()` every 5 min) — they used to stay Pro forever
+
+**Team chat** (`staff.py`, `static/js/staff.js`): replies, reactions, edit/delete, typing, online list
+
+**Security**
+- Google sign-in: audience must match the site's client ID (it was skipped when `GOOGLE_CLIENT_ID` was unset), issuer + `email_verified` checked, banned/deleted accounts refused; first Google sign-in to an unconfirmed account resets its password and sessions
+- `/api/auth/admin/{dashboard,users,users/{id}/chats,ban,unban,reset-password,role}` and `DELETE /users/{id}` now require the Vault token; the token is bound to the user who unlocked
+- Password reset bumps `token_version`; passwords ≥ 8; usernames limited to `[A-Za-z0-9_.-]{3,30}`
+- `/docs`, `/redoc`, `/openapi.json` off unless `API_DOCS=1`; `X-Content-Type-Options`, `X-Frame-Options`, `frame-ancestors`, `Referrer-Policy`, HSTS, `no-store` on JSON; webhook errors no longer echo exception text
+
 ## 22.0 — Feedback rework
 
 - `feedback.py` rewritten. Tables `fb_tickets`, `fb_messages`, `fb_votes`, `answer_ratings`, `fb_pulse`; old `feedbacks` / `user_requests` rows are copied in once at startup (`fb_migrated` setting). `personal_requests.py` and `/api/requests/*` removed

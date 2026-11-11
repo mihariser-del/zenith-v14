@@ -31,6 +31,9 @@ from appdist import router as appdist_router
 from image import router as image_router
 from video import router as video_router, _resume_unfinished as _resume_videos
 from feedback import router as feedback_router, vault_router as feedback_vault_router
+from persona import router as persona_router
+from emailcheck import router as email_router
+from invites import router as invites_router
 from staff import router as staff_router
 from announcements import router as announcements_router
 from billing import router as billing_router
@@ -44,10 +47,15 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.0"
+VERSION = "22.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.1 New Personality studio (Settings → Personality): choose from ten personalities like Friendly, Teacher, Coder, Coach or Comedian, fine-tune with sliders for warmth, humour, detail, formality and emoji, tell Zelpophai your name and a bit about you, write your own personalities, and tap Try it to hear it before you chat",
+    "Smarter Memory: memories are sorted into categories, you can pin the important ones, search and edit them, tap Learn from my chats, Tidy up duplicates, download them or forget everything — and Zelpophai now uses the memories that matter for each message",
+    "Bigger Invite Friends: a ladder of rewards (1 friend = 3 days of Pro, 3 = a week, 5 = two weeks, 10 = a month, 25 = a month of Ultimate), your friend gets 3 days of Pro too, plus a list of your friends and a monthly leaderboard",
+    "Every account now needs a real email address so you can always get back in. If yours is missing you'll be asked to add it (you have 7 days), with help if you don't have one. Passwords now need at least 8 characters",
+    "Paid plans are marked Coming soon — nothing can be bought yet. Tap Tell me on the Upgrade screen and we'll let you know when they open",
     "22.0 Brand-new Feedback (sidebar → More → Feedback): choose Bug, Idea, Praise, Problem or Personal request, add a star rating and a screenshot, and chat back and forth with the team — you can see when it's Seen, In progress or Done, and you get a notification when they reply",
     "New Ideas board: see what other people have suggested, vote for the ideas you want most, and watch them move to Planned and Done",
     "Rate any answer with a thumbs up or down right under it — if an answer was bad, tell us why in one tap and we use it to make Zelpophai better",
@@ -127,6 +135,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.1 Staff: Live Chat is now Team chat — message bubbles, who is online, replies, reactions, edit/delete your own messages, typing dots, links and @mentions. Vault → Settings shows whether email sending works (with a test button and setup steps) and who asked to be told when paid plans open",
+    "22.1 Security check: Google sign-in now only accepts sign-ins made for Zelpophai with a verified Google email; plans can no longer be switched on without a real payment (the old demo checkout is gone) and free trials/invite rewards now end when their time is up; banning, deleting, role changes, password resets and reading users' chats all need the Vault PIN; a Vault unlock only works for the person who typed the PIN; a password reset signs out old sessions; the public API listing (/docs) is off; and every page now sends anti-clickjacking and no-sniff headers",
     "22.0 Feedback moved into the Vault (People → Feedback): one inbox for feedback and personal requests with search, filters, statuses, quick replies and screenshots; manage the Ideas board (publish/hide, official answers, optional approve-first); Answer ratings (thumbs up/down over time, reasons, and the exact question and answer for each thumbs down); and an AI summary of what people are saying. Old feedback and personal requests were moved over. The in-app inbox popups and the Personal Request button are gone",
     "21.9.2 Everything from the classic Vault now lives in the new one (the old address opens the new Vault): Conversations (read any chat), Security & emergency (sign-in health, server health, lock every account, maintenance, emergency backup, new owner password, sign everyone out), Staff & permissions (add/remove admins, trusted, per-admin permissions, chosen helpers), Settings & exports (change your Vault PIN, download users/chats/messages), bulk-delete in Users and Export data on every profile",
     "User profiles now show their exact plan (e.g. Pro · monthly, Ultimate gift) with a live countdown — tap it to see days, hours, minutes and seconds until it renews or ends, the renewal date (live from Stripe when available), price and last payment",
@@ -200,6 +210,8 @@ async def lifespan(app: FastAPI):
     from vault_jobs import alert_loop, backup_loop
     from feedback import migrate_legacy
     await migrate_legacy()            # old Feedback + Personal Requests → new inbox (once)
+    from invites import migrate_once as _invite_migrate
+    await _invite_migrate()
     vault_tasks = [asyncio.create_task(backup_loop()), asyncio.create_task(alert_loop())]
     asyncio.create_task(_indexnow_ping())
     try:
@@ -218,7 +230,11 @@ async def lifespan(app: FastAPI):
             pass
 
 
-app = FastAPI(title="Zelpophai AI", version=VERSION, lifespan=lifespan)
+# The interactive API listing (/docs, /openapi.json) stays off in production: it maps every endpoint for an attacker.
+_API_DOCS = os.getenv("API_DOCS", "").strip() == "1"
+app = FastAPI(title="Zelpophai AI", version=VERSION, lifespan=lifespan,
+              docs_url="/docs" if _API_DOCS else None, redoc_url="/redoc" if _API_DOCS else None,
+              openapi_url="/openapi.json" if _API_DOCS else None)
 
 app.include_router(auth_router)
 app.include_router(chats_router)
@@ -239,6 +255,9 @@ app.include_router(image_router)
 app.include_router(video_router)
 app.include_router(feedback_vault_router)   # before the vault router so /api/vault/feedback/* is matched here
 app.include_router(feedback_router)
+app.include_router(persona_router)
+app.include_router(email_router)
+app.include_router(invites_router)
 app.include_router(staff_router)
 app.include_router(announcements_router)
 app.include_router(billing_router)
@@ -338,40 +357,6 @@ async def referral_admin_reset(request: Request, db=Depends(get_db)):
     return {"message": f"Reset invite progress for {target_name}", "deleted": deleted}
 
 
-@app.post("/api/referral/claim")
-async def referral_claim(request: Request, db=Depends(get_db)):
-    user = await get_current_user_from_cookie(request, db)
-    if user.username.startswith("guest_"):
-        raise HTTPException(status_code=403, detail="Guests cannot claim referral rewards")
-    result = await db.execute(
-        select(func.count()).where(Referral.referrer_id == user.id, Referral.rewarded == False)
-    )
-    pending = result.scalar() or 0
-    if pending < REFERRAL_REQUIRED:
-        raise HTTPException(status_code=400, detail=f"Need {REFERRAL_REQUIRED - pending} more referrals to claim")
-    now = datetime.now(timezone.utc)
-    if getattr(user, "is_pro", False) and getattr(user, "trial_end", None):
-        trial_end = user.trial_end
-        if trial_end.tzinfo is None:
-            trial_end = trial_end.replace(tzinfo=timezone.utc)
-        if trial_end > now:
-            user.trial_end = trial_end + timedelta(days=REFERRAL_PRO_DAYS)
-        else:
-            user.trial_end = now + timedelta(days=REFERRAL_PRO_DAYS)
-    else:
-        user.is_pro = True
-        user.pro_plan = "referral_pro"
-        user.trial_end = now + timedelta(days=REFERRAL_PRO_DAYS)
-    await db.execute(
-        update(Referral).where(
-            Referral.referrer_id == user.id,
-            Referral.rewarded == False
-        ).values(rewarded=True)
-    )
-    await db.commit()
-    return {"message": f"Pro activated for {REFERRAL_PRO_DAYS} days!", "trial_end": user.trial_end.isoformat()}
-
-
 @app.get("/api/referral/link")
 async def referral_link(request: Request, db=Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
@@ -402,6 +387,11 @@ async def invite_page(token: str, request: Request):
         invite = result.scalar_one_or_none()
         if not invite or invite.used:
             return RedirectResponse(url="/")
+        try:
+            invite.clicks = (invite.clicks or 0) + 1      # "your link was opened N times"
+            await db.commit()
+        except Exception:
+            pass
         ref_result = await db.execute(
             select(User).where(User.id == invite.referrer_id)
         )
@@ -1149,6 +1139,18 @@ async def seo_headers(request: Request, call_next):
         or path == "/mini"
     ):
         response.headers["X-Robots-Tag"] = "noindex, nofollow"
+    # Baseline browser protections on every response.
+    h = response.headers
+    h.setdefault("X-Content-Type-Options", "nosniff")                 # never guess a file's type
+    h.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if "content-security-policy" not in h:
+        # Zelpophai may only be framed by itself (stops click-jacking); no plugins; no <base> hijacking.
+        h["Content-Security-Policy"] = "frame-ancestors 'self'; object-src 'none'; base-uri 'self'"
+    h.setdefault("X-Frame-Options", "SAMEORIGIN")
+    if request.url.scheme == "https" or request.headers.get("x-forwarded-proto", "") == "https":
+        h.setdefault("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+    if path.startswith("/api/") and "cache-control" not in h and h.get("content-type", "").startswith("application/json"):
+        h["Cache-Control"] = "no-store"                                # private answers are never cached by proxies
     # Every page registers /static/sw.js with scope "/". Browsers refuse a scope
     # above the script's own folder unless this header is present, so the service
     # worker (installable app, offline cache, push notifications) never started.

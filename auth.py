@@ -447,7 +447,10 @@ async def require_vault(request: Request, db: AsyncSession = Depends(get_db)) ->
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    decode_vault_token(request.headers.get("x-vault-token", ""))
+    payload = decode_vault_token(request.headers.get("x-vault-token", ""))
+    # The unlock belongs to the person who typed the PIN — it can't be reused with someone else's session.
+    if str(payload.get("sub") or "") != str(user.id):
+        raise HTTPException(status_code=403, detail="Vault is locked")
     return user
 
 
@@ -542,35 +545,8 @@ async def _invite_apply(db, request, user, invite_token: str, device_id: str, ha
             referrer_id=invite.referrer_id,
         )
         db.add(new_token)
-        # Check if referrer now has 5+ pending referrals → auto-grant Pro
-        from sqlalchemy import func, update as _update
-        ref_result = await db.execute(select(User).where(User.id == invite.referrer_id))
-        referrer = ref_result.scalar_one_or_none()
-        if referrer and not referrer.username.startswith("guest_"):
-            count_result = await db.execute(
-                select(func.count()).where(Referral.referrer_id == referrer.id, Referral.rewarded == False)
-            )
-            pending = count_result.scalar() or 0
-            if pending >= 5:
-                now = datetime.now(timezone.utc)
-                if getattr(referrer, "is_pro", False) and getattr(referrer, "trial_end", None):
-                    te = referrer.trial_end
-                    if te.tzinfo is None:
-                        te = te.replace(tzinfo=timezone.utc)
-                    if te > now:
-                        referrer.trial_end = te + timedelta(days=3)
-                    else:
-                        referrer.trial_end = now + timedelta(days=3)
-                else:
-                    referrer.is_pro = True
-                    referrer.pro_plan = "referral_pro"
-                    referrer.trial_end = now + timedelta(days=3)
-                await db.execute(
-                    _update(Referral).where(
-                        Referral.referrer_id == referrer.id,
-                        Referral.rewarded == False
-                    ).values(rewarded=True)
-                )
+        # Rewards are handed out by invites.settle() once the friend is active (valid email + a few messages).
+
 
 
 
@@ -591,8 +567,16 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
         pass
     if len(req.username) < 3:
         raise HTTPException(status_code=400, detail="Username must be at least 3 characters")
-    if len(req.password) < 6:
-        raise HTTPException(status_code=400, detail="Password must be at least 6 characters")
+    if len(req.password) < 8:
+        raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+    if len(req.username) > 30 or not re.fullmatch(r"[A-Za-z0-9_.\-]+", req.username) or req.username.lower().startswith("guest_"):
+        raise HTTPException(status_code=400, detail="Usernames can use letters, numbers, dots, dashes and underscores (3–30 characters)")
+    # A real email address is required: well formed, not a throw-away inbox, and its provider must exist.
+    import emailcheck
+    req.email = emailcheck.normalize(req.email)
+    _ok, _why = await emailcheck.check_email(req.email)
+    if not _ok:
+        raise HTTPException(status_code=400, detail=_why)
 
     from database import UsedDevice
     device_id = (req.device_id or "").strip()
@@ -633,6 +617,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
             existing_user.token_version = 0
             existing_user.pending_password = ""
             existing_user.pending_password_by = ""
+            existing_user.email_status = "" if emailcheck.mail_configured() else "checked"
             await db.commit()
             return {"message": "Account reactivated"}
         raise HTTPException(status_code=409, detail="Username or email already exists")
@@ -641,6 +626,9 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
         username=req.username,
         email=req.email,
         password_hash=hash_password(req.password),
+        # With email sending set up the address is confirmed by a code right after sign-up;
+        # without it, passing the checks above is what "valid" means.
+        email_status="" if emailcheck.mail_configured() else "checked",
     )
     db.add(user)
     await db.flush()  # Get user.id for referral tracking
@@ -736,8 +724,8 @@ async def forgot_password(req: ForgotRequest, request: Request, db: AsyncSession
 async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncSession = Depends(get_db)):
     # Rate-limit reset-code guessing: 10 tries / 15 min per IP.
     _raise_if_locked(f"resetpw:ip:{_client_ip(request)}", limit=10, window=900)
-    if len(req.new_password) < 6:
-        raise HTTPException(status_code=400, detail="New password must be at least 6 characters")
+    if len(req.new_password) < 8:
+        raise HTTPException(status_code=400, detail="New password must be at least 8 characters")
     if not req.token.strip():
         raise HTTPException(status_code=400, detail="Reset token missing")
     result = await db.execute(select(User).where(User.reset_token == req.token.strip().upper()))
@@ -757,6 +745,8 @@ async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncS
     user.password_hash = hash_password(req.new_password)
     user.reset_token = ""
     user.reset_token_expires = None
+    # Whoever was signed in with the old password is signed out everywhere.
+    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
     await db.commit()
     return {"message": "Password reset successful. Please login with your new password."}
 
@@ -905,7 +895,7 @@ async def create_admin(req: AdminRequest, request: Request, db: AsyncSession = D
 
 
 @router.get("/admin/dashboard")
-async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_dashboard(request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     from sqlalchemy import func
     from database import Chat, Message, Memory, KnowledgeBase
     from datetime import timedelta
@@ -933,8 +923,7 @@ async def list_all_users(
     search: str = "",
     role: str = "",
     status: str = "",
-    db: AsyncSession = Depends(get_db),
-):
+    db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     from sqlalchemy import func, or_
     from database import Chat, Message
     user = await get_current_user_from_cookie(request, db)
@@ -987,7 +976,7 @@ async def list_all_users(
 
 
 @router.post("/admin/users/{user_id}/ban")
-async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if not req.reason or not req.reason.strip():
@@ -1017,7 +1006,7 @@ async def admin_ban_user(user_id: int, req: AdminBanRequest, request: Request, d
 
 
 @router.post("/admin/users/{user_id}/unban")
-async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).where(User.id == user_id))
@@ -1037,7 +1026,7 @@ async def admin_unban_user(user_id: int, request: Request, db: AsyncSession = De
 
 
 @router.post("/admin/users/{user_id}/reset-password")
-async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin): raise HTTPException(status_code=403, detail="Admin only")
     if len(req.new_password) < 6: raise HTTPException(status_code=400, detail="Password min 6 chars")
@@ -1067,7 +1056,7 @@ async def admin_reset_password(user_id: int, req: AdminResetRequest, request: Re
 
 
 @router.get("/admin/users/{user_id}/chats")
-async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     from database import Chat
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
@@ -1096,7 +1085,7 @@ async def admin_user_chats(user_id: int, request: Request, db: AsyncSession = De
 
 
 @router.delete("/admin/users/{user_id}")
-async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_delete_user(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
@@ -1169,7 +1158,7 @@ async def admin_bulk_delete_users(req: BulkDeleteRequest, request: Request, db: 
 
 
 @router.post("/admin/users/{user_id}/role")
-async def admin_change_role(user_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def admin_change_role(user_id: int, request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
     admin = await get_current_user_from_cookie(request, db)
     if get_role(admin) != "owner":
         raise HTTPException(status_code=403, detail="Only the Owner can change roles")

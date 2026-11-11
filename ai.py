@@ -205,10 +205,14 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
             memories = []
             kb_context = ""
         else:
-            memory_result = await db.execute(
-                select(Memory).where(Memory.user_id == user_id).order_by(Memory.updated_at.desc()).limit(30)
-            )
-            memories = memory_result.scalars().all()
+            # Only when memory is switched on, and only the memories that matter for this message.
+            memories = []
+            if user_settings is None or getattr(user_settings, "memory_enabled", True):
+                try:
+                    import memories as _mem
+                    memories = await _mem.for_prompt(db, user_id, last_user_msg or "")
+                except Exception as _me:
+                    print(f"[memory] selection failed: {_me}")
 
             kb_context = ""
             if last_user_msg:
@@ -262,8 +266,6 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         base = FACTCHECK_PROMPT
     elif research:
         base = RESEARCH_PROMPT
-    elif user_settings and user_settings.system_prompt:
-        base = user_settings.system_prompt
     elif think:
         base = DEFAULT_THINK_PROMPT
     else:
@@ -278,10 +280,20 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
 
     parts = [base]
     if memories:
-        memory_text = "\n".join(f"- {m.content}" for m in memories)
-        parts.append(f"Things you remember about this user:\n{memory_text}")
+        import memories as _mem
+        parts.append(_mem.prompt_text(memories))
     if kb_context:
         parts.append(kb_context)
+    # Personality: the chosen personality, sliders, nickname and the user's own instructions.
+    # It shapes the voice only; research and fact-check modes keep their own strict style.
+    if user_settings and not (research or factcheck):
+        try:
+            import persona as _persona
+            _style = _persona.style_block(user_settings)
+            if _style:
+                parts.append(_style)
+        except Exception as _pe:
+            print(f"[persona] style block failed: {_pe}")
     if mirror_text:
         parts.append(mirror_text)
 

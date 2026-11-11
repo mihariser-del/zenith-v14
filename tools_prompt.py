@@ -124,8 +124,9 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
     if va["limit"]:
         video_line = f"{va['left']} of {va['limit']} videos left today"
     else:
-        video_line = ("NOT available — guests must log in and upgrade" if guest
-                      else "NOT available on their plan — videos need Pro (suggest the Upgrade button)")
+        video_line = ("NOT available — guests must create an account first" if guest
+                      else "NOT available on their plan — videos need Pro. Paid plans are not on sale yet (coming soon); "
+                           "they can earn free Pro by inviting friends (Invite Friends)")
     # memory setting
     mem_on = True
     try:
@@ -154,7 +155,9 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
 
     lines = [
         "YOUR TOOLS — these are real features of this app. Never say you can't do them; if one isn't "
-        "available on the user's plan, say so kindly and point to the Upgrade button (or Log in for guests).",
+        "available on the user's plan, say so kindly. Paid plans are COMING SOON and cannot be bought yet — never tell anyone to pay or upgrade now; "
+        "instead mention that limits reset by themselves, that inviting friends earns free Pro (1 friend = 3 days, 3 = a week, "
+        "5 = two weeks, 10 = a month, 25 = a month of Ultimate), and that the Upgrade screen has a 'Tell me' button. Guests should create an account.",
         f"User's plan: {plan}. Today: images {img_left} of {img_limit} left; files {files_line}; videos {video_line}.",
         "1. Files (Word, PDF, PowerPoint, Excel, CSV, web pages, code): use the <zfile> tag described in FILES.",
         "2. Images: when the user asks for a picture, drawing, logo, poster, wallpaper etc., write "
@@ -180,7 +183,10 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "Python and websites run right in the browser.",
         "11. Other app features you can point to: Share (top right, public link of a chat), Feedback (sidebar → More: "
         "report a bug, share an idea, send praise or a personal request to the Owner, get replies there, and vote on the "
-        "public Ideas board), thumbs up/down under each of your answers, Invite Friends (5 friends who join = free Pro), Settings "
+        "public Ideas board), thumbs up/down under each of your answers, Personality (Settings → Personality: ten ready-made "
+        "personalities, sliders for warmth/humour/detail/formality/emoji, your own custom personalities, a nickname and standing "
+        "instructions), Memory (sidebar: what you remember about them, with categories, pinning, 'Learn from my chats' and Tidy up), "
+        "Invite Friends (a ladder of free Pro rewards, a friends list and a monthly leaderboard), Settings "
         "(personality, theme), Save as Word/PDF under any answer, and the Zelpophai desktop app (Windows: Ctrl+Shift+Z opens Zelpophai Mini, which can see the screen and even click and type to do tasks).",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",

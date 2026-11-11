@@ -455,14 +455,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
-    // Hide Invite button if user has earned Pro from referrals
-    try {
-        const refStats = await api('/api/referral/stats');
-        if (refStats.has_pro || refStats.earned_from_referrals) {
-            const inviteBtn = $('invite-btn');
-            if (inviteBtn) inviteBtn.style.display = 'none';
-        }
-    } catch (e) {}
     // Avatar click shows logout when in collapsed rail (901-1100px)
     const avatarEl = $('user-avatar');
     if (avatarEl) {
@@ -586,126 +578,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('tools-toggle').classList.toggle('open');
     });
 
-    // ── Invite Friends Modal ──────────────────────────────────────────────
-    $('invite-btn').addEventListener('click', async () => {
+    // ── Invite friends (ladder, friends list, leaderboard) — see invite.js ──
+    $('invite-btn').addEventListener('click', () => {
         closeSidebar();
-        if (window.user && window.user.username && window.user.username.startsWith('guest_')) {
-            if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest invite');
-            return;
-        }
-        const wrap = document.createElement('div');
-        wrap.className = 'zp-inv';
-        wrap.innerHTML = `
-            <div class="zp-inv-card" role="dialog" aria-modal="true" aria-labelledby="zp-inv-t">
-                <button id="invite-close" class="zp-inv-x" aria-label="Close">&times;</button>
-                <div class="zp-inv-head">
-                    <div class="zp-inv-ic">🎁</div>
-                    <h2 id="zp-inv-t">Invite friends, get Pro</h2>
-                    <p>When <b>5 friends</b> join with your links, you get <b>Pro free for 3 days</b>.</p>
-                </div>
-                <div class="zp-inv-steps" id="invite-steps" aria-label="Progress"></div>
-                <div class="zp-inv-prog"><span id="invite-progress-text">0/5</span> friends joined <span class="zp-inv-bar"><i id="invite-progress-bar"></i></span></div>
-                <div id="invite-stats" class="zp-inv-stats">
-                    <div><b id="invite-count">0</b><span>Joined</span></div>
-                    <div><b id="invite-pending">0</b><span>To go</span></div>
-                    <div><b id="invite-rewarded">0</b><span>Rewarded</span></div>
-                </div>
-                <div class="zp-inv-link">
-                    <label for="invite-link">Your invite link <small>(works once, a new one appears after each friend joins)</small></label>
-                    <div><input id="invite-link" readonly placeholder="Loading…"><button id="invite-copy">Copy</button></div>
-                </div>
-                <div class="zp-inv-share">
-                    <button id="invite-native" hidden>📤 Share…</button>
-                    <button id="invite-whatsapp" class="wa">WhatsApp</button>
-                    <button id="invite-telegram" class="tg">Telegram</button>
-                    <button id="invite-twitter" class="x">X</button>
-                </div>
-                <details class="zp-inv-qr"><summary>Show QR code</summary><div id="invite-qr"></div><small>Let a friend scan this with their phone camera.</small></details>
-                <button id="invite-claim" class="zp-inv-claim" style="display:none;">✨ Claim my Pro reward</button>
-            </div>`;
-        wrap.addEventListener('click', e => { if (e.target === wrap) wrap.remove(); });
-        document.body.appendChild(wrap);
-        wrap.querySelector('#invite-close').addEventListener('click', () => wrap.remove());
-
-        // Load stats
-        try {
-            const [stats, linkData] = await Promise.all([
-                api('/api/referral/stats'),
-                api('/api/referral/link')
-            ]);
-            wrap.querySelector('#invite-count').textContent = stats.total;
-            wrap.querySelector('#invite-pending').textContent = Math.max(0, stats.required - stats.total);
-            wrap.querySelector('#invite-rewarded').textContent = stats.rewarded;
-            wrap.querySelector('#invite-link').value = linkData.link;
-            const pct = Math.min(100, (stats.total / stats.required) * 100);
-            wrap.querySelector('#invite-progress-bar').style.width = pct + '%';
-            wrap.querySelector('#invite-progress-text').textContent = `${Math.min(stats.total, stats.required)}/${stats.required}`;
-            wrap.querySelector('#invite-steps').innerHTML = Array.from({ length: stats.required }, (_, i) => `<span class="${i < stats.total ? 'on' : ''}">${i < stats.total ? '✓' : i + 1}</span>`).join('');
-            const shareText = 'Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ';
-            if (navigator.share) {
-                const nb = wrap.querySelector('#invite-native');
-                nb.hidden = false;
-                nb.onclick = () => navigator.share({ title: 'Zelpophai AI', text: shareText, url: linkData.link }).catch(() => {});
-            }
-            wrap.querySelector('#invite-telegram').onclick = () => window.open(`https://t.me/share/url?url=${encodeURIComponent(linkData.link)}&text=${encodeURIComponent(shareText)}`, '_blank', 'noopener');
-            const qrDetails = wrap.querySelector('.zp-inv-qr');
-            qrDetails.addEventListener('toggle', () => {
-                if (!qrDetails.open || qrDetails.dataset.done) return;
-                qrDetails.dataset.done = '1';
-                const draw = () => { try { new QRCode(wrap.querySelector('#invite-qr'), { text: linkData.link, width: 180, height: 180, colorDark: '#0b1230', colorLight: '#ffffff' }); } catch (e) {} };
-                if (window.QRCode) draw();
-                else { const sc = document.createElement('script'); sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'; sc.onload = draw; document.head.appendChild(sc); }
-            });
-            if (stats.has_pro) {
-                // Already earned Pro — hide claim, show message
-                wrap.querySelector('#invite-claim').style.display = 'none';
-            } else if (stats.total >= stats.required) {
-                const claimBtn = wrap.querySelector('#invite-claim');
-                claimBtn.style.display = 'block';
-                claimBtn.addEventListener('click', async () => {
-                    try {
-                        const r = await api('/api/referral/claim', { method: 'POST' });
-                        showToast(r.message, 'success');
-                        claimBtn.style.display = 'none';
-                        // Hide invite button entirely after claiming
-                        const inviteBtn = $('invite-btn');
-                        if (inviteBtn) inviteBtn.style.display = 'none';
-                    } catch (e) { showToast(e.message, 'error'); }
-                });
-            }
-        } catch (e) { showToast('Could not load invite stats', 'error'); }
-
-        // Copy link
-        wrap.querySelector('#invite-copy').addEventListener('click', () => {
-            const link = wrap.querySelector('#invite-link').value;
-            navigator.clipboard.writeText(link).then(() => showToast('Link copied!', 'success')).catch(() => showToast('Copy failed', 'error'));
-        });
-        // Twitter share
-        wrap.querySelector('#invite-twitter').addEventListener('click', () => {
-            const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://twitter.com/intent/tweet?text=${encodeURIComponent('Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ' + link)}`, '_blank');
-        });
-        // WhatsApp share
-        wrap.querySelector('#invite-whatsapp').addEventListener('click', () => {
-            const link = wrap.querySelector('#invite-link').value;
-            window.open(`https://wa.me/?text=${encodeURIComponent('Join me on Zelpophai AI — it chats, makes documents, images and videos, and codes. Free to start: ' + link)}`, '_blank');
-        });
-
-        // TEMPORARY owner tool: reset any user's invite/referral progress
-        if (isOwner) {
-            const rbtn = document.createElement('button');
-            rbtn.textContent = '♻ Reset a user\'s invite progress (owner)';
-            rbtn.className = 'zp-inv-reset';
-            rbtn.addEventListener('click', async () => {
-                const who = prompt('Reset invite progress for which username?');
-                if (!who || !who.trim()) return;
-                try {
-                    const r = await api('/api/referral/admin/reset', { method: 'POST', body: JSON.stringify({ username: who.trim() }) });
-                    showToast(r.message, 'success');
-                } catch (e) { showToast(e.message, 'error'); }
-            });
-            wrap.querySelector('#invite-stats').insertAdjacentElement('afterend', rbtn);
-        }
+        if (isGuest) { if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest invite'); return; }
+        if (window.ZPInvite) window.ZPInvite.open();
     });
     const composerBox = document.querySelector('.composer-box');
     const toolsExpandBtn = $('tools-expand-btn');
@@ -827,11 +704,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     })();
 
     $('memory-btn').addEventListener('click', () => { if (!requireLogin()) return; Memory.open(); closeSidebar(); });
-    $('close-memory').addEventListener('click', () => Memory.close());
-    $('memory-add-btn').addEventListener('click', () => Memory.add());
-    $('memory-extract-btn').addEventListener('click', () => Memory.autoExtract());
-    $('memory-search').addEventListener('input', (e) => Memory.search(e.target.value));
-    $('memory-new').addEventListener('keydown', (e) => { if (e.key === 'Enter') Memory.add(); });
 
     $('kb-btn').addEventListener('click', () => { if (!requireLogin()) return; Knowledge.open(); closeSidebar(); });
     $('close-kb').addEventListener('click', () => Knowledge.close());
@@ -1009,9 +881,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('about-modal').addEventListener('click', e => {
         if (e.target === $('about-modal')) $('about-modal').style.display = 'none';
     });
-    $('memory-modal').addEventListener('click', e => {
-        if (e.target === $('memory-modal')) Memory.close();
-    });
     $('kb-modal').addEventListener('click', e => {
         if (e.target === $('kb-modal')) Knowledge.close();
     });
@@ -1034,6 +903,9 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- Feedback (send, replies, ideas board, answer thumbs, monthly rating) — see feedback.js ---
     if (window.ZPFeedback) window.ZPFeedback.init({ user, isStaff: !!(isAdmin || isOwner), isGuest });
+    // --- Email (every account needs a real one) + Personality row in Settings ---
+    if (window.ZPAccount) window.ZPAccount.init({ user, isGuest });
+    if (window.ZPPersona) window.ZPPersona.mountSettings();
     // Broadcast polling — all users get popup when staff broadcasts
     // Dedup state is PER-USER and tracked by the broadcast's created_at_ts timestamp,
     // NOT its integer id (ids reset to 1 after "clear broadcast cache" on SQLite, which

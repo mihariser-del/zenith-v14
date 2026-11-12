@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 22.3 — New login / sign-up page, one popup for everything
+
+- `static/js/zpop.js`: `window.ZPop` (`show`, `confirm`, `prompt`, `systemScreen`). Self-styled (injects its own CSS, works after `document.body` is emptied), tones danger/warn/good/info/owner/staff, SVG icons, quote box, list, countdown, copy-code row, focus trap, Esc, light theme, bottom-sheet on phones. Loaded before `api.js` on every page.
+- All popups now go through it with the same function names and element ids: `showLimitPopup`, `showEmergencyPopup` (api.js); banned-at-load, `_showTagPopup`, `_showMaintenanceScreen`, back-online note, role change, chosen helper, helper thanks, `showBroadcastPopup`, `showBannedScreen`, `showOfflineScreen`, `showDeletedScreen`, `showPasswordChangedScreen`, `showPasswordModal` (app.js); app-update prompt (sidebar.js); maintenance/locked on the welcome page (auth.js); `showConfirm` / `showPrompt` (confirm.js — static `#confirm-modal` / `#prompt-modal` removed from app.html).
+- Ban reason and broadcast text are always escaped (the load-time banned screen used to inject `ban_reason` as HTML).
+- `static/index.html` + `static/css/auth.css`: `#login-screen` rebuilt (brand panel + form card, segmented tabs, labelled fields, SVG show/hide, strength meter, message boxes, busy buttons); `#forgot-modal` and `#admin-modal` restyled; staff sign-in is a text link (`#admin-crown`). All ids used by `auth.js` unchanged.
+- `auth.js`: client-side checks before submit, Enter/Esc in dialogs, register redirects to `/app` (the server already sets the session cookie), reset form enforces 8 characters.
+
 ## 22.2 — Slash commands, sign-up without email, Google button switch
 
 - `static/js/slash.js`: "/" menu on `#user-input` (filter, ↑↓, Enter/Tab, Esc; document-level capture so it runs before the send handler). Create (/image, /video), modes (/think, /research, /fact), quick asks (/summarize, /shorter, /simpler, /longer, /translate, /fix, /explain, /continue), app (/remember, /memory, /personality [name], /new, /search, /share, /files, /invite, /feedback, /settings, /help) with aliases. Text that starts with "/" but matches no command is sent as a normal message

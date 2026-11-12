@@ -83,18 +83,15 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     // Check if user is banned — show full-screen ban popup
     if (user.is_banned) {
-        document.body.innerHTML = '';
-        const wrap = document.createElement('div');
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.92);backdrop-filter:blur(10px);';
-        wrap.innerHTML = `
-            <div style="background:linear-gradient(160deg,#1a0a0a,#2a1015 50%,#1a0505);border:2px solid #EF4444;border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px rgba(239,68,68,.2),0 30px 60px rgba(0,0,0,.6);">
-                <div style="font-size:72px;margin-bottom:16px;">🚫</div>
-                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);font-size:10px;font-weight:700;color:#EF4444;letter-spacing:2px;margin-bottom:16px;">ACCOUNT BANNED</div>
-                <h2 style="color:#EF4444;font-size:24px;margin:0 0 12px;font-weight:800;">You Have Been Banned</h2>
-                <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 12px;">${user.ban_reason || 'Your account has been banned by the Owner.'}</p>
-                <div style="font-size:11px;color:#666;">Banned by: <strong style="color:#EF4444;">${user.banned_by || 'Owner'}</strong></div>
-            </div>`;
-        document.body.appendChild(wrap);
+        const byOwner = !user.banned_by || /owner|wanzu/i.test(String(user.banned_by));
+        window.ZPop.show({
+            id: 'banned-screen', replaceBody: true, dismissable: false, z: 999999, tone: 'danger', icon: 'ban', badge: 'Account banned',
+            title: 'This account has been banned',
+            text: 'You can\'t use Zelpophai AI with this account any more.',
+            quote: user.ban_reason || 'No reason was given.', quoteLabel: 'Reason',
+            actions: [{ label: 'Log out', icon: 'logout', keep: true, onClick: async () => { try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {} window.location.replace('/'); } }],
+            metaHtml: 'Banned by <b>' + window.ZPop.esc(byOwner ? 'The Owner' : user.banned_by) + '</b> · Think this is a mistake? Write to <b>mihariser@gmail.com</b>',
+        });
         return;
     }
 
@@ -189,50 +186,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // "You're now a Friend / Trusted Admin" welcome card.
     function _showTagPopup(kind) {
         const friend = kind === 'friend';
-        const wrap = document.createElement('div');
-        wrap.className = 'zp-tagpop';
-        wrap.setAttribute('role', 'dialog');
-        wrap.setAttribute('aria-modal', 'true');
-        wrap.innerHTML = `<div class="zp-tagpop-card ${friend ? 'friend' : 'trusted'}">
-            <div class="zp-tagpop-ic">${friend ? '🤝' : '🛡️'}</div>
-            <div class="zp-tagpop-tag">${friend ? 'FRIEND' : 'TRUSTED ADMIN'}</div>
-            <h3>${friend ? "You're a Friend of Wanzu!" : "You're now a Trusted Admin"}</h3>
-            <p>${friend
-                ? 'Wanzu added you as a friend. You now get Ultimate-level limits, more videos every day and early access to new features. Enjoy!'
-                : 'Wanzu trusts you with more: Global Controls (maintenance, sign-ups, messaging, AI), password resets and unbans without asking, and the full stats. Emergency tools stay with the Owner.'}</p>
-            <button type="button">Awesome</button></div>`;
-        const close = () => wrap.remove();
-        wrap.querySelector('button').addEventListener('click', close);
-        wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
-        document.body.appendChild(wrap);
-        setTimeout(() => { const b = wrap.querySelector('button'); if (b) b.focus(); }, 50);
+        window.ZPop.show({
+            id: 'tag-popup', tone: friend ? 'good' : 'staff', icon: friend ? 'users' : 'shield', badge: friend ? 'Friend' : 'Trusted admin',
+            title: friend ? 'You\'re a Friend of Wanzu' : 'You\'re now a Trusted Admin',
+            text: friend ? 'Wanzu added you as a friend. Here\'s what you get:' : 'Wanzu trusts you with more. Here\'s what\'s new:',
+            list: friend
+                ? ['Ultimate-level limits', 'More videos every day', 'Early access to new features']
+                : ['Global Controls: maintenance, sign-ups, messaging and AI', 'Password resets and unbans without asking', 'The full stats', 'Emergency tools stay with the Owner'],
+            actions: [{ label: 'Awesome' }],
+        });
     }
     let _persistentScreen = '';
     function _showMaintenanceScreen(kind) {
-        const isLock = kind === 'locked';
-        const icon = isLock ? '🔒' : '🚧';
-        const accent = isLock ? '#EF4444' : '#F59E0B';
-        const border = isLock ? '#EF4444' : '#F59E0B';
-        const label = isLock ? 'ALL ACCOUNTS LOCKED' : 'SYSTEM MAINTENANCE';
-        const title = isLock ? 'Your Account Has Been Locked' : 'Maintenance Mode Active';
-        const msg = isLock
-            ? 'The Owner has locked all accounts. You have been signed out until the Owner unlocks the platform. This screen will clear automatically once access is restored.'
-            : 'The platform is temporarily under maintenance. The Owner is working on it right now. This screen will clear automatically once maintenance is complete.';
-        document.body.innerHTML = '';
-        document.body.appendChild((() => {
-            const wrap = document.createElement('div');
-            wrap.id = 'maintenance-screen';
-            wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(10px);';
-            wrap.innerHTML = `
-                <div style="background:linear-gradient(160deg,#1a1510,#2a2015 50%,#1a1005);border:2px solid ${border};border-radius:20px;padding:48px 56px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px ${accent}22,0 30px 60px rgba(0,0,0,.6);">
-                    <div style="font-size:72px;margin-bottom:16px;">${icon}</div>
-                    <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:${accent}18;border:1px solid ${accent}38;font-size:10px;font-weight:700;color:${accent};letter-spacing:2px;margin-bottom:16px;">${label}</div>
-                    <h2 style="color:${accent};font-size:24px;margin:0 0 12px;font-weight:800;letter-spacing:1px;">${title}</h2>
-                    <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 20px;">${msg}</p>
-                    <div style="font-size:11px;color:#666;">Initiated by <strong style="color:#C0C7D1;">WANZU-IBRAHIM</strong> — The Owner</div>
-                </div>`;
-            return wrap;
-        })());
+        window.ZPop.systemScreen(kind === 'locked' ? 'locked' : 'maintenance');
     }
     function checkNotif() {
         api('/api/auth/me').then(r => {
@@ -299,20 +265,14 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (localStorage.getItem('zenith_maint_note_seen') === note) return false;
         _maintNoteShown = note;
         localStorage.setItem('zenith_maint_note_seen', note);
-        const _safeNote = (() => { const d = document.createElement('div'); d.textContent = note; return d.innerHTML; })();
-        const wrap = document.createElement('div');
-        wrap.id = 'maint-note-popup';
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:999999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.94);backdrop-filter:blur(10px);animation:fadeIn .3s;';
-        wrap.innerHTML = `
-            <div style="background:linear-gradient(160deg,#0f1a14,#16241c 50%,#0c1a12);border:2px solid #10B981;border-radius:20px;padding:44px 50px;max-width:520px;width:92%;text-align:center;box-shadow:0 0 80px rgba(16,185,129,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(16,185,129,.08);filter:blur(25px);"></div>
-                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(16,185,129,.5));">✅</div>
-                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);font-size:10px;font-weight:700;color:#10B981;letter-spacing:2px;margin-bottom:16px;">BACK ONLINE</div>
-                <h2 style="color:#4ADE80;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">What Was Fixed During The Break</h2>
-                <div style="background:rgba(0,0,0,0.35);border:1px solid rgba(16,185,129,.3);border-radius:12px;padding:16px 18px;margin-bottom:22px;font-size:14px;color:#e5e5e5;line-height:1.7;text-align:left;border-left:3px solid #10B981;white-space:pre-wrap;word-wrap:break-word;">${_safeNote}</div>
-                <button onclick="var p=document.getElementById('maint-note-popup');if(p)p.remove();window.location.href='/app';" style="background:#10B981;color:#04120b;border:none;padding:13px 40px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Continue ▶</button>
-            </div>`;
-        document.body.appendChild(wrap);
+        window.ZPop.show({
+            id: 'maint-note-popup', dismissable: false, z: 999999, tone: 'good', icon: 'check', badge: 'Back online',
+            title: 'We\'re back — here\'s what changed',
+            text: 'Thanks for waiting. A note from the Owner:',
+            quote: note,
+            actions: [{ label: 'Continue', keep: true, onClick: () => { window.location.href = '/app'; } }],
+            metaHtml: 'From <b>WANZU-IBRAHIM</b> · The Owner',
+        });
         try { if ('Notification' in window && Notification.permission === 'granted') new Notification('Zelpophai AI — Back Online', { body: note.slice(0, 120), icon: '/static/icons/icon-192.png', tag: 'maint-note', requireInteraction: true }); } catch (e) {}
         return true;
     }
@@ -948,6 +908,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         try {
             const d = await api('/api/announcements/feed?_=' + Date.now());
             const anns = d.announcements || [];
+            // Nothing has ever been broadcast: remember that, so the very first broadcast still pops up.
+            if (!anns.length && localStorage.getItem(_annBaseKey) === null) localStorage.setItem(_annBaseKey, '');
             if (anns.length) {
                 const maxAnn = anns.reduce((m, a) => _tsOf(a.created_at_ts) > _tsOf(m) ? a : m, anns[0]);
                 // First-ever poll for this account: baseline to the latest broadcast so old
@@ -993,71 +955,38 @@ document.addEventListener('DOMContentLoaded', async () => {
         _pollingAnn = false;
     }
     function _showRoleNotificationPopup(promoted) {
-        const existing = document.getElementById('role-notif-popup');
-        if (existing) existing.remove();
-        const wrap = document.createElement('div');
-        wrap.id = 'role-notif-popup';
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.85);backdrop-filter:blur(6px);animation:fadeIn .25s;';
-        const icons = promoted ? ['<div style="font-size:64px;margin-bottom:12px;">⬆️</div>'] : ['<div style="font-size:64px;margin-bottom:12px;">⬇️</div>'];
-        const title = promoted ? 'Promoted to Admin' : 'Role Changed to User';
-        const color = promoted ? '#10B981' : '#F59E0B';
-        const desc = promoted
-            ? 'You have been promoted to <strong style="color:#10B981">Admin</strong> by the Owner.<br><br>You now have access to:<br>• Ban / Unban users<br>• Reset passwords<br>• View chats and messages<br>• Manage user accounts<br>• Access the admin vault'
-            : 'You have been demoted to <strong style="color:#9CA3AF">User</strong> by the Owner.<br><br>You have lost admin access. You can no longer:<br>• Ban / Unban users<br>• Reset passwords<br>• View chats and messages<br>• Access the admin vault';
-        wrap.innerHTML = `
-            <div style="background:#1a1d23;border:1px solid #333;border-radius:16px;padding:40px 48px;max-width:440px;width:90%;text-align:center;box-shadow:0 0 60px rgba(0,0,0,.6);position:relative;">
-                ${icons[0]}
-                <h2 style="color:${color};font-size:22px;margin:0 0 12px;font-weight:700;">${title}</h2>
-                <p style="color:#C0C7D1;font-size:14px;line-height:1.7;margin:0 0 24px;">${desc}</p>
-                <button onclick="var p=this.closest('#role-notif-popup');if(p)p.remove();setTimeout(function(){window.location.reload();},150)" style="background:${color};color:#fff;border:none;padding:12px 32px;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;">Got it</button>
-            </div>`;
-        document.body.appendChild(wrap);
+        const reload = () => setTimeout(() => window.location.reload(), 150);
+        window.ZPop.show({
+            id: 'role-notif-popup', dismissable: false, tone: promoted ? 'good' : 'warn', icon: promoted ? 'up' : 'down',
+            badge: promoted ? 'Promoted' : 'Role changed',
+            title: promoted ? 'You\'re now an Admin' : 'You\'re back to a normal account',
+            text: promoted ? 'The Owner made you an Admin. You can now:' : 'The Owner removed your Admin role. You can no longer:',
+            list: promoted
+                ? ['Ban and unban people', 'Reset passwords', 'See chats and messages', 'Manage accounts', 'Open the Vault']
+                : ['Ban and unban people', 'Reset passwords', 'See chats and messages', 'Open the Vault'],
+            actions: [{ label: 'Got it', onClick: reload }],
+            meta: 'The page reloads to apply the change.',
+        });
     }
     function _showChosenPopup() {
-        const existing = document.getElementById('chosen-popup');
-        if (existing) existing.remove();
-        const wrap = document.createElement('div');
-        wrap.id = 'chosen-popup';
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(7px);animation:fadeIn .3s;';
-        wrap.innerHTML = `
-            <div style="background:linear-gradient(160deg,#0f1a14,#1a2a20 50%,#0d1f16);border:2px solid #10B981;border-radius:20px;padding:44px 52px;max-width:500px;width:92%;text-align:center;box-shadow:0 0 80px rgba(16,185,129,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(16,185,129,.08);filter:blur(25px);"></div>
-                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(16,185,129,.5));">🛠️</div>
-                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);font-size:10px;font-weight:700;color:#10B981;letter-spacing:2px;margin-bottom:16px;">CHOSEN HELPER</div>
-                <h2 style="color:#10B981;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">You Have Been Selected</h2>
-                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">You have been chosen by the owner to help him during the current lockdown. <strong style="color:#10B981;">Participate in the live chat now!</strong></p>
-                <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Your account is exempt from the current shutdown so you can assist. Join the staff live chat to coordinate with the Owner.</p>
-                <button onclick="(function(){var p=document.getElementById('chosen-popup');if(p)p.remove();window.openStaffChat();})()" style="background:#10B981;color:#04120b;border:none;padding:14px 40px;border-radius:10px;font-size:16px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(16,185,129,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Open Live Chat ▶</button>
-            </div>`;
-        document.body.appendChild(wrap);
+        window.ZPop.show({
+            id: 'chosen-popup', tone: 'good', icon: 'tools', badge: 'Chosen helper',
+            title: 'The Owner picked you to help',
+            text: 'Zelpophai is paused for everyone else, but your account stays open so you can lend a hand. Join the team chat to get started.',
+            actions: [{ label: 'Open team chat', onClick: () => { try { window.openStaffChat(); } catch (e) {} } }, { label: 'Not now', kind: 'link' }],
+            metaHtml: 'Picked by <b>WANZU-IBRAHIM</b> · The Owner',
+        });
     }
     function _showHelperThanksPopup() {
-        const existing = document.getElementById('helper-thanks-popup');
-        if (existing) existing.remove();
-        const wrap = document.createElement('div');
-        wrap.id = 'helper-thanks-popup';
-        wrap.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.88);backdrop-filter:blur(7px);animation:fadeIn .3s;';
-        wrap.innerHTML = `
-            <div style="background:linear-gradient(160deg,#101b14,#1b2e22 50%,#0c1a12);border:2px solid #4ADE80;border-radius:20px;padding:44px 52px;max-width:500px;width:92%;text-align:center;box-shadow:0 0 80px rgba(74,222,128,.25),0 30px 60px rgba(0,0,0,.6);position:relative;overflow:hidden;">
-                <div style="position:absolute;top:-40px;right:-40px;width:140px;height:140px;border-radius:50%;background:rgba(74,222,128,.08);filter:blur(25px);"></div>
-                <div style="font-size:74px;margin-bottom:14px;filter:drop-shadow(0 0 18px rgba(74,222,128,.5));">🙏</div>
-                <div style="display:inline-block;padding:4px 14px;border-radius:20px;background:rgba(74,222,128,.15);border:1px solid rgba(74,222,128,.35);font-size:10px;font-weight:700;color:#4ADE80;letter-spacing:2px;margin-bottom:16px;">MAINTENANCE COMPLETE</div>
-                <h2 style="color:#4ADE80;font-size:24px;margin:0 0 14px;font-weight:800;letter-spacing:.5px;">Thank You For Your Help</h2>
-                <p style="color:#DDE4EE;font-size:15px;line-height:1.75;margin:0 0 8px;">The Owner is <strong style="color:#4ADE80;">truly thankful</strong> for your assistance during the maintenance.</p>
-                <p style="color:#8B949E;font-size:12px;line-height:1.6;margin:0 0 24px;">Everything is back up and running. You can return to the staff live chat to wrap up with the Owner.</p>
-                <div style="display:flex;gap:12px;justify-content:center;">
-                    <button onclick="(function(){var p=document.getElementById('helper-thanks-popup');if(p)p.remove();})()" style="background:transparent;color:#C0C7D1;border:1px solid #333;padding:12px 24px;border-radius:10px;font-size:15px;font-weight:600;cursor:pointer;">Dismiss</button>
-                    <button onclick="(function(){var p=document.getElementById('helper-thanks-popup');if(p)p.remove();window.openStaffChat();})()" style="background:#4ADE80;color:#04120b;border:none;padding:12px 32px;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 4px 24px rgba(74,222,128,.4);transition:transform .15s;" onmouseover="this.style.transform='scale(1.04)'" onmouseout="this.style.transform='scale(1)'">Return to Chat ▶</button>
-                </div>
-            </div>`;
-        document.body.appendChild(wrap);
+        window.ZPop.show({
+            id: 'helper-thanks-popup', tone: 'good', icon: 'heart', badge: 'All done',
+            title: 'Thank you for helping',
+            text: 'Everything is back up and running. The Owner is truly thankful for your help.',
+            actions: [{ label: 'Back to team chat', onClick: () => { try { window.openStaffChat(); } catch (e) {} } }, { label: 'Close', kind: 'link' }],
+        });
     }
     function _showRolesToast(msg) {
-        const t = document.createElement('div');
-        t.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100000;background:#1a1d23;border:1px solid #333;color:#C0C7D1;padding:12px 24px;border-radius:10px;font-size:14px;box-shadow:0 6px 30px rgba(0,0,0,.5);';
-        t.textContent = msg;
-        document.body.appendChild(t);
-        setTimeout(() => t.remove(), 4000);
+        if (typeof showToast === 'function') return showToast(msg, '');
     }
     function showBroadcastPopup(a) {
         if (document.getElementById('broadcast-popup-' + a.id)) return;
@@ -1086,38 +1015,24 @@ document.addEventListener('DOMContentLoaded', async () => {
             return;
         }
         const isOwner = a.role === 'owner';
-        const safe = s => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-        // Same visual language as BANNED BY THE OWNER screen — exclamation, who broadcasted, message box
-        const accent = isOwner ? '#C0C7D1' : '#FFD700';
-        const border = isOwner ? '#C0C7D1' : '#FFD700';
-        const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#1a1a0a,#2d2416)';
-        const glow = isOwner ? '0 0 60px rgba(221,228,238,0.22), 0 20px 60px rgba(0,0,0,0.5)' : '0 0 40px rgba(255,215,0,0.25), 0 20px 60px rgba(0,0,0,0.5)';
-        const title = isOwner ? 'BROADCAST FROM THE OWNER' : 'BROADCAST FROM STAFF';
-        const byLine = isOwner
-            ? `A broadcast from <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM`
-            : `A broadcast from <strong style="color:#FFD700;">${safe(a.username)}</strong> — staff`;
-        const wrap = document.createElement('div');
-        wrap.id = 'broadcast-popup-' + a.id;
-        wrap.style.cssText = 'position:fixed; inset:0; z-index:9997; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.88); backdrop-filter:blur(8px);';
         let when = '';
-        try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString([], {month:'short', day:'2-digit', hour:'2-digit', minute:'2-digit'}); } catch {}
-        wrap.innerHTML = `
-            <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:36px 24px; box-shadow:${glow}; animation:faceIn 0.35s ease;">
-                <div style="width:64px; height:64px; margin:0 auto 14px; background:${accent}18; border:2px solid ${border}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:32px; line-height:1;">&#9888;</div>
-                <h2 style="color:${accent}; font-size:18px; margin-bottom:6px; letter-spacing:2px; font-weight:800;">${title}</h2>
-                <p style="color:rgba(255,255,255,0.75); font-size:12px; line-height:1.6; margin-bottom:14px;">${byLine}${when ? ` · <span style="color:#888;">${safe(when)}</span>` : ''}</p>
-                <div style="background:rgba(0,0,0,0.35); border:1px solid ${accent}33; border-radius:12px; padding:14px 16px; margin-bottom:18px; font-size:14px; color:#e5e5e5; line-height:1.6; white-space:pre-wrap; word-wrap:break-word; text-align:left; border-left:3px solid ${accent};">${safe(a.content)}</div>
-                <button id="bc-close-${a.id}" style="width:100%; padding:13px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : 'linear-gradient(135deg,#FFD700,#FF8C00)'}; color:${isOwner ? '#f4f6f8' : '#000'}; border:none; border-radius:10px; font-weight:800; cursor:pointer; letter-spacing:1px; font-size:14px;">DISMISS</button>
-            </div>`;
-        wrap.querySelector('#bc-close-' + a.id).addEventListener('click', () => {
-            wrap.remove();
-            const prev = _lastSeen();
-            localStorage.setItem(_annSeenKey, String(Math.max(prev, _tsOf(a.created_at_ts))));
-            const attBadge = $('attention-badge') || $('broadcast-badge');
-            if (attBadge) attBadge.style.display = 'none';
+        try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); } catch {}
+        const E = window.ZPop.esc;
+        window.ZPop.show({
+            id: 'broadcast-popup-' + a.id, z: 9997, tone: isOwner ? 'owner' : 'staff', icon: 'megaphone',
+            badge: isOwner ? 'Message from the Owner' : 'Message from staff',
+            title: isOwner ? 'A message for everyone' : 'A message from the team',
+            quote: a.content,
+            actions: [{ label: 'Got it' }],
+            metaHtml: 'Sent by <b>' + E(isOwner ? 'WANZU-IBRAHIM' : a.username) + '</b>' + (isOwner ? ' · The Owner' : ' · Staff') + (when ? ' · ' + E(when) : ''),
+            // However it is closed (button, X, Escape or a click outside) it counts as read.
+            onClose: () => {
+                const prev = _lastSeen();
+                localStorage.setItem(_annSeenKey, String(Math.max(prev, _tsOf(a.created_at_ts))));
+                const attBadge = $('attention-badge') || $('broadcast-badge');
+                if (attBadge) attBadge.style.display = 'none';
+            },
         });
-        wrap.addEventListener('click', e => { if (e.target === wrap) { wrap.remove(); const prev = _lastSeen(); localStorage.setItem(_annSeenKey, String(Math.max(prev, _tsOf(a.created_at_ts)))); } });
-        document.body.appendChild(wrap);
     }
     // Poll for broadcasts every 1s for all users — fast delivery of staff popups
     pollAnnouncements(); setInterval(pollAnnouncements, 1000);
@@ -1191,48 +1106,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch { return s; } }
 });
 
+async function _zpLogoutHome() {
+    try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
+    window.location.replace('/');
+}
 function showBannedScreen(reason, bannedBy) {
     if (document.getElementById('banned-screen')) return;
-    const div = document.createElement('div');
-    div.id = 'banned-screen';
-    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
-    const isOwnerBan = bannedBy === 'owner';
-    const banTitle = isOwnerBan ? 'BANNED BY THE OWNER' : 'ACCOUNT BANNED';
-    const banIntensity = isOwnerBan ? '0 0 60px rgba(255,77,77,0.45)' : '0 20px 60px rgba(255,77,77,0.25)';
-    const banLine = isOwnerBan
-        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your access to Zelpophai AI has been revoked, effective immediately.'
-        : 'Your account has been suspended by an administrator.';
-    div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:linear-gradient(145deg,#1a0000,#3d0d0d); border:2px solid #ff4d4d; border-radius:18px; padding:40px 24px; box-shadow:${banIntensity}; animation:faceIn 0.4s ease;">
-            <div style="width:72px; height:72px; margin:0 auto 16px; background:rgba(255,77,77,0.15); border:2px solid #ff4d4d; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ff4d4d; font-size:40px;">&#9888;</div>
-            <h2 style="color:#ff4d4d; font-size:24px; margin-bottom:8px; letter-spacing:1px;">${banTitle}</h2>
-            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:16px;">${banLine}</p>
-            <div style="background:rgba(255,77,77,0.1); border:1px solid rgba(255,77,77,0.3); border-radius:10px; padding:14px; margin-bottom:20px; font-size:15px; color:#fff; line-height:1.5; word-wrap:break-word; white-space:pre-wrap;">"${reason || 'No reason provided'}"</div>
-            <button id="banned-ok" style="width:100%; padding:14px; background:linear-gradient(135deg,#ff4d4d,#cc0000); color:#fff; border:none; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">I UNDERSTAND &mdash; LOG OUT</button>
-        </div>`;
-    div.querySelector('#banned-ok').addEventListener('click', async () => {
-        try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-        window.location.replace('/');
+    const byOwner = bannedBy === 'owner';
+    window.ZPop.show({
+        id: 'banned-screen', dismissable: false, full: true, z: 99999, tone: 'danger', icon: 'ban', badge: 'Account banned',
+        title: 'This account has been banned',
+        text: 'You can\'t use Zelpophai AI with this account any more. This takes effect right away.',
+        quote: reason || 'No reason was given.', quoteLabel: 'Reason',
+        actions: [{ label: 'Log out', icon: 'logout', id: 'banned-ok', keep: true, onClick: _zpLogoutHome }],
+        metaHtml: 'Banned by <b>' + (byOwner ? 'The Owner' : 'an admin') + '</b> · Think this is a mistake? Write to <b>mihariser@gmail.com</b>',
     });
-    document.body.appendChild(div);
-    const style = document.createElement('style');
-    style.textContent = '@keyframes faceIn { from{opacity:0; transform:scale(0.95);} to{opacity:1; transform:scale(1);} }';
-    document.head.appendChild(style);
 }
 function showOfflineScreen() {
     if (document.getElementById('offline-screen')) return;
-    const div = document.createElement('div');
-    div.id = 'offline-screen';
-    div.style.cssText = 'position:fixed; inset:0; z-index:9998; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(4,6,15,0.85); backdrop-filter:blur(6px);';
-    div.innerHTML = `
-        <div style="width:100%; max-width:400px; text-align:center; background:linear-gradient(145deg,#0b1430,#141a3d); border:1px solid rgba(59,130,246,0.6); border-radius:18px; padding:32px 24px; box-shadow:0 20px 60px rgba(37,99,235,0.3);">
-            <div style="width:64px; height:64px; margin:0 auto 14px; background:rgba(59,130,246,0.15); border:2px solid #3b82f6; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#60a5fa; font-size:30px;">&#128246;</div>
-            <h2 style="color:#93c5fd; font-size:20px; margin-bottom:8px;">You're offline</h2>
-            <p style="color:rgba(255,255,255,0.75); font-size:13px; line-height:1.6; margin-bottom:18px;">Check your internet connection. Zelpophai AI will pick up where you left off as soon as you're back.</p>
-            <button id="offline-retry" style="padding:10px 22px; background:linear-gradient(135deg,#2563eb,#7c3aed); color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer;">Retry</button>
-        </div>`;
-    div.querySelector('#offline-retry').addEventListener('click', () => { if (navigator.onLine) div.remove(); else showToast('Still offline', 'error'); });
-    document.body.appendChild(div);
+    window.ZPop.show({
+        id: 'offline-screen', z: 9998, tone: 'info', icon: 'offline', badge: 'No connection', pulse: true,
+        title: 'You\'re offline',
+        text: 'Check your Wi-Fi or mobile data. Zelpophai picks up where you left off as soon as you\'re back.',
+        actions: [{ label: 'Try again', id: 'offline-retry', keep: true, onClick: (c) => { if (navigator.onLine) c.close(); else showToast('Still offline', 'error'); } }],
+    });
 }
 window.addEventListener('offline', showOfflineScreen);
 window.addEventListener('online', () => {
@@ -1241,92 +1138,45 @@ window.addEventListener('online', () => {
 });
 function showDeletedScreen(deletedBy) {
     if (document.getElementById('banned-screen')) return;
-    const div = document.createElement('div');
-    div.id = 'banned-screen';
-    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
-    const isOwner = deletedBy === 'owner';
-    const title = isOwner ? 'DELETED BY THE OWNER' : 'ACCOUNT DELETED';
-    const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#1a1a1a,#2d2d2d)';
-    const border = isOwner ? '#C0C7D1' : '#888';
-    const accent = isOwner ? '#C0C7D1' : '#888';
-    const glow = isOwner ? '0 20px 60px rgba(221,228,238,0.18)' : '0 20px 60px rgba(136,136,136,0.25)';
-    const line = isOwner
-        ? 'By the decree of <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Your account has been permanently deleted.'
-        : 'Your account has been deleted by an administrator. You can no longer access Zelpophai AI.';
-    div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:40px 24px; box-shadow:${glow};">
-            <div style="width:72px; height:72px; margin:0 auto 16px; background:${accent}22; border:2px solid ${accent}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:40px;">&#128465;</div>
-            <h2 style="color:${accent}; font-size:24px; margin-bottom:8px; letter-spacing:1px;">${title}</h2>
-            <p style="color:rgba(255,255,255,0.7); font-size:14px; line-height:1.6; margin-bottom:20px;">${line}</p>
-            <button id="deleted-ok" style="width:100%; padding:14px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : '#333'}; color:#fff; border:1px solid ${accent}; border-radius:10px; font-weight:700; letter-spacing:1px; cursor:pointer; font-size:15px;">OK — LOG OUT</button>
-        </div>`;
-    div.querySelector('#deleted-ok').addEventListener('click', async () => {
-        try { await api('/api/auth/logout', { method: 'POST' }); } catch (e) {}
-        window.location.replace('/');
+    const byOwner = deletedBy === 'owner';
+    window.ZPop.show({
+        id: 'banned-screen', dismissable: false, full: true, z: 99999, tone: 'owner', icon: 'trash', badge: 'Account deleted',
+        title: 'This account has been deleted',
+        text: 'The account and everything in it has been removed, so you can\'t use it any more.',
+        actions: [{ label: 'OK', id: 'deleted-ok', keep: true, onClick: _zpLogoutHome }],
+        metaHtml: 'Deleted by <b>' + (byOwner ? 'The Owner' : 'an admin') + '</b> · Questions? Write to <b>mihariser@gmail.com</b>',
     });
-    document.body.appendChild(div);
 }
 function showPasswordChangedScreen(changedBy) {
     if (document.getElementById('pwd-changed-screen') || document.getElementById('banned-screen')) return;
-    const div = document.createElement('div');
-    div.id = 'pwd-changed-screen';
-    div.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px);';
-    const isOwner = changedBy === 'owner';
-    const border = isOwner ? '#C0C7D1' : '#ff8c00';
-    const bg = isOwner ? 'linear-gradient(160deg,#1A1D21,#22262B 70%,#191c20)' : 'linear-gradient(145deg,#2d1a00,#4a2c00)';
-    const accent = isOwner ? '#C0C7D1' : '#ff8c00';
-    const glow = isOwner ? '0 20px 60px rgba(221,228,238,0.18)' : '0 20px 60px rgba(255,140,0,0.25)';
-    const line = isOwner
-        ? 'Your password was changed by <strong style="color:#C0C7D1;">The Owner</strong> — WANZU-IBRAHIM. Do you want to view it now?'
-        : 'Your password was changed by an administrator. Do you want to view it now?';
-    div.innerHTML = `
-        <div style="width:100%; max-width:480px; text-align:center; background:${bg}; border:2px solid ${border}; border-radius:18px; padding:40px 24px; box-shadow:${glow}; animation:faceIn 0.4s ease;">
-            <div style="width:72px; height:72px; margin:0 auto 16px; background:${accent}22; border:2px solid ${border}; border-radius:50%; display:flex; align-items:center; justify-content:center; color:${accent}; font-size:40px;">&#9888;</div>
-            <h2 style="color:${accent}; font-size:22px; margin-bottom:8px; letter-spacing:1px;">PASSWORD CHANGED</h2>
-            <p style="color:rgba(255,255,255,0.85); font-size:14px; line-height:1.6; margin-bottom:20px;">${line}</p>
-            <div style="display:flex; gap:10px;">
-                <button id="pwd-yes" style="flex:1; padding:14px; background:${isOwner ? 'linear-gradient(135deg,#8B949E,#5d666f)' : 'linear-gradient(135deg,#ff8c00,#ff6a00)'}; color:#fff; border:none; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">Yes, view it</button>
-                <button id="pwd-no" style="flex:1; padding:14px; background:transparent; color:${accent}; border:1px solid ${accent}; border-radius:10px; font-weight:700; cursor:pointer; font-size:14px;">No</button>
-            </div>
-        </div>`;
-    document.body.appendChild(div);
-    div.querySelector('#pwd-yes').addEventListener('click', async () => {
-        div.remove();
-        try {
-            const { password } = await api('/api/auth/password-changed/view');
-            showPasswordModal(password);
-        } catch (e) { showToast(e.message, 'error'); }
-    });
-    div.querySelector('#pwd-no').addEventListener('click', () => {
-        div.remove();
-        createPendingPwdButton();
+    const byOwner = changedBy === 'owner';
+    window.ZPop.show({
+        id: 'pwd-changed-screen', dismissable: false, z: 9999, tone: 'warn', icon: 'key', badge: 'Password changed', row: true,
+        title: 'Your password was changed',
+        text: 'You\'ll need the new one next time you log in. Want to see it now?',
+        actions: [
+            { label: 'Show my new password', id: 'pwd-yes', onClick: async () => {
+                try { const { password } = await api('/api/auth/password-changed/view'); showPasswordModal(password); }
+                catch (e) { showToast(e.message, 'error'); }
+            } },
+            { label: 'Later', id: 'pwd-no', kind: 'ghost', onClick: () => createPendingPwdButton() },
+        ],
+        metaHtml: 'Changed by <b>' + (byOwner ? 'The Owner' : 'an admin') + '</b>',
     });
 }
 function showPasswordModal(password) {
-    const overlay = document.createElement('div');
-    overlay.id = 'pwd-modal';
-    overlay.style.cssText = 'position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,0.75); backdrop-filter:blur(4px);';
-    const safe = (s) => { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; };
-    overlay.innerHTML = `
-        <div style="width:100%; max-width:420px; background:var(--sidebar); border:1px solid var(--border); border-radius:16px; padding:24px; text-align:center;">
-            <h3 style="color:#ff8c00; margin-bottom:12px;">Your new password</h3>
-            <div style="background:var(--input-bg); border:1px solid var(--border); border-radius:10px; padding:14px; margin-bottom:16px; font-family:monospace; font-size:16px; word-break:break-all; display:flex; align-items:center; gap:8px; justify-content:center;">
-                <span id="pwd-value">${safe(password)}</span>
-                <button id="pwd-copy" title="Copy" style="padding:4px 8px; font-size:11px; border:1px solid var(--border); border-radius:6px; background:transparent; color:var(--text); cursor:pointer;">Copy</button>
-            </div>
-            <p style="font-size:12px; color:#888; margin-bottom:16px;">Keep it safe. This will not be shown again.</p>
-            <button id="pwd-close" style="width:100%; padding:12px; background:linear-gradient(135deg,#ff8c00,#ff6a00); color:#fff; border:none; border-radius:10px; font-weight:600; cursor:pointer;">Got it</button>
-        </div>`;
-    document.body.appendChild(overlay);
-    const dismiss = async () => {
-        try { await api('/api/auth/password-changed/dismiss', { method: 'POST' }); } catch (e) {}
-        overlay.remove();
-        const btn = document.getElementById('pending-pwd-btn');
-        if (btn) btn.remove();
-    };
-    overlay.querySelector('#pwd-copy').addEventListener('click', () => { navigator.clipboard.writeText(password).then(()=>showToast('Copied','success')).catch(()=>showToast('Copy failed','error')); });
-    overlay.querySelector('#pwd-close').addEventListener('click', dismiss);
-    overlay.addEventListener('click', (e) => { if (e.target === overlay) dismiss(); });
+    window.ZPop.show({
+        id: 'pwd-modal', z: 9999, tone: 'warn', icon: 'key', badge: 'Shown once',
+        title: 'Your new password',
+        text: 'Copy it or write it down now. For your safety it won\'t be shown again.',
+        code: password,
+        actions: [{ label: 'I\'ve saved it', id: 'pwd-close' }],
+        onClose: async () => {
+            try { await api('/api/auth/password-changed/dismiss', { method: 'POST' }); } catch (e) {}
+            const btn = document.getElementById('pending-pwd-btn');
+            if (btn) btn.remove();
+        },
+    });
 }
 function createPendingPwdButton() {
     if (document.getElementById('pending-pwd-btn')) return;

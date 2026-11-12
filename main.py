@@ -47,10 +47,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.2"
+VERSION = "22.3"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.3 New Log in and Create account page: a cleaner two-panel design with clear labels, a show/hide password button, a password strength hint, clearer error messages, and a tidier Forgot password box. After creating an account you now go straight in — no need to log in again",
+    "All pop-ups have a new look: one clean style with clear icons and plain wording for messages from the Owner, maintenance, limits, role changes, password notices, offline, and the small \"Are you sure?\" boxes. They work in light and dark mode, close with Esc, and slide up neatly on phones",
     "22.2 Slash commands: type / in the message box to see quick commands — /image and /video to create, /think, /research and /fact to switch modes, /summarize, /shorter, /simpler, /translate and /fix for quick requests, /remember to save a memory, /personality to change how Zelpophai talks, plus /new, /search, /share and more. Keep typing to filter, Enter to choose",
     "Signing up without an email: if you can't add your email right away, tick \"skip this and add it later\" on the sign-up page. You'll have 7 days to add it inside Zelpophai",
     "22.1.1 Invite rewards are back to normal: every 5 friends who join gives you 3 days of Pro. The bigger reward steps added in 22.1 have been removed",
@@ -138,6 +140,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.3 Staff: the Banned, Deleted, Locked and Maintenance screens are redesigned (reason shown in its own box, who did it, a contact email on the banned screen). Maintenance and Locked screens tell people the page reopens by itself. Broadcast pop-ups count as read however they are closed. Staff sign-in is now a small link at the bottom of the login page",
     "22.2 Owner: the Sign in with Google button is hidden for now because Google refuses it on this site (\"origin not allowed\"). Vault → Settings → Sign in with Google has the exact steps to fix it in your Google account and a switch to show the button again",
     "22.1 Staff: Live Chat is now Team chat — message bubbles, who is online, replies, reactions, edit/delete your own messages, typing dots, links and @mentions. Vault → Settings shows whether email sending works (with a test button and setup steps) and who asked to be told when paid plans open",
     "22.1 Security check: Google sign-in now only accepts sign-ins made for Zelpophai with a verified Google email; plans can no longer be switched on without a real payment (the old demo checkout is gone) and free trials/invite rewards now end when their time is up; banning, deleting, role changes, password resets and reading users' chats all need the Vault PIN; a Vault unlock only works for the person who typed the PIN; a password reset signs out old sessions; the public API listing (/docs) is off; and every page now sends anti-clickjacking and no-sniff headers",

@@ -104,15 +104,14 @@
             const a = r && r.android;
             if (!a || !a.version || !newer(a.version, mine)) return;
             try { if (sessionStorage.getItem('zp_upd_later') === a.version) return; } catch (e) {}
-            const ov = document.createElement('div');
-            ov.className = 'zp-tagpop';
-            ov.innerHTML = `<div class="zp-tagpop-card"><div class="zp-tagpop-ic">⬆️</div><div class="zp-tagpop-tag" style="color:#93c5fd;background:rgba(59,130,246,.16)">UPDATE</div>
-                <h3>Zelpophai AI ${a.version} is ready</h3><p></p>
-                <div style="display:flex;gap:8px;justify-content:center"><button type="button" data-later style="background:rgba(255,255,255,.08)">Later</button><button type="button" data-go>Install update</button></div></div>`;
-            ov.querySelector('p').textContent = (a.notes || 'A new version of the app is available.') + ' You\'re on ' + mine + '.';
-            ov.querySelector('[data-later]').onclick = () => { try { sessionStorage.setItem('zp_upd_later', a.version); } catch (e) {} ov.remove(); };
-            ov.querySelector('[data-go]').onclick = () => { location.href = a.url; ov.remove(); };
-            document.body.appendChild(ov);
+            window.ZPop.show({
+                id: 'update-popup', tone: 'info', icon: 'up', badge: 'Update',
+                title: 'Zelpophai AI ' + a.version + ' is ready',
+                text: (a.notes || 'A new version of the app is available.') + ' You\'re on ' + mine + '.',
+                row: true,
+                actions: [{ label: 'Install update', onClick: () => { location.href = a.url; } }, { label: 'Later', kind: 'ghost', onClick: () => { try { sessionStorage.setItem('zp_upd_later', a.version); } catch (e) {} } }],
+                onClose: (r) => { if (r !== 'action') { try { sessionStorage.setItem('zp_upd_later', a.version); } catch (e) {} } },
+            });
         }).catch(() => {});
     }
 

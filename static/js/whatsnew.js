@@ -21,7 +21,7 @@
     }
     function busy() {
         for (const id of BUSY_IDS) if (visible($(id))) return true;
-        const sel = '.zp-tagpop, .zp-inv, .zp-wn, .zp-tour, [id^="broadcast-popup-"], .modal, [role="dialog"][aria-modal="true"]';
+        const sel = '.zpop, .zp-tagpop, .zp-inv, .zp-wn, .zp-tour, [id^="broadcast-popup-"], .modal, [role="dialog"][aria-modal="true"]';
         for (const el of document.querySelectorAll(sel)) {
             if (visible(el)) return true;
         }

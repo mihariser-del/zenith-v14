@@ -108,6 +108,7 @@
       <form id="invite-form" novalidate>
         <div class="field"><label for="inv-username">Username</label><input id="inv-username" autocomplete="username" required minlength="3" maxlength="30" placeholder="e.g. amara_k"></div>
         <div class="field"><label for="inv-email">Email</label><input id="inv-email" type="email" autocomplete="email" required placeholder="Your real email address"></div>
+        <label style="display:flex;align-items:flex-start;gap:8px;margin:-4px 0 12px;font-size:12.5px;line-height:1.45;cursor:pointer;opacity:.85"><input type="checkbox" id="inv-skip" style="width:16px;height:16px;margin-top:1px;flex:none"><span>I can't add an email right now — <b>skip and add it later</b> (you'll have 7 days).</span></label>
         <div class="field"><label for="inv-password">Password</label><input id="inv-password" type="password" autocomplete="new-password" required minlength="8" placeholder="At least 8 characters"><button type="button" class="eye" id="eye" aria-label="Show password">Show</button></div>
         <button type="submit" class="go" id="inv-submit">Create my account</button>
       </form>
@@ -176,16 +177,18 @@
     $('eye').setAttribute('aria-label', on ? 'Hide password' : 'Show password');
   };
 
+  $('inv-skip').addEventListener('change', () => { const on = $('inv-skip').checked, em = $('inv-email'); em.disabled = on; em.style.opacity = on ? '.45' : ''; if (on) em.value = ''; em.placeholder = on ? "You'll add it later" : 'Your real email address'; });
   $('invite-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    const username = $('inv-username').value.trim(), email = $('inv-email').value.trim(), pw = $('inv-password').value;
+    const skip = $('inv-skip').checked;
+    const username = $('inv-username').value.trim(), email = skip ? '' : $('inv-email').value.trim(), pw = $('inv-password').value;
     if (username.length < 3) return say('Your username needs at least 3 characters.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say('Please enter a valid email.');
-    if (pw.length < 6) return say('Your password needs at least 6 characters.');
+    if (!skip && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return say('Please enter a valid email, or tick “skip and add it later”.');
+    if (pw.length < 8) return say('Your password needs at least 8 characters.');
     const btn = $('inv-submit'); btn.disabled = true; btn.textContent = 'Creating your account…';
     try {
       const res = await fetch('/api/auth/register', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password: pw, invite_token: token, device_id: dev }) });
+        body: JSON.stringify({ username, email, skip_email: skip, password: pw, invite_token: token, device_id: dev }) });
       const d = await res.json();
       if (!res.ok) {
         if (String(d.detail || '').includes('already joined')) { show('state-joined'); return; }
@@ -209,17 +212,23 @@
     } catch (err) { say(err.message); }
   };
   const inApp = /Zelpophai(Desktop|Android)/.test(navigator.userAgent);
-  if (inApp) { document.querySelector('.gbox').hidden = true; document.querySelector('.or').hidden = true; return; }
-  const s = document.createElement('script');
-  s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
-  s.onload = () => {
-    try {
-      google.accounts.id.initialize({ client_id: '1035003334215-veihtcrojq0spse60ium7jgfqr8flbto.apps.googleusercontent.com', callback: window.zpGoogle });
-      google.accounts.id.renderButton($('g-btn'), { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 300 });
-    } catch (e) { document.querySelector('.gbox').hidden = true; document.querySelector('.or').hidden = true; }
-  };
-  s.onerror = () => { document.querySelector('.gbox').hidden = true; document.querySelector('.or').hidden = true; };
-  document.head.appendChild(s);
+  const noGoogle = () => { document.querySelector('.gbox').hidden = true; document.querySelector('.or').hidden = true; };
+  if (inApp) { noGoogle(); return; }
+  // Google sign-in only shows once the Owner has switched it on (when Google accepts this site).
+  noGoogle();
+  fetch('/api/admin/system/public').then((r) => r.json()).then((pub) => {
+    if (!pub || pub.google_signin !== 'on') return;
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = () => {
+      try {
+        google.accounts.id.initialize({ client_id: '1035003334215-veihtcrojq0spse60ium7jgfqr8flbto.apps.googleusercontent.com', callback: window.zpGoogle });
+        google.accounts.id.renderButton($('g-btn'), { theme: 'filled_black', size: 'large', text: 'continue_with', shape: 'pill', width: 300 });
+        document.querySelector('.gbox').hidden = false; document.querySelector('.or').hidden = false;
+      } catch (e) {}
+    };
+    document.head.appendChild(s);
+  }).catch(() => {});
 })();
 </script>
 </body>

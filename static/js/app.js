@@ -906,6 +906,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // --- Email (every account needs a real one) + Personality row in Settings ---
     if (window.ZPAccount) window.ZPAccount.init({ user, isGuest });
     if (window.ZPPersona) window.ZPPersona.mountSettings();
+    if (window.ZPSlash) window.ZPSlash.init({ isGuest });   // "/" commands in the message box
     // Broadcast polling — all users get popup when staff broadcasts
     // Dedup state is PER-USER and tracked by the broadcast's created_at_ts timestamp,
     // NOT its integer id (ids reset to 1 after "clear broadcast cache" on SQLite, which

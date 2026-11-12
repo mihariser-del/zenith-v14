@@ -961,6 +961,8 @@ async def email_overview(user=Depends(require_vault), db: AsyncSession = Depends
             "accounts": len(real), "verified": verified, "checked": checked, "missing": len(missing),
             "missing_users": [{"id": u.id, "username": u.username} for u in missing[:30]],
             "grace_days": emailcheck.EMAIL_GRACE_DAYS,
+            "google_signin": (await _sys_setting(db, "google_signin", "off")) == "on",
+            "site_origin": os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app").rstrip("/"),
             "billing_live": BILLING_LIVE, "plan_interest": len(waiting),
             "plan_interest_users": [{"id": w.user_id, "username": w.username, "plan": w.plan, "t": _iso(w.created_at)} for w in waiting[:30]]}
 
@@ -984,3 +986,26 @@ async def email_test(req: TestMailIn, user=Depends(require_vault)):
     if not sent:
         raise HTTPException(status_code=502, detail=f"The email could not be sent. {why}")
     return {"ok": True}
+
+
+async def _sys_setting(db, key, default="off"):
+    from global_controls import _get_setting
+    return await _get_setting(db, key, default)
+
+
+class GoogleIn(BaseModel):
+    on: bool
+
+
+@router.post("/google-signin")
+async def google_signin_toggle(req: GoogleIn, request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Owner: show or hide the 'Sign in with Google' buttons."""
+    _need_owner(user)
+    from global_controls import _set_setting
+    await _set_setting(db, "google_signin", "on" if req.on else "off")
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="google_signin", detail=f"Google sign-in button {'shown' if req.on else 'hidden'}")
+    except Exception:
+        pass
+    return {"google_signin": req.on}

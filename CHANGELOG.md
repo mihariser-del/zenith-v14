@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 22.2 — Slash commands, sign-up without email, Google button switch
+
+- `static/js/slash.js`: "/" menu on `#user-input` (filter, ↑↓, Enter/Tab, Esc; document-level capture so it runs before the send handler). Create (/image, /video), modes (/think, /research, /fact), quick asks (/summarize, /shorter, /simpler, /longer, /translate, /fix, /explain, /continue), app (/remember, /memory, /personality [name], /new, /search, /share, /files, /invite, /feedback, /settings, /help) with aliases. Text that starts with "/" but matches no command is sent as a normal message
+- `POST /api/auth/register` accepts `skip_email` (placeholder `…@noemail.local`, `email_status=""`). `emailcheck.state()`: every account without a good email gets `EMAIL_GRACE_DAYS` — from sign-up for new accounts — instead of new accounts being blocked at once. Checkbox on the sign-up and invite forms
+- Google Identity Services rejects the site origin for the configured client ID (403 on the button, "The given origin is not allowed for the given client ID"), which can only be fixed in Google Cloud Console → Credentials → Authorised JavaScript origins. New `google_signin` system setting (default off) hides the buttons on `/`, the login card and the invite page; `POST /api/vault/google-signin` (owner) + a Vault Settings card with the steps
+
 ## 22.1.1 — Invite rewards back to normal
 
 - Ladder (1/3/5/10/25) and the friend's 3-day gift removed. `invites.settle()` gives 3 days of Pro per 5 counted friends (`users.invite_rewards` = number of rewards given). One-time `invite_v3` migration recomputes that number and caps or ends `invite_pro` / `invite_ultimate` time the ladder handed out

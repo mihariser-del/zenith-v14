@@ -262,8 +262,9 @@ def _send_reset_email(to_email: str, code: str) -> bool:
 
 class RegisterRequest(BaseModel):
     username: str
-    email: str
+    email: str = ""
     password: str
+    skip_email: bool = False      # "I'll add my email later" — the account gets the grace period
     invite_token: str = ""
     device_id: str = ""
 
@@ -574,9 +575,15 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
     # A real email address is required: well formed, not a throw-away inbox, and its provider must exist.
     import emailcheck
     req.email = emailcheck.normalize(req.email)
-    _ok, _why = await emailcheck.check_email(req.email)
-    if not _ok:
-        raise HTTPException(status_code=400, detail=_why)
+    skipped = bool(req.skip_email) and not req.email
+    if skipped:
+        # No email yet: a placeholder keeps the column unique; they are asked for a real one in the app
+        # and have EMAIL_GRACE_DAYS to add it.
+        req.email = f"{secrets.token_hex(6)}@noemail.local"
+    else:
+        _ok, _why = await emailcheck.check_email(req.email)
+        if not _ok:
+            raise HTTPException(status_code=400, detail=_why)
 
     from database import UsedDevice
     device_id = (req.device_id or "").strip()
@@ -617,7 +624,8 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
             existing_user.token_version = 0
             existing_user.pending_password = ""
             existing_user.pending_password_by = ""
-            existing_user.email_status = "" if emailcheck.mail_configured() else "checked"
+            existing_user.email_status = "" if (skipped or emailcheck.mail_configured()) else "checked"
+            existing_user.email_prompt_at = datetime.now(timezone.utc)
             await db.commit()
             return {"message": "Account reactivated"}
         raise HTTPException(status_code=409, detail="Username or email already exists")
@@ -628,7 +636,8 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
         password_hash=hash_password(req.password),
         # With email sending set up the address is confirmed by a code right after sign-up;
         # without it, passing the checks above is what "valid" means.
-        email_status="" if emailcheck.mail_configured() else "checked",
+        email_status="" if (skipped or emailcheck.mail_configured()) else "checked",
+        email_prompt_at=datetime.now(timezone.utc),      # the grace period for adding / confirming it starts now
     )
     db.add(user)
     await db.flush()  # Get user.id for referral tracking

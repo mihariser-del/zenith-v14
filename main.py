@@ -47,10 +47,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.1.1"
+VERSION = "22.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.2 Slash commands: type / in the message box to see quick commands — /image and /video to create, /think, /research and /fact to switch modes, /summarize, /shorter, /simpler, /translate and /fix for quick requests, /remember to save a memory, /personality to change how Zelpophai talks, plus /new, /search, /share and more. Keep typing to filter, Enter to choose",
+    "Signing up without an email: if you can't add your email right away, tick \"skip this and add it later\" on the sign-up page. You'll have 7 days to add it inside Zelpophai",
     "22.1.1 Invite rewards are back to normal: every 5 friends who join gives you 3 days of Pro. The bigger reward steps added in 22.1 have been removed",
     "22.1 New Personality studio (Settings → Personality): choose from ten personalities like Friendly, Teacher, Coder, Coach or Comedian, fine-tune with sliders for warmth, humour, detail, formality and emoji, tell Zelpophai your name and a bit about you, write your own personalities, and tap Try it to hear it before you chat",
     "Smarter Memory: memories are sorted into categories, you can pin the important ones, search and edit them, tap Learn from my chats, Tidy up duplicates, download them or forget everything — and Zelpophai now uses the memories that matter for each message",
@@ -136,6 +138,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.2 Owner: the Sign in with Google button is hidden for now because Google refuses it on this site (\"origin not allowed\"). Vault → Settings → Sign in with Google has the exact steps to fix it in your Google account and a switch to show the button again",
     "22.1 Staff: Live Chat is now Team chat — message bubbles, who is online, replies, reactions, edit/delete your own messages, typing dots, links and @mentions. Vault → Settings shows whether email sending works (with a test button and setup steps) and who asked to be told when paid plans open",
     "22.1 Security check: Google sign-in now only accepts sign-ins made for Zelpophai with a verified Google email; plans can no longer be switched on without a real payment (the old demo checkout is gone) and free trials/invite rewards now end when their time is up; banning, deleting, role changes, password resets and reading users' chats all need the Vault PIN; a Vault unlock only works for the person who typed the PIN; a password reset signs out old sessions; the public API listing (/docs) is off; and every page now sends anti-clickjacking and no-sniff headers",
     "22.0 Feedback moved into the Vault (People → Feedback): one inbox for feedback and personal requests with search, filters, statuses, quick replies and screenshots; manage the Ideas board (publish/hide, official answers, optional approve-first); Answer ratings (thumbs up/down over time, reasons, and the exact question and answer for each thumbs down); and an AI summary of what people are saying. Old feedback and personal requests were moved over. The in-app inbox popups and the Personal Request button are gone",

@@ -60,6 +60,7 @@ async def public_state(db: AsyncSession = Depends(get_db)):
         "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
         "locked": await _get_setting(db, "locked", "off"),
         "chosen": await _get_setting(db, "chosen", ""),
+        "google_signin": await _get_setting(db, "google_signin", "off"),
         "maint_note": await _get_setting(db, "maint_note", ""),
     }
 

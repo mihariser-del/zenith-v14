@@ -4,8 +4,9 @@
 - send_mail(): one place that sends email (Brevo over HTTPS, or SMTP).
 - /api/auth/email/*: add or change your email. When email sending is set up the address is
   confirmed with a 6-digit code; until then a checked address is accepted ("checked").
-- Accounts made before EMAIL_RULE_DATE get EMAIL_GRACE_DAYS days of "Later"; after that they must
-  add an email to keep chatting. New accounts need one from the start. Guests are not asked.
+- Everyone without a good email gets EMAIL_GRACE_DAYS days of "Later" (from sign-up for new accounts,
+  from the first reminder for older ones); after that they must add one to keep chatting. At sign-up
+  people can choose "add it later". Guests are not asked.
 
 users.email_status:  ""  not checked yet · "checked"  passed the checks · "verified"  code confirmed
 """
@@ -235,11 +236,11 @@ def state(user) -> dict:
            "grace_days": EMAIL_GRACE_DAYS, "deadline": None, "days_left": None}
     if good:
         return out
+    # Everyone gets the same grace period. For accounts made after the rule it starts at sign-up
+    # (they chose "add it later" or haven't typed their code yet); for older accounts it starts the
+    # first time we ask.
     created = _utc(user.created_at) or _now()
-    if created >= EMAIL_RULE_DATE:
-        out["required"] = True                      # new accounts: from the start
-        return out
-    asked = _utc(getattr(user, "email_prompt_at", None))
+    asked = _utc(getattr(user, "email_prompt_at", None)) or (created if created >= EMAIL_RULE_DATE else None)
     if asked:
         deadline = asked + timedelta(days=EMAIL_GRACE_DAYS)
         out["deadline"] = deadline.isoformat()
@@ -284,8 +285,7 @@ async def status(request: Request, db: AsyncSession = Depends(get_db)):
     await auto_check_existing(db, user)
     st = state(user)
     # The grace period starts the first time we ask.
-    if st["needs"] and not st["required"] and not getattr(user, "email_prompt_at", None) \
-            and (_utc(user.created_at) or _now()) < EMAIL_RULE_DATE:
+    if st["needs"] and not st["required"] and not getattr(user, "email_prompt_at", None):
         user.email_prompt_at = _now()
         await db.commit()
         st = state(user)

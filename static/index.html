@@ -112,7 +112,7 @@
                 <button type="button" class="wl-btn wl-glow start-btn" data-guest>Try it free — no sign-up
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
                 </button>
-                <div class="wl-google">
+                <div class="wl-google zp-google">
                     <div class="g_id_signin" data-type="standard" data-shape="pill" data-theme="outline" data-text="continue_with" data-size="large" data-logo_alignment="left"></div>
                 </div>
             </div>
@@ -278,6 +278,10 @@
                 <label class="login-label">EMAIL</label>
                 <input type="email" id="reg-email" placeholder="Your real email address" required autocomplete="email" inputmode="email" autocapitalize="off" spellcheck="false">
                 <p style="margin:-4px 0 10px; font-size:11.5px; line-height:1.45; color:rgba(255,255,255,0.5);">Use an email you can open — it's how you get back in if you forget your password. No email? <a href="https://accounts.google.com/signup" target="_blank" rel="noopener" style="color:#93c5fd;">Make a free Gmail</a> or ask a parent to use theirs.</p>
+                <label id="reg-skip-wrap" style="display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; font-size:12.5px; line-height:1.45; color:rgba(255,255,255,0.75); cursor:pointer;">
+                    <input type="checkbox" id="reg-skip-email" style="width:16px; height:16px; margin-top:1px; flex:none; accent-color:#3b82f6;">
+                    <span>I can't add an email right now — <b>skip this and add it later</b>. <span style="color:rgba(255,255,255,0.5);">You'll have 7 days to add one inside Zelpophai.</span></span>
+                </label>
                 <label class="login-label">PASSWORD</label>
                 <div class="pw-wrap">
                     <input type="password" id="reg-password" placeholder="At least 8 characters" required autocomplete="new-password" minlength="8">
@@ -295,10 +299,16 @@
         </div>
         <a class="back-link" id="back-link">&larr; Back to Welcome</a>
         <button id="guest-btn" style="width:100%; margin-top:12px; padding:12px; background:transparent; border:1px solid rgba(0,255,255,0.3); border-radius:10px; color:rgba(255,255,255,0.7); cursor:pointer; font-size:13px; font-weight:600; letter-spacing:1px;">CONTINUE AS GUEST</button>
-        <div style="text-align:center; margin:16px 0 8px; color:rgba(255,255,255,0.5); font-size:12px;">or</div>
+        <div class="zp-google" style="text-align:center; margin:16px 0 8px; color:rgba(255,255,255,0.5); font-size:12px;">or</div>
         <div id="g_id_onload" data-client_id="1035003334215-veihtcrojq0spse60ium7jgfqr8flbto.apps.googleusercontent.com" data-callback="handleGoogleCredential" data-auto_prompt="false"></div>
-        <div class="g_id_signin" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left" style="display:flex; justify-content:center;"></div>
-        <script src="https://accounts.google.com/gsi/client" async defer></script>
+        <div class="g_id_signin zp-google" data-type="standard" data-shape="rectangular" data-theme="outline" data-text="signin_with" data-size="large" data-logo_alignment="left" style="justify-content:center;"></div>
+        <style>.zp-google{display:none !important}html.google-on .zp-google{display:flex !important}html.google-on div.zp-google[style*="text-align"]{display:block !important}</style>
+        <script>
+        // "Sign in with Google" only shows when the Owner has switched it on (Vault → Settings), i.e. once Google accepts this site.
+        fetch('/api/admin/system/public').then(function (r) { return r.json(); }).then(function (d) {
+            if (d && d.google_signin === 'on') { document.documentElement.classList.add('google-on'); var s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; document.head.appendChild(s); }
+        }).catch(function () {});
+        </script>
         <p style="text-align:center; color:rgba(255,255,255,0.4); font-size:11px; margin-top:6px;">Guest chats are saved locally only</p>
         <p style="text-align:center; color:rgba(255,255,255,0.45); font-size:11px; margin-top:4px;">By continuing you agree to our <a href="/terms" target="_blank" rel="noopener" style="color:#93c5fd;">Terms</a> and <a href="/privacy" target="_blank" rel="noopener" style="color:#93c5fd;">Privacy Policy</a>.</p>
     </div>

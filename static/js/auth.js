@@ -211,6 +211,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    // "Skip and add my email later": the email box is switched off and not required.
+    if ($('reg-skip-email')) $('reg-skip-email').addEventListener('change', () => {
+        const on = $('reg-skip-email').checked, em = $('reg-email');
+        em.disabled = on; em.required = !on; em.style.opacity = on ? '0.45' : '';
+        if (on) em.value = '';
+        em.placeholder = on ? 'You\'ll add it later' : 'Your real email address';
+    });
     $('register-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const pw = $('reg-password').value;
@@ -220,6 +227,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             $('register-msg').className = 'auth-msg error';
             return;
         }
+        const skip = !!($('reg-skip-email') && $('reg-skip-email').checked);
         const btn = $('register-btn');
         btn.disabled = true;
         try {
@@ -227,7 +235,8 @@ document.addEventListener('DOMContentLoaded', async () => {
                 method: 'POST',
                 body: JSON.stringify({
                     username: $('reg-username').value.trim(),
-                    email: $('reg-email').value.trim(),
+                    email: skip ? '' : $('reg-email').value.trim(),
+                    skip_email: skip,
                     password: pw,
                     device_id: getDeviceId(),
                 }),

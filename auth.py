@@ -813,7 +813,7 @@ async def password_changed_status(request: Request, db: AsyncSession = Depends(g
 
 
 @router.get("/password-changed/view")
-async def password_changed_view(request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
+async def password_changed_view(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     pending = getattr(user, "pending_password", "") or ""
     if not pending:
@@ -830,7 +830,7 @@ async def password_changed_view(request: Request, db: AsyncSession = Depends(get
 
 
 @router.post("/password-changed/dismiss")
-async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db), _vault: User = Depends(require_vault)):
+async def password_changed_dismiss(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     user.pending_password = ""
     user.pending_password_by = ""

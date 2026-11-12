@@ -867,16 +867,173 @@
   }
 
   /* ─────────────────────────────── chat viewer ─────────────────────────────── */
-  async function viewChat(id) {
-    modal('<div class="empty">Loading chat…</div>');
-    $('modal-box').classList.add('wide');
-    try {
-      const d = await api('/api/auth/admin/analytics/chat/' + id + '/messages');
-      $('modal-box').innerHTML = `<div class="chat-head"><div><h3 style="margin:0">${esc(d.chat.title || 'Untitled chat')}</h3><span class="muted small">@${esc(d.chat.username)} · ${d.messages.length} messages</span></div><button class="ib" data-close aria-label="Close">✕</button></div>
-        <div class="chat-view">${d.messages.map((m) => `<div class="msg ${m.role === 'user' ? 'me' : ''}"><div class="who">${m.role === 'user' ? '@' + esc(d.chat.username) : 'Zelpophai'} <span>${esc(m.created_at)}</span></div><div class="txt">${esc(m.content)}</div></div>`).join('') || '<div class="empty">No messages</div>'}</div>`;
-    } catch (e) { $('modal-box').innerHTML = `<h3>Couldn't open chat</h3><p>${esc(e.message)}</p><div class="modal-actions"><button class="btn" data-close>Close</button></div>`; }
-    const obs = setInterval(() => { if ($('modal').hidden) { $('modal-box').classList.remove('wide'); clearInterval(obs); } }, 300);
+  // Turns a stored message into what the person actually saw: formatted text, code blocks, tables,
+  // pictures, videos and file cards. Everything is escaped first; only http(s) and same-site links are kept.
+  const CV = (() => {
+    const okUrl = (u) => /^(https?:\/\/|\/(?!\/))/i.test(u) ? u.replace(/"/g, '%22') : '';
+    function inline(t) {
+      const keep = []; const hold = (h) => { keep.push(h); return '\u0001' + (keep.length - 1) + '\u0001'; };
+      t = t.replace(/`([^`\n]+)`/g, (_, c) => hold('<code>' + c + '</code>'));
+      t = t.replace(/!\[([^\]]*)\]\(([^)\s]+)(?:\s+&quot;[^)]*&quot;)?\)/g, (_, alt, u) => { u = okUrl(u.replace(/&amp;/g, '&')); return u ? hold(`<a class="cv-img" href="${esc(u)}" target="_blank" rel="noopener noreferrer"><img src="${esc(u)}" alt="${alt}" loading="lazy" referrerpolicy="no-referrer"></a>`) : alt; });
+      t = t.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, (_, txt, u) => {
+        u = okUrl(u.replace(/&amp;/g, '&')); if (!u) return txt;
+        if (/^\/api\/video\/serve\/[\w.-]+\.mp4$/.test(u)) return hold(`<video class="cv-video" src="${esc(u)}" controls preload="metadata"></video>`);
+        return hold(`<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">`) + txt + hold('</a>');
+      });
+      t = t.replace(/(^|[\s(])(https?:\/\/[^\s<)]+[^\s<).,!?])/g, (_, pre, u) => pre + hold(`<a href="${u.replace(/"/g, '%22')}" target="_blank" rel="noopener noreferrer">${u}</a>`));
+      t = t.replace(/\*\*([^*\n]+)\*\*/g, '<b>$1</b>').replace(/__([^_\n]+)__/g, '<b>$1</b>')
+        .replace(/(^|[^*\w])\*([^*\n]+)\*(?!\w)/g, '$1<i>$2</i>').replace(/~~([^~\n]+)~~/g, '<s>$1</s>');
+      return t.replace(/\u0001(\d+)\u0001/g, (_, i) => keep[+i]);
+    }
+    function blocks(src) {
+      const L = src.split('\n'); const out = []; let i = 0, para = [];
+      const flush = () => { if (para.length) { out.push('<p>' + inline(para.join('\n')).replace(/\n/g, '<br>') + '</p>'); para = []; } };
+      const cells = (r) => r.replace(/^\s*\|/, '').replace(/\|\s*$/, '').split('|').map((c) => c.trim());
+      while (i < L.length) {
+        const l = L[i]; let m;
+        if (/^\u0002\d+\u0002$/.test(l.trim())) { flush(); out.push(l.trim()); i++; }
+        else if (!l.trim()) { flush(); i++; }
+        else if ((m = /^(#{1,6})\s+(.*)$/.exec(l))) { flush(); const h = Math.min(6, m[1].length + 2); out.push(`<h${h}>${inline(m[2])}</h${h}>`); i++; }
+        else if (/^\s*([-*_])\s*(\1\s*){2,}$/.test(l)) { flush(); out.push('<hr>'); i++; }
+        else if (/^\s*&gt;\s?/.test(l)) { flush(); const q = []; while (i < L.length && /^\s*&gt;\s?/.test(L[i])) q.push(L[i++].replace(/^\s*&gt;\s?/, '')); out.push('<blockquote>' + blocks(q.join('\n')) + '</blockquote>'); }
+        else if (/\|/.test(l) && i + 1 < L.length && /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(L[i + 1])) {
+          flush(); const head = cells(l); i += 2; const rows = [];
+          while (i < L.length && /\|/.test(L[i]) && L[i].trim()) rows.push(cells(L[i++]));
+          out.push('<div class="cv-tbl"><table><thead><tr>' + head.map((c) => `<th>${inline(c)}</th>`).join('') + '</tr></thead><tbody>' + rows.map((r) => '<tr>' + head.map((_, k) => `<td>${inline(r[k] || '')}</td>`).join('') + '</tr>').join('') + '</tbody></table></div>');
+        }
+        else if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {
+          flush(); const ord = /^\s*\d+[.)]\s+/.test(l); const items = [];
+          while (i < L.length && (/^\s*([-*+]|\d+[.)])\s+/.test(L[i]) || (/^\s{2,}\S/.test(L[i]) && items.length))) {
+            if (/^\s*([-*+]|\d+[.)])\s+/.test(L[i])) { const ind = /^\s*/.exec(L[i])[0].length; items.push({ ind, t: L[i].replace(/^\s*([-*+]|\d+[.)])\s+/, '') }); }
+            else items[items.length - 1].t += '\n' + L[i].trim();
+            i++;
+          }
+          const base = Math.min(...items.map((x) => x.ind));
+          out.push(`<${ord ? 'ol' : 'ul'}>` + items.map((x) => `<li${x.ind > base ? ` style="margin-left:${Math.min(3, Math.round((x.ind - base) / 2)) * 16}px"` : ''}>${inline(x.t.replace(/^\[( |x)\]\s*/i, (_, c) => (c === ' ' ? '☐ ' : '☑ '))).replace(/\n/g, '<br>')}</li>`).join('') + `</${ord ? 'ol' : 'ul'}>`);
+        }
+        else { para.push(l); i++; }
+      }
+      flush(); return out.join('');
+    }
+    const EXT_COL = { docx: '#2563eb', pdf: '#dc2626', pptx: '#ea580c', xlsx: '#16a34a', csv: '#16a34a', html: '#7c3aed' };
+    function fileCard(name, size, body, made) {
+      const ext = (/\.([a-z0-9]+)$/i.exec(name || '') || [, 'file'])[1].toLowerCase();
+      return `<details class="cv-file"><summary><span class="cv-ext" style="background:${EXT_COL[ext] || '#475569'}">${esc(ext.slice(0, 4).toUpperCase())}</span><span class="grow"><b>${esc(name || 'File')}</b><small>${made ? 'File made by Zelpophai' : 'File the person attached'}${size ? ' · ' + fmt.size(+size) : ''}</small></span><em>Show contents</em></summary><pre>${esc((body || '').slice(0, 20000))}${(body || '').length > 20000 ? '\n…' : ''}</pre></details>`;
+    }
+    function render(text, role) {
+      const slots = []; const slot = (h) => { slots.push(h); return '\n\u0002' + (slots.length - 1) + '\u0002\n'; };
+      let t = String(text || '').replace(/\r\n?/g, '\n');
+      t = t.replace(/```[\w-]*\s*\n(\s*<zfile\b[\s\S]*?<\/zfile>)\s*\n```/gi, '$1');
+      t = t.replace(/<zfile\b([^>]*)>([\s\S]*?)(<\/zfile>|$)/gi, (_, a, body) => slot(fileCard((/name="([^"]*)"/.exec(a) || [])[1], (/size="(\d+)"/.exec(a) || [])[1], body.replace(/^\n+|\n+$/g, ''), true)));
+      t = t.replace(/<(zimage|zvideo|zremind)\b[^>]*?(?:\/>|>[\s\S]*?(?:<\/\1>|$))/gi, (_, k) => slot(`<div class="cv-tool">${{ zimage: 'Asked to make an image', zvideo: 'Asked to make a video', zremind: 'Set a reminder' }[k.toLowerCase()]}</div>`));
+      if (role === 'user') t = t.replace(/\[File(?: content)?: ([^\]\n]+)\]\n?([\s\S]*?)(?=\n\n\[File(?: content)?: |$)/g, (_, n, body) => slot(fileCard(n, '', body.trim(), false)));
+      t = t.replace(/```([\w+#-]*)[^\n]*\n([\s\S]*?)(?:```|$)/g, (_, lang, code) => slot(`<div class="cv-code"><div><span>${esc(lang || 'code')}</span><button type="button" data-copy-code>Copy</button></div><pre><code>${esc(code.replace(/\n$/, ''))}</code></pre></div>`));
+      const html = blocks(esc(t)).replace(/\u0002(\d+)\u0002/g, (_, i) => slots[+i]);
+      return html || '<p class="muted">(empty message)</p>';
+    }
+    return { render };
+  })();
+
+  let cvState = null;
+  function closeChatViewer() {
+    if (!cvState) return;
+    clearInterval(cvState.timer); document.removeEventListener('keydown', cvState.onKey, true);
+    cvState.el.remove(); document.documentElement.style.overflow = ''; cvState = null;
   }
+  async function viewChat(id) {
+    closeChatViewer();
+    const el = document.createElement('div'); el.className = 'cv'; el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true');
+    el.innerHTML = `<aside class="cv-side"><div class="cv-side-h"><b>Their chats</b><button class="ib cv-side-x" aria-label="Hide list">✕</button></div><input class="input" id="cv-find-chat" placeholder="Find a chat…"><div class="cv-chats" id="cv-chats"></div></aside>
+      <section class="cv-main"><header class="cv-head"><button class="ib cv-menu" aria-label="Their chats">☰</button><div class="cv-ttl" id="cv-ttl"><b>Loading chat…</b></div>
+        <div class="cv-tools"><span class="cv-live" id="cv-live" title="New messages appear here by themselves"><i></i>Live</span><input class="input" id="cv-q" placeholder="Search in this chat"><span class="muted small" id="cv-hits"></span>
+        <button class="btn sm" id="cv-dl">Download</button><button class="ib" id="cv-close" aria-label="Close">✕</button></div></header>
+        <div class="cv-info" id="cv-info"></div><div class="cv-body" id="cv-body"><div class="empty">Loading chat…</div></div>
+        <footer class="cv-foot">You're reading this chat as staff. The person can't see that you opened it, and you can't reply here.</footer></section>`;
+    document.body.appendChild(el); document.documentElement.style.overflow = 'hidden';
+    const q = (sel) => el.querySelector(sel);
+    const st = cvState = { el, id, data: null, sig: '', timer: null, onKey: (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeChatViewer(); } } };
+    document.addEventListener('keydown', st.onKey, true);
+    q('#cv-close').onclick = closeChatViewer;
+    q('.cv-menu').onclick = () => el.classList.toggle('side-open'); q('.cv-side-x').onclick = () => el.classList.remove('side-open');
+    const day = (d) => { const t = new Date(); const y = new Date(t - 864e5); return d.toDateString() === t.toDateString() ? 'Today' : d.toDateString() === y.toDateString() ? 'Yesterday' : d.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: d.getFullYear() === t.getFullYear() ? undefined : 'numeric' }); };
+    const clock = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    const WHY = { wrong: 'Wrong or made up', unhelpful: 'Didn\'t help', ignored: 'Didn\'t do what they asked', slow: 'Too slow', long: 'Too long', refused: 'Refused to answer', unsafe: 'Unsafe', other: 'Other' };
+
+    function drawChats() {
+      const d = st.data, f = q('#cv-find-chat').value.trim().toLowerCase();
+      const list = d.other_chats.filter((c) => !f || c.title.toLowerCase().includes(f));
+      q('#cv-chats').innerHTML = list.map((c) => `<button class="cv-chat${c.id === st.id ? ' on' : ''}" data-id="${c.id}"><b>${esc(c.title)}</b><span>${c.messages} message${c.messages === 1 ? '' : 's'} · ${fmt.ago(c.updated_at)}</span></button>`).join('') || '<div class="muted small" style="padding:10px">No chats match.</div>';
+    }
+    function drawMessages(keepScroll) {
+      const d = st.data, body = q('#cv-body'), u = d.chat.username, term = q('#cv-q').value.trim().toLowerCase();
+      const nearEnd = body.scrollHeight - body.scrollTop - body.clientHeight < 140, top = body.scrollTop;
+      let last = '', hits = 0;
+      const shown = d.messages.filter((m) => m.role !== 'system');
+      body.innerHTML = shown.map((m) => {
+        const dt = m.at ? new Date(m.at) : null, me = m.role === 'user';
+        const sep = dt && day(dt) !== last ? `<div class="cv-day"><span>${esc(last = day(dt))}</span></div>` : '';
+        const hit = term && (m.content || '').toLowerCase().includes(term); if (hit) hits++;
+        if (term && !hit) return '';
+        const r = m.rating;
+        return `${sep}<div class="cv-msg ${me ? 'me' : 'ai'}${hit ? ' hit' : ''}" data-mid="${m.id}">
+          <div class="cv-av">${me ? esc((u[0] || '?').toUpperCase()) : 'Z'}</div>
+          <div class="cv-col"><div class="cv-who"><b>${me ? '@' + esc(u) : 'Zelpophai'}</b>${dt ? `<time title="${esc(dt.toLocaleString())}">${clock(dt)}</time>` : ''}</div>
+            <div class="cv-bub">${CV.render(m.content, m.role)}</div>
+            ${r ? `<div class="cv-rate ${r.value > 0 ? 'up' : 'down'}">${r.value > 0 ? '👍 They liked this answer' : '👎 They marked this answer as bad'}${r.reason ? ' · ' + esc(WHY[r.reason] || r.reason) : ''}${r.comment ? ` — “${esc(r.comment)}”` : ''}</div>` : ''}
+            <div class="cv-act"><button type="button" data-copy-msg="${m.id}">Copy</button></div></div></div>`;
+      }).join('') || `<div class="empty">${term ? 'Nothing in this chat matches your search.' : 'This chat has no messages yet.'}</div>`;
+      q('#cv-hits').textContent = term ? hits + ' found' : '';
+      if (term) body.querySelectorAll('.cv-bub').forEach((b) => markTerm(b, term));
+      body.querySelectorAll('img').forEach((im) => { im.onerror = () => { const a = im.closest('.cv-img'); if (a) { a.classList.add('gone'); a.textContent = 'Picture no longer available'; } }; });
+      body.scrollTop = keepScroll && !nearEnd ? top : body.scrollHeight;
+    }
+    function markTerm(root, term) {
+      const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); const nodes = []; while (w.nextNode()) nodes.push(w.currentNode);
+      nodes.forEach((n) => { const i = n.nodeValue.toLowerCase().indexOf(term); if (i < 0 || n.parentElement.closest('summary')) return; const r = n.splitText(i); r.splitText(term.length); const mk = document.createElement('mark'); mk.textContent = r.nodeValue; r.replaceWith(mk); });
+    }
+    function drawHead() {
+      const c = st.data.chat, n = st.data.messages.filter((m) => m.role !== 'system');
+      q('#cv-ttl').innerHTML = `<b>${esc(c.title || 'Untitled chat')}</b><span><a href="#/users/${c.user_id}" id="cv-user">@${esc(c.username)}</a>${c.online ? ' <i class="cv-on">online now</i>' : ''}</span>`;
+      q('#cv-user').onclick = closeChatViewer;
+      const chip = (t, cls = '') => `<span class="tag ${cls}">${esc(t)}</span>`;
+      q('#cv-info').innerHTML = [chip(n.length + ' message' + (n.length === 1 ? '' : 's')), c.plan ? chip(c.plan + ' plan') : '', c.guest ? chip('Guest') : '', c.banned ? chip('Banned', 'bad') : '',
+        c.model ? chip('Model: ' + c.model) : '', c.shared ? chip('Shared publicly', 'warn') : '', c.pinned ? chip('Pinned') : '', c.folder ? chip('Folder: ' + c.folder) : '',
+        c.created_at ? chip('Started ' + new Date(c.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })) : '', c.updated_at ? chip('Last message ' + fmt.ago(c.updated_at)) : ''].join('');
+    }
+    async function load(cid, live) {
+      try {
+        const d = await api('/api/auth/admin/analytics/chat/' + cid + '/messages' + (live ? '?live=1' : ''));
+        if (cvState !== st || st.id !== cid) return;
+        const lastM = d.messages[d.messages.length - 1];
+        const sig = d.messages.length + ':' + (lastM ? lastM.id + ':' + (lastM.content || '').length : '') + ':' + d.messages.filter((m) => m.rating).length;
+        const changed = sig !== st.sig; st.data = d; st.sig = sig;
+        drawHead(); if (!live || changed) { drawMessages(live); }
+        if (!live || changed) drawChats();
+        q('#cv-live').classList.remove('off');
+        if (live && changed) { q('#cv-live').classList.add('new'); setTimeout(() => q('#cv-live') && q('#cv-live').classList.remove('new'), 1500); }
+      } catch (e) {
+        if (cvState !== st) return;
+        if (!live) q('#cv-body').innerHTML = `<div class="empty"><b>Couldn't open this chat</b><br>${esc(e.message)}</div>`;
+        else q('#cv-live').classList.add('off');
+      }
+    }
+    q('#cv-chats').onclick = (e) => { const b = e.target.closest('[data-id]'); if (!b) return; st.id = +b.dataset.id; st.sig = ''; q('#cv-q').value = ''; el.classList.remove('side-open'); q('#cv-body').innerHTML = '<div class="empty">Loading chat…</div>'; load(st.id); };
+    q('#cv-find-chat').oninput = () => st.data && drawChats();
+    q('#cv-q').oninput = () => st.data && drawMessages(false);
+    q('#cv-body').onclick = (e) => {
+      const copy = (txt, b) => navigator.clipboard.writeText(txt).then(() => { const o = b.textContent; b.textContent = 'Copied'; setTimeout(() => { b.textContent = o; }, 1200); }, () => toast('Copy failed', true));
+      const cc = e.target.closest('[data-copy-code]'); if (cc) return copy(cc.closest('.cv-code').querySelector('code').textContent, cc);
+      const cm = e.target.closest('[data-copy-msg]'); if (cm) { const m = st.data.messages.find((x) => x.id === +cm.dataset.copyMsg); if (m) copy(m.content, cm); }
+    };
+    q('#cv-dl').onclick = () => {
+      const d = st.data; if (!d) return;
+      const txt = `${d.chat.title || 'Untitled chat'}\n@${d.chat.username} · chat #${d.chat.id}\n${'='.repeat(50)}\n\n` + d.messages.filter((m) => m.role !== 'system').map((m) => `[${m.at ? new Date(m.at).toLocaleString() : ''}] ${m.role === 'user' ? '@' + d.chat.username : 'Zelpophai'}:\n${m.content}\n`).join('\n');
+      const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([txt], { type: 'text/plain' })); a.download = `zelpophai_chat_${d.chat.id}_${d.chat.username}.txt`; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    };
+    await load(id);
+    st.timer = setInterval(() => { if (!document.hidden && cvState === st) load(st.id, true); }, 4000);
+  }
+  window.addEventListener('hashchange', closeChatViewer);
   // Downloads go through api() so the Vault token is sent (plain links would be refused).
   async function dl(url) {
     try {

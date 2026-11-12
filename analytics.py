@@ -209,22 +209,66 @@ async def all_messages(request: Request, limit: int = 100, offset: int = 0, db: 
 
 
 @router.get("/chat/{chat_id}/messages")
-async def chat_messages_admin(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+async def chat_messages_admin(chat_id: int, request: Request, live: int = 0, db: AsyncSession = Depends(get_db)):
+    """The real conversation, as the person sees it: every message with its id, exact time and
+    thumbs rating, plus the person's other chats. `live=1` is the viewer's auto-refresh (not logged)."""
     from fastapi import HTTPException
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
-    from sqlalchemy.orm import selectinload
-    result = await db.execute(select(Chat).where(Chat.id == chat_id).options(selectinload(Chat.messages)))
-    chat = result.scalar_one_or_none()
+    chat = (await db.execute(select(Chat).where(Chat.id == chat_id))).scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     owner = (await db.execute(select(User).where(User.id == chat.user_id))).scalar_one_or_none()
     if owner and get_role(owner) in ("admin", "owner") and get_role(user) != "owner":
         raise HTTPException(status_code=403, detail="Admins cannot view fellow staff chats")
+
+    def iso(dt):
+        if not dt:
+            return None
+        return (dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)).isoformat()
+
+    msgs = (await db.execute(select(Message).where(Message.chat_id == chat.id).order_by(Message.id))).scalars().all()
+    ratings = {}
+    try:
+        from database import AnswerRating
+        for r in (await db.execute(select(AnswerRating).where(AnswerRating.chat_id == chat.id))).scalars().all():
+            ratings[r.message_id] = {"value": r.value, "reason": r.reason or "", "comment": r.comment or ""}
+    except Exception:
+        pass
+    others = []
+    plan, online = "", False
+    if owner:
+        rows = (await db.execute(
+            select(Chat.id, Chat.title, Chat.updated_at, func.count(Message.id))
+            .outerjoin(Message, Message.chat_id == Chat.id)
+            .where(Chat.user_id == owner.id).group_by(Chat.id).order_by(Chat.updated_at.desc()).limit(60))).all()
+        others = [{"id": i, "title": t or "Untitled", "updated_at": iso(u), "messages": n} for i, t, u, n in rows]
+        try:
+            from vault_api import _plan_of
+            plan = str(_plan_of(owner) or "free").capitalize()
+        except Exception:
+            plan = "Ultimate" if owner.is_ultimate else ("Pro" if owner.is_pro else "Free")
+        ls = getattr(owner, "last_seen", None)
+        if ls:
+            ls = ls if ls.tzinfo else ls.replace(tzinfo=timezone.utc)
+            online = (datetime.now(timezone.utc) - ls).total_seconds() < 90
+    if not live:
+        try:
+            await log_action(db=db, request=request, actor=user, action="view_chat",
+                             detail=f"Opened chat #{chat.id} of @{owner.username if owner else '?'}")
+        except Exception:
+            pass
     return {
-        "chat": {"id": chat.id, "title": chat.title, "user_id": chat.user_id, "username": owner.username if owner else "?"},
-        "messages": [{"role": m.role, "content": m.content, "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else ""} for m in chat.messages],
+        "chat": {"id": chat.id, "title": chat.title, "user_id": chat.user_id, "username": owner.username if owner else "?",
+                 "model": chat.model or "", "created_at": iso(chat.created_at), "updated_at": iso(chat.updated_at),
+                 "shared": bool(chat.share_id), "pinned": bool(chat.pinned), "folder": chat.folder or "",
+                 "guest": bool(owner and (owner.username or "").startswith("guest_")), "plan": plan, "online": online,
+                 "banned": bool(owner and owner.is_banned)},
+        "messages": [{"id": m.id, "role": m.role, "content": m.content, "at": iso(m.created_at),
+                      "created_at": m.created_at.strftime("%Y-%m-%d %H:%M") if m.created_at else "",
+                      "rating": ratings.get(m.id)} for m in msgs],
+        "other_chats": others,
     }
 
 

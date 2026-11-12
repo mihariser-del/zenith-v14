@@ -1019,7 +1019,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         try { const dt = new Date(a.created_at.replace(' ', 'T') + 'Z'); when = dt.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'}); } catch {}
         const E = window.ZPop.esc;
         window.ZPop.show({
-            id: 'broadcast-popup-' + a.id, z: 9997, tone: isOwner ? 'owner' : 'staff', icon: 'megaphone',
+            id: 'broadcast-popup-' + a.id, z: 10060, tone: isOwner ? 'owner' : 'staff', icon: 'megaphone',
             badge: isOwner ? 'Message from the Owner' : 'Message from staff',
             title: isOwner ? 'A message for everyone' : 'A message from the team',
             quote: a.content,
@@ -1125,7 +1125,7 @@ function showBannedScreen(reason, bannedBy) {
 function showOfflineScreen() {
     if (document.getElementById('offline-screen')) return;
     window.ZPop.show({
-        id: 'offline-screen', z: 9998, tone: 'info', icon: 'offline', badge: 'No connection', pulse: true,
+        id: 'offline-screen', z: 99980, tone: 'info', icon: 'offline', badge: 'No connection', pulse: true,
         title: 'You\'re offline',
         text: 'Check your Wi-Fi or mobile data. Zelpophai picks up where you left off as soon as you\'re back.',
         actions: [{ label: 'Try again', id: 'offline-retry', keep: true, onClick: (c) => { if (navigator.onLine) c.close(); else showToast('Still offline', 'error'); } }],
@@ -1151,7 +1151,7 @@ function showPasswordChangedScreen(changedBy) {
     if (document.getElementById('pwd-changed-screen') || document.getElementById('banned-screen')) return;
     const byOwner = changedBy === 'owner';
     window.ZPop.show({
-        id: 'pwd-changed-screen', dismissable: false, z: 9999, tone: 'warn', icon: 'key', badge: 'Password changed', row: true,
+        id: 'pwd-changed-screen', dismissable: false, z: 99990, tone: 'warn', icon: 'key', badge: 'Password changed', row: true,
         title: 'Your password was changed',
         text: 'You\'ll need the new one next time you log in. Want to see it now?',
         actions: [
@@ -1166,7 +1166,7 @@ function showPasswordChangedScreen(changedBy) {
 }
 function showPasswordModal(password) {
     window.ZPop.show({
-        id: 'pwd-modal', z: 9999, tone: 'warn', icon: 'key', badge: 'Shown once',
+        id: 'pwd-modal', z: 99990, tone: 'warn', icon: 'key', badge: 'Shown once',
         title: 'Your new password',
         text: 'Copy it or write it down now. For your safety it won\'t be shown again.',
         code: password,

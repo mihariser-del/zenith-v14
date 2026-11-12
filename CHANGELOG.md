@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 22.3.1 — Real chat viewer in the Vault, password view fix
+
+- `GET /api/auth/password-changed/view` and `POST …/dismiss` no longer depend on `require_vault` (added by mistake in the 22.1 security pass), so the person whose password was changed can see it again instead of getting 403 "Admin only".
+- `GET /api/auth/admin/analytics/chat/{id}/messages`: message ids, ISO times, thumbs ratings, chat meta (model, plan, shared, pinned, online, banned) and the person's other chats; `?live=1` for the viewer's refresh; opening a chat is logged (`view_chat`).
+- `vault2.js` `viewChat()`: full-screen viewer with its own safe Markdown renderer (escape-first; http(s)/same-site links only), file cards, images, videos, day dividers, ratings, in-chat search, copy, download, 4s live refresh, chat list. Styles `.cv-*` in `vault2.css`.
+- Password / broadcast / offline popups sit above the What's New card.
+
 ## 22.3 — New login / sign-up page, one popup for everything
 
 - `static/js/zpop.js`: `window.ZPop` (`show`, `confirm`, `prompt`, `systemScreen`). Self-styled (injects its own CSS, works after `document.body` is emptied), tones danger/warn/good/info/owner/staff, SVG icons, quote box, list, countdown, copy-code row, focus trap, Esc, light theme, bottom-sheet on phones. Loaded before `api.js` on every page.

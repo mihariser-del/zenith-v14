@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.3"
+VERSION = "22.3.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.3.1 Fixed: when the team changed your password, tapping \"Show my new password\" said \"Admin only\" instead of showing it. It now shows your new password as it should",
     "22.3 New Log in and Create account page: a cleaner two-panel design with clear labels, a show/hide password button, a password strength hint, clearer error messages, and a tidier Forgot password box. After creating an account you now go straight in — no need to log in again",
     "All pop-ups have a new look: one clean style with clear icons and plain wording for messages from the Owner, maintenance, limits, role changes, password notices, offline, and the small \"Are you sure?\" boxes. They work in light and dark mode, close with Esc, and slide up neatly on phones",
     "22.2 Slash commands: type / in the message box to see quick commands — /image and /video to create, /think, /research and /fact to switch modes, /summarize, /shorter, /simpler, /translate and /fix for quick requests, /remember to save a memory, /personality to change how Zelpophai talks, plus /new, /search, /share and more. Keep typing to filter, Enter to choose",
@@ -140,6 +141,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.3.1 Vault: opening a chat now shows the real conversation, full screen — formatted text, tables, code blocks, pictures, videos and file cards exactly as the person saw them, with exact times, day dividers and their thumbs up/down. It updates live while they chat, lists the person's other chats on the left, and has search inside the chat, copy and Download. Each time a chat is opened it is written to the activity log",
     "22.3 Staff: the Banned, Deleted, Locked and Maintenance screens are redesigned (reason shown in its own box, who did it, a contact email on the banned screen). Maintenance and Locked screens tell people the page reopens by itself. Broadcast pop-ups count as read however they are closed. Staff sign-in is now a small link at the bottom of the login page",
     "22.2 Owner: the Sign in with Google button is hidden for now because Google refuses it on this site (\"origin not allowed\"). Vault → Settings → Sign in with Google has the exact steps to fix it in your Google account and a switch to show the button again",
     "22.1 Staff: Live Chat is now Team chat — message bubbles, who is online, replies, reactions, edit/delete your own messages, typing dots, links and @mentions. Vault → Settings shows whether email sending works (with a test button and setup steps) and who asked to be told when paid plans open",

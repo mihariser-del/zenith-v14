@@ -1,8 +1,8 @@
-"""Invite friends: a ladder of rewards, a friends list, a monthly leaderboard and link stats.
+"""Invite friends: the reward, a friends list, a monthly leaderboard and link stats.
 
-An invite "counts" once the friend is a real, active person: they have a valid email and have
-sent a few messages. Rewards are added automatically at each step of the ladder, and the friend
-gets a welcome gift too. Links stay single-use (a new one appears after each friend joins).
+The reward is the original one: every 5 friends who join = 3 days of Pro. An invite "counts" once
+the friend is a real, active person (valid email + a few messages). Links stay single-use (a new
+one appears after each friend joins).
 """
 
 import os
@@ -16,9 +16,8 @@ from database import Chat, InviteToken, Message, Referral, User, async_session, 
 
 router = APIRouter(prefix="/api/invite", tags=["invite"])
 
-# (friends who count, plan, days)
-LADDER = [(1, "pro", 3), (3, "pro", 7), (5, "pro", 14), (10, "pro", 30), (25, "ultimate", 30)]
-FRIEND_GIFT_DAYS = 3
+REQUIRED = 5          # friends needed for one reward
+REWARD_DAYS = 3       # days of Pro per reward
 ACTIVE_MESSAGES = 3
 
 
@@ -57,6 +56,8 @@ def grant_days(u, plan: str, days: int) -> None:
         return
     now = _now()
     end = _utc(u.trial_end)
+    if (u.pro_plan or "") == "gift_ultimate_until" and end and end > now:
+        return                      # a gift from the Owner is running — an invite reward never stretches it
     base = end if (end and end > now) else now
     u.trial_end = base + timedelta(days=days)
     if plan == "ultimate":
@@ -65,25 +66,26 @@ def grant_days(u, plan: str, days: int) -> None:
         u.is_pro, u.is_ultimate, u.pro_plan = True, False, "invite_pro"
 
 
-async def settle(db: AsyncSession, referrer_id: int) -> list:
-    """Hand out any ladder rewards this person has reached. Returns the new reward labels."""
+def _granted(u) -> int:
+    raw = (u.invite_rewards or "").strip()
+    return int(raw) if raw.isdigit() else 0
+
+
+async def settle(db: AsyncSession, referrer_id: int) -> int:
+    """Give 3 days of Pro for every 5 friends who count. Returns how many new rewards were given."""
     u = await db.get(User, referrer_id)
     if not u or u.is_deleted or (u.username or "").startswith("guest_"):
-        return []
+        return 0
     counted = (await db.execute(select(func.count()).select_from(Referral)
                                 .where(Referral.referrer_id == u.id, Referral.counted == True))).scalar() or 0  # noqa: E712
-    done = {int(x) for x in (u.invite_rewards or "").split(",") if x.strip().isdigit()}
-    new = []
-    for need, plan, days in LADDER:
-        if counted >= need and need not in done:
-            grant_days(u, plan, days)
-            done.add(need)
-            new.append(_label(plan, days))
-    if new:
-        u.invite_rewards = ",".join(str(x) for x in sorted(done))
-        u.pending_notification = u.pending_notification or ""
-        await db.commit()
-    return new
+    due = counted // REQUIRED - _granted(u)
+    if due <= 0:
+        return 0
+    for _ in range(due):
+        grant_days(u, "pro", REWARD_DAYS)
+    u.invite_rewards = str(counted // REQUIRED)
+    await db.commit()
+    return due
 
 
 async def friend_progress(user_id: int) -> None:
@@ -106,7 +108,6 @@ async def friend_progress(user_id: int) -> None:
             ref.counted = True
             ref.counted_at = _now()
             ref.rewarded = True
-            grant_days(friend, "pro", FRIEND_GIFT_DAYS)        # the friend's welcome gift
             await db.commit()
             await settle(db, ref.referrer_id)
     except Exception as e:
@@ -114,22 +115,37 @@ async def friend_progress(user_id: int) -> None:
 
 
 async def migrate_once():
-    """Invites from before the ladder all count (their friends already joined)."""
+    """One-time fixes. v2: invites from before all count. v3: the short-lived reward ladder is
+    undone — everyone is put back on "5 friends = 3 days of Pro", and time the ladder gave is taken back."""
     try:
         from global_controls import _get_setting, _set_setting
         async with async_session() as db:
-            if (await _get_setting(db, "invite_v2", "off")) == "on":
-                return
-            rows = (await db.execute(select(Referral))).scalars().all()
-            owners = set()
-            for r in rows:
-                if r.referred_user_id and not r.counted:
-                    r.counted, r.counted_at = True, _utc(r.created_at) or _now()
-                    owners.add(r.referrer_id)
-            await db.commit()
-            for rid in owners:
-                await settle(db, rid)
-            await _set_setting(db, "invite_v2", "on")
+            if (await _get_setting(db, "invite_v2", "off")) != "on":
+                for r in (await db.execute(select(Referral))).scalars().all():
+                    if r.referred_user_id and not r.counted:
+                        r.counted, r.counted_at = True, _utc(r.created_at) or _now()
+                await db.commit()
+                await _set_setting(db, "invite_v2", "on")
+            if (await _get_setting(db, "invite_v3", "off")) != "on":
+                now = _now()
+                users = (await db.execute(select(User).where((User.invite_rewards != "") | (User.pro_plan.in_(("invite_pro", "invite_ultimate")))))).scalars().all()
+                for u in users:
+                    counted = (await db.execute(select(func.count()).select_from(Referral)
+                                                .where(Referral.referrer_id == u.id, Referral.counted == True))).scalar() or 0  # noqa: E712
+                    earned = counted // REQUIRED
+                    u.invite_rewards = str(earned) if earned else ""
+                    if (u.pro_plan or "") in ("invite_pro", "invite_ultimate"):
+                        end = _utc(u.trial_end)
+                        cap = now + timedelta(days=earned * REWARD_DAYS)
+                        if earned and end and end > now:
+                            u.trial_end = min(end, cap)
+                            u.is_pro, u.is_ultimate, u.pro_plan = True, False, "invite_pro"
+                        else:
+                            u.trial_end = now if end and end > now else u.trial_end
+                            u.is_pro, u.is_ultimate, u.pro_plan = False, False, ""
+                await db.commit()
+                await _set_setting(db, "invite_v3", "on")
+                print(f"[invite] reward ladder undone for {len(users)} account(s)")
     except Exception as e:
         print(f"[invite] migration failed: {e}")
 
@@ -153,10 +169,8 @@ async def overview(request: Request, db: AsyncSession = Depends(get_db)):
     refs = (await db.execute(select(Referral).where(Referral.referrer_id == user.id).order_by(Referral.created_at.desc()))).scalars().all()
     counted = sum(1 for r in refs if r.counted)
     clicks = (await db.execute(select(func.coalesce(func.sum(InviteToken.clicks), 0)).where(InviteToken.referrer_id == user.id))).scalar() or 0
-    done = {int(x) for x in (user.invite_rewards or "").split(",") if x.strip().isdigit()}
-    ladder = [{"need": need, "reward": _label(plan, days), "plan": plan, "days": days, "done": need in done,
-               "reached": counted >= need} for need, plan, days in LADDER]
-    nxt = next((s for s in ladder if not s["reached"]), None)
+    rewards = _granted(user)
+    toward = counted % REQUIRED
     friends = []
     for r in refs[:50]:
         f = await db.get(User, r.referred_user_id) if r.referred_user_id else None
@@ -185,8 +199,8 @@ async def overview(request: Request, db: AsyncSession = Depends(get_db)):
     end = _utc(user.trial_end)
     return {"link": f"{base}/i/{tok.token}", "clicks": int(clicks), "joined": len(refs), "active": counted,
             "waiting": sum(1 for f in friends if f["status"] == "waiting"),
-            "ladder": ladder, "next": ({"need": nxt["need"], "left": nxt["need"] - counted, "reward": nxt["reward"]} if nxt else None),
+            "required": REQUIRED, "reward": _label("pro", REWARD_DAYS), "toward": toward, "left": REQUIRED - toward, "rewards": rewards,
             "friends": friends, "leaderboard": board, "my_rank": my_rank, "month": month.strftime("%B"),
-            "friend_gift": _label("pro", FRIEND_GIFT_DAYS), "active_messages": ACTIVE_MESSAGES,
+            "active_messages": ACTIVE_MESSAGES,
             "reward_until": end.isoformat() if (end and end > _now() and (user.pro_plan or "").startswith("invite")) else None,
             "lasting_plan": _has_lasting_plan(user)}

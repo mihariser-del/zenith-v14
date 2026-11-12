@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 22.1.1 — Invite rewards back to normal
+
+- Ladder (1/3/5/10/25) and the friend's 3-day gift removed. `invites.settle()` gives 3 days of Pro per 5 counted friends (`users.invite_rewards` = number of rewards given). One-time `invite_v3` migration recomputes that number and caps or ends `invite_pro` / `invite_ultimate` time the ladder handed out
+- Friends list, leaderboard, link-open count and "counts once the friend is active" stay
+
 ## 22.1 — Personality studio, memory, invites, real emails, team chat, security pass
 
 **Personality** (`persona.py`, `static/js/persona.js`)

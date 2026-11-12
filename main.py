@@ -47,13 +47,14 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.1"
+VERSION = "22.1.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.1.1 Invite rewards are back to normal: every 5 friends who join gives you 3 days of Pro. The bigger reward steps added in 22.1 have been removed",
     "22.1 New Personality studio (Settings → Personality): choose from ten personalities like Friendly, Teacher, Coder, Coach or Comedian, fine-tune with sliders for warmth, humour, detail, formality and emoji, tell Zelpophai your name and a bit about you, write your own personalities, and tap Try it to hear it before you chat",
     "Smarter Memory: memories are sorted into categories, you can pin the important ones, search and edit them, tap Learn from my chats, Tidy up duplicates, download them or forget everything — and Zelpophai now uses the memories that matter for each message",
-    "Bigger Invite Friends: a ladder of rewards (1 friend = 3 days of Pro, 3 = a week, 5 = two weeks, 10 = a month, 25 = a month of Ultimate), your friend gets 3 days of Pro too, plus a list of your friends and a monthly leaderboard",
+    "Invite Friends now shows a list of the friends you invited and a monthly leaderboard. The reward is the same as before: 5 friends who join = 3 days of Pro",
     "Every account now needs a real email address so you can always get back in. If yours is missing you'll be asked to add it (you have 7 days), with help if you don't have one. Passwords now need at least 8 characters",
     "Paid plans are marked Coming soon — nothing can be bought yet. Tap Tell me on the Upgrade screen and we'll let you know when they open",
     "22.0 Brand-new Feedback (sidebar → More → Feedback): choose Bug, Idea, Praise, Problem or Personal request, add a star rating and a screenshot, and chat back and forth with the team — you can see when it's Seen, In progress or Done, and you get a notification when they reply",

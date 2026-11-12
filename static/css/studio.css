@@ -189,13 +189,10 @@ textarea.zu-in { resize: vertical; }
 .zin-hero { display: flex; align-items: center; gap: 18px; padding: 16px 18px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--a) 22%, transparent), color-mix(in srgb, #a855f7 16%, transparent)); border: 1px solid color-mix(in srgb, var(--a) 35%, transparent); }
 .zin-big { text-align: center; } .zin-big b { display: block; font-size: 38px; line-height: 1; letter-spacing: -.03em; } .zin-big span { font-size: 11.5px; color: var(--dim); }
 .zin-next { flex: 1; font-size: 14.5px; line-height: 1.45; } .zin-next span { display: block; margin-top: 3px; font-size: 12.5px; color: var(--dim); }
-.zin-ladder { display: flex; justify-content: space-between; gap: 4px; margin: 18px 0 8px; }
-.zin-step { flex: 1; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; min-width: 0; }
-.zin-node { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; border: 2px solid var(--line); background: var(--soft); font-size: 13px; font-weight: 750; color: var(--dim); }
-.zin-node svg { width: 16px; height: 16px; stroke-width: 3; }
-.zin-step b { font-size: 12px; } .zin-step > span:last-child { font-size: 11px; line-height: 1.3; color: var(--dim); }
-.zin-step.on .zin-node { background: var(--good); border-color: var(--good); color: #fff; }
-.zin-step.next .zin-node { border-color: var(--a); color: var(--a); box-shadow: 0 0 0 4px color-mix(in srgb, var(--a) 18%, transparent); }
+.zin-dots { display: flex; justify-content: space-between; gap: 8px; margin: 18px 0 8px; }
+.zin-dots span { flex: 1; height: 38px; display: grid; place-items: center; border-radius: 12px; border: 2px solid var(--line); background: var(--soft); font-size: 13px; font-weight: 750; color: var(--dim); }
+.zin-dots span svg { width: 16px; height: 16px; stroke-width: 3; }
+.zin-dots span.on { background: var(--good); border-color: var(--good); color: #fff; }
 .zin-bar { height: 6px; border-radius: 999px; background: var(--soft); overflow: hidden; }
 .zin-bar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--good), var(--a)); transition: width .5s ease; }
 .zin-note { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); font-size: 13px; line-height: 1.45; }
@@ -284,7 +281,7 @@ textarea.zu-in { resize: vertical; }
   .zps-grid { grid-template-columns: 1fr 1fr; } .zps-say { display: none; } .zps-now { display: none; }
   .zmm-add { flex-wrap: wrap; } .zmm-add .zu-in:first-child { flex-basis: 100%; } .zmm-add select.zu-in { flex: 1; }
   .zmm-tools { width: 100%; } .zmm-tools .zu-btn { flex: 1; } .zmm-more { flex: none; } .zmm-act { opacity: 1; }
-  .zin-step > span:last-child { font-size: 10px; } .zin-hero { padding: 14px; }
+  .zin-hero { padding: 14px; }
   .zsc { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
   .zsc-side { display: flex; gap: 4px; padding: 8px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
   .zsc-side h5 { display: none; } #zsc-staff { display: flex; gap: 12px; } .zsc-person div span { display: none; } .zsc-person b { max-width: 80px; font-size: 12px; }

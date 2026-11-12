@@ -1,21 +1,19 @@
-/* Invite friends: your link and ways to share it, the reward ladder, the friends you invited
+/* Invite friends: your link and ways to share it, progress to the reward, the friends you invited
    and where they are, and this month's leaderboard. window.ZPInvite.open() */
 (function () {
   'use strict';
   const { esc, toast, call, icon, modal, ago } = window.ZUI;
   let M = null, D = null, tab = 'share';
 
-  function shareText() { return `I've been using Zelpophai AI — it chats, writes documents, makes images and helps with code. Join with my link and we both get free Pro: ${D.link}`; }
+  function shareText() { return `I've been using Zelpophai AI — it chats, writes documents, makes images and helps with code. Come and try it with my link: ${D.link}`; }
   async function copy(text, okMsg) {
     try { await navigator.clipboard.writeText(text); toast(okMsg || 'Copied', 'success'); }
     catch (e) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast(okMsg || 'Copied', 'success'); } catch (err) { toast('Copy failed — select the link and copy it', 'error'); } t.remove(); }
   }
 
-  function ladder() {
-    const max = D.ladder[D.ladder.length - 1].need;
-    return `<div class="zin-ladder">${D.ladder.map((s) => `<div class="zin-step${s.reached ? ' on' : ''}${D.next && D.next.need === s.need ? ' next' : ''}">
-        <span class="zin-node">${s.reached ? icon('check') : s.need}</span><b>${s.need} friend${s.need > 1 ? 's' : ''}</b><span>${esc(s.reward)}</span></div>`).join('')}</div>
-      <div class="zin-bar"><i style="width:${Math.min(100, D.active / max * 100)}%"></i></div>`;
+  function progress() {
+    return `<div class="zin-dots" aria-label="${D.toward} of ${D.required} friends">${Array.from({ length: D.required }, (_, i) => `<span class="${i < D.toward ? 'on' : ''}">${i < D.toward ? icon('check') : i + 1}</span>`).join('')}</div>
+      <div class="zin-bar"><i style="width:${D.toward / D.required * 100}%"></i></div>`;
   }
 
   function draw() {
@@ -23,8 +21,8 @@
     const el = M.body.querySelector('.zin-pane');
     if (tab === 'share') {
       el.innerHTML = `<div class="zin-hero"><div class="zin-big"><b>${D.active}</b><span>friend${D.active === 1 ? '' : 's'} joined</span></div>
-          <div class="zin-next">${D.next ? `<b>${D.next.left} more</b> to unlock <b>${esc(D.next.reward)}</b>` : '<b>You unlocked every reward.</b> Legend.'}${D.waiting ? `<span>${D.waiting} friend${D.waiting === 1 ? ' is' : 's are'} almost there</span>` : ''}</div></div>
-        ${ladder()}
+          <div class="zin-next"><b>${D.left} more</b> friend${D.left === 1 ? '' : 's'} to get <b>${esc(D.reward)}</b>${D.rewards ? `<span>You've earned this ${D.rewards} time${D.rewards === 1 ? '' : 's'} so far</span>` : ''}${D.waiting ? `<span>${D.waiting} friend${D.waiting === 1 ? ' is' : 's are'} almost there</span>` : ''}</div></div>
+        ${progress()}
         ${D.reward_until ? `<div class="zin-note good">${icon('gift')}<span>Your invite reward is active until <b>${new Date(D.reward_until).toLocaleDateString(undefined, { day: 'numeric', month: 'long' })}</b>.</span></div>` : ''}
         ${D.lasting_plan ? `<div class="zin-note">${icon('gift')}<span>You already have a plan with no end date, so rewards don't add time — but inviting still counts for the leaderboard.</span></div>` : ''}
         <label class="zu-l" for="zin-link">Your invite link</label>
@@ -32,13 +30,13 @@
         <p class="zu-fine left">Each link works for one friend. A fresh one appears here as soon as they join.${D.clicks ? ` Your links have been opened <b>${D.clicks}</b> time${D.clicks === 1 ? '' : 's'}.` : ''}</p>
         <div class="zin-share"><button id="zin-native" hidden>${icon('send')} Share…</button><button data-s="wa" class="wa">WhatsApp</button><button data-s="tg" class="tg">Telegram</button><button data-s="x" class="x">X</button><button data-s="sms">Text message</button><button data-s="mail">Email</button><button data-s="msg">Copy message</button></div>
         <details class="zin-qr"><summary>Show a QR code</summary><div id="zin-qr"></div><small>Let a friend scan this with their phone camera.</small></details>
-        <div class="zin-how"><h4>How it works</h4><ol><li>Send your link to a friend.</li><li>They join and send their first ${D.active_messages} messages.</li><li>You climb the ladder — and they get <b>${esc(D.friend_gift)}</b> too.</li></ol></div>`;
+        <div class="zin-how"><h4>How it works</h4><ol><li>Send your link to a friend.</li><li>They join and send their first ${D.active_messages} messages.</li><li>Every ${D.required} friends who join gives you <b>${esc(D.reward)}</b>.</li></ol></div>`;
       el.querySelector('#zin-copy').onclick = () => copy(D.link, 'Link copied');
       el.querySelector('#zin-link').onclick = (e) => e.target.select();
-      const L = encodeURIComponent(D.link), T = encodeURIComponent(shareText()), short = encodeURIComponent('Join me on Zelpophai AI — we both get free Pro:');
+      const L = encodeURIComponent(D.link), T = encodeURIComponent(shareText()), short = encodeURIComponent('Join me on Zelpophai AI:');
       const go = { wa: `https://wa.me/?text=${T}`, tg: `https://t.me/share/url?url=${L}&text=${short}`, x: `https://twitter.com/intent/tweet?text=${short}&url=${L}`, sms: `sms:?&body=${T}`, mail: `mailto:?subject=${encodeURIComponent('Try Zelpophai AI with me')}&body=${T}` };
       el.querySelectorAll('[data-s]').forEach((b) => b.onclick = () => { const k = b.dataset.s; if (k === 'msg') return copy(shareText(), 'Message copied'); if (k === 'sms' || k === 'mail') location.href = go[k]; else window.open(go[k], '_blank', 'noopener'); });
-      if (navigator.share) { const nb = el.querySelector('#zin-native'); nb.hidden = false; nb.onclick = () => navigator.share({ title: 'Zelpophai AI', text: 'Join me on Zelpophai AI — we both get free Pro.', url: D.link }).catch(() => {}); }
+      if (navigator.share) { const nb = el.querySelector('#zin-native'); nb.hidden = false; nb.onclick = () => navigator.share({ title: 'Zelpophai AI', text: 'Join me on Zelpophai AI.', url: D.link }).catch(() => {}); }
       el.querySelector('.zin-qr').addEventListener('toggle', (e) => {
         if (!e.target.open || e.target.dataset.done) return; e.target.dataset.done = '1';
         const drawQr = () => { try { new QRCode(el.querySelector('#zin-qr'), { text: D.link, width: 170, height: 170, colorDark: '#0b1020', colorLight: '#ffffff' }); } catch (err) { el.querySelector('#zin-qr').textContent = 'QR code unavailable'; } };
@@ -61,7 +59,7 @@
 
   async function open() {
     tab = 'share';
-    M = modal({ id: 'zin', title: 'Invite friends', icon: 'gift', sub: 'Bring friends to Zelpophai and earn free Pro together.', tall: true });
+    M = modal({ id: 'zin', title: 'Invite friends', icon: 'gift', sub: 'Bring 5 friends to Zelpophai and get 3 days of Pro.', tall: true });
     M.body.innerHTML = '<div class="zu-load">Loading…</div>';
     try { D = await call('/api/invite/overview'); } catch (e) { M.body.innerHTML = `<div class="zu-empty"><b>Couldn't load invites</b><span>${esc(e.message)}</span></div>`; return; }
     M.body.innerHTML = `<div class="zu-tabs"><button data-t="share">Share</button><button data-t="friends">My friends${D.joined ? ` <i>${D.joined}</i>` : ''}</button><button data-t="board">Leaderboard</button></div><div class="zin-pane"></div>`;

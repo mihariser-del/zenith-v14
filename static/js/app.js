@@ -578,7 +578,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         $('tools-toggle').classList.toggle('open');
     });
 
-    // ── Invite friends (ladder, friends list, leaderboard) — see invite.js ──
+    // ── Invite friends (reward progress, friends list, leaderboard) — see invite.js ──
     $('invite-btn').addEventListener('click', () => {
         closeSidebar();
         if (isGuest) { if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest invite'); return; }

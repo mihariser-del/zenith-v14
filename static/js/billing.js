@@ -168,7 +168,7 @@ const Billing = {
                     if (cards) {
                         const bar = document.createElement('div');
                         bar.className = 'zp-soon-bar';
-                        bar.innerHTML = '<b>Coming soon</b><span>Payments aren\'t switched on yet, so nothing can be bought. Want Pro now? <a href="#" id="zp-soon-invite">Invite friends</a> — your first friend gives you 3 days free.</span>';
+                        bar.innerHTML = '<b>Coming soon</b><span>Payments aren\'t switched on yet, so nothing can be bought. Want Pro now? <a href="#" id="zp-soon-invite">Invite friends</a> — 5 friends who join gives you 3 days of Pro.</span>';
                         cards.parentNode.insertBefore(bar, cards);
                         const inv = bar.querySelector('#zp-soon-invite');
                         inv.onclick = (e) => { e.preventDefault(); window.__modalOpen = false; modal.remove(); const b = document.getElementById('invite-btn'); if (b) b.click(); };

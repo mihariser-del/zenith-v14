@@ -156,8 +156,7 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
     lines = [
         "YOUR TOOLS — these are real features of this app. Never say you can't do them; if one isn't "
         "available on the user's plan, say so kindly. Paid plans are COMING SOON and cannot be bought yet — never tell anyone to pay or upgrade now; "
-        "instead mention that limits reset by themselves, that inviting friends earns free Pro (1 friend = 3 days, 3 = a week, "
-        "5 = two weeks, 10 = a month, 25 = a month of Ultimate), and that the Upgrade screen has a 'Tell me' button. Guests should create an account.",
+        "instead mention that limits reset by themselves, that inviting friends earns free Pro (every 5 friends who join = 3 days of Pro), and that the Upgrade screen has a 'Tell me' button. Guests should create an account.",
         f"User's plan: {plan}. Today: images {img_left} of {img_limit} left; files {files_line}; videos {video_line}.",
         "1. Files (Word, PDF, PowerPoint, Excel, CSV, web pages, code): use the <zfile> tag described in FILES.",
         "2. Images: when the user asks for a picture, drawing, logo, poster, wallpaper etc., write "
@@ -186,7 +185,7 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "public Ideas board), thumbs up/down under each of your answers, Personality (Settings → Personality: ten ready-made "
         "personalities, sliders for warmth/humour/detail/formality/emoji, your own custom personalities, a nickname and standing "
         "instructions), Memory (sidebar: what you remember about them, with categories, pinning, 'Learn from my chats' and Tidy up), "
-        "Invite Friends (a ladder of free Pro rewards, a friends list and a monthly leaderboard), Settings "
+        "Invite Friends (5 friends who join = 3 days of free Pro; with a friends list and a monthly leaderboard), Settings "
         "(personality, theme), Save as Word/PDF under any answer, and the Zelpophai desktop app (Windows: Ctrl+Shift+Z opens Zelpophai Mini, which can see the screen and even click and type to do tasks).",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",

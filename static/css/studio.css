@@ -305,3 +305,83 @@ textarea.zu-in { resize: vertical; }
 .zsl-foot { margin-top: 4px; border-top: 1px solid var(--line); }
 .zsl kbd { display: inline-block; min-width: 18px; margin: 0 2px; padding: 0 5px; border-radius: 5px; border: 1px solid var(--line); background: var(--input-bg, #171b27); font: inherit; font-size: 10.5px; text-align: center; }
 @media (max-width: 640px) { .zsl-row i { display: none; } .zsl-foot { display: none; } .zsl-row { padding: 9px 10px; } }
+
+/* ───────── Settings window (zst-) ───────── */
+.zst .zu-box.zst-box { width: min(900px, 100%); height: min(680px, 92vh); }
+.zst .zst-body { padding: 0; display: grid; grid-template-columns: 216px minmax(0, 1fr); overflow: hidden; }
+.zst-nav { display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border-right: 1px solid var(--line); overflow-y: auto; background: color-mix(in srgb, var(--soft) 55%, transparent); }
+.zst-nav button { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 11px; font-size: 13.5px; font-weight: 600; color: var(--dim); cursor: pointer; transition: background .15s, color .15s; }
+.zst-nav button svg { flex: none; width: 17px; height: 17px; }
+.zst-nav button:hover { background: var(--soft); color: var(--ink); }
+.zst-nav button.on { background: color-mix(in srgb, var(--a) 16%, transparent); color: var(--ink); }
+.zst-nav button.on svg { color: var(--a); }
+.zst-nav button:focus-visible, .zst-seg button:focus-visible, .zst-theme:focus-visible, .zst-swatches button:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.zst-pane { min-width: 0; overflow-y: auto; padding: 20px 24px 28px; }
+.zst-h { margin: 0 0 16px; font-size: 20px; letter-spacing: -.02em; }
+.zst-group { margin: 0 0 22px; }
+.zst-group h4 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: var(--dim); }
+.zst-about { margin: -2px 0 10px; font-size: 12.5px; line-height: 1.5; color: var(--dim); }
+.zst-card { border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--soft) 45%, transparent); padding: 4px 16px; }
+.zst-card > .zem-setrow, .zst-card > div > .zem-setrow { margin: 12px 0; }
+.zst-card > div:empty { display: none; }
+.zst-row { display: flex; align-items: center; gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.zst-row:last-child { border-bottom: 0; }
+.zst-row.stack { flex-direction: column; align-items: stretch; gap: 10px; }
+.zst-row-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.zst-row-t b { font-size: 14px; font-weight: 650; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.zst-row-t span { font-size: 12.5px; line-height: 1.5; color: var(--dim); }
+.zst-row-c { flex: none; display: flex; align-items: center; gap: 8px; max-width: 100%; }
+.zst-row.stack .zst-row-c { width: 100%; }
+.zst-seg { display: inline-flex; flex-wrap: wrap; gap: 3px; padding: 3px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); max-width: 100%; }
+.zst-row.stack .zst-seg { display: flex; }
+.zst-seg button { all: unset; box-sizing: border-box; flex: 1; text-align: center; padding: 7px 13px; border-radius: 9px; font-size: 13px; font-weight: 600; color: var(--dim); cursor: pointer; white-space: nowrap; transition: background .15s, color .15s; }
+.zst-seg button:hover { color: var(--ink); }
+.zst-seg button.on { background: var(--a); color: #fff; box-shadow: 0 2px 8px color-mix(in srgb, var(--a) 35%, transparent); }
+.zst-themes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.zst-theme { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 8px; padding: 8px; border-radius: 14px; border: 2px solid var(--line); text-align: center; transition: border-color .15s; }
+.zst-theme:hover { border-color: color-mix(in srgb, var(--a) 50%, transparent); }
+.zst-theme.on { border-color: var(--a); }
+.zst-theme span { font-size: 12.5px; font-weight: 650; }
+.zst-theme i { display: flex; flex-direction: column; gap: 5px; height: 62px; padding: 9px; border-radius: 9px; background: #0d1018; }
+.zst-theme i em { display: block; height: 8px; border-radius: 4px; background: #2a3044; width: 70%; }
+.zst-theme i em:nth-child(2) { width: 46%; align-self: flex-end; background: var(--a); }
+.zst-theme i em:nth-child(3) { width: 58%; }
+.zst-theme.light i { background: #f3f4f8; } .zst-theme.light i em { background: #d5d9e4; } .zst-theme.light i em:nth-child(2) { background: var(--a); }
+.zst-theme.auto i { background: linear-gradient(105deg, #f3f4f8 0 50%, #0d1018 50% 100%); } .zst-theme.auto i em { background: #8b93a8; } .zst-theme.auto i em:nth-child(2) { background: var(--a); }
+.zst-swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.zst-swatches button { all: unset; box-sizing: border-box; width: 30px; height: 30px; border-radius: 50%; background: var(--c); cursor: pointer; border: 3px solid transparent; box-shadow: 0 0 0 1px var(--line); transition: transform .12s; }
+.zst-swatches button:hover { transform: scale(1.1); }
+.zst-swatches button.on { border-color: var(--cards, var(--surface, #12151f)); box-shadow: 0 0 0 2px var(--c); }
+.zst-range { display: flex; align-items: center; gap: 12px; width: 100%; }
+.zst-range input { flex: 1; accent-color: var(--a); }
+.zst-range b { min-width: 40px; text-align: right; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+.zst-keys { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; padding: 14px 0; font-size: 13px; color: var(--dim); }
+.zst-keys kbd { display: inline-block; min-width: 22px; margin-right: 4px; padding: 2px 7px; border-radius: 7px; border: 1px solid var(--line); border-bottom-width: 2px; background: var(--soft); color: var(--ink); font: 600 11.5px ui-monospace, Menlo, Consolas, monospace; text-align: center; }
+.zst-me { display: flex; align-items: center; gap: 14px; margin: 0 0 20px; padding: 16px; border-radius: 16px; border: 1px solid var(--line); background: linear-gradient(135deg, color-mix(in srgb, var(--a) 14%, transparent), transparent 70%); }
+.zst-av { flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; font-size: 19px; font-weight: 750; color: #fff; background: var(--a); }
+.zst-me > div { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.zst-me b { font-size: 15.5px; overflow: hidden; text-overflow: ellipsis; } .zst-me span { font-size: 12.5px; color: var(--dim); }
+.zst-saved { font-size: 12.5px; font-weight: 650; color: var(--good); opacity: 0; transform: translateY(3px); transition: opacity .2s, transform .2s; }
+.zst-saved.on { opacity: 1; transform: none; } .zst-saved.bad { color: var(--bad); }
+.zst-err { min-height: 0; margin-top: 10px; font-size: 13px; color: var(--bad); } .zst-err:empty { display: none; }
+.zst-warn { padding: 12px 14px; border-radius: 12px; font-size: 13.5px; line-height: 1.55; color: var(--ink); border: 1px solid color-mix(in srgb, var(--bad) 40%, transparent); background: color-mix(in srgb, var(--bad) 9%, transparent); margin-bottom: 4px; }
+.zst-acts { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
+.zst-show { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 13px; color: var(--dim); cursor: pointer; }
+.zst-show input { accent-color: var(--a); width: 16px; height: 16px; }
+.zu-btn.danger.solid { background: var(--bad); border-color: var(--bad); color: #fff; }
+.zst select.zu-in { appearance: auto; }
+html[data-zst-text="small"] .msg-bubble { font-size: 13.5px !important; }
+html[data-zst-text="large"] .msg-bubble { font-size: 17.5px !important; line-height: 1.7 !important; }
+@media (max-width: 720px) {
+  .zu-modal.zst { padding: 0; align-items: stretch; }
+  .zst .zu-box.zst-box { width: 100%; height: 100%; max-height: none; border-radius: 0; border: 0; }
+  .zst .zst-body { grid-template-columns: 1fr; grid-template-rows: auto minmax(0, 1fr); }
+  .zst-nav { flex-direction: row; gap: 6px; padding: 10px 12px; border-right: 0; border-bottom: 1px solid var(--line); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .zst-nav::-webkit-scrollbar { display: none; }
+  .zst-nav button { flex: none; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; font-size: 13px; }
+  .zst-nav button.on { border-color: var(--a); }
+  .zst-pane { padding: 16px 14px 28px; }
+  .zst-row { gap: 12px; }
+  .zst-keys { grid-template-columns: 1fr; }
+  .zst-me { flex-wrap: wrap; }
+}

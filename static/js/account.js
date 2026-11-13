@@ -108,9 +108,9 @@
 
   /* A row at the top of Settings: the account's email, with Change / Confirm. */
   function refreshRow() {
-    const box = document.querySelector('#settings-modal .modal-content'); if (!box || cfg.isGuest || !state) return;
+    const box = document.getElementById('zst-account-slot'); if (!box || cfg.isGuest || !state) return;
     let row = document.getElementById('zem-row');
-    if (!row) { row = document.createElement('div'); row.id = 'zem-row'; row.className = 'zem-setrow'; const first = box.querySelector('details'); if (first) box.insertBefore(row, first); else box.appendChild(row); }
+    if (!row) { row = document.createElement('div'); row.id = 'zem-row'; row.className = 'zem-setrow'; box.appendChild(row); }
     const tag = state.status === 'verified' ? '<span class="zu-tag good">Confirmed</span>' : state.status === 'checked' ? '' : '<span class="zu-tag warn">Needed</span>';
     row.innerHTML = `${icon('mail')}<div><b>Account email</b><span>${state.email ? esc(state.email) : 'No email yet'} ${tag}</span></div><button class="zu-btn sm" id="zem-edit">${state.email ? 'Change' : 'Add'}</button>`;
     row.querySelector('#zem-edit').onclick = async () => { try { const st = await call('/api/auth/email/status'); open = false; show({ ...st, required: false }); } catch (e) { toast(e.message, 'error'); } };
@@ -128,5 +128,11 @@
     };
     setTimeout(() => check(), 1800);
   }
-  window.ZPAccount = { init, check };
+  // Called by Settings each time the Account section is drawn.
+  async function mountSettings() {
+    if (cfg.isGuest) return;
+    try { if (!state) state = await call('/api/auth/email/status'); } catch (e) {}
+    refreshRow();
+  }
+  window.ZPAccount = { init, check, mountSettings };
 })();

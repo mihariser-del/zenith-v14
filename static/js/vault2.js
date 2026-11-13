@@ -276,15 +276,6 @@
       else await ({ overview: pageOverview, growth: pageGrowth, ai: pageAI, live: pageLive, users: pageUsers, people: pagePeople,
         safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs,
         chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings }[def.id])();
-      if (page === 'settings' && !S.owner && S.access) {
-        await loadAccess(); const A = S.access, L = A.labels || {};
-        const yes = Object.keys(L).filter((k) => A.can[k]), no = Object.keys(L).filter((k) => !A.can[k]);
-        const lim = Object.entries(A.limits || {}).filter(([, v]) => v);
-        const LN = { bans: 'bans', resets: 'password resets', deletes: 'deleted accounts', broadcasts: 'broadcasts' };
-        $('view').insertAdjacentHTML('beforeend', `<div class="mt">${card('What I\'m allowed to do', `<p class="muted small" style="margin-top:-6px">${A.trusted ? 'You\'re a Trusted admin, so you can do everything below.' : 'Set by the Owner. Ask them if you need something switched on.'}${A.until ? ` Your admin role ends on <b>${new Date(A.until).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</b>.` : ''}</p>
-          <div class="chips">${yes.map((k) => `<span class="tag good">✓ ${esc(L[k])}</span>`).join('')}${no.map((k) => `<span class="tag">✕ ${esc(L[k])}</span>`).join('')}</div>
-          ${lim.length ? `<div class="muted small" style="margin-top:12px">Today: ${lim.map(([k, v]) => `<b>${(A.used || {})[k] || 0} of ${v}</b> ${LN[k]}`).join(' · ')}</div>` : ''}`)}</div>`);
-      }
     } catch (e) {
       $('view').innerHTML = card('Something went wrong', empty('Couldn\'t load this page', e.message) + '<div style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></div>');
     }
@@ -1269,58 +1260,106 @@
   }
 
   /* ─────────────────────────────── settings & exports ─────────────────────────────── */
+  let setTab = 'vault';
   async function pageSettings() {
-    $('view').innerHTML = `<div class="grid g2">
-      ${card('Change my Vault PIN', `<p class="muted small" style="margin-top:-6px">4–6 digits. You'll need your current PIN and your account password.</p>
-        <label class="muted small">Current PIN</label><input class="input" id="pc-old" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
-        <label class="muted small" style="display:block;margin-top:10px">New PIN</label><input class="input" id="pc-new" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
-        <label class="muted small" style="display:block;margin-top:10px">Account password</label><input class="input" id="pc-pw" type="password" autocomplete="current-password">
-        <div style="text-align:right;margin-top:12px"><button class="btn pri" id="pc-go">Change PIN</button></div>`)}
-      ${card('Export data', `<p class="muted small" style="margin-top:-6px">Download everything as files you can open on your computer.</p>
-        <div class="ctrl"><div class="grow"><b>All users</b><span class="muted small">Spreadsheet (CSV) with every account.</span></div><button class="btn sm" data-dl="users">Download</button></div>
-        <div class="ctrl"><div class="grow"><b>All chats</b><span class="muted small">Text file listing every chat.</span></div><button class="btn sm" data-dl="chats">Download</button></div>
-        <div class="ctrl"><div class="grow"><b>All messages</b><span class="muted small">Text file with every message.</span></div><button class="btn sm" data-dl="messages">Download</button></div>
-        <p class="muted small" style="margin-top:10px">One person's data: open them in Users → Export data.</p>`)}
-    </div>
-    ${card('This Vault', `<div class="ctrl"><div class="grow"><b>Theme</b><span class="muted small">Light or dark.</span></div><button class="btn sm" id="se-theme">Switch</button></div>
-      <div class="ctrl"><div class="grow"><b>Desktop alerts</b><span class="muted small">Get a notification for new alerts while the Vault is open.</span></div><button class="btn sm" id="se-notif">${'Notification' in window && Notification.permission === 'granted' ? 'On' : 'Turn on'}</button></div>
-      <div class="ctrl"><div class="grow"><b>Auto-lock</b><span class="muted small">The Vault locks itself after 15 minutes without activity, and when you close the tab.</span></div><button class="btn sm" id="se-lock">Lock now</button></div>`).replace('class="card fade"', 'class="card fade mt"')}`;
-    // Email sending + paid plans (status, test email, who is waiting)
-    try {
-      const em = await api('/api/vault/email');
-      const box = document.createElement('div');
-      box.className = 'grid g2 mt';
-      box.innerHTML = card('Email', `<div class="ctrl" style="padding-top:0"><div class="grow"><b>Email sending</b><span class="muted small">${em.configured ? `Working through ${esc(em.provider)}${em.sender ? ' · from ' + esc(em.sender) : ''}. New emails are confirmed with a 6-digit code.` : 'Not set up. Emails are checked (real provider, not a throw-away address) but no code is sent, and “Forgot password” emails cannot arrive.'}</span></div><span class="tag ${em.configured ? 'good' : 'warn'}">${em.configured ? 'On' : 'Off'}</span></div>
-          <dl class="kv" style="margin-top:12px"><dt>Confirmed by code</dt><dd>${fmt.n(em.verified)}</dd><dt>Checked</dt><dd>${fmt.n(em.checked)}</dd><dt>Still need one</dt><dd>${fmt.n(em.missing)} <span class="muted small">· they have ${em.grace_days} days from their first reminder</span></dd></dl>
-          ${em.missing_users.length ? `<div class="chips" style="margin-top:10px">${em.missing_users.map((u) => `<a class="chip" href="#/users/${u.id}">@${esc(u.username)}</a>`).join('')}</div>` : ''}
-          ${S.owner ? (em.configured ? `<div style="display:flex;gap:8px;margin-top:14px"><input class="input" id="em-to" placeholder="Send a test email to…" type="email"><button class="btn" id="em-test">Send test</button></div>`
-            : `<details style="margin-top:12px"><summary class="small" style="cursor:pointer;color:var(--acc);font-weight:600">How to switch it on (about 10 minutes, free)</summary><ol class="small muted" style="line-height:1.7;padding-left:18px"><li>Make a free account at <b>brevo.com</b> (300 emails a day free).</li><li>In Brevo, open <b>Senders</b> and confirm the email address your messages should come from.</li><li>Open <b>SMTP &amp; API → API keys</b> and create a key.</li><li>In Railway, open your Zelpophai service → <b>Variables</b> and add <code>BREVO_API_KEY</code> (the key) and <code>SMTP_FROM</code> (the address you confirmed).</li><li>Railway restarts by itself. Come back here and send a test email.</li></ol></details>`) : ''}`)
-        + card('Paid plans', `<div class="ctrl" style="padding-top:0"><div class="grow"><b>${em.billing_live ? 'On sale' : 'Coming soon'}</b><span class="muted small">${em.billing_live ? 'People can buy Pro and Ultimate through Stripe.' : 'Nobody can buy or switch on a plan by themselves. The Upgrade screen shows the plans with “Coming soon”. You can still gift plans from a user\'s profile, and invite rewards still work.'}</span></div><span class="tag ${em.billing_live ? 'good' : ''}">${em.billing_live ? 'Live' : 'Soon'}</span></div>
-          <dl class="kv" style="margin-top:12px"><dt>Asked to be told</dt><dd>${fmt.n(em.plan_interest)} ${em.plan_interest === 1 ? 'person' : 'people'}</dd></dl>
-          ${em.plan_interest_users.length ? `<div class="list" style="margin-top:6px">${em.plan_interest_users.map((w) => `<div class="li"><div class="grow small"><a href="#/users/${w.id}">@${esc(w.username)}</a>${w.plan ? ` <span class="tag ${w.plan === 'ultimate' ? 'ultimate' : 'pro'}">${w.plan === 'ultimate' ? 'Ultimate' : 'Pro'}</span>` : ''}</div><span class="t">${fmt.ago(w.t)}</span></div>`).join('')}</div>` : '<p class="muted small">When someone taps “Tell me” on the Upgrade screen they appear here.</p>'}
-          ${S.owner && !em.billing_live ? '<p class="muted small" style="margin-top:10px">To open sales later: set up live Stripe keys and prices on Railway, then add <code>BILLING_LIVE=1</code>.</p>' : ''}`);
-      $('view').appendChild(box);
-      if (S.owner) {
-        const g = document.createElement('div');
-        g.innerHTML = card('Sign in with Google', `<div class="ctrl" style="padding-top:0"><div class="grow"><b>Show the Google button</b><span class="muted small">${em.google_signin ? 'The button is shown on the login, welcome and invite pages.' : 'Hidden. Right now Google refuses the button on this site (“origin not allowed”), so it stays hidden until you fix that below.'}</span></div><button class="switch${em.google_signin ? ' on' : ''}" id="g-toggle" aria-label="Show the Google sign-in button"></button></div>
-          <details style="margin-top:10px"${em.google_signin ? '' : ' open'}><summary class="small" style="cursor:pointer;color:var(--acc);font-weight:600">How to make it work (about 5 minutes — only you can do this, in your Google account)</summary>
-            <ol class="small muted" style="line-height:1.75;padding-left:18px"><li>Open <b>console.cloud.google.com</b> and sign in with the Google account that created Zelpophai's sign-in.</li><li>Choose the Zelpophai project, then <b>APIs &amp; Services → Credentials</b>.</li><li>Under <b>OAuth 2.0 Client IDs</b>, open the one whose ID starts with <code>1035003334215-veih…</code></li><li>Under <b>Authorised JavaScript origins</b> click <b>Add URI</b> and paste exactly: <code>${esc(em.site_origin)}</code> <button class="btn sm" id="g-copy">Copy</button><br>(no slash at the end, and it must start with https)</li><li>Press <b>Save</b>. Google can take from 5 minutes up to a few hours to apply it.</li><li>Come back, switch the button on above, and try signing in from a private window. If Google still says “not authorised”, wait a bit longer and try again.</li></ol>
-            <p class="small muted">If you can't find that project, the sign-in was made under a different Google account. Tell me and I'll walk you through making a new one.</p></details>`).replace('class="card fade"', 'class="card fade mt"');
-        $('view').appendChild(g.firstElementChild);
-        $('g-toggle').onclick = async () => { try { await api('/api/vault/google-signin', { method: 'POST', body: { on: !em.google_signin } }); toast(em.google_signin ? 'Google button hidden' : 'Google button shown'); route(); } catch (e) { toast(e.message, true); } };
+    const canExport = S.owner || S.can.export_data !== false;
+    const TABS = [['vault', 'My Vault', 'Your PIN, how the Vault looks and when it locks.'], ['site', 'Site setup', 'Email, paid plans and Google sign-in for Zelpophai.'],
+      ['data', 'Data & exports', 'Download information as files.'], ['about', 'About', 'Version and useful links.']];
+    if (!TABS.some((t) => t[0] === setTab)) setTab = 'vault';
+    const row = (title, about, control) => `<div class="ctrl"><div class="grow"><b>${title}</b>${about ? `<span class="muted small">${about}</span>` : ''}</div>${control || ''}</div>`;
+    const seg = (id, opts, val) => `<div class="vs-seg" id="${id}">${opts.map(([v, l]) => `<button type="button" class="${String(v) === String(val) ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div>`;
+    $('view').innerHTML = `<div class="vs fade"><nav class="vs-nav" id="vs-nav">${TABS.map(([k, l, d]) => `<button type="button" data-t="${k}" class="${k === setTab ? 'on' : ''}"><b>${l}</b><span>${d}</span></button>`).join('')}</nav><div class="vs-pane" id="vs-pane"></div></div>`;
+    $('vs-nav').onclick = (e) => { const b = e.target.closest('[data-t]'); if (!b) return; setTab = b.dataset.t; $('vs-nav').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
+    const pane = $('vs-pane');
+
+    const TAB = {
+      async vault() {
+        const theme = store.get('zv_theme', '') || 'dark', lockMin = +store.get('zv_lock_min', 15) || 15;
+        const notif = 'Notification' in window ? Notification.permission : 'unsupported';
+        let access = '';
+        if (!S.owner && S.access) {
+          await loadAccess(); const A = S.access, L = A.labels || {};
+          const yes = Object.keys(L).filter((k) => A.can[k]), no = Object.keys(L).filter((k) => !A.can[k]);
+          const lim = Object.entries(A.limits || {}).filter(([, v]) => v), LN = { bans: 'bans', resets: 'password resets', deletes: 'deleted accounts', broadcasts: 'broadcasts' };
+          access = card('What I\'m allowed to do', `<p class="muted small" style="margin-top:-6px">${A.trusted ? 'You\'re a Trusted admin, so you can do everything below.' : 'Set by the Owner. Ask them if you need something switched on.'}${A.until ? ` Your admin role ends on <b>${new Date(A.until).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</b>.` : ''}</p>
+            <div class="chips">${yes.map((k) => `<span class="tag good">✓ ${esc(L[k])}</span>`).join('')}${no.map((k) => `<span class="tag">✕ ${esc(L[k])}</span>`).join('')}</div>
+            ${lim.length ? `<div class="muted small" style="margin-top:12px">Today: ${lim.map(([k, v]) => `<b>${(A.used || {})[k] || 0} of ${v}</b> ${LN[k]}`).join(' · ')}</div>` : ''}`);
+        }
+        pane.innerHTML = card('Look and behaviour', row('Theme', 'How the Vault looks on this device.', seg('se-theme', [['light', 'Light'], ['dark', 'Dark']], theme))
+            + row('Lock when I\'m away', 'The Vault asks for your PIN again after this long without activity, and whenever you close the tab.', seg('se-lockmin', [[2, '2 min'], [5, '5 min'], [15, '15 min']], lockMin))
+            + row('Starting time range', 'The range charts open with.', seg('se-range', [['7d', '7 days'], ['30d', '30 days'], ['90d', '90 days']], S.range))
+            + row(`Desktop alerts <span class="tag ${notif === 'granted' ? 'good' : notif === 'denied' ? 'warn' : ''}">${notif === 'granted' ? 'On' : notif === 'denied' ? 'Blocked' : notif === 'unsupported' ? 'Not available' : 'Off'}</span>`,
+              notif === 'denied' ? 'Blocked in this browser. Tap the lock icon next to the web address, find Notifications and choose Allow.' : 'Get a notification for new alerts while the Vault is open.',
+              notif === 'default' ? '<button class="btn sm pri" id="se-notif">Turn on</button>' : (notif === 'granted' ? '<button class="btn sm" id="se-notif-test">Send a test</button>' : ''))
+            + row('Lock now', 'Hide everything until your PIN is typed again.', '<button class="btn sm" id="se-lock">Lock the Vault</button>'))
+          + `<div class="mt">${card('Change my Vault PIN', `<p class="muted small" style="margin-top:-6px">4 to 6 digits. You need your current PIN and your account password.</p>
+            <div class="vs-form"><div><label class="muted small" for="pc-old">Current PIN</label><input class="input" id="pc-old" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>
+            <div><label class="muted small" for="pc-new">New PIN</label><input class="input" id="pc-new" type="password" inputmode="numeric" maxlength="6" autocomplete="off"></div>
+            <div><label class="muted small" for="pc-pw">Account password</label><input class="input" id="pc-pw" type="password" autocomplete="current-password"></div></div>
+            <div class="vs-foot"><span class="muted small" id="pc-msg" role="alert"></span><button class="btn pri" id="pc-go">Change PIN</button></div>`)}</div>`
+          + (access ? `<div class="mt">${access}</div>` : '');
+        $('se-theme').onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b || b.dataset.v === document.documentElement.dataset.theme) return; document.documentElement.dataset.theme = b.dataset.v; store.set('zv_theme', b.dataset.v); route(); };
+        $('se-lockmin').onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b) return; store.set('zv_lock_min', +b.dataset.v); $('se-lockmin').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); toast('Saved'); };
+        $('se-range').onclick = (e) => { const b = e.target.closest('[data-v]'); if (!b) return; S.range = b.dataset.v; store.set('zv_range', S.range); $('se-range').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); document.querySelectorAll('#ranges button').forEach((x) => x.classList.toggle('on', x.dataset.r === S.range)); toast('Saved'); };
+        if ($('se-notif')) $('se-notif').onclick = async () => { try { await Notification.requestPermission(); } catch (e) {} draw(); };
+        if ($('se-notif-test')) $('se-notif-test').onclick = () => { try { new Notification('Zelpophai Vault', { body: 'Desktop alerts are working.' }); } catch (e) { toast('Couldn\'t show a notification here', true); } };
+        $('se-lock').onclick = () => lock();
+        $('pc-go').onclick = async () => {
+          const old_pin = $('pc-old').value.trim(), new_pin = $('pc-new').value.trim(), password = $('pc-pw').value, msg = $('pc-msg');
+          msg.textContent = !old_pin ? 'Type your current PIN.' : !/^\d{4,6}$/.test(new_pin) ? 'The new PIN must be 4 to 6 digits.' : !password ? 'Type your account password.' : '';
+          if (msg.textContent) return;
+          $('pc-go').disabled = true;
+          try { await api('/api/auth/admin/pin-change', { method: 'POST', body: { old_pin, new_pin, password } }); toast('PIN changed'); ['pc-old', 'pc-new', 'pc-pw'].forEach((i) => { $(i).value = ''; }); } catch (e) { msg.textContent = e.message; }
+          $('pc-go').disabled = false;
+        };
+      },
+      async site() {
+        pane.innerHTML = '<div class="card skeleton" style="height:220px"></div>';
+        let em; try { em = await api('/api/vault/email'); } catch (e) { pane.innerHTML = card('Site setup', empty('Couldn\'t load this', e.message)); return; }
+        if (setTab !== 'site') return;
+        const status = (ok, on, off) => `<span class="tag ${ok ? 'good' : 'warn'}">${ok ? on : off}</span>`;
+        pane.innerHTML = `<div class="vs-status">
+            <div><span class="muted small">Email sending</span><b>${em.configured ? 'Working' : 'Not set up'}</b>${status(em.configured, 'On', 'Off')}</div>
+            <div><span class="muted small">Paid plans</span><b>${em.billing_live ? 'On sale' : 'Coming soon'}</b>${status(em.billing_live, 'Live', 'Soon')}</div>
+            <div><span class="muted small">Google sign-in</span><b>${em.google_signin ? 'Shown' : 'Hidden'}</b>${status(em.google_signin, 'On', 'Off')}</div></div>
+          <div class="mt">${card('Email', `<p class="muted small" style="margin-top:-6px">${em.configured ? `Working through ${esc(em.provider)}${em.sender ? ' · from ' + esc(em.sender) : ''}. New emails are confirmed with a 6-digit code.` : 'Not set up. Emails are still checked (real provider, not a throw-away address) but no code is sent, and “Forgot password” emails can\'t arrive.'}</p>
+            <div class="vs-nums"><div><b>${fmt.n(em.verified)}</b><span>confirmed by code</span></div><div><b>${fmt.n(em.checked)}</b><span>checked</span></div><div><b>${fmt.n(em.missing)}</b><span>still need one</span></div></div>
+            ${em.missing ? `<p class="muted small" style="margin:12px 0 6px">People without an email have ${em.grace_days} days from their first reminder:</p><div class="chips">${em.missing_users.map((u) => `<a class="chip" href="#/users/${u.id}">@${esc(u.username)}</a>`).join('')}</div>` : ''}
+            ${S.owner ? (em.configured ? `<div style="display:flex;gap:8px;margin-top:14px"><input class="input" id="em-to" placeholder="Send a test email to…" type="email" aria-label="Test email address"><button class="btn" id="em-test">Send test</button></div>`
+              : `<details class="vs-how"><summary>How to switch it on (about 10 minutes, free)</summary><ol><li>Make a free account at <b>brevo.com</b> (300 emails a day free).</li><li>In Brevo, open <b>Senders</b> and confirm the email address your messages should come from.</li><li>Open <b>SMTP &amp; API → API keys</b> and create a key.</li><li>In Railway, open your Zelpophai service → <b>Variables</b> and add <code>BREVO_API_KEY</code> (the key) and <code>SMTP_FROM</code> (the address you confirmed).</li><li>Railway restarts by itself. Come back here and send a test email.</li></ol></details>`) : ''}`)}</div>
+          <div class="mt">${card('Paid plans', `<p class="muted small" style="margin-top:-6px">${em.billing_live ? 'People can buy Pro and Ultimate through Stripe.' : 'Nobody can buy or switch on a plan by themselves. The Upgrade screen shows the plans with “Coming soon”. You can still gift plans from a person\'s profile, and invite rewards still work.'}</p>
+            <div class="vs-nums"><div><b>${fmt.n(em.plan_interest)}</b><span>${em.plan_interest === 1 ? 'person asked' : 'people asked'} to be told</span></div></div>
+            ${em.plan_interest_users.length ? `<div class="list" style="margin-top:10px">${em.plan_interest_users.map((w) => `<div class="li"><div class="grow small"><a href="#/users/${w.id}">@${esc(w.username)}</a>${w.plan ? ` <span class="tag ${w.plan === 'ultimate' ? 'ultimate' : 'pro'}">${w.plan === 'ultimate' ? 'Ultimate' : 'Pro'}</span>` : ''}</div><span class="t">${fmt.ago(w.t)}</span></div>`).join('')}</div>` : '<p class="muted small" style="margin-top:10px">When someone taps “Tell me” on the Upgrade screen they appear here.</p>'}
+            ${S.owner && !em.billing_live ? '<details class="vs-how"><summary>How to open sales later</summary><ol><li>Finish setting up your Stripe account so it can take real payments.</li><li>In Railway → Variables, put in your live Stripe keys and prices.</li><li>Add <code>BILLING_LIVE=1</code>. Railway restarts and the Upgrade screen starts selling.</li></ol></details>' : ''}`)}</div>
+          ${S.owner ? `<div class="mt">${card('Sign in with Google', row('Show the Google button', em.google_signin ? 'The button is shown on the login, welcome and invite pages.' : 'Hidden. Google currently refuses the button on this site (“origin not allowed”), so keep it hidden until you finish the steps below.', `<button class="switch${em.google_signin ? ' on' : ''}" id="g-toggle" role="switch" aria-checked="${!!em.google_signin}" aria-label="Show the Google sign-in button"></button>`)
+            + `<details class="vs-how"${em.google_signin ? '' : ' open'}><summary>How to make it work (about 5 minutes, in your Google account)</summary>
+              <ol><li>Open <b>console.cloud.google.com</b> and sign in with the Google account that created Zelpophai's sign-in.</li><li>Choose the Zelpophai project, then <b>APIs &amp; Services → Credentials</b>.</li><li>Under <b>OAuth 2.0 Client IDs</b>, open the one whose ID starts with <code>1035003334215-veih…</code></li><li>Under <b>Authorised JavaScript origins</b> click <b>Add URI</b> and paste exactly: <code>${esc(em.site_origin)}</code> <button class="btn sm" id="g-copy">Copy</button><br>(no slash at the end, and it must start with https)</li><li>Press <b>Save</b>. Google can take from 5 minutes up to a few hours to apply it.</li><li>Come back, switch the button on above, and try signing in from a private window.</li></ol>
+              <p class="small muted">If you can't find that project, the sign-in was made under a different Google account.</p></details>`)}</div>` : ''}`;
+        if ($('g-toggle')) $('g-toggle').onclick = async () => { try { await api('/api/vault/google-signin', { method: 'POST', body: { on: !em.google_signin } }); toast(em.google_signin ? 'Google button hidden' : 'Google button shown'); draw(); } catch (e) { toast(e.message, true); } };
         if ($('g-copy')) $('g-copy').onclick = () => navigator.clipboard.writeText(em.site_origin).then(() => toast('Copied')).catch(() => toast('Copy failed', true));
-      }
-      if ($('em-test')) $('em-test').onclick = async () => { const to = $('em-to').value.trim(); if (!to) return toast('Type an email address', true); $('em-test').disabled = true; try { await api('/api/vault/email/test', { method: 'POST', body: { to } }); toast('Test email sent — check the inbox'); } catch (e) { toast(e.message, true); } $('em-test').disabled = false; };
-    } catch (e) {}
-    $('pc-go').onclick = async () => {
-      const old_pin = $('pc-old').value.trim(), new_pin = $('pc-new').value.trim(), password = $('pc-pw').value;
-      if (!/^\d{4,6}$/.test(new_pin)) return toast('New PIN must be 4–6 digits', true);
-      try { await api('/api/auth/admin/pin-change', { method: 'POST', body: { old_pin, new_pin, password } }); toast('PIN changed'); ['pc-old', 'pc-new', 'pc-pw'].forEach((i) => { $(i).value = ''; }); } catch (e) { toast(e.message, true); }
+        if ($('em-test')) $('em-test').onclick = async () => { const to = $('em-to').value.trim(); if (!to) return toast('Type an email address', true); $('em-test').disabled = true; try { await api('/api/vault/email/test', { method: 'POST', body: { to } }); toast('Test email sent — check the inbox'); } catch (e) { toast(e.message, true); } $('em-test').disabled = false; };
+      },
+      async data() {
+        pane.innerHTML = card('Export data', canExport ? `<p class="muted small" style="margin-top:-6px">Download everything as files you can open on your computer. These contain private information, so keep them safe.</p>`
+            + row('All users', 'A spreadsheet (CSV) with every account.', '<button class="btn sm" data-dl="users">Download</button>')
+            + row('All chats', 'A text file listing every chat.', '<button class="btn sm" data-dl="chats">Download</button>')
+            + row('All messages', 'A text file with every message.', '<button class="btn sm" data-dl="messages">Download</button>')
+            + row('One person\'s data', 'Open them in Users, then choose Export data.', '<a class="btn sm" href="#/users">Go to Users</a>')
+            : empty('Downloads are switched off for you', 'Ask the Owner to switch on “Download data” in your permissions.'))
+          + (S.owner ? `<div class="mt">${card('Backups', row('Database backups', 'Make a backup, download one, or restore.', '<a class="btn sm" href="#/backups">Open Backups</a>') + row('Activity log', 'Who did what in the Vault.', '<a class="btn sm" href="#/logs">Open log</a>'))}</div>` : '');
+        pane.querySelectorAll('[data-dl]').forEach((b) => b.onclick = async () => { b.disabled = true; const o = b.textContent; b.textContent = 'Preparing…'; if (await dl('/api/auth/admin/analytics/export/' + b.dataset.dl)) toast('Downloaded'); b.disabled = false; b.textContent = o; });
+      },
+      async about() {
+        let v = {}; try { v = await (await fetch('/api/version')).json(); } catch (e) {}
+        if (setTab !== 'about') return;
+        pane.innerHTML = card('Zelpophai', row('Version', `You're running version <b>${esc(v.version || '?')}</b>.`, '<a class="btn sm" href="/whats-new" target="_blank" rel="noopener">What\'s new</a>')
+            + row('Site address', esc(location.origin), '<a class="btn sm" href="/" target="_blank" rel="noopener">Open site</a>')
+            + row('Signed in as', `@${esc(S.me.username)} · ${S.owner ? 'Owner' : ((S.me.tags || '').includes('trusted') ? 'Trusted admin' : 'Admin')}`, '<a class="btn sm" href="/app">Back to Zelpophai</a>'))
+          + `<div class="mt">${card('Shortcuts', `<div class="vs-keys"><span><kbd>Ctrl</kbd><kbd>K</kbd> Search or jump to a page</span><span><kbd>Esc</kbd> Close a window</span></div>`)}</div>`;
+      },
     };
-    $('view').querySelectorAll('[data-dl]').forEach((b) => b.onclick = async () => { b.disabled = true; if (await dl('/api/auth/admin/analytics/export/' + b.dataset.dl)) toast('Downloaded'); b.disabled = false; });
-    $('se-theme').onclick = () => toggleTheme();
-    $('se-notif').onclick = async () => { if (!('Notification' in window)) return toast('Not supported in this browser', true); const p = await Notification.requestPermission(); $('se-notif').textContent = p === 'granted' ? 'On' : 'Turn on'; toast(p === 'granted' ? 'Desktop alerts on' : 'Notifications are blocked'); };
-    $('se-lock').onclick = () => lock();
+    async function draw() { try { await TAB[setTab](); } catch (e) { pane.innerHTML = card('Something went wrong', empty('Couldn\'t load this', e.message)); } }
+    await draw();
   }
 
   /* ─────────────────────────────── feedback ─────────────────────────────── */
@@ -1587,7 +1626,7 @@
     ['click', 'keydown', 'mousemove', 'touchstart'].forEach((ev) => document.addEventListener(ev, () => { lastAct = Date.now(); }, { passive: true }));
     setInterval(async () => {
       if (!$('lockscreen').hidden) return;
-      if (Date.now() - lastAct > 15 * 60 * 1000) { await lock(); route(); }
+      if (Date.now() - lastAct > (+store.get('zv_lock_min', 15) || 15) * 60 * 1000) { await lock(); route(); }
     }, 30000);
     setInterval(refreshTop, 60000);
     await route();

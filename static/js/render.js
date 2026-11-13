@@ -126,7 +126,10 @@
     }
 
     function toHtml(md) {
-        var html = window.marked ? window.marked.parse(md, { gfm: true, breaks: false }) : esc(md).replace(/\n/g, '<br>');
+        // Settings → Chat → Formatting: off shows the plain text exactly as written.
+        var plain = false;
+        try { plain = typeof Settings !== 'undefined' && Settings.getLocal().markdown === false; } catch (e) {}
+        var html = (window.marked && !plain) ? window.marked.parse(md, { gfm: true, breaks: false }) : esc(md).replace(/\n/g, '<br>');
         return window.DOMPurify
             ? window.DOMPurify.sanitize(html, { ADD_ATTR: ['target', 'data-tex', 'data-i'], FORBID_TAGS: ['style', 'form'], FORBID_ATTR: ['style'] })
             : html;

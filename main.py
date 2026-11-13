@@ -47,10 +47,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.4"
+VERSION = "22.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.5 Brand-new Settings: one tidy window with sections down the side — General, Chat, Personality & memory, Voice, Notifications, Account and About. Everything saves by itself as you change it, so there is no Save button any more",
+    "New in Settings: pick your theme from pictures, six colours, text size (small, normal, large), answer length and style in plain words, a switch for whether Enter sends your message, 20 voice languages with a Play a sample button, and a notifications page that tells you how to switch them on",
+    "New Account page in Settings: change your password, sign out your other devices, see your sign-in history, download all your data as one file, delete all your chats, or delete your account",
     "22.3.1 Fixed: when the team changed your password, tapping \"Show my new password\" said \"Admin only\" instead of showing it. It now shows your new password as it should",
     "22.3 New Log in and Create account page: a cleaner two-panel design with clear labels, a show/hide password button, a password strength hint, clearer error messages, and a tidier Forgot password box. After creating an account you now go straight in — no need to log in again",
     "All pop-ups have a new look: one clean style with clear icons and plain wording for messages from the Owner, maintenance, limits, role changes, password notices, offline, and the small \"Are you sure?\" boxes. They work in light and dark mode, close with Esc, and slide up neatly on phones",
@@ -141,6 +144,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.5 Vault: Settings is rebuilt into four tabs — My Vault (theme, lock after 2, 5 or 15 minutes, starting time range, desktop alerts, PIN), Site setup (email, paid plans and Google sign-in with a status strip on top), Data & exports, and About",
     "22.4 Owner: detailed admin permissions. Vault → Staff & permissions → Edit permissions opens a full page for each admin with 21 switches in 7 groups (people, conversations, feedback, safety, broadcasts and team chat, stats and logs, site controls), four quick setups (Full admin, Moderator, Support, Read-only), copy from another admin, daily limits for bans, password resets, deletions and broadcasts, an end date after which they stop being an admin by themselves, and a private note. Every change is written to the activity log",
     "22.4 Admins: the Vault now only shows the pages you're allowed to use, and Settings has a new \"What I'm allowed to do\" card with your switches and today's limits. Downloading data (exports) is now off for admins until the Owner switches it on",
     "22.3.1 Vault: opening a chat now shows the real conversation, full screen — formatted text, tables, code blocks, pictures, videos and file cards exactly as the person saw them, with exact times, day dividers and their thumbs up/down. It updates live while they chat, lists the person's other chats on the left, and has search inside the chat, copy and Download. Each time a chat is opened it is written to the activity log",

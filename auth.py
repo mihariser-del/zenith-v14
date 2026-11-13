@@ -760,6 +760,122 @@ async def reset_password(req: ResetPasswordRequest, request: Request, db: AsyncS
     return {"message": "Password reset successful. Please login with your new password."}
 
 
+@router.post("/change-password")
+async def change_password(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Change your own password. Signs you out everywhere else."""
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Create an account first.")
+    body = await request.json()
+    current, new = str(body.get("current_password") or ""), str(body.get("new_password") or "")
+    _raise_if_locked(f"chpw:{user.id}", limit=6, window=900)
+    if not current or not verify_password(current, user.password_hash):
+        _record_failure(f"chpw:{user.id}", 900)
+        raise HTTPException(status_code=400, detail="Your current password isn't right.")
+    if len(new) < 8:
+        raise HTTPException(status_code=400, detail="Your new password needs at least 8 characters.")
+    if len(new) > 128:
+        raise HTTPException(status_code=400, detail="That password is too long.")
+    if new == current:
+        raise HTTPException(status_code=400, detail="Choose a password that's different from your current one.")
+    user.password_hash = hash_password(new)
+    user.pending_password = ""
+    user.pending_password_by = ""
+    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+    await db.commit()
+    set_auth_cookie(response, create_token(user.id, user.username, user.is_admin, user.token_version, get_role(user)), request)
+    await log_action(db=db, request=request, actor=user, action="change_password", target_id=user.id, target_username=user.username, detail="Changed their own password")
+    return {"message": "Password changed. Other devices have been signed out."}
+
+
+@router.get("/my-data")
+async def my_data(request: Request, db: AsyncSession = Depends(get_db)):
+    """Everything Zelpophai keeps about you, as one file."""
+    import json as _json
+    from database import Chat, Message, Memory, UserSettings
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Create an account first.")
+    _raise_if_locked(f"mydata:{user.id}", limit=6, window=3600)
+    _record_failure(f"mydata:{user.id}", 3600)
+
+    def iso(dt):
+        return dt.isoformat() if dt else None
+    st = (await db.execute(select(UserSettings).where(UserSettings.user_id == user.id))).scalar_one_or_none()
+    mems = (await db.execute(select(Memory).where(Memory.user_id == user.id).order_by(Memory.id))).scalars().all()
+    chats = (await db.execute(select(Chat).where(Chat.user_id == user.id).order_by(Chat.id))).scalars().all()
+    out_chats = []
+    for c in chats:
+        msgs = (await db.execute(select(Message).where(Message.chat_id == c.id).order_by(Message.id))).scalars().all()
+        out_chats.append({"title": c.title, "created_at": iso(c.created_at), "updated_at": iso(c.updated_at), "shared": bool(c.share_id),
+                          "messages": [{"from": "you" if m.role == "user" else "zelpophai", "text": m.content, "at": iso(m.created_at)}
+                                       for m in msgs if m.role != "system"]})
+    data = {
+        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "account": {"username": user.username, "email": "" if (user.email or "").endswith("@noemail.local") else (user.email or ""),
+                    "joined": iso(user.created_at), "plan": "Ultimate" if user.is_ultimate else ("Pro" if user.is_pro else "Free")},
+        "settings": {"display_name": getattr(st, "display_name", "") or "", "memory_on": bool(getattr(st, "memory_enabled", True)),
+                     "your_instructions": getattr(st, "system_prompt", "") or ""} if st else {},
+        "memories": [{"text": m.content, "category": m.category, "saved": iso(m.created_at)} for m in mems],
+        "chats": out_chats,
+    }
+    from fastapi.responses import Response as _Resp
+    return _Resp(content=_json.dumps(data, ensure_ascii=False, indent=2), media_type="application/json",
+                 headers={"Content-Disposition": f'attachment; filename="zelpophai-my-data-{datetime.now(timezone.utc).strftime("%Y-%m-%d")}.json"'})
+
+
+@router.post("/delete-my-chats")
+async def delete_my_chats(request: Request, db: AsyncSession = Depends(get_db)):
+    """Delete every chat you have. Needs your password."""
+    from database import Chat
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Create an account first.")
+    body = await request.json()
+    _raise_if_locked(f"delchats:{user.id}", limit=6, window=900)
+    if not verify_password(str(body.get("password") or ""), user.password_hash):
+        _record_failure(f"delchats:{user.id}", 900)
+        raise HTTPException(status_code=400, detail="That password isn't right.")
+    chats = (await db.execute(select(Chat).where(Chat.user_id == user.id))).scalars().all()
+    n = len(chats)
+    for c in chats:
+        await db.delete(c)
+    await db.commit()
+    return {"message": f"Deleted {n} chat{'' if n == 1 else 's'}.", "deleted": n}
+
+
+@router.post("/delete-account")
+async def delete_my_account(request: Request, response: Response, db: AsyncSession = Depends(get_db)):
+    """Delete your own account: chats and memories are removed and the account is closed."""
+    from database import Chat, Memory
+    user = await get_current_user_from_cookie(request, db)
+    if user.username.startswith("guest_"):
+        raise HTTPException(status_code=403, detail="Guest sessions end when you log out.")
+    if get_role(user) == "owner":
+        raise HTTPException(status_code=400, detail="The Owner account can't be deleted.")
+    body = await request.json()
+    _raise_if_locked(f"delacct:{user.id}", limit=5, window=900)
+    if not verify_password(str(body.get("password") or ""), user.password_hash):
+        _record_failure(f"delacct:{user.id}", 900)
+        raise HTTPException(status_code=400, detail="That password isn't right.")
+    if str(body.get("confirm") or "").strip().lower() != user.username.lower():
+        raise HTTPException(status_code=400, detail="Type your username exactly to confirm.")
+    for c in (await db.execute(select(Chat).where(Chat.user_id == user.id))).scalars().all():
+        await db.delete(c)
+    for m in (await db.execute(select(Memory).where(Memory.user_id == user.id))).scalars().all():
+        await db.delete(m)
+    user.is_deleted = True
+    user.deleted_by = "self"
+    user.is_admin = False
+    if get_role(user) == "admin":
+        user.role = "user"
+    user.token_version = (getattr(user, "token_version", 0) or 0) + 1
+    await db.commit()
+    await log_action(db=db, request=request, actor=user, action="delete_own_account", target_id=user.id, target_username=user.username, detail="Deleted their own account")
+    response.delete_cookie("zenith_token")
+    return {"message": "Your account has been deleted."}
+
+
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("zenith_token")

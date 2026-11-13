@@ -100,8 +100,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // The AI picks its model automatically; only the Owner sees the model pickers.
     if (user.role !== 'owner') {
         const cms = document.getElementById('chat-model-select'); if (cms) cms.remove();
-        const ms = document.getElementById('model-select');
-        if (ms) { const lab = ms.previousElementSibling; if (lab && lab.tagName === 'LABEL') lab.remove(); ms.style.display = 'none'; }
     }
     const nameTextEl = $('user-name-text') || $('user-name-display');
     const badgeEl = $('user-role-badge');
@@ -377,21 +375,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (pc) { pc.style.background = 'linear-gradient(160deg, #1A1D21, #22262B 70%, #191c20)'; pc.style.border = '1px solid rgba(221,228,238,0.18)'; pc.style.boxShadow = '0 10px 40px rgba(0,0,0,0.5), 0 0 14px rgba(221,228,238,0.12)'; }
             const pt = $('admin-panel-title');
             if (pt) { pt.textContent = '\u2654 OWNER VAULT'; pt.style.color = '#DDE4EE'; pt.style.textShadow = 'none'; }
-            // Hide Accent Color for owner — only theme + message spacing remain
-            const _origOpen = Settings.open.bind(Settings);
-            Settings.open = async function() {
-                const r = await _origOpen();
-                try {
-                    const accentSel = $('accent-select');
-                    if (accentSel) {
-                        const label = accentSel.previousElementSibling; // label Accent Color
-                        if (label && label.tagName === 'LABEL' && label.textContent.includes('Accent')) label.style.display = 'none';
-                        accentSel.style.display = 'none';
-                        // also hide the next label? No, message spacing follows
-                    }
-                } catch {}
-                return r;
-            };
         }
         // Staff-only: Live Chat + Attention buttons
         const toolsBox = $('sidebar-tools');
@@ -558,8 +541,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('stop-btn').addEventListener('click', () => Chat.stop());
     $('upgrade-btn').addEventListener('click', () => { Billing.showUpgrade(); closeSidebar(); });
     $('settings-btn').addEventListener('click', () => { Settings.open(); closeSidebar(); });
-    $('close-settings').addEventListener('click', () => Settings.close());
-    $('save-settings').addEventListener('click', () => { Settings.saveFromForm(); });
     // Appearance/model sections usable by everyone incl. guests (settings is now guest-accessible)
     $('info-btn').addEventListener('click', () => { $('about-modal').style.display = 'flex'; closeSidebar(); });
     $('close-about').addEventListener('click', () => $('about-modal').style.display = 'none');
@@ -829,15 +810,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         input.style.height = Math.min(input.scrollHeight, 150) + 'px';
     });
     input.addEventListener('keydown', e => {
-        if (e.key === 'Enter' && !e.shiftKey) {
+        if (e.key !== 'Enter' || e.shiftKey || e.isComposing) return;
+        // Settings → Chat → "Enter sends the message". When off, Ctrl/Cmd + Enter sends.
+        const enterSends = Settings.getLocal().enterSends !== false;
+        if (enterSends || e.ctrlKey || e.metaKey) {
             e.preventDefault();
             Chat.send();
         }
     });
 
-    $('settings-modal').addEventListener('click', e => {
-        if (e.target === $('settings-modal')) Settings.close();
-    });
     $('about-modal').addEventListener('click', e => {
         if (e.target === $('about-modal')) $('about-modal').style.display = 'none';
     });

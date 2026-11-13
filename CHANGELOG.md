@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 22.5 — New Settings (app and Vault)
+
+- `static/js/settings.js`: `Settings.open(section)` builds `#zst` (ZUI modal, `zst-` styles in studio.css) with a section rail; local settings save on change, server settings via debounced `PATCH /api/settings`. Old `#settings-modal` markup, Save/Cancel and the legacy personality block are gone. New local keys `textSize`, `enterSends`.
+- "Formatting" now actually works (`render.js` `toHtml` shows plain text when off); "Enter sends" handled in `app.js`; text size via `html[data-zst-text]`.
+- New endpoints in `auth.py`: `POST /api/auth/change-password`, `GET /api/auth/my-data`, `POST /api/auth/delete-my-chats`, `POST /api/auth/delete-account` (password + username; chats and memories removed, account soft-deleted with `deleted_by="self"`). All rate-limited.
+- `ZPPersona.mountSettings()` / `ZPAccount.mountSettings()` mount into `#zst-persona-slot` / `#zst-account-slot`.
+- Vault `pageSettings()`: tabs (My Vault, Site setup, Data & exports, About), `zv_lock_min` auto-lock, `.vs-*` styles.
+
 ## 22.4 — Detailed admin permissions
 
 - `perms.py`: catalog of 21 abilities in 7 groups, presets, `can()` / `need()` (403 + `X-Permission`), daily limits counted from the action log (`need_quota()`, 429), admin role end date (`expire_admins()`, run from `vault_jobs.alert_loop`), private note. Stored in `users.permissions` JSON (`"_"` holds limits / until / note). Owner and Trusted admins bypass switches and limits. Old 5-key values keep working.

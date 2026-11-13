@@ -152,14 +152,12 @@
 
   /* The row in Settings that opens the studio. */
   function syncButton() { const s = document.getElementById('zps-open-name'); if (s && D) s.textContent = activeName(); }
+  // The Personality row inside Settings → Personality & memory.
   async function mountSettings() {
-    const box = document.querySelector('#settings-modal .modal-content'); if (!box || document.getElementById('zps-row')) return;
-    const row = document.createElement('div');
-    row.id = 'zps-row'; row.className = 'zem-setrow';
-    row.innerHTML = `${icon('spark')}<div><b>Personality</b><span>How Zelpophai talks to you: <i id="zps-open-name">Balanced</i></span></div><button class="zu-btn sm pri" id="zps-open">Open</button>`;
-    const first = box.querySelector('details'); if (first) box.insertBefore(row, first); else box.appendChild(row);
-    row.querySelector('#zps-open').onclick = () => open();
-    try { D = await call('/api/personality'); syncButton(); } catch (e) {}
+    const box = document.getElementById('zst-persona-slot'); if (!box) return;
+    box.innerHTML = `<div id="zps-row" class="zem-setrow">${icon('spark')}<div><b>Personality</b><span>Right now: <i id="zps-open-name">Balanced</i></span></div><button class="zu-btn sm pri" id="zps-open">Change</button></div>`;
+    box.querySelector('#zps-open').onclick = () => open();
+    try { if (!D) D = await call('/api/personality'); syncButton(); } catch (e) {}
   }
   window.ZPPersona = { open, mountSettings };
 })();

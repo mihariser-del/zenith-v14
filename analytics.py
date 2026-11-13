@@ -14,6 +14,7 @@ router = APIRouter(prefix="/api/auth/admin/analytics", tags=["analytics"], depen
 async def referral_analytics(request: Request, db: AsyncSession = Depends(get_db)):
     from fastapi import HTTPException
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     now = datetime.now(timezone.utc)
@@ -47,6 +48,7 @@ async def referral_analytics(request: Request, db: AsyncSession = Depends(get_db
 @router.get("/overview")
 async def analytics_overview(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
@@ -84,6 +86,7 @@ async def analytics_overview(request: Request, db: AsyncSession = Depends(get_db
 @router.get("/messages-per-day")
 async def messages_per_day(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
@@ -100,6 +103,7 @@ async def messages_per_day(request: Request, db: AsyncSession = Depends(get_db))
 @router.get("/chats-per-day")
 async def chats_per_day(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
@@ -116,6 +120,7 @@ async def chats_per_day(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("/accounts-per-day")
 async def accounts_per_day(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
@@ -132,6 +137,7 @@ async def accounts_per_day(request: Request, db: AsyncSession = Depends(get_db))
 @router.get("/messages-per-hour")
 async def messages_per_hour(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_stats")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")
@@ -152,6 +158,7 @@ async def all_chats(request: Request, limit: int = 50, offset: int = 0, db: Asyn
     from sqlalchemy import func as _func
     from sqlalchemy.orm import selectinload
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "manage_chats")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     limit = min(max(limit, 1), 100)
@@ -184,6 +191,7 @@ async def all_messages(request: Request, limit: int = 100, offset: int = 0, db: 
     from fastapi import HTTPException
     from sqlalchemy import func as _func
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_messages")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     limit = min(max(limit, 1), 200)
@@ -214,6 +222,7 @@ async def chat_messages_admin(chat_id: int, request: Request, live: int = 0, db:
     thumbs rating, plus the person's other chats. `live=1` is the viewer's auto-refresh (not logged)."""
     from fastapi import HTTPException
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_messages")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     chat = (await db.execute(select(Chat).where(Chat.id == chat_id))).scalar_one_or_none()
@@ -277,6 +286,7 @@ async def export_users(request: Request, db: AsyncSession = Depends(get_db)):
     from fastapi import HTTPException
     from fastapi.responses import Response
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "export_data")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).order_by(User.created_at.desc()))
@@ -301,6 +311,7 @@ async def export_chats(request: Request, db: AsyncSession = Depends(get_db)):
     from fastapi import HTTPException
     from fastapi.responses import Response
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "export_data")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(Chat).order_by(Chat.updated_at.desc()))
@@ -321,6 +332,7 @@ async def export_messages(request: Request, db: AsyncSession = Depends(get_db)):
     from fastapi import HTTPException
     from fastapi.responses import Response
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "export_data")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(Message).order_by(Message.created_at.desc()).limit(2000))
@@ -337,6 +349,7 @@ async def export_single_user(user_id: int, request: Request, db: AsyncSession = 
     from fastapi.responses import Response
     from sqlalchemy.orm import selectinload
     admin = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(admin, "export_data")
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     result = await db.execute(select(User).where(User.id == user_id))
@@ -388,6 +401,7 @@ async def export_single_user(user_id: int, request: Request, db: AsyncSession = 
 @router.get("/login-history-all")
 async def login_history_all(request: Request, limit: int = 100, offset: int = 0, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "view_logs")
     if not is_staff(user):
         from fastapi import HTTPException
         raise HTTPException(status_code=403, detail="Admin only")

@@ -203,4 +203,9 @@ async def alert_loop():
             await expire_timed_plans()
         except Exception as e:
             print(f"[vault] plan expiry failed: {e}")
+        try:
+            import perms
+            await perms.expire_admins()
+        except Exception as e:
+            print(f"[vault] admin expiry failed: {e}")
         await asyncio.sleep(300)

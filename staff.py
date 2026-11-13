@@ -32,6 +32,7 @@ async def get_staff_chat(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     msgs = list(reversed((await db.execute(select(StaffMessage).order_by(StaffMessage.id.desc()).limit(200))).scalars().all()))
     by_id = {m.id: m for m in msgs}
     out = []
@@ -67,6 +68,7 @@ async def post_staff_chat(req: StaffPost, request: Request, db: AsyncSession = D
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     content = req.content.strip()
     if not content:
         raise HTTPException(status_code=400, detail="Message required")
@@ -90,6 +92,7 @@ async def staff_typing(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     _typing[user.id] = (user.username, get_role(user), _time.time())
     return {"ok": True}
 
@@ -103,6 +106,7 @@ async def edit_staff_message(message_id: int, req: StaffEdit, request: Request, 
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     m = await db.get(StaffMessage, message_id)
     if not m:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -121,6 +125,7 @@ async def delete_staff_message(message_id: int, request: Request, db: AsyncSessi
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     m = await db.get(StaffMessage, message_id)
     if not m:
         raise HTTPException(status_code=404, detail="Message not found")
@@ -141,6 +146,7 @@ async def react_staff_message(message_id: int, req: StaffReact, request: Request
     user = await get_current_user_from_cookie(request, db)
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
+    import perms as _perms; _perms.need(user, "team_chat")
     if req.emoji not in REACTIONS:
         raise HTTPException(status_code=400, detail="Unknown reaction")
     m = await db.get(StaffMessage, message_id)

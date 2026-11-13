@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 22.4 — Detailed admin permissions
+
+- `perms.py`: catalog of 21 abilities in 7 groups, presets, `can()` / `need()` (403 + `X-Permission`), daily limits counted from the action log (`need_quota()`, 429), admin role end date (`expire_admins()`, run from `vault_jobs.alert_loop`), private note. Stored in `users.permissions` JSON (`"_"` holds limits / until / note). Owner and Trusted admins bypass switches and limits. Old 5-key values keep working.
+- Enforced in `auth.py` (users list, ban, unban, reset, chats, delete, bulk delete), `analytics.py` (stats, chat lists, messages, exports, login history), `audit.py`, `announcements.py`, `feedback.py` (vault router), `vault_api.py` (overview, growth, live, people, users, search, notes, safety, releases, emails), `global_controls.py` (`global_controls` replaces the trusted-only check), `staff.py` (team chat).
+- New endpoints: `GET /api/auth/admin/permissions/catalog`, `GET /api/auth/admin/my-permissions`; `GET/POST /api/auth/admin/users/{id}/permissions` now return/accept `permissions`, `limits`, `until`, `note`.
+- Vault: `#/staff/{id}` editor (`pagePermissions`), nav and routing filtered by the signed-in admin's abilities, "What I'm allowed to do" card in Settings.
+- Behaviour change: `export_data` is off by default for admins.
+
 ## 22.3.1 — Real chat viewer in the Vault, password view fix
 
 - `GET /api/auth/password-changed/view` and `POST …/dismiss` no longer depend on `require_vault` (added by mistake in the 22.1 security pass), so the person whose password was changed can see it again instead of getting 403 "Admin only".

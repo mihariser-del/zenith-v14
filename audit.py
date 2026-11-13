@@ -77,6 +77,7 @@ async def list_audit_logs(
 ):
     from auth import get_current_user_from_cookie, is_staff
     admin = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(admin, "view_logs")
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     limit = min(max(limit, 1), 200)
@@ -114,6 +115,7 @@ async def recent_activity(request: Request, db: AsyncSession = Depends(get_db)):
     Used by the Vault dashboard 'Activity Feed' with a 'NEW' pulse."""
     from auth import get_current_user_from_cookie, is_staff, get_role
     admin = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(admin, "view_logs")
     if not is_staff(admin):
         raise HTTPException(status_code=403, detail="Admin only")
     from database import Message, Chat

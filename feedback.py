@@ -466,6 +466,7 @@ def _first_response_hours(rows) -> float | None:
 @vault_router.get("")
 async def inbox(status: str = "open", kind: str = "", q: str = "", page: int = 1, per: int = 30, sort: str = "",
                 user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_view")
     now = _now()
     base = select(FbTicket)
     if kind in KINDS:
@@ -521,6 +522,7 @@ async def inbox(status: str = "open", kind: str = "", q: str = "", page: int = 1
 @vault_router.get("/insights")
 async def insights(range: str = "30d", user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
     """Charts: star ratings over time, what people send, answer thumbs and the reasons for thumbs down."""
+    import perms as _perms; _perms.need(user, "feedback_view")
     days = {"24h": 1, "7d": 7, "30d": 30, "90d": 90}.get(range, 30)
     now = _now()
     start = (now - timedelta(days=days - 1)).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -582,6 +584,7 @@ def range_(n):
 
 @vault_router.get("/summary")
 async def summary_get(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_view")
     from global_controls import _get_setting
     raw = await _get_setting(db, "fb_summary", "")
     try:
@@ -593,6 +596,7 @@ async def summary_get(user=Depends(require_vault), db: AsyncSession = Depends(ge
 @vault_router.post("/summary")
 async def summary_make(days: int = 7, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
     """Ask a small model to sum up what people said recently. Saved so it isn't re-made on every visit."""
+    import perms as _perms; _perms.need(user, "feedback_manage")
     _limit("fbsum", 6, 3600, "that")
     days = max(1, min(90, days))
     since = _now() - timedelta(days=days)
@@ -667,6 +671,7 @@ class SettingsIn(BaseModel):
 
 @vault_router.post("/settings")
 async def settings_set(req: SettingsIn, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_manage")
     from global_controls import _set_setting
     await _set_setting(db, "fb_ideas_review", "on" if req.ideas_review else "off")
     return {"ideas_review": req.ideas_review}
@@ -674,6 +679,7 @@ async def settings_set(req: SettingsIn, user=Depends(require_vault), db: AsyncSe
 
 @vault_router.get("/{ticket_id}")
 async def staff_thread(ticket_id: int, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_view")
     t = await _get_ticket(db, ticket_id)
     msgs = (await db.execute(select(FbMessage).where(FbMessage.ticket_id == t.id).order_by(FbMessage.created_at.asc(), FbMessage.id.asc()))).scalars().all()
     changed = False
@@ -700,6 +706,7 @@ class StaffReplyIn(BaseModel):
 
 @vault_router.post("/{ticket_id}/reply")
 async def staff_reply(ticket_id: int, req: StaffReplyIn, request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_reply")
     t = await _get_ticket(db, ticket_id)
     content = (req.content or "").strip()
     if not content:
@@ -737,6 +744,7 @@ class UpdateIn(BaseModel):
 
 @vault_router.post("/{ticket_id}/update")
 async def staff_update(ticket_id: int, req: UpdateIn, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_manage")
     t = await _get_ticket(db, ticket_id)
     now = _now()
     if req.kind is not None and req.kind in KINDS and req.kind != "pulse":
@@ -770,6 +778,7 @@ async def staff_update(ticket_id: int, req: UpdateIn, user=Depends(require_vault
 
 @vault_router.delete("/{ticket_id}")
 async def staff_delete(ticket_id: int, request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "feedback_manage")
     t = await _get_ticket(db, ticket_id)
     who, tid = t.username, t.id
     await _delete_ticket(db, t)

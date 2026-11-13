@@ -47,7 +47,7 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.3.1"
+VERSION = "22.4"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -141,6 +141,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.4 Owner: detailed admin permissions. Vault → Staff & permissions → Edit permissions opens a full page for each admin with 21 switches in 7 groups (people, conversations, feedback, safety, broadcasts and team chat, stats and logs, site controls), four quick setups (Full admin, Moderator, Support, Read-only), copy from another admin, daily limits for bans, password resets, deletions and broadcasts, an end date after which they stop being an admin by themselves, and a private note. Every change is written to the activity log",
+    "22.4 Admins: the Vault now only shows the pages you're allowed to use, and Settings has a new \"What I'm allowed to do\" card with your switches and today's limits. Downloading data (exports) is now off for admins until the Owner switches it on",
     "22.3.1 Vault: opening a chat now shows the real conversation, full screen — formatted text, tables, code blocks, pictures, videos and file cards exactly as the person saw them, with exact times, day dividers and their thumbs up/down. It updates live while they chat, lists the person's other chats on the left, and has search inside the chat, copy and Download. Each time a chat is opened it is written to the activity log",
     "22.3 Staff: the Banned, Deleted, Locked and Maintenance screens are redesigned (reason shown in its own box, who did it, a contact email on the banned screen). Maintenance and Locked screens tell people the page reopens by itself. Broadcast pop-ups count as read however they are closed. Staff sign-in is now a small link at the bottom of the login page",
     "22.2 Owner: the Sign in with Google button is hidden for now because Google refuses it on this site (\"origin not allowed\"). Vault → Settings → Sign in with Google has the exact steps to fix it in your Google account and a switch to show the button again",

@@ -7,7 +7,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const store = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 
-  const S = { me: null, owner: false, range: store.get('zv_range', '30d'), charts: [], timers: [], route: '', alertsSeen: new Set() };
+  const S = { me: null, owner: false, can: {}, access: null, range: store.get('zv_range', '30d'), charts: [], timers: [], route: '', alertsSeen: new Set() };
 
   /* ───────────────────────────── api + lock ───────────────────────────── */
   function token() { try { return sessionStorage.getItem('zenith_vault_token') || ''; } catch (e) { return ''; } }
@@ -225,27 +225,31 @@
     logs: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
   };
   const PAGES = [
-    { id: 'overview', label: 'Overview', grp: 'Insights', range: true },
-    { id: 'growth', label: 'Growth & revenue', grp: 'Insights', range: true },
+    { id: 'overview', perm: 'view_stats', label: 'Overview', grp: 'Insights', range: true },
+    { id: 'growth', perm: 'view_stats', label: 'Growth & revenue', grp: 'Insights', range: true },
     { id: 'ai', label: 'AI cost & usage', grp: 'Insights', range: true, owner: true },
-    { id: 'live', label: 'Live monitor', grp: 'Insights' },
-    { id: 'users', label: 'Users', grp: 'People' },
-    { id: 'chats', label: 'Conversations', grp: 'People' },
-    { id: 'people', label: 'Friends & customers', grp: 'People' },
-    { id: 'feedback', label: 'Feedback', grp: 'People', badge: 'feedback', range: true },
-    { id: 'safety', label: 'Content safety', grp: 'People', badge: 'safety' },
-    { id: 'controls', label: 'Controls & broadcast', grp: 'System' },
+    { id: 'live', perm: 'view_stats', label: 'Live monitor', grp: 'Insights' },
+    { id: 'users', perm: 'view_users', label: 'Users', grp: 'People' },
+    { id: 'chats', perm: 'manage_chats', label: 'Conversations', grp: 'People' },
+    { id: 'people', perm: 'view_stats', label: 'Friends & customers', grp: 'People' },
+    { id: 'feedback', perm: 'feedback_view', label: 'Feedback', grp: 'People', badge: 'feedback', range: true },
+    { id: 'safety', perm: 'safety_view', label: 'Content safety', grp: 'People', badge: 'safety' },
+    { id: 'controls', perm: 'broadcast|global_controls', label: 'Controls & broadcast', grp: 'System' },
     { id: 'security', label: 'Security & emergency', grp: 'System', owner: true },
     { id: 'staff', label: 'Staff & permissions', grp: 'System', owner: true },
-    { id: 'releases', label: 'App releases', grp: 'System' },
+    { id: 'releases', perm: 'manage_releases', label: 'App releases', grp: 'System' },
     { id: 'backups', label: 'Backups & data', grp: 'System', owner: true },
-    { id: 'logs', label: 'Activity log', grp: 'System' },
+    { id: 'logs', perm: 'view_logs', label: 'Activity log', grp: 'System' },
     { id: 'settings', label: 'Settings & exports', grp: 'System' },
   ];
+  const allowed = (p) => !(p.owner && !S.owner) && (S.owner || !p.perm || p.perm.split('|').some((k) => S.can[k] !== false));
+  async function loadAccess() {
+    try { S.access = await api('/api/auth/admin/my-permissions'); S.can = S.access.can || {}; } catch (e) { S.access = null; S.can = {}; }
+  }
   function renderNav() {
     let html = '', grp = '';
     for (const p of PAGES) {
-      if (p.owner && !S.owner) continue;
+      if (!allowed(p)) continue;
       if (p.grp !== grp) { grp = p.grp; html += `<div class="grp">${grp}</div>`; }
       html += `<a href="#/${p.id}" data-p="${p.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${IC[p.id]}</svg>${p.label}${p.badge ? `<span class="badge" id="badge-${p.badge}" hidden></span>` : ''}</a>`;
     }
@@ -255,11 +259,11 @@
     const h = location.hash.replace(/^#\/?/, '') || 'overview';
     const [page, arg] = h.split('/');
     const def = PAGES.find((p) => p.id === page) || PAGES[0];
-    if (def.owner && !S.owner) { location.hash = '#/overview'; return; }
+    if (!allowed(def)) { const first = PAGES.find(allowed); if (first && first.id !== def.id) { location.hash = '#/' + first.id; return; } }
     clearPage();
     S.route = page;
     document.querySelectorAll('#nav a').forEach((a) => a.classList.toggle('on', a.dataset.p === def.id));
-    $('page-title').textContent = page === 'users' && arg ? 'User profile' : def.label;
+    $('page-title').textContent = page === 'users' && arg ? 'User profile' : (page === 'staff' && arg ? 'Edit permissions' : def.label);
     $('crumb').textContent = page === 'users' && arg ? 'Users' : (def.grp || 'Vault');
     $('ranges').classList.toggle('off', !def.range || (page === 'feedback' && arg !== 'answers'));
     $('side').classList.remove('open'); $('scrim').classList.remove('on');
@@ -268,9 +272,19 @@
     try {
       if (page === 'users' && arg) await pageUser(+arg);
       else if (page === 'feedback') await pageFeedback(arg);
+      else if (page === 'staff' && arg) await pagePermissions(+arg);
       else await ({ overview: pageOverview, growth: pageGrowth, ai: pageAI, live: pageLive, users: pageUsers, people: pagePeople,
         safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs,
         chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings }[def.id])();
+      if (page === 'settings' && !S.owner && S.access) {
+        await loadAccess(); const A = S.access, L = A.labels || {};
+        const yes = Object.keys(L).filter((k) => A.can[k]), no = Object.keys(L).filter((k) => !A.can[k]);
+        const lim = Object.entries(A.limits || {}).filter(([, v]) => v);
+        const LN = { bans: 'bans', resets: 'password resets', deletes: 'deleted accounts', broadcasts: 'broadcasts' };
+        $('view').insertAdjacentHTML('beforeend', `<div class="mt">${card('What I\'m allowed to do', `<p class="muted small" style="margin-top:-6px">${A.trusted ? 'You\'re a Trusted admin, so you can do everything below.' : 'Set by the Owner. Ask them if you need something switched on.'}${A.until ? ` Your admin role ends on <b>${new Date(A.until).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })}</b>.` : ''}</p>
+          <div class="chips">${yes.map((k) => `<span class="tag good">✓ ${esc(L[k])}</span>`).join('')}${no.map((k) => `<span class="tag">✕ ${esc(L[k])}</span>`).join('')}</div>
+          ${lim.length ? `<div class="muted small" style="margin-top:12px">Today: ${lim.map(([k, v]) => `<b>${(A.used || {})[k] || 0} of ${v}</b> ${LN[k]}`).join(' · ')}</div>` : ''}`)}</div>`);
+      }
     } catch (e) {
       $('view').innerHTML = card('Something went wrong', empty('Couldn\'t load this page', e.message) + '<div style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></div>');
     }
@@ -596,7 +610,7 @@
       } else if (act === 'export') {
         toast('Preparing export…'); if (await dl(`/api/auth/admin/analytics/export/user/${u.id}`)) toast('Export downloaded');
       } else if (act === 'perms') {
-        await permsModal(u);
+        location.hash = '#/staff/' + u.id;
       } else if (act === 'delete') {
         if (!(await confirmBox(`Delete @${u.username}?`, 'Their account is removed and they can no longer log in.', 'Delete', true))) return;
         await api(`/api/auth/admin/users/${u.id}`, { method: 'DELETE' }); toast('Deleted'); location.hash = '#/users';
@@ -1135,39 +1149,100 @@
   }
 
   /* ─────────────────────────────── staff & permissions ─────────────────────────────── */
-  const PERMS = [['ban_users', 'Ban and unban people'], ['reset_password', 'Reset passwords'], ['view_messages', 'Read messages'], ['manage_chats', 'See and manage chats'], ['delete_users', 'Delete accounts']];
-  async function permsModal(u) {
-    let perms = {};
-    try { perms = (await api(`/api/auth/admin/users/${u.id}/permissions`)).permissions || {}; } catch (e) { return toast(e.message, true); }
-    modal(`<h3>What can @${esc(u.username)} do?</h3><p>Admins can open the Vault. Turn off anything you don't want them doing.${(u.tags || []).includes('trusted') ? ' <b>Trusted admins</b> can do everything regardless.' : ''}</p>
-      ${PERMS.map(([k, l]) => `<div class="ctrl"><div class="grow"><b>${l}</b></div><button class="switch${perms[k] !== false ? ' on' : ''}" data-perm="${k}" aria-label="${l}"></button></div>`).join('')}
-      <div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn pri" id="pm-save">Save</button></div>`, (close) => {
-      $('modal-box').querySelectorAll('[data-perm]').forEach((b) => b.onclick = () => b.classList.toggle('on'));
-      $('pm-save').onclick = async () => {
-        const out = {}; $('modal-box').querySelectorAll('[data-perm]').forEach((b) => { out[b.dataset.perm] = b.classList.contains('on'); });
-        try { await api(`/api/auth/admin/users/${u.id}/permissions`, { method: 'POST', body: { permissions: out } }); close(); toast('Permissions saved'); if (S.route === 'staff') route(); } catch (e) { toast(e.message, true); }
-      };
-    });
+  /* The detailed permissions editor: #/staff/<id> */
+  let permCatalog = null;
+  async function pagePermissions(uid) {
+    if (!S.owner) { location.hash = '#/overview'; return; }
+    if (!permCatalog) permCatalog = await api('/api/auth/admin/permissions/catalog');
+    const [info, staffList] = await Promise.all([api(`/api/auth/admin/users/${uid}/permissions`), api('/api/vault/staff')]);
+    const u = staffList.staff.find((x) => x.id === uid);
+    if (!u || u.role !== 'admin') { $('view').innerHTML = card('Not an admin', empty('This person isn\'t an admin', 'Permissions can only be set for admins.') + '<div style="text-align:center"><a class="btn" href="#/staff">Back to staff</a></div>'); return; }
+    const C = permCatalog, all = C.groups.flatMap((g) => g.items);
+    const orig = JSON.stringify({ p: info.permissions, l: info.limits, u: info.until, n: info.note });
+    const st = { p: { ...info.permissions }, l: { ...info.limits }, u: info.until, n: info.note || '' };
+    const others = staffList.staff.filter((x) => x.role === 'admin' && x.id !== uid);
+    const LIM = { bans: ['Bans', 'How many people they can ban in one day.'], resets: ['Password resets', 'How many passwords they can reset in one day.'],
+      deletes: ['Deleted accounts', 'How many accounts they can delete in one day.'], broadcasts: ['Broadcasts', 'How many broadcasts they can send in one day.'] };
+    const dateVal = (iso) => iso ? new Date(iso).toISOString().slice(0, 10) : '';
+    $('view').innerHTML = `<div class="pe fade">
+      <div class="pe-top"><a class="btn sm" href="#/staff">← Staff</a><div class="grow">${person(u, 'Admin' + (info.trusted ? ' · Trusted' : ''))}</div><span class="tag" id="pe-count"></span></div>
+      ${info.trusted ? `<div class="pe-note warn"><b>This is a Trusted admin.</b> Trusted admins can do everything on this page with no limits, whatever the switches say. Remove “Trusted” on the Staff page if you want the switches below to apply.</div>` : ''}
+      ${card('Quick setups', `<p class="muted small" style="margin-top:-6px">Pick a starting point, then fine-tune below. Nothing is saved until you press Save.</p>
+        <div class="pe-presets" id="pe-presets">${C.presets.map((p) => `<button class="pe-preset" data-preset="${p.id}"><b>${esc(p.label)}</b><span>${esc(p.about)}</span></button>`).join('')}</div>
+        <div class="pe-row"><button class="btn sm" id="pe-allon">Switch everything on</button><button class="btn sm" id="pe-alloff">Switch everything off</button><button class="btn sm" id="pe-default">Back to the usual setup</button>
+          ${others.length ? `<select class="select" id="pe-copy" style="width:auto"><option value="">Copy from another admin…</option>${others.map((o) => `<option value="${o.id}">@${esc(o.username)}</option>`).join('')}</select>` : ''}</div>`)}
+      <div class="pe-groups">${C.groups.map((g, gi) => card(g.name, `<p class="muted small" style="margin-top:-6px">${esc(g.about)}</p>
+        ${g.items.map((it) => `<div class="ctrl pe-item"><div class="grow"><b>${esc(it.label)}${it.sensitive ? ' <span class="tag warn">Sensitive</span>' : ''}</b><span class="muted small">${esc(it.about)}</span></div><button class="switch" data-perm="${it.key}" role="switch" aria-label="${esc(it.label)}"></button></div>`).join('')}`,
+        `<button class="btn sm" data-grp="${gi}">All on</button>`)).join('')}</div>
+      <div class="grid g2 mt">
+        ${card('Daily limits', `<p class="muted small" style="margin-top:-6px">A safety net in case an account is misused. Leave a box empty for no limit. Limits reset at midnight (UTC).</p>
+          ${C.limits.map((l) => `<div class="ctrl pe-lim" data-needs="${l.needs}"><div class="grow"><b>${LIM[l.key][0]} per day</b><span class="muted small">${LIM[l.key][1]} Used today: <b>${(info.used || {})[l.key] || 0}</b></span></div><input class="input" type="number" min="0" max="100000" inputmode="numeric" placeholder="No limit" data-lim="${l.key}" style="width:110px"></div>`).join('')}`)}
+        ${card('How long they stay an admin', `<p class="muted small" style="margin-top:-6px">Set an end date and they go back to a normal account by themselves on that day. Leave empty to keep them as admin until you remove them.</p>
+          <div class="pe-row"><input class="input" type="date" id="pe-until" style="width:180px" min="${new Date(Date.now() + 864e5).toISOString().slice(0, 10)}">
+            <button class="btn sm" data-days="7">1 week</button><button class="btn sm" data-days="30">1 month</button><button class="btn sm" data-days="90">3 months</button><button class="btn sm" data-days="0">No end date</button></div>
+          <div class="muted small" id="pe-until-say" style="margin-top:8px"></div>
+          <label class="muted small" style="display:block;margin-top:16px">Private note (only you see this)</label>
+          <textarea class="input" id="pe-note" rows="3" maxlength="500" placeholder="e.g. Helps with support on weekends"></textarea>`)}
+      </div>
+      <div class="pe-save" id="pe-save-bar"><span id="pe-state">No changes</span><button class="btn" id="pe-undo">Undo changes</button><button class="btn pri" id="pe-save">Save permissions</button></div>
+    </div>`;
+    const V = $('view');
+    function paint() {
+      V.querySelectorAll('[data-perm]').forEach((b) => { const on = !!st.p[b.dataset.perm]; b.classList.toggle('on', on); b.setAttribute('aria-checked', on); });
+      const on = all.filter((i) => st.p[i.key]).length;
+      $('pe-count').textContent = `${on} of ${all.length} switched on`;
+      C.groups.forEach((g, gi) => { const allOn = g.items.every((i) => st.p[i.key]); const b = V.querySelector(`[data-grp="${gi}"]`); b.textContent = allOn ? 'All off' : 'All on'; });
+      V.querySelectorAll('[data-preset]').forEach((b) => { const p = C.presets.find((x) => x.id === b.dataset.preset); b.classList.toggle('on', all.every((i) => !!st.p[i.key] === !!p.permissions[i.key])); });
+      V.querySelectorAll('.pe-lim').forEach((r) => { const off = !st.p[r.dataset.needs]; r.classList.toggle('off', off); r.querySelector('input').disabled = off; });
+      V.querySelectorAll('[data-lim]').forEach((i) => { if (document.activeElement !== i) i.value = st.l[i.dataset.lim] ? st.l[i.dataset.lim] : ''; });
+      if (document.activeElement !== $('pe-until')) $('pe-until').value = dateVal(st.u);
+      $('pe-until-say').textContent = st.u ? `They stop being an admin on ${new Date(st.u).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}.` : 'No end date — they stay an admin until you remove them.';
+      if (document.activeElement !== $('pe-note')) $('pe-note').value = st.n;
+      const dirty = JSON.stringify({ p: st.p, l: st.l, u: st.u, n: st.n }) !== orig;
+      $('pe-state').textContent = dirty ? 'You have changes that aren\'t saved yet' : 'No changes';
+      $('pe-save-bar').classList.toggle('dirty', dirty); $('pe-save').disabled = !dirty; $('pe-undo').disabled = !dirty;
+    }
+    const setAll = (v) => { all.forEach((i) => { st.p[i.key] = v; }); paint(); };
+    V.onclick = async (e) => {
+      const sw = e.target.closest('[data-perm]'); if (sw) { st.p[sw.dataset.perm] = !st.p[sw.dataset.perm]; return paint(); }
+      const row = e.target.closest('.pe-item'); if (row && !e.target.closest('button,a')) { const k = row.querySelector('[data-perm]').dataset.perm; st.p[k] = !st.p[k]; return paint(); }
+      const g = e.target.closest('[data-grp]'); if (g) { const items = C.groups[+g.dataset.grp].items; const v = !items.every((i) => st.p[i.key]); items.forEach((i) => { st.p[i.key] = v; }); return paint(); }
+      const pr = e.target.closest('[data-preset]'); if (pr) { st.p = { ...C.presets.find((x) => x.id === pr.dataset.preset).permissions }; return paint(); }
+      const dy = e.target.closest('[data-days]'); if (dy) { const n = +dy.dataset.days; st.u = n ? new Date(Date.now() + n * 864e5).toISOString() : null; return paint(); }
+    };
+    $('pe-allon').onclick = () => setAll(true); $('pe-alloff').onclick = () => setAll(false);
+    $('pe-default').onclick = () => { all.forEach((i) => { st.p[i.key] = i.default; }); paint(); };
+    if ($('pe-copy')) $('pe-copy').onchange = async (e) => {
+      const id = +e.target.value; if (!id) return;
+      try { const o = await api(`/api/auth/admin/users/${id}/permissions`); st.p = { ...o.permissions }; st.l = { ...o.limits }; toast('Copied — press Save to keep it'); paint(); } catch (err) { toast(err.message, true); }
+      e.target.value = '';
+    };
+    V.querySelectorAll('[data-lim]').forEach((i) => i.oninput = () => { st.l[i.dataset.lim] = Math.max(0, Math.min(100000, parseInt(i.value, 10) || 0)); paint(); });
+    $('pe-until').onchange = () => { const v = $('pe-until').value; st.u = v ? new Date(v + 'T23:59:00').toISOString() : null; paint(); };
+    $('pe-note').oninput = () => { st.n = $('pe-note').value; paint(); };
+    $('pe-undo').onclick = () => { const o = JSON.parse(orig); st.p = o.p; st.l = o.l; st.u = o.u; st.n = o.n; paint(); };
+    $('pe-save').onclick = async () => {
+      const risky = all.filter((i) => i.sensitive && st.p[i.key] && !info.permissions[i.key]).map((i) => i.label);
+      if (risky.length && !(await confirmBox('Switch on sensitive abilities?', `You're giving @${u.username}: ${risky.join(', ')}.`, 'Yes, save'))) return;
+      $('pe-save').disabled = true;
+      try { await api(`/api/auth/admin/users/${uid}/permissions`, { method: 'POST', body: { permissions: st.p, limits: st.l, until: st.u, note: st.n } }); toast('Permissions saved'); route(); }
+      catch (e) { toast(e.message, true); $('pe-save').disabled = false; }
+    };
+    paint();
   }
-  function pickUser(title, note, onPick) {
-    modal(`<h3>${esc(title)}</h3><p>${esc(note)}</p><input class="input" id="pk-q" placeholder="Type a name or email…" autocomplete="off"><div class="list" id="pk-list" style="margin-top:8px;max-height:300px;overflow:auto"></div>
-      <div class="modal-actions"><button class="btn" data-close>Cancel</button></div>`, (close) => {
-      let t;
-      $('pk-q').oninput = () => { clearTimeout(t); t = setTimeout(async () => {
-        const q = $('pk-q').value.trim(); if (q.length < 2) { $('pk-list').innerHTML = ''; return; }
-        const d = await api('/api/vault/search?q=' + encodeURIComponent(q));
-        $('pk-list').innerHTML = d.users.filter((x) => !x.guest).map((x) => `<div class="li click" data-id="${x.id}">${person(x)}<span style="margin-left:auto">${planTag(x)}</span></div>`).join('') || '<div class="muted small">No one found.</div>';
-      }, 220); };
-      $('pk-list').onclick = (e) => { const r = e.target.closest('[data-id]'); if (r) { close(); onPick(+r.dataset.id, r.querySelector('b').textContent); } };
-    });
+  function permSummary(u) {
+    const p = u.perm || {};
+    const bits = [`${p.on} of ${p.total} on`];
+    const lim = Object.entries(p.limits || {}).filter(([, v]) => v).length; if (lim) bits.push(lim + ' daily limit' + (lim === 1 ? '' : 's'));
+    if (p.until) bits.push('until ' + new Date(p.until).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
+    return bits.join(' · ');
   }
   async function pageStaff() {
     const d = await api('/api/vault/staff');
-    const permSummary = (p) => { const off = PERMS.filter(([k]) => p[k] === false).map(([, l]) => l.toLowerCase()); return off.length ? 'Can\'t: ' + off.join(', ') : 'Everything'; };
     $('view').innerHTML = `<div class="grid g21">
       ${card('Staff', `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Person</th><th>Role</th><th class="hide-m">Allowed</th><th></th></tr></thead><tbody>
-        ${d.staff.map((u) => `<tr data-u="${u.id}"><td><a href="#/users/${u.id}" style="color:inherit">${person(u)}</a></td><td>${planTag({ ...u, plan: '' })}</td><td class="hide-m muted small">${u.role === 'owner' ? 'Everything' : (u.tags.includes('trusted') ? 'Everything (trusted)' : permSummary(u.permissions || {}))}</td>
-          <td class="bk-act">${u.role === 'admin' ? `<button class="btn sm" data-a="perms">Permissions</button> <button class="btn sm" data-a="trusted">${u.tags.includes('trusted') ? 'Untrust' : 'Trust'}</button> <button class="btn sm danger" data-a="demote">Remove</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`,
+        ${d.staff.map((u) => `<tr data-u="${u.id}"><td><a href="#/users/${u.id}" style="color:inherit">${person(u)}</a></td><td>${planTag({ ...u, plan: '' })}</td><td class="hide-m muted small">${u.role === 'owner' ? 'Everything' : (u.tags.includes('trusted') ? 'Everything (trusted)' : esc(permSummary(u)))}</td>
+          <td class="bk-act">${u.role === 'admin' ? `<button class="btn sm pri" data-a="perms">Edit permissions</button> <button class="btn sm" data-a="trusted">${u.tags.includes('trusted') ? 'Untrust' : 'Trust'}</button> <button class="btn sm danger" data-a="demote">Remove</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`,
         '<button class="btn pri sm" id="st-add">Add an admin</button>')}
       ${card('Chosen helpers', `<p class="muted small" style="margin-top:-6px">Helpers stay online and keep access during maintenance or when every account is locked, so they can help you.</p>
         <div class="list" id="ch-list">${d.chosen.map((u) => `<div class="li" data-id="${u.id}">${person(u)}<button class="btn sm danger" style="margin-left:auto" data-rm="${u.id}">Remove</button></div>`).join('') || '<div class="muted small">No helpers chosen.</div>'}</div>
@@ -1186,7 +1261,7 @@
       const b = e.target.closest('[data-a]'); if (!b) return;
       const u = d.staff.find((x) => x.id === +b.closest('tr').dataset.u);
       try {
-        if (b.dataset.a === 'perms') await permsModal(u);
+        if (b.dataset.a === 'perms') location.hash = '#/staff/' + u.id;
         else if (b.dataset.a === 'trusted') { await api(`/api/auth/admin/users/${u.id}/tags`, { method: 'POST', body: { tag: 'trusted', on: !u.tags.includes('trusted') } }); toast('Saved'); route(); }
         else if (b.dataset.a === 'demote') { if (!(await confirmBox(`Remove @${u.username} as admin?`, 'They become a normal user and lose Vault access.', 'Remove', true))) return; await api(`/api/auth/admin/users/${u.id}/role`, { method: 'POST', body: { role: 'user' } }); toast('Removed'); route(); }
       } catch (err) { toast(err.message, true); }
@@ -1482,6 +1557,7 @@
       const ok = await fetch('/api/auth/admin/pin-unlock', { method: 'POST', credentials: 'same-origin', headers: { 'X-Vault-Token': token() } }).then((r) => r.ok).catch(() => false);
       if (!ok) await lock();
     }
+    await loadAccess();
     renderNav();
     document.querySelectorAll('#ranges button').forEach((b) => b.classList.toggle('on', b.dataset.r === S.range));
     $('ranges').onclick = (e) => { const b = e.target.closest('button'); if (!b) return; S.range = b.dataset.r; store.set('zv_range', S.range); document.querySelectorAll('#ranges button').forEach((x) => x.classList.toggle('on', x === b)); route(); };

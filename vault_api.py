@@ -229,6 +229,7 @@ async def _user_msgs(db, start, end):
 # ──────────────────────────────────────────────────────── overview ──
 @router.get("/overview")
 async def overview(range: str = "30d", user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_stats")
     start, end, step = _range(range)
     span = end - start
     pstart = start - span
@@ -295,6 +296,7 @@ async def overview(range: str = "30d", user=Depends(require_vault), db: AsyncSes
 # ─────────────────────────────────────────────── growth & revenue ──
 @router.get("/growth")
 async def growth(range: str = "30d", user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_stats")
     start, end, step = _range(range)
     now = datetime.now(timezone.utc)
     rows = (await db.execute(select(User.created_at, User.username).where(User.created_at >= start))).all()
@@ -406,6 +408,7 @@ async def ai_costs(range: str = "30d", user=Depends(require_vault), db: AsyncSes
 # ─────────────────────────────────────────────── live & alerts ──
 @router.get("/live")
 async def live(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_stats")
     now = datetime.now(timezone.utc)
     cut = now - ONLINE_WINDOW
     online = (await db.execute(select(User).where(User.last_seen >= cut).order_by(User.last_seen.desc()).limit(100))).scalars().all()
@@ -490,6 +493,7 @@ async def run_checks(user=Depends(require_vault)):
 @router.get("/users")
 async def users(q: str = "", filter: str = "all", sort: str = "new", page: int = 1, per: int = 25,
                 user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_users")
     per = max(5, min(per, 100))
     now = datetime.now(timezone.utc)
     stmt = select(User)
@@ -527,7 +531,8 @@ async def users(q: str = "", filter: str = "all", sort: str = "new", page: int =
                                 .where(Chat.user_id.in_(ids), Message.role == "user", Message.created_at >= since)
                                 .group_by(Chat.user_id))).all())
     out = []
-    show_email = is_owner(user) or is_trusted(user)
+    import perms as _perms0
+    show_email = _perms0.can(user, "view_emails")
     for u in rows:
         d = _user_brief(u)
         d["messages_30d"] = mc.get(u.id, 0)
@@ -539,13 +544,15 @@ async def users(q: str = "", filter: str = "all", sort: str = "new", page: int =
 
 @router.get("/users/{user_id}")
 async def user_360(user_id: int, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_users")
     u = await db.get(User, user_id)
     if not u:
         raise HTTPException(status_code=404, detail="User not found")
     owner = is_owner(user)
     now = datetime.now(timezone.utc)
     d = _user_brief(u)
-    if owner or is_trusted(user):
+    import perms as _perms0
+    if _perms0.can(user, "view_emails"):
         d["email"] = u.email
     d.update({"trial_end": _iso(u.trial_end), "ban_reason": u.ban_reason or "", "banned_by": u.banned_by or "",
               "is_chosen": bool(u.is_chosen), "stripe": bool(u.stripe_customer_id) if owner else None})
@@ -553,10 +560,7 @@ async def user_360(user_id: int, user=Depends(require_vault), db: AsyncSession =
     if not owner:
         d["plan_info"]["price"] = None
     if get_role(u) == "admin":
-        try:
-            d["permissions"] = json.loads(u.permissions) if u.permissions else {}
-        except Exception:
-            d["permissions"] = {}
+        d["permissions"] = _perms0.switches(u)
     chats = (await db.execute(select(Chat).where(Chat.user_id == u.id).order_by(Chat.updated_at.desc()))).scalars().all()
     msgs = await _user_msgs(db, now - timedelta(days=30), now + timedelta(minutes=1))
     mine = [m for m in msgs if m[1] == u.id]
@@ -604,6 +608,7 @@ class NoteIn(BaseModel):
 
 @router.post("/users/{user_id}/notes")
 async def add_note(user_id: int, req: NoteIn, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "user_notes")
     text = (req.text or "").strip()[:2000]
     if not text or not await db.get(User, user_id):
         raise HTTPException(status_code=400, detail="Write a note first")
@@ -615,6 +620,7 @@ async def add_note(user_id: int, req: NoteIn, user=Depends(require_vault), db: A
 
 @router.delete("/users/{user_id}/notes/{note_id}")
 async def del_note(user_id: int, note_id: int, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "user_notes")
     n = await db.get(AdminNote, note_id)
     if n and n.user_id == user_id and (n.author == user.username or is_owner(user)):
         await db.delete(n)
@@ -667,6 +673,7 @@ async def set_plan(user_id: int, req: GiftIn, request: Request, user=Depends(req
 # ─────────────────────────────────────────────────────── people ──
 @router.get("/people")
 async def people(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_stats")
     us = (await db.execute(select(User).where(User.is_deleted == False))).scalars().all()  # noqa: E712
     owner = is_owner(user)
     last_pay = {}
@@ -694,6 +701,7 @@ async def people(user=Depends(require_vault), db: AsyncSession = Depends(get_db)
 # ─────────────────────────────────────────────── content safety ──
 @router.get("/safety")
 async def safety(status: str = "open", user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "safety_view")
     q = select(ContentFlag).order_by(ContentFlag.created_at.desc()).limit(200)
     if status != "all":
         q = q.where(ContentFlag.status == status)
@@ -713,6 +721,7 @@ class SafetyAction(BaseModel):
 
 @router.post("/safety/{flag_id}")
 async def safety_action(flag_id: int, req: SafetyAction, request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "safety_act")
     f = await db.get(ContentFlag, flag_id)
     if not f:
         raise HTTPException(status_code=404, detail="Not found")
@@ -757,6 +766,7 @@ async def safety_action(flag_id: int, req: SafetyAction, request: Request, user=
 # ───────────────────────────────────────────────────── releases ──
 @router.get("/releases")
 async def releases(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "manage_releases")
     from appdist import _android_info, _win_info
     since = datetime.now(timezone.utc) - timedelta(days=30)
     rows = (await db.execute(select(ClientSeen).where(ClientSeen.last_seen >= since))).scalars().all()
@@ -863,6 +873,7 @@ async def backup_restore(name: str, req: RestoreIn, request: Request, user=Depen
 # ─────────────────────────────────────────────────────── search ──
 @router.get("/search")
 async def search(q: str = "", user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    import perms as _perms; _perms.need(user, "view_users")
     q = q.strip()
     if len(q) < 2:
         return {"users": []}
@@ -879,17 +890,15 @@ async def staff(user=Depends(require_vault), db: AsyncSession = Depends(get_db))
     _need_owner(user)
     us = (await db.execute(select(User).where(User.is_deleted == False, or_(User.role.in_(("admin", "owner")), User.is_chosen == True))  # noqa: E712
                            .order_by(User.created_at.asc()))).scalars().all()
-    defaults = {"ban_users": True, "reset_password": True, "view_messages": True, "manage_chats": True, "delete_users": True}
+    import perms as _p
     out = []
     for u in us:
         d = _user_brief(u)
         d["is_chosen"] = bool(u.is_chosen)
         if get_role(u) == "admin":
-            try:
-                perms = json.loads(u.permissions) if u.permissions else {}
-            except Exception:
-                perms = {}
-            d["permissions"] = {**defaults, **{k: bool(v) for k, v in perms.items() if k in defaults}}
+            info = _p.describe(u)
+            d["permissions"] = info["permissions"]
+            d["perm"] = {k: info[k] for k in ("on", "total", "limits", "until", "note", "preset", "trusted")}
         out.append(d)
     return {"staff": [d for d in out if d["role"] in ("owner", "admin")], "chosen": [d for d in out if d["is_chosen"]]}
 

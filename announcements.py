@@ -97,6 +97,8 @@ def _ann_info(a):
 @router.post("")
 async def post_announcement(req: AnnouncementRequest, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "broadcast")
+    await _perms.need_quota(db, user, "broadcasts")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
     content = req.content.strip()
@@ -117,6 +119,7 @@ async def post_announcement(req: AnnouncementRequest, request: Request, db: Asyn
 async def clear_announcements(request: Request, db: AsyncSession = Depends(get_db)):
     """Delete all announcement history (broadcast cache). Owner or admin."""
     user = await get_current_user_from_cookie(request, db)
+    import perms as _perms; _perms.need(user, "broadcast")
     if not is_staff(user):
         raise HTTPException(status_code=403, detail="Staff only")
     from sqlalchemy import delete as sa_delete

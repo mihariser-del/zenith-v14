@@ -195,8 +195,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
     let _persistentScreen = '';
+    // The Owner, chosen helpers and trusted admins are never shut out: they keep working and just see a small notice.
+    const _sysExempt = user.role === 'owner' || user.username === 'WANZU-IBRAHIM' || !!user.is_chosen || String(user.tags || '').split(',').includes('trusted');
+    function _sysBanner(kind) {
+        let b = document.getElementById('sys-banner');
+        if (!kind) { if (b) b.remove(); return; }
+        if (!b) { b = document.createElement('div'); b.id = 'sys-banner'; b.setAttribute('role', 'status');
+            b.style.cssText = 'position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:9000;max-width:calc(100vw - 24px);padding:8px 14px;border-radius:999px;font:600 12.5px Inter,system-ui,sans-serif;color:#1c1400;background:#fbbf24;box-shadow:0 8px 24px rgba(0,0,0,.35);text-align:center;pointer-events:none;';
+            document.body.appendChild(b); }
+        b.textContent = kind === 'locked' ? 'All accounts are locked — only you and helpers can use Zelpophai right now' : 'Maintenance is on — only you and helpers can use Zelpophai right now';
+    }
     function _showMaintenanceScreen(kind) {
-        window.ZPop.systemScreen(kind === 'locked' ? 'locked' : 'maintenance');
+        const k = kind === 'locked' ? 'locked' : 'maintenance';
+        if (_sysExempt) { _sysBanner(k); return; }
+        window.ZPop.systemScreen(k, { signedIn: true });
     }
     function checkNotif() {
         api('/api/auth/me').then(r => {
@@ -223,6 +235,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 _showMaintenanceScreen(want);
             } else if (!want && _persistentScreen) {
                 _persistentScreen = '';
+                if (_sysExempt) { _sysBanner(''); return; }
                 const sc = document.getElementById('maintenance-screen');
                 if (sc) sc.remove();
                 _maybeShowMaintNote().then(shown => { if (!shown) setTimeout(() => { window.location.href = '/app'; }, 300); });

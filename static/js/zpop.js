@@ -85,6 +85,8 @@
 .zpop-live{display:flex;align-items:center;justify-content:center;gap:9px;margin:18px 0 0;padding:10px 12px;border-radius:12px;background:var(--zp-box);border:1px solid var(--zp-line);font-size:12.500px;color:var(--zp-dim)}
 .zpop-live i{flex:none;width:14px;height:14px;border-radius:50%;border:2px solid var(--zp-ring);border-top-color:var(--zp-c);animation:zpopSpin .9s linear infinite}
 .zpop-field{margin:16px 0 0;text-align:left}
+.zpop-field label{display:block;margin:0 0 6px;font-size:12.5px;font-weight:650;color:var(--zp-dim)}
+.zpop-err{margin:10px 0 0;font-size:13px;color:#f87171;text-align:left}.zpop-err:empty{display:none}
 .zpop-field input{width:100%;padding:12px 14px;font:500 15px/1.3 inherit;font-family:inherit;color:var(--zp-text);background:rgba(0,0,0,.28);border:1px solid var(--zp-line);border-radius:12px;outline:none;transition:border-color .15s,box-shadow .15s}
 .zpop-field input:focus{border-color:var(--zp-c2);box-shadow:0 0 0 3.500px var(--zp-soft)}
 .zpop-code{display:flex;align-items:center;gap:10px;margin:16px 0 0;padding:10px 10px 10px 16px;border-radius:14px;background:rgba(0,0,0,.28);border:1px dashed var(--zp-ring);text-align:left}
@@ -162,6 +164,8 @@ html.light-theme .zpop.t-staff:not(.full),body.light-theme .zpop.t-staff:not(.fu
       ${o.list && o.list.length ? `<ul class="zpop-list">${o.list.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
       ${o.code != null ? `<div class="zpop-code"><span>${esc(o.code)}</span><button type="button" class="zpop-btn ghost mini" data-copy>${ICONS.copy} Copy</button></div>` : ''}
       ${o.input ? `<div class="zpop-field"><input type="${o.input.type || 'text'}" aria-label="${esc(o.title || 'Value')}"></div>` : ''}
+      ${(o.fields || []).map((f) => `<div class="zpop-field"><label for="${esc(f.id)}">${esc(f.label)}</label><input id="${esc(f.id)}" type="${f.type || 'text'}" autocomplete="${f.autocomplete || 'off'}" autocapitalize="off" spellcheck="false"></div>`).join('')}
+      ${o.fields ? '<div class="zpop-err" role="alert"></div>' : ''}
       ${o.countdown ? `<div class="zpop-count"><span>&nbsp;</span>${o.countdown.label ? `<small>${esc(o.countdown.label)}</small>` : ''}</div>` : ''}
       ${o.live ? `<div class="zpop-live"><i></i><span>${esc(o.live)}</span></div>` : ''}
       ${acts.length ? `<div class="zpop-acts${o.row ? ' row' : ''}">${acts.map((a, i) => `<button type="button" class="zpop-btn ${a.kind || (i === 0 ? 'primary' : 'ghost')}" data-i="${i}"${a.id ? ` id="${esc(a.id)}"` : ''}>${a.icon && ICONS[a.icon] ? ICONS[a.icon] : ''}${esc(a.label)}</button>`).join('')}</div>` : ''}
@@ -195,14 +199,15 @@ html.light-theme .zpop.t-staff:not(.full),body.light-theme .zpop.t-staff:not(.fu
     el.querySelectorAll('.zpop-acts .zpop-btn').forEach((b) => b.addEventListener('click', async () => {
       const a = acts[+b.dataset.i];
       if (!a.keep) close('action');
-      if (typeof a.onClick === 'function') { try { await a.onClick({ el, close, button: b, value: input ? input.value : undefined }); } catch (e) { console.error(e); } }
+      if (typeof a.onClick === 'function') { try { const values = {}; el.querySelectorAll('.zpop-field input[id]').forEach((i) => { values[i.id] = i.value; }); await a.onClick({ el, close, button: b, value: input ? input.value : undefined, values, error: (t) => { const e2 = el.querySelector('.zpop-err'); if (e2) e2.textContent = t || ''; } }); } catch (e) { console.error(e); } }
     }));
     const cp = el.querySelector('[data-copy]');
     if (cp) cp.addEventListener('click', () => {
       const done = (ok) => { cp.lastChild.textContent = ok ? ' Copied' : ' Copy failed'; setTimeout(() => { cp.lastChild.textContent = ' Copy'; }, 1600); };
       try { navigator.clipboard.writeText(String(o.code)).then(() => done(true), () => done(false)); } catch (e) { done(false); }
     });
-    const input = el.querySelector('.zpop-field input');
+    const input = o.input ? el.querySelector('.zpop-field input') : null;
+    el.querySelectorAll('.zpop-field input[id]').forEach((i) => i.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const pb = el.querySelector('.zpop-btn.primary'); if (pb) pb.click(); } }));
     if (input) {
       input.value = o.input.value || ''; input.placeholder = o.input.placeholder || '';
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); const pb = el.querySelector('.zpop-btn.primary'); if (pb) pb.click(); } });
@@ -218,7 +223,7 @@ html.light-theme .zpop.t-staff:not(.full),body.light-theme .zpop.t-staff:not(.fu
       tick(); el._zpTimer = setInterval(tick, 1000);
     }
     (document.body || document.documentElement).appendChild(el);
-    setTimeout(() => { try { (input || el.querySelector('.zpop-btn.primary') || el.querySelector('.zpop-btn') || x || el).focus(); if (input) input.select(); } catch (e) {} }, 60);
+    setTimeout(() => { try { (input || el.querySelector('.zpop-field input') || el.querySelector('.zpop-btn.primary') || el.querySelector('.zpop-btn') || x || el).focus(); if (input) input.select(); } catch (e) {} }, 60);
     return { el, close, input };
   }
 
@@ -247,9 +252,15 @@ html.light-theme .zpop.t-staff:not(.full),body.light-theme .zpop.t-staff:not(.fu
     });
   }
 
-  /* The two "everyone is paused" screens, shared by the welcome page and the app. */
-  function systemScreen(kind) {
+  /* The two "everyone is paused" screens, shared by the welcome page and the app.
+     They never trap anyone: a signed-in person can log out, and the Owner / helpers can sign in from here. */
+  function systemScreen(kind, opts) {
+    opts = opts || {};
     const lock = kind === 'locked';
+    const post = (url, body) => fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const actions = [];
+    if (opts.signedIn) actions.push({ label: 'Log out', kind: 'ghost', icon: 'logout', id: 'sys-logout', keep: true, onClick: async (c) => { c.button.disabled = true; try { await post('/api/auth/logout'); } catch (e) {} window.location.replace('/'); } });
+    else actions.push({ label: 'Owner or helper? Sign in', kind: 'ghost', icon: 'key', id: 'sys-signin', keep: true, onClick: () => staffSignIn(kind) });
     return show({
       id: 'maintenance-screen', replaceBody: true, dismissable: false, z: 999999, tone: lock ? 'danger' : 'warn', icon: lock ? 'lock' : 'wrench',
       badge: lock ? 'All accounts locked' : 'Maintenance', pulse: true,
@@ -258,7 +269,28 @@ html.light-theme .zpop.t-staff:not(.full),body.light-theme .zpop.t-staff:not(.fu
         ? 'The Owner has paused all accounts for a moment. Nothing of yours is lost — your chats and files are safe.'
         : 'Zelpophai is getting some work done to make it better. Nothing of yours is lost — your chats and files are safe.',
       live: 'This page opens again by itself the moment we\'re back. No need to refresh.',
+      actions,
       metaHtml: 'Started by <b>WANZU-IBRAHIM</b> · The Owner',
+    });
+  }
+  function staffSignIn(kind) {
+    const post = (url, body) => fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    show({
+      id: 'sys-signin-box', small: true, z: 1000000, tone: 'owner', icon: 'key', title: 'Sign in',
+      text: 'The Owner and chosen helpers can still get in while Zelpophai is paused.',
+      fields: [{ id: 'sys-user', label: 'Username', autocomplete: 'username' }, { id: 'sys-pass', label: 'Password', type: 'password', autocomplete: 'current-password' }],
+      actions: [{ label: 'Sign in', id: 'sys-go', keep: true, onClick: async (c) => {
+        const username = (c.values['sys-user'] || '').trim(), password = c.values['sys-pass'] || '';
+        if (!username || !password) return c.error('Enter your username and your password.');
+        c.button.disabled = true; c.error('');
+        try {
+          const r = await post('/api/auth/login', { username, password });
+          if (r.ok) { window.location.href = '/app'; return; }
+          const d = await r.json().catch(() => ({}));
+          c.error(r.status === 503 ? 'Only the Owner and chosen helpers can sign in right now. Please come back when we\'re open again.' : (typeof d.detail === 'string' ? d.detail : 'Couldn\'t sign in. Try again.'));
+        } catch (e) { c.error('Couldn\'t reach Zelpophai. Check your connection and try again.'); }
+        c.button.disabled = false;
+      } }, { label: 'Cancel', kind: 'link' }],
     });
   }
 

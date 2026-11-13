@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 22.5.1 — Maintenance no longer blocks log in / log out
+
+- `ZPop.systemScreen(kind, { signedIn })`: a Log out button for signed-in people, or "Owner or helper? Sign in" (username + password → `/api/auth/login`, friendly message on 503) on the welcome page, where the login form used to be wiped out with the rest of the page.
+- `app.js`: the Owner, chosen helpers and trusted admins never get the full-screen block (the client used to show it to everyone); they see `#sys-banner` instead. ZPop gained `fields` (several inputs + error line).
+
 ## 22.5 — New Settings (app and Vault)
 
 - `static/js/settings.js`: `Settings.open(section)` builds `#zst` (ZUI modal, `zst-` styles in studio.css) with a section rail; local settings save on change, server settings via debounced `PATCH /api/settings`. Old `#settings-modal` markup, Save/Cancel and the legacy personality block are gone. New local keys `textSize`, `enterSends`.

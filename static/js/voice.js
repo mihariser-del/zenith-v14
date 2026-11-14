@@ -102,7 +102,9 @@ const Voice = {
                 }
                 return;
             }
+            // Settings → Voice → "Send as soon as I stop talking"
             if (wasListening && $('user-input').value.trim()) {
+                if (Settings.getLocal().sendOnVoice === false) { $('user-input').focus(); return; }
                 this.voiceToVoice = true;
                 setTimeout(() => Chat.send(), 300);
             }
@@ -262,7 +264,7 @@ const Voice = {
             this.recognition.start();
             this.isListening = true;
             $('mic-btn').classList.add('active');
-            showToast('Listening (English UK)...', '');
+            showToast('Listening…', '');
         }
     },
 
@@ -282,14 +284,9 @@ const Voice = {
         utterance.lang = accent;
         utterance.rate = parseFloat(Settings.getLocal().speechRate) || 1;
         utterance.pitch = 1;
-        const voices = window.speechSynthesis.getVoices();
-        if (voices.length) {
-            let matched = voices.find(v => v.lang === 'en-GB') || voices.find(v => v.lang === accent) || voices.find(v => v.lang.startsWith('en-GB')) || voices.find(v => v.lang.startsWith(accent)) || voices.find(v => v.lang.startsWith(accent.split('-')[0]));
-            if (matched) {
-                utterance.voice = matched;
-                utterance.lang = matched.lang;
-            }
-        }
+        // Follow the language and voice chosen in Settings (it used to always pick a UK voice).
+        const matched = window.ZPVoicePick ? window.ZPVoicePick() : null;
+        if (matched) { utterance.voice = matched; utterance.lang = matched.lang; }
         utterance.onend = () => {
             const btns = document.querySelectorAll('[data-action="speak"]');
             btns.forEach(b => b.classList.remove('active'));

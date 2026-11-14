@@ -411,25 +411,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }
     }
-    // Avatar click shows logout when in collapsed rail (901-1100px)
-    const avatarEl = $('user-avatar');
-    if (avatarEl) {
-        avatarEl.addEventListener('click', () => {
-            if (!document.getElementById('acct-menu') && window.innerWidth > 900 && window.innerWidth <= 1100) {
-                let popup = $('avatar-popup');
-                if (popup) { popup.remove(); return; }
-                popup = document.createElement('div');
-                popup.id = 'avatar-popup';
-                popup.style.cssText = 'position:fixed; bottom:20px; left:70px; background:var(--sidebar); border:1px solid var(--border); border-radius:10px; padding:12px; z-index:200; box-shadow:0 10px 30px rgba(0,0,0,0.3); min-width:140px;';
-                const _safe = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
-                popup.innerHTML = `<div style="font-size:13px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${_safe(user.username)}</div><button class="btn danger" id="popup-logout" style="padding:6px 12px; font-size:12px; width:100%; justify-content:center;">Logout</button>`;
-                popup.querySelector('#popup-logout').addEventListener('click', () => { popup.remove(); $('logout-btn').click(); });
-                document.body.appendChild(popup);
-                const close = (e) => { if (!popup.contains(e.target) && e.target !== avatarEl) { popup.remove(); document.removeEventListener('click', close); } };
-                setTimeout(() => document.addEventListener('click', close), 100);
-            }
-        });
-    }
+    // Hover or tap your name at the bottom of the sidebar for the account card.
+    if (window.ZPAcctMenu) window.ZPAcctMenu.init({ user });
     // poll banned/deleted + password-changed (orange screen)
     async function checkPasswordChanged() {
         if (isGuest) return;
@@ -597,9 +580,10 @@ document.addEventListener('DOMContentLoaded', async () => {
             } catch (e) { /* auth or offline — ignore */ }
         }
         $('reminders-open').addEventListener('click', () => {
+            closeSidebar();
+            if (window.Reminders) return window.Reminders.open();
             modal.style.display = 'flex';
             renderReminders();
-            closeSidebar();
         });
         $('reminders-close').addEventListener('click', () => { modal.style.display = 'none'; });
         $('reminder-add').addEventListener('click', async () => {
@@ -650,6 +634,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const origNotif = window.__handlePendingReminder;
         window.__handlePendingReminder = (msg) => {
             showToast('⏰ ' + msg, 'success', 6000);
+            if (window.Reminders) window.Reminders.refresh();
             if (typeof Notification === 'function' && Notification.permission === 'granted') {
                 try { new Notification('Zelpophai AI reminder', { body: msg, icon: '/favicon.ico' }); } catch (e) {}
             }
@@ -674,7 +659,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('security-btn').addEventListener('click', () => { if (!requireLogin()) return; Security.open(); closeSidebar(); });
     $('close-security').addEventListener('click', () => Security.close());
 
-    $('code-btn').addEventListener('click', () => { if (!requireLogin()) return; CodeExec.open(); closeSidebar(); });
+    // Coding AGT. is its own app now: go straight there (the old little code box no longer flashes up first).
+    $('code-btn').addEventListener('click', () => { if (!requireLogin()) return; window.location.href = '/code'; });
     $('close-code').addEventListener('click', () => CodeExec.close());
     $('run-code-btn').addEventListener('click', () => CodeExec.run());
     $('code-modal').addEventListener('click', e => { if (e.target === $('code-modal')) CodeExec.close(); });
@@ -1062,7 +1048,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     devicePush('Staff Live Chat — ' + m.username, m.content.slice(0,120), 'livechat-'+m.id);
                     showDiscordToast('Zelpophai AI', m.username, m.content.slice(0,80), m.username);
                     // WhatsApp-style sound
-                    try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
+                    try { if (Settings.getLocal().sounds !== false) { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } } catch {}
                 });
             } else if (newMsgs.length && _lastStaffId === 0 && messages.length) {
                 // offline queue — show latest if not yet dismissed

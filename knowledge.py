@@ -84,6 +84,39 @@ async def create_kb(req: CreateKBRequest, request: Request, db: AsyncSession = D
     return {"knowledge_base": KBResponse(id=kb.id, name=kb.name, description=kb.description, item_count=0, created_at=kb.created_at)}
 
 
+@router.patch("/{kb_id}")
+async def update_kb(kb_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    """Rename a collection or change its description."""
+    user = await get_current_user_from_cookie(request, db)
+    kb = await get_user_kb(kb_id, user.id, db)
+    body = await request.json()
+    if "name" in body:
+        name = str(body.get("name") or "").strip()[:100]
+        if not name:
+            raise HTTPException(status_code=400, detail="Give it a name.")
+        kb.name = name
+    if "description" in body:
+        kb.description = str(body.get("description") or "").strip()[:500]
+    await db.commit()
+    return {"ok": True, "name": kb.name, "description": kb.description}
+
+
+@router.patch("/{kb_id}/items/{item_id}")
+async def update_item(kb_id: int, item_id: int, request: Request, db: AsyncSession = Depends(get_db)):
+    user = await get_current_user_from_cookie(request, db)
+    await get_user_kb(kb_id, user.id, db)
+    item = (await db.execute(select(KnowledgeItem).where(KnowledgeItem.id == item_id, KnowledgeItem.kb_id == kb_id))).scalar_one_or_none()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    body = await request.json()
+    content = str(body.get("content") or "").strip()
+    if not content:
+        raise HTTPException(status_code=400, detail="It can't be empty.")
+    item.content = content[:200000]
+    await db.commit()
+    return {"item": KBItemResponse.model_validate(item)}
+
+
 @router.delete("/{kb_id}")
 async def delete_kb(kb_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
@@ -157,7 +190,12 @@ async def search_knowledge(req: SearchKBRequest, request: Request, db: AsyncSess
     query = f"%{req.query.lower()}%"
 
     if req.kb_ids:
-        kb_filter = KnowledgeItem.kb_id.in_(req.kb_ids)
+        # only collections that belong to this person
+        own = (await db.execute(select(KnowledgeBase.id).where(KnowledgeBase.user_id == user.id, KnowledgeBase.id.in_(req.kb_ids)))).all()
+        ids = [row[0] for row in own]
+        if not ids:
+            return {"results": []}
+        kb_filter = KnowledgeItem.kb_id.in_(ids)
     else:
         user_kb_result = await db.execute(
             select(KnowledgeBase.id).where(KnowledgeBase.user_id == user.id)

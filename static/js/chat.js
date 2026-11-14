@@ -125,8 +125,19 @@ const Chat = {
             }
         }
 
-        // Always open on a fresh, unregistered chat. The chat row is created in
-        // the database only when the user sends their first message.
+        // Settings → General → "Start with": your last chat, or a fresh one.
+        // A new chat is only written to the database once you send the first message.
+        let start = 'new';
+        try { start = Settings.getLocal().startPage || 'new'; } catch (e) {}
+        if (start === 'last') {
+            const recent = Object.values(this.chats).sort((a, b) => new Date(b.updated_at || b.created_at || 0) - new Date(a.updated_at || a.created_at || 0))[0];
+            if (recent) {
+                this.activeId = recent.id;
+                this.renderList();
+                await this.renderMessages();
+                return;
+            }
+        }
         this.activeId = null;
         this.renderList();
         await this.renderMessages();
@@ -703,18 +714,24 @@ const Chat = {
             try { reactions = JSON.parse(msg.reactions || '{}'); } catch (e) {}
             let viewer = null;
             try { viewer = JSON.parse(msg.viewer_reactions || '{}'); } catch (e2) {}
-            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer);
+            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer, msg.created_at);
         });
         container.scrollTop = container.scrollHeight;
         this.resumeVideos(this.activeId);
     },
 
-    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null) {
+    appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null, at = null) {
         const container = $('chat-container');
         const welcome = container.querySelector('.welcome-message');
         if (welcome) welcome.remove();
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
+        // Settings → Chat → "Show the time on each message"
+        try {
+            const d = at ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(at) ? at : at + 'Z') : new Date();
+            const today = new Date().toDateString() === d.toDateString();
+            wrapper.dataset.at = (today ? '' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + ', ') + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {}
 
         const bubble = document.createElement('div');
         bubble.className = 'msg-bubble' + (streaming ? ' streaming-cursor' : '');
@@ -1695,7 +1712,7 @@ const Chat = {
                 method: 'POST',
                 credentials: 'same-origin',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ content: fullContent, images, think, research, factcheck, tz: Chat._tz() }),
+                body: JSON.stringify({ content: fullContent, images, think, research, factcheck, tz: Chat._tz(), voice: !!(window.ZPVoice && window.ZPVoice.active) }),
                 signal: this.abortController.signal,
             });
 
@@ -1729,6 +1746,7 @@ const Chat = {
                         if (parsed.status && !fullResponse) this._showStatus(bubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
+                            if (window.ZPVoice && window.ZPVoice.active) window.ZPVoice.feed(fullResponse);
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
                         if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
@@ -1771,12 +1789,14 @@ const Chat = {
             if (fullResponse) {
                 this.finalizeBubble(bubble, fullResponse);
                 // Voice-to-voice auto speak if enabled
-                if (Voice.voiceToVoice) {
+                if (window.ZPVoice && window.ZPVoice.active) window.ZPVoice.feed(fullResponse, true);
+                else if (Voice.voiceToVoice || Settings.getLocal().autoRead) {
                     Voice.speak(fullResponse, true);
                 }
                 // Notify if app was minimized/background when response done (WhatsApp-style)
                 if (document.hidden || !document.hasFocus()) {
-                    try { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } catch {}
+                    // Settings → Notifications → "Play a sound for new replies"
+                    try { if (Settings.getLocal().sounds !== false) { const a=new Audio('/static/sounds/notify.mp3'); a.volume=0.6; a.play().catch(()=>{}); } } catch {}
                     if (typeof devicePush === 'function') devicePush('Zelpophai — reply ready', fullResponse.slice(0,120), 'ai-reply');
                     if (typeof showDiscordToast === 'function') showDiscordToast('Zelpophai AI', 'New reply', fullResponse.slice(0,80), 'Z');
                     // Also try native notification directly

@@ -32,6 +32,15 @@ const Settings = {
         speechRate: 1,
         textSize: 'normal',
         enterSends: true,
+        chatWidth: 'normal',
+        sounds: true,
+        sendOnVoice: true,
+        autoRead: false,
+        showTime: false,
+        animations: true,
+        askBeforeDelete: true,
+        startPage: 'new',
+        language: '',
     },
     serverSettings: null,
 
@@ -133,7 +142,9 @@ const Settings = {
                         + (owner ? '' : row('Colour', 'Used for buttons and your message bubbles.', `<div class="zst-swatches" data-seg="accent" role="radiogroup">${ACC.map(([v, l]) => `<button type="button" role="radio" aria-checked="${(s.accent || '').toLowerCase() === v}" class="${(s.accent || '').toLowerCase() === v ? 'on' : ''}" data-v="${v}" title="${l}" aria-label="${l}" style="--c:${v}"></button>`).join('')}</div>`))
                         + row('Text size', 'How big the words in your chats are.', seg('textSize', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], s.textSize || 'normal'))
                         + row('Space between messages', '', seg('msgSpacing', [['compact', 'Tight'], ['cozy', 'Normal'], ['spacious', 'Roomy']], s.msgSpacing))
-                        + row('Seasonal look', 'A Halloween theme from 15 October to 2 November.', seg('seasonal', [['auto', 'In season'], ['on', 'Always'], ['off', 'Never']], s.seasonal || 'auto')));
+                        + row('Seasonal look', 'A Halloween theme from 15 October to 2 November.', seg('seasonal', [['auto', 'In season'], ['on', 'Always'], ['off', 'Never']], s.seasonal || 'auto')))
+                    + group('When Zelpophai opens', row('Start with', 'What you see when you open Zelpophai.', seg('startPage', [['new', 'A new chat'], ['last', 'My last chat']], s.startPage || 'new'), 'stack')
+                        + row('Ask before deleting', 'Check with you before a chat, file or memory is deleted.', sw('askBeforeDelete', s.askBeforeDelete !== false, 'Ask before deleting')));
             },
             chat() {
                 const s = self.getLocal(), srv = self._srv || {};
@@ -144,6 +155,9 @@ const Settings = {
                         + (owner ? row('AI model', 'Only you (the Owner) see this. Auto picks the right model for each message.', `<select class="zu-in" id="model-select"></select>`, 'stack') : ''))
                     + group('Writing and reading', row('Enter sends the message', 'Off: Enter makes a new line and Ctrl + Enter sends.', sw('enterSends', s.enterSends !== false, 'Enter sends the message'))
                         + row('Formatting', 'Show headings, bold text, tables and coloured code. Off shows plain text.', sw('markdown', s.markdown, 'Formatting')))
+                    + group('On screen', row('Chat width', 'How wide messages are on a big screen.', seg('chatWidth', [['narrow', 'Narrow'], ['normal', 'Normal'], ['wide', 'Wide'], ['full', 'Full width']]), 'stack')
+                        + row('Show the time on each message', 'A small clock under every message.', sw('showTime', !!s.showTime, 'Show the time on each message'))
+                        + row('Animations', 'Fades and slides when things appear. Off can feel faster.', sw('animations', s.animations !== false, 'Animations')))
                     + group('Shortcuts', `<div class="zst-keys"><span><kbd>/</kbd> Quick commands</span><span><kbd>Ctrl</kbd><kbd>K</kbd> Search chats</span><span><kbd>Shift</kbd><kbd>Enter</kbd> New line</span><span><kbd>Esc</kbd> Close a window</span></div>`);
             },
             you() {
@@ -159,6 +173,8 @@ const Settings = {
                 return group('Talking and listening', row('Language and accent', 'Used when you speak to Zelpophai and when it reads answers aloud.', `<select class="zu-in" id="zst-lang">${LANGS.map(([v, l]) => `<option value="${v}"${s.speechLang === v ? ' selected' : ''}>${l}</option>`).join('')}</select>`, 'stack')
                         + row('Reading speed', '', `<div class="zst-range"><input type="range" id="zst-rate" min="0.5" max="2" step="0.1" value="${s.speechRate || 1}" aria-label="Reading speed"><b id="zst-rate-l">${s.speechRate || 1}×</b></div>`, 'stack')
                         + row('Try it', 'Hear how answers will sound.', '<button class="zu-btn sm" id="zst-test">Play a sample</button>'))
+                    + group('When you speak', row('Send as soon as I stop talking', 'Off: your words go in the message box and you press send yourself.', sw('sendOnVoice', s.sendOnVoice !== false, 'Send as soon as I stop talking'))
+                        + row('Read answers aloud', 'Every answer is read out, even when you typed the question.', sw('autoRead', !!s.autoRead, 'Read answers aloud')))
                     + ('speechSynthesis' in window ? '' : '<p class="zst-about">This browser can\'t read answers aloud.</p>');
             },
             alerts() {
@@ -168,6 +184,7 @@ const Settings = {
                     : p === 'unsupported' ? ['Not available', '', 'This browser doesn\'t support notifications.']
                     : ['Off', '', 'Get a notification when the team replies to your feedback, sends a message to everyone, or a reminder is due.'];
                 return group('On this device', row(`Notifications <span class="zu-tag ${state[1]}">${state[0]}</span>`, state[2], p === 'default' ? '<button class="zu-btn pri sm" id="zst-notif">Turn on</button>' : (p === 'granted' ? '<button class="zu-btn sm" id="zst-notif-test">Send a test</button>' : '')))
+                    + group('Sounds', row('Play a sound for new replies', 'A soft chime when an answer arrives while you\'re on another tab.', sw('sounds', self.getLocal().sounds !== false, 'Play a sound for new replies')))
                     + '<p class="zst-about">Notifications only arrive while Zelpophai is open in a tab or installed as an app.</p>';
             },
             account() {
@@ -204,7 +221,7 @@ const Settings = {
 
         function wire(pane) {
             const q = (id) => pane.querySelector('#' + id);
-            const LOCAL = ['theme', 'accent', 'textSize', 'msgSpacing', 'seasonal'];
+            const LOCAL = ['theme', 'accent', 'textSize', 'msgSpacing', 'seasonal', 'chatWidth', 'startPage'];
             pane.querySelectorAll('[data-seg]').forEach((g) => g.addEventListener('click', (e) => {
                 const b = e.target.closest('[data-v]'); if (!b) return;
                 g.querySelectorAll('[data-v]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', x === b); });
@@ -378,7 +395,11 @@ const Settings = {
                 });
             }
         }
-        document.documentElement.dataset.zstText = s.textSize || 'normal';
+        const R = document.documentElement;
+        R.dataset.zstText = s.textSize || 'normal';
+        R.dataset.zstWidth = s.chatWidth || 'normal';
+        R.classList.toggle('zst-no-anim', s.animations === false);
+        R.classList.toggle('zst-times', !!s.showTime);
         const container = $('chat-container');
         if (container) {
             container.style.gap = s.msgSpacing === 'compact' ? '10px' : s.msgSpacing === 'spacious' ? '30px' : '20px';

@@ -166,7 +166,7 @@ async def list_files(request: Request, chat_id: int = None, db: AsyncSession = D
     query = select(UploadedFile).where(UploadedFile.user_id == user.id)
     if chat_id:
         query = query.where(UploadedFile.chat_id == chat_id)
-    result = await db.execute(query.order_by(UploadedFile.created_at.desc()).limit(50))
+    result = await db.execute(query.order_by(UploadedFile.created_at.desc()).limit(300))
     files = result.scalars().all()
     return {"files": [FileInfoResponse.model_validate(f) for f in files]}
 
@@ -249,6 +249,25 @@ async def read_file(file_id: int, request: Request, db: AsyncSession = Depends(g
         return {"filename": db_file.filename, "type": "text", "source": "text", "content": _safe_text(content)}
     except Exception:
         raise HTTPException(status_code=400, detail="Cannot read this file type")
+
+
+@router.post("/delete-many")
+async def delete_many_files(request: Request, db: AsyncSession = Depends(get_db)):
+    """Delete several of your files at once."""
+    user = await get_current_user_from_cookie(request, db)
+    body = await request.json()
+    ids = [int(i) for i in (body.get("ids") or []) if str(i).isdigit()][:300]
+    if not ids:
+        raise HTTPException(status_code=400, detail="Choose at least one file.")
+    rows = (await db.execute(select(UploadedFile).where(UploadedFile.id.in_(ids), UploadedFile.user_id == user.id))).scalars().all()
+    for f in rows:
+        try:
+            os.remove(os.path.join(UPLOAD_DIR, f.stored_name))
+        except OSError:
+            pass
+        await db.delete(f)
+    await db.commit()
+    return {"deleted": len(rows)}
 
 
 @router.delete("/{file_id}")

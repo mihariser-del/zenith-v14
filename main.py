@@ -47,10 +47,16 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.5.1"
+VERSION = "22.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.6 Coding AGT. is now its own app at zelpophai.up.railway.app/code — tapping it no longer flashes the old code box first. New start page where you type what you want to build, a quieter professional look in light or dark, panels you can hide and drag to resize, search in all your files, a command box (Ctrl K), a live preview at phone, tablet or full width, and a status bar. You can install it on your phone or computer as a separate app with its own icon",
+    "22.6 Brand-new Knowledge, Files and Reminders windows: collections you can rename and search inside, file pictures and previews with multi-select delete, and reminders with quick times, repeat, snooze and editing",
+    "22.6 Voice conversation: tap Talk next to the microphone and just speak. Zelpophai answers out loud sentence by sentence as it thinks, you can cut in any time by tapping the circle or pressing Space, and you can pick the exact voice and speed",
+    "22.6 Hover your name at the bottom of the sidebar for a new account card: your plan, how many messages you have left today, a quick theme switch and shortcuts to everything",
+    "22.6 More settings: chat width, time on each message, animations on or off, sounds for new replies, read answers aloud, send as soon as you stop talking, what you see when Zelpophai opens, and ask-before-deleting",
+    "22.6 Fixed: the sidebar no longer looks broken on tablets and half-size windows",
     "22.5.1 The maintenance screen no longer traps you: it now has a Log out button, so you can leave your account while Zelpophai is paused",
     "22.5 Brand-new Settings: one tidy window with sections down the side — General, Chat, Personality & memory, Voice, Notifications, Account and About. Everything saves by itself as you change it, so there is no Save button any more",
     "New in Settings: pick your theme from pictures, six colours, text size (small, normal, large), answer length and style in plain words, a switch for whether Enter sends your message, 20 voice languages with a Play a sample button, and a notifications page that tells you how to switch them on",
@@ -145,6 +151,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.6 Owner: delete feedback in bulk — Vault → Feedback → “Delete many…” removes finished items, star ratings only, one status, or everything, with a count before you confirm and an option to keep ideas that are on the public board",
     "22.5.1 Owner and helpers: maintenance and lock no longer shut you out. On the paused screen there is now an \"Owner or helper? Sign in\" button, and once you're in you keep using Zelpophai normally with a small yellow notice at the top instead of the full-screen block",
     "22.5 Vault: Settings is rebuilt into four tabs — My Vault (theme, lock after 2, 5 or 15 minutes, starting time range, desktop alerts, PIN), Site setup (email, paid plans and Google sign-in with a status strip on top), Data & exports, and About",
     "22.4 Owner: detailed admin permissions. Vault → Staff & permissions → Edit permissions opens a full page for each admin with 21 switches in 7 groups (people, conversations, feedback, safety, broadcasts and team chat, stats and logs, site controls), four quick setups (Full admin, Moderator, Support, Read-only), copy from another admin, daily limits for bans, password resets, deletions and broadcasts, an end date after which they stop being an admin by themselves, and a private note. Every change is written to the activity log",
@@ -751,7 +758,7 @@ async def list_reminders(request: Request, db=Depends(get_db)):
         select(Reminder).where(Reminder.user_id == user.id).order_by(Reminder.next_run_at)
     )
     return {"reminders": [
-        {"id": r.id, "text": r.text, "next_run_at": r.next_run_at.isoformat(), "repeat_days": r.repeat_days}
+        {"id": r.id, "text": r.text, "next_run_at": (r.next_run_at if r.next_run_at.tzinfo else r.next_run_at.replace(tzinfo=timezone.utc)).isoformat(), "repeat_days": r.repeat_days}
         for r in result.scalars().all()
     ]}
 
@@ -776,6 +783,37 @@ async def create_reminder(req: ReminderRequest, request: Request, db=Depends(get
     await db.commit()
     await db.refresh(reminder)
     return {"message": "Reminder scheduled", "id": reminder.id}
+
+
+@app.patch("/api/reminders/{reminder_id}")
+async def update_reminder(reminder_id: int, request: Request, db=Depends(get_db)):
+    """Edit a reminder: its text, when it goes off, or how often it repeats. Also used for snooze."""
+    user = await get_current_user_from_cookie(request, db)
+    rem = (await db.execute(select(Reminder).where(Reminder.id == reminder_id, Reminder.user_id == user.id))).scalar_one_or_none()
+    if not rem:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    body = await request.json()
+    if "text" in body:
+        text = str(body.get("text") or "").strip()
+        if not text:
+            raise HTTPException(status_code=400, detail="Write what to remind you about.")
+        rem.text = text[:500]
+    if "run_at" in body:
+        try:
+            nxt = datetime.fromisoformat(str(body["run_at"]).replace("Z", "+00:00"))
+            nxt = (nxt if nxt.tzinfo else nxt.replace(tzinfo=timezone.utc)).astimezone(timezone.utc)
+        except Exception:
+            raise HTTPException(status_code=400, detail="That date and time isn't valid.")
+        if nxt < datetime.now(timezone.utc):
+            raise HTTPException(status_code=400, detail="Pick a time in the future.")
+        rem.next_run_at = nxt
+    if "repeat_days" in body:
+        try:
+            rem.repeat_days = max(0, min(365, int(body.get("repeat_days") or 0)))
+        except Exception:
+            rem.repeat_days = 0
+    await db.commit()
+    return {"id": rem.id, "text": rem.text, "next_run_at": (rem.next_run_at if rem.next_run_at.tzinfo else rem.next_run_at.replace(tzinfo=timezone.utc)).isoformat(), "repeat_days": rem.repeat_days}
 
 
 @app.post("/api/reminders/{reminder_id}/delete")
@@ -1013,9 +1051,17 @@ async def vault_auth_page():
     return FileResponse("static/vault-auth.html")
 
 
-@app.get("/app/coding-agent", response_class=HTMLResponse)
-async def coding_agent_page():
+@app.get("/code", response_class=HTMLResponse)
+async def coding_agent_app():
+    # Coding AGT. is its own app with its own address, start page and install icon.
     return FileResponse("static/coding-agent.html")
+
+
+@app.get("/app/coding-agent")
+async def coding_agent_page(request: Request):
+    # Old address: carry on to the new one (keeps ?project=…).
+    q = request.url.query
+    return RedirectResponse(url="/code" + (f"?{q}" if q else ""), status_code=302)
 
 
 def _legal_page(name: str) -> HTMLResponse:

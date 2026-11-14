@@ -41,7 +41,7 @@
     const VER_RE = /^(\d+\.\d+(?:\.\d+)?)\s+/;
     // Keyword → "Try it" action. First match wins.
     const TRY = [
-        [/Coding AGT/i, { label: 'Open Coding AGT.', go: '/app/coding-agent' }],
+        [/Coding AGT/i, { label: 'Open Coding AGT.', go: '/code' }],
         [/\bapp is here|Windows and Android|\/download\b/i, { label: 'Get the app', go: '/download' }],
         [/invit/i, { label: 'Invite friends', click: 'invite-btn' }],
         [/remind/i, { label: 'Try it', ask: 'Remind me tomorrow at 9am to ' }],

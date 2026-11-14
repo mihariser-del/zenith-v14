@@ -117,6 +117,7 @@
     }
     function showLeft() {
         if (!S.status) return;
+        document.dispatchEvent(new CustomEvent('ca:status'));
         $('ca-left').textContent = S.status.tier === 'owner' ? 'Unlimited' : `${S.status.left} of ${S.status.limit} left today`;
     }
 
@@ -163,6 +164,7 @@
         if (S.project.id) try { localStorage.setItem('ca_last_project', String(S.project.id)); } catch (e) {}
         if (!readOnly) $('ca-preview-empty').hidden = false;
         if (S.project.kind === 'python' || S.project.kind === 'sql') showOut('console');
+        document.dispatchEvent(new CustomEvent('ca:project'));
     }
 
     function openFile(path) {
@@ -173,6 +175,7 @@
         renderTree(); renderTabs();
         setTimeout(() => S.cm.refresh(), 0);
         mobileView('code');
+        document.dispatchEvent(new CustomEvent('ca:file'));
     }
 
     function closeTab(path) {
@@ -203,16 +206,17 @@
     function runtimeNote() {
         const k = runKind();
         $('ca-runtime-note').innerHTML = {
-            web: '🌐 <b>Website</b> — runs in the Preview panel.',
-            python: '🐍 <b>Python</b> — runs in your browser. Charts and output show in the Console.',
-            sql: '🗄️ <b>SQL</b> — runs on SQLite in your browser.',
-            none: (window.zelpophaiDesktop ? '💻 Runs on <b>this computer</b> (Python, Node, Java, C/C++, Go, Ruby, PHP — if installed).' : '📦 This file type can be written here and downloaded. Run it in the Zelpophai Windows app or on your computer.'),
+            web: '<b>Website</b> — runs in the Preview panel.',
+            python: '<b>Python</b> — runs in your browser. Charts and output show in the Console.',
+            sql: '<b>SQL</b> — runs on SQLite in your browser.',
+            none: (window.zelpophaiDesktop ? 'Runs on <b>this computer</b> (Python, Node, Java, C/C++, Go, Ruby, PHP — if installed).' : 'This file type can be written here and downloaded. Run it in the Zelpophai Windows app or on your computer.'),
         }[k];
         $('ca-run-label').textContent = k === 'python' ? 'Run Python' : k === 'sql' ? 'Run SQL' : 'Run';
+        document.dispatchEvent(new CustomEvent('ca:kind', { detail: k }));
     }
 
     /* ─────────────────────────── save / load ── */
-    function setSave(t) { $('ca-save').textContent = t || ''; }
+    function setSave(t) { $('ca-save').textContent = t || ''; document.dispatchEvent(new CustomEvent('ca:save', { detail: t || '' })); }
     function scheduleSave() {
         clearTimeout(S.saveTimer);
         setSave('Unsaved changes');
@@ -240,6 +244,7 @@
             }
             S.dirty.clear(); renderTree(); renderTabs();
             setSave('Saved');
+            document.dispatchEvent(new CustomEvent('ca:saved'));
             if (manual) toast('Saved');
         } catch (e) { setSave('Not saved'); if (manual) toast(e.message || 'Save failed', 'error'); }
     }
@@ -302,7 +307,7 @@
                 const del = e.target.closest('[data-del]');
                 if (del) {
                     e.stopPropagation();
-                    if (!confirm('Delete this project for good?')) return;
+                    if (!(await (window.ZPop ? window.ZPop.confirm('Delete this project?', 'The project and all its files will be removed for good.', { danger: true, okText: 'Delete', icon: 'trash' }) : Promise.resolve(confirm('Delete this project for good?'))))) return;
                     try { await api('/api/code/projects/' + del.dataset.del, { method: 'DELETE' }); del.closest('.ca-proj').remove(); toast('Project deleted'); } catch (err) { toast(err.message, 'error'); }
                     return;
                 }
@@ -315,7 +320,7 @@
     }
 
     function showNew() {
-        modal('New project', '<div class="ca-tpl">' + Object.entries(TEMPLATES).map(([k, t]) => `<button data-t="${k}"><span class="em">${t.emoji}</span><b>${t.title}</b><span>${t.desc}</span></button>`).join('') + '</div>');
+        modal('New project', '<div class="ca-tpl">' + Object.entries(TEMPLATES).map(([k, t]) => `<button data-t="${k}"><b>${t.title}</b><span>${t.desc}</span></button>`).join('') + '</div>');
         $('ca-modal-b').onclick = async e => {
             const b = e.target.closest('[data-t]'); if (!b) return;
             if (S.dirty.size) await save(false);
@@ -342,7 +347,7 @@
 
     async function downloadZip() {
         try {
-            if (!window.JSZip) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+            if (!window.JSZip) await loadScript('/static/vendor/jszip-3.10.1.min.js');
             const zip = new JSZip();
             Object.entries(S.project.files).forEach(([p, c]) => zip.file(p, c));
             const blob = await zip.generateAsync({ type: 'blob' });
@@ -796,11 +801,15 @@ onmessage = async (ev) => {
             if (isGuest()) { location.href = '/'; return; }
             try {
                 const p = await api('/api/code/projects', { method: 'POST', body: JSON.stringify({ name: S.project.name + ' (copy)', kind: S.project.kind, files: S.project.files }) });
-                location.href = '/app/coding-agent?project=' + p.id;
+                location.href = '/code?project=' + p.id;
             } catch (e) { toast(e.message, 'error'); }
         };
         addEventListener('beforeunload', e => { if (S.dirty.size && !S.shared) { save(false); } });
     }
 
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot); else boot();
+    // What the app shell (coding-agent-shell.js) needs: start page, palette, settings, status bar.
+    window.CA = { S, TEMPLATES, clone, loadProject, openFile, closeTab, save, run, addFile, share, downloadZip, showOut, askAgent, isGuest, toast, esc, ext, modal, closeModal, clearConsole,
+        resetChat() { S.history = []; $('ca-chat').querySelectorAll('.ca-msg').forEach(n => n.remove()); $('ca-hello').hidden = false; },
+        ready: null };
+    window.CA.ready = (document.readyState === 'loading') ? new Promise(r => document.addEventListener('DOMContentLoaded', () => boot().then(r, r))) : boot();
 })();

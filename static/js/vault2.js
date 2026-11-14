@@ -1388,10 +1388,33 @@
       <div class="card fade mt">${fbTabs('', first.counts)}
         <div class="toolbar" style="margin-top:12px"><input class="input" id="fb-q" placeholder="Search feedback or a name…" autocomplete="off">
           <select class="select" id="fb-kind" style="width:auto"><option value="">All types</option>${Object.entries(first.kinds).map(([kk, l]) => `<option value="${kk}">${esc(l)}</option>`).join('')}</select>
-          <span class="muted small" id="fb-total" style="margin-left:auto"></span></div>
+          <span class="muted small" id="fb-total" style="margin-left:auto"></span>${S.owner ? '<button class="btn sm danger" id="fb-wipe">Delete many…</button>' : ''}</div>
         <div class="chips" id="fb-status" style="margin-bottom:12px"></div>
         <div id="fb-list"></div>
         <div class="pager"><span id="fb-range"></span><span><button class="btn sm" id="fb-prev">‹ Prev</button> <button class="btn sm" id="fb-next">Next ›</button></span></div></div>`;
+    if ($('fb-wipe')) $('fb-wipe').onclick = () => {
+      const OPT = [['finished', 'Finished feedback', 'Everything marked Done or Not planned.'], ['ratings', 'Star ratings only', 'The quick star ratings people leave, without a message.'],
+        ['status:' + (['open', 'unread', 'all'].includes(st.status) ? 'new' : st.status), ['open', 'unread', 'all'].includes(st.status) ? 'New feedback nobody has opened' : 'Only “' + ({ in_progress: 'In progress', planned: 'Planned', done: 'Done', declined: 'Not planned', seen: 'Seen', new: 'New' }[st.status] || st.status) + '”', 'Just the items with that status.'],
+        ['all', 'Everything', 'Every piece of feedback, every request and every reply.']];
+      modal(`<h3>Delete feedback</h3><p>Choose what to delete. Messages, replies and screenshots are removed for good — this can't be undone.</p>
+        <div class="fb-wipe">${OPT.map(([v, l, d2], i) => `<label><input type="radio" name="fbw" value="${v}"${i === 0 ? ' checked' : ''}><span><b>${l}</b><small>${d2}</small></span></label>`).join('')}</div>
+        <label class="fb-keep"><input type="checkbox" id="fbw-keep" checked> Keep ideas that are on the public Ideas board</label>
+        <div class="muted small" id="fbw-count" style="margin-top:10px">Counting…</div>
+        <div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn danger solid" id="fbw-go" disabled>Delete</button></div>`, (close) => {
+        const pick = () => ({ which: $('modal-box').querySelector('[name=fbw]:checked').value, keep_board: $('fbw-keep').checked });
+        const count = async () => {
+          $('fbw-go').disabled = true; $('fbw-count').textContent = 'Counting…';
+          try { const r = await api('/api/vault/feedback/delete-many', { method: 'POST', body: { ...pick(), count_only: true } }); $('fbw-count').innerHTML = r.count ? `This will delete <b>${fmt.n(r.count)}</b> item${r.count === 1 ? '' : 's'}.` : 'Nothing matches — there is nothing to delete.'; $('fbw-go').disabled = !r.count; $('fbw-go').textContent = r.count ? `Delete ${fmt.n(r.count)}` : 'Delete'; }
+          catch (e) { $('fbw-count').textContent = e.message; }
+        };
+        $('modal-box').querySelectorAll('[name=fbw], #fbw-keep').forEach((i) => i.onchange = count); count();
+        $('fbw-go').onclick = async () => {
+          const p = pick(); close();
+          if (!(await confirmBox('Delete this feedback for good?', p.which === 'all' ? 'Everything in the inbox will be removed. This can\'t be undone.' : 'The chosen feedback will be removed. This can\'t be undone.', 'Yes, delete', true))) return;
+          try { const r = await api('/api/vault/feedback/delete-many', { method: 'POST', body: p }); toast(`Deleted ${fmt.n(r.deleted)} item${r.deleted === 1 ? '' : 's'}`); route(); } catch (e) { toast(e.message, true); }
+        };
+      });
+    };
     const draw = (d) => {
       const SC = [['open', 'Open'], ['unread', 'Needs reply'], ['in_progress', 'In progress'], ['planned', 'Planned'], ['done', 'Done'], ['declined', 'Not planned'], ['all', 'Everything']];
       $('fb-status').innerHTML = SC.map(([kk, l]) => `<button class="chip${kk === st.status ? ' on' : ''}" data-s="${kk}">${l} <span class="muted">${d.counts[kk] || 0}</span></button>`).join('');

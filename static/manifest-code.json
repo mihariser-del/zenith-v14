@@ -1,0 +1,16 @@
+{
+  "name": "Coding AGT. by Zelpophai",
+  "short_name": "Coding AGT.",
+  "description": "Write, run and share code with an AI agent.",
+  "id": "/code",
+  "start_url": "/code",
+  "scope": "/code",
+  "display": "standalone",
+  "background_color": "#0b0f14",
+  "theme_color": "#0b0f14",
+  "orientation": "any",
+  "icons": [
+    { "src": "/static/icons/code-app-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/static/icons/code-app-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

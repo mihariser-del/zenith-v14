@@ -613,7 +613,7 @@ async def _auto_title(chat_id, user_text):
     yield _sse({"title": title, "chat_id": chat_id})
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False):
     user_id = None
     messages = []
     user_model = "openai/gpt-6-luna"
@@ -690,6 +690,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_temperature = 0.3
 
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
+    if voice and not (research or factcheck):
+        # Voice conversation: the reply is read aloud, so it must sound like talking.
+        system_prompt += ("\n\nVOICE CONVERSATION: The person is talking to you out loud and your reply will be spoken by a text-to-speech voice. "
+                          "Answer the way a friendly person talks: usually 1 to 3 short sentences, plain words, no markdown, no lists, no headings, no emoji, "
+                          "no code blocks and no links. If the honest answer is long, give the short version and offer to say more. "
+                          "Write numbers and symbols so they read naturally aloud.")
     # Tell the AI what it can actually do for THIS user (tools, plan, what's left today).
     try:
         from tools_prompt import capabilities_prompt

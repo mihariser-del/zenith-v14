@@ -1,5 +1,25 @@
 ﻿# Changelog
 
+## 22.6 — Coding AGT. as its own app, new Knowledge/Files/Reminders, voice conversation, account card, bulk feedback delete
+
+**Coding AGT.**
+- Own address `/code` (`/app/coding-agent` redirects, keeping `?project=`), own manifest (`manifest-code.json`), own icon, own scope, so it installs separately. The sidebar button navigates straight there instead of opening `CodeExec` first.
+- `coding-agent.html` rebuilt: activity rail, start page (describe-and-build, templates, your projects with copy/delete), command palette (Ctrl K), search in all files (Ctrl Shift F), hide/drag-resize panels (Ctrl B/J/I), device preview widths, breadcrumb and status bar, editor settings (theme, text size, indent, wrap, line numbers, run-on-save).
+- `coding-agent.css` rewritten (neutral palette, light + dark via `html[data-ca-theme]`); `coding-agent-shell.js` is new; `coding-agent.js` now emits `ca:*` events and exposes `window.CA`.
+- CodeMirror, marked, DOMPurify, highlight.js and JSZip are self-hosted in `static/vendor/` (also swapped in app.html and share.html) — no CDN calls.
+
+**Voice** — `voicechat.js`: full-screen conversation, streaming sentence-by-sentence TTS, barge-in (tap/Space), mic level on the orb, voice + speed picker, 30-min free cap reused. `voice=true` reaches `stream_chat` and adds a "speak like a person" block to the prompt. `Voice.speak` now honours the chosen language/voice.
+
+**Knowledge / Files / Reminders** — `library.js` replaces the three old modals. New endpoints: `PATCH /api/knowledge/{id}`, `PATCH /api/knowledge/{id}/items/{item}`, `POST /api/files/delete-many`, `PATCH /api/reminders/{id}`; knowledge search now checks collection ownership; file list limit 50 → 300; reminder times are returned as UTC-aware.
+
+**Account card** — `acctmenu.js`: hover/tap the user row for plan, today's usage meter, theme switch and shortcuts; replaces the old 901–1100px avatar popup.
+
+**Settings** — chatWidth, showTime, animations, sounds, autoRead, sendOnVoice, startPage, askBeforeDelete; all wired (CSS vars/classes, chat.js, voice.js, confirm.js).
+
+**Vault** — `POST /api/vault/feedback/delete-many` (owner only; all / finished / ratings / status / kind, optional keep-board, `count_only` preview), with a picker in the feedback inbox.
+
+**Fix** — the 901–1100px icon rail: group labels became dividers, chat rows are square icons in both themes, and the bottom icon grid no longer clips.
+
 ## 22.5.1 — Maintenance no longer blocks log in / log out
 
 - `ZPop.systemScreen(kind, { signedIn })`: a Log out button for signed-in people, or "Owner or helper? Sign in" (username + password → `/api/auth/login`, friendly message on 503) on the welcome page, where the login form used to be wiped out with the rest of the page.

@@ -1,127 +1,175 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-ca-theme="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>Coding AGT. · Zelpophai AI</title>
-    <meta name="theme-color" content="#070a17">
-    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
-    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/favicon-32-v2.png">
-    <link rel="manifest" href="/static/manifest.json?v=2">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <title>Coding AGT. — write, run and share code with AI</title>
+    <meta name="description" content="Coding AGT. by Zelpophai: an online code editor with an AI agent. Build websites, Python scripts and SQL, run them in your browser and share them.">
+    <meta name="theme-color" content="#0b0f14">
+    <link rel="icon" type="image/svg+xml" href="/static/icons/code-app.svg">
+    <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/code-app-32.png">
+    <link rel="apple-touch-icon" href="/static/icons/code-app-192.png">
+    <link rel="manifest" href="/static/manifest-code.json">
+    <script>try { var t = JSON.parse(localStorage.getItem('ca_prefs') || '{}').theme || 'dark'; if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; document.documentElement.dataset.caTheme = t; } catch (e) {}</script>
+    <link rel="stylesheet" href="/static/vendor/codemirror/codemirror.css">
+    <link rel="stylesheet" href="/static/vendor/hljs-atom-one-dark.min.css">
     <link rel="stylesheet" href="/static/css/render.css">
     <link rel="stylesheet" href="/static/css/coding-agent.css">
 </head>
 <body>
 <div class="ca-app" id="ca-app">
     <header class="ca-top">
-        <a class="ca-brand" href="/app" title="Back to Zelpophai AI">
-            <span class="ca-logo">Z</span>
+        <button class="ca-brand" id="ca-home-btn" title="Start page" aria-label="Start page">
+            <span class="ca-logo"><svg class="ca-mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.5 7L4 12l4.5 5M15.5 7L20 12l-4.5 5M13.5 5l-3 14"/></svg></span>
             <span class="ca-brand-t">Coding <b>AGT.</b></span>
-        </a>
+        </button>
+        <span class="ca-sep" aria-hidden="true">/</span>
         <input class="ca-name" id="ca-name" value="Untitled project" maxlength="80" aria-label="Project name" spellcheck="false">
         <span class="ca-save" id="ca-save" aria-live="polite"></span>
+        <button class="ca-palette" id="ca-palette-btn" title="Search files and commands (Ctrl+K)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><span>Search files and commands</span><kbd>Ctrl K</kbd></button>
         <div class="ca-top-actions">
-            <button class="ca-btn" id="ca-projects-btn" title="Your projects" aria-haspopup="menu">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Projects</span></button>
-            <button class="ca-btn" id="ca-new-btn" title="New project">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
-            <button class="ca-btn" id="ca-share-btn" title="Share a read-only link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg><span>Share</span></button>
-            <button class="ca-btn" id="ca-zip-btn" title="Download the project as a .zip">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg><span>.zip</span></button>
-            <button class="ca-run" id="ca-run-btn" title="Run (Ctrl+Enter)">
-                <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg><span id="ca-run-label">Run</span></button>
+            <div class="ca-layout" role="group" aria-label="Show or hide panels">
+                <button class="ca-icon" id="ca-tog-side" title="Files panel" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/></svg></button>
+                <button class="ca-icon" id="ca-tog-out" title="Preview and console" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 14h18"/></svg></button>
+                <button class="ca-icon" id="ca-tog-ai" title="AI agent" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M15 4v16"/></svg></button>
+            </div>
+            <button class="ca-btn" id="ca-projects-btn" title="Your projects" aria-haspopup="menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Projects</span></button>
+            <button class="ca-btn" id="ca-new-btn" title="New project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg><span>New</span></button>
+            <button class="ca-btn" id="ca-share-btn" title="Share a read-only link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.800 4M15.4 6.5l-6.800 4"/></svg><span>Share</span></button>
+            <button class="ca-btn" id="ca-zip-btn" title="Download the project as a .zip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg><span>Download</span></button>
+            <button class="ca-run" id="ca-run-btn" title="Run (Ctrl+Enter)"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span id="ca-run-label">Run</span></button>
         </div>
     </header>
 
     <div class="ca-banner" id="ca-banner" hidden>
-        <span class="ca-banner-ic">⚠️</span>
+        <span class="ca-banner-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.5v.01"/></svg></span>
         <div class="ca-banner-t">
-            <b>The website version of Coding AGT. has limits.</b>
+            <b>The website version has limits.</b>
             <span id="ca-banner-text">Free accounts get 5 AI coding requests a day, and code only runs inside your browser (websites, Python, SQL).</span>
-            <span>Get the <b>Zelpophai app</b> to run your code on your own device with any language.</span>
+            <span>Get the <b>Zelpophai app</b> to run code on your own device in any language.</span>
         </div>
         <div class="ca-banner-actions">
-            <a class="ca-btn primary" href="/download">Download the app</a>
-            <a class="ca-btn" href="/app?upgrade=1" id="ca-banner-upgrade">Upgrade</a>
+            <a class="ca-btn primary" href="/download">Get the app</a>
+            <a class="ca-btn" href="/app?upgrade=1" id="ca-banner-upgrade">Plans</a>
             <button class="ca-x" id="ca-banner-x" aria-label="Hide for now">×</button>
         </div>
     </div>
 
     <div class="ca-shared" id="ca-shared" hidden>
-        <span>👀 You're viewing a shared project (read-only).</span>
-        <button class="ca-btn primary" id="ca-copy-shared">Open my own copy</button>
+        <span>You're viewing a shared project. You can look around and run it, but not change it.</span>
+        <button class="ca-btn primary" id="ca-copy-shared">Make my own copy</button>
     </div>
 
-    <main class="ca-main" id="ca-main" data-view="code">
-        <aside class="ca-files" id="ca-files" aria-label="Files">
-            <div class="ca-pane-h">
-                <span>Files</span>
-                <button class="ca-icon" id="ca-add-file" title="New file" aria-label="New file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M12 12v6M9 15h6"/></svg></button>
-            </div>
-            <ul class="ca-tree" id="ca-tree" role="listbox"></ul>
-            <div class="ca-files-foot" id="ca-runtime-note"></div>
-        </aside>
+    <div class="ca-body">
+        <nav class="ca-rail" aria-label="Sections">
+            <button class="ca-rail-b" id="ca-rail-home" title="Start page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg></button>
+            <button class="ca-rail-b on" id="ca-rail-files" title="Files"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/></svg></button>
+            <button class="ca-rail-b" id="ca-rail-search" title="Search in all files (Ctrl+Shift+F)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button>
+            <button class="ca-rail-b" id="ca-rail-ai" title="AI agent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/></svg></button>
+            <span class="ca-rail-gap"></span>
+            <button class="ca-rail-b" id="ca-rail-keys" title="Keyboard shortcuts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg></button>
+            <button class="ca-rail-b" id="ca-rail-settings" title="Editor settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M2 12h3M19 12h3M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button>
+            <a class="ca-rail-b" id="ca-rail-back" href="/app" title="Back to Zelpophai AI"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/></svg></a>
+        </nav>
 
-        <section class="ca-editor" aria-label="Editor">
-            <div class="ca-tabs" id="ca-tabs" role="tablist"></div>
-            <div class="ca-cm" id="ca-cm"></div>
-        </section>
-
-        <section class="ca-output" aria-label="Output">
-            <div class="ca-pane-h ca-out-tabs">
-                <button class="on" data-out="preview">Preview</button>
-                <button data-out="console">Console <i id="ca-console-count"></i></button>
-                <span class="ca-flex"></span>
-                <button class="ca-icon" id="ca-pop" title="Open preview in a new tab" aria-label="Open preview in new tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-                <button class="ca-icon" id="ca-clear" title="Clear console" aria-label="Clear console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></button>
-            </div>
-            <div class="ca-out-body">
-                <div class="ca-preview" id="ca-preview-wrap">
-                    <iframe id="ca-preview" title="Preview" sandbox="allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock"></iframe>
-                    <div class="ca-empty" id="ca-preview-empty">Press <b>Run</b> to see your page here.</div>
+        <main class="ca-main" id="ca-main" data-view="code">
+            <aside class="ca-files" id="ca-files" aria-label="Files">
+                <div class="ca-side-view" id="ca-side-files">
+                    <div class="ca-pane-h">
+                        <span>Explorer</span>
+                        <button class="ca-icon" id="ca-add-file" title="New file" aria-label="New file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M12 11v6M9 14h6"/></svg></button>
+                    </div>
+                    <ul class="ca-tree" id="ca-tree" role="listbox"></ul>
+                    <div class="ca-files-foot" id="ca-runtime-note"></div>
                 </div>
-                <div class="ca-console" id="ca-console" hidden></div>
-            </div>
-            <div class="ca-fix" id="ca-fix" hidden>
-                <span>Something went wrong.</span>
-                <button class="ca-btn primary" id="ca-fix-btn">✨ Fix with AI</button>
-            </div>
-        </section>
+                <div class="ca-side-view" id="ca-side-search" hidden>
+                    <div class="ca-pane-h"><span>Search</span></div>
+                    <div class="ca-find"><input id="ca-find-q" class="ca-field" placeholder="Find in all files…" autocomplete="off" spellcheck="false"><div class="ca-find-n" id="ca-find-n"></div></div>
+                    <div class="ca-find-list" id="ca-find-list"></div>
+                </div>
+            </aside>
+            <div class="ca-resize" id="ca-rz-side" role="separator" aria-orientation="vertical" aria-label="Resize files panel" tabindex="0"></div>
 
-        <aside class="ca-ai" id="ca-ai" aria-label="AI coding agent">
-            <div class="ca-pane-h">
-                <span class="ca-ai-title"><span class="ca-logo sm">Z</span> AI agent</span>
-                <span class="ca-left" id="ca-left"></span>
-            </div>
-            <div class="ca-chat" id="ca-chat">
-                <div class="ca-hello" id="ca-hello">
-                    <h3>What should we build?</h3>
-                    <p>Describe it and I'll write the code. I can also explain, fix errors and add features.</p>
-                    <div class="ca-sugg">
-                        <button>Make a to-do list app</button>
-                        <button>Build a snake game</button>
-                        <button>Explain this code</button>
-                        <button>Add a dark mode toggle</button>
+            <section class="ca-editor" aria-label="Editor">
+                <div class="ca-tabs" id="ca-tabs" role="tablist"></div>
+                <div class="ca-crumb" id="ca-crumb"></div>
+                <div class="ca-cm" id="ca-cm"></div>
+            </section>
+            <div class="ca-resize" id="ca-rz-out" role="separator" aria-orientation="vertical" aria-label="Resize preview panel" tabindex="0"></div>
+
+            <section class="ca-output" aria-label="Output">
+                <div class="ca-pane-h ca-out-tabs">
+                    <button class="on" data-out="preview">Preview</button>
+                    <button data-out="console">Console <i id="ca-console-count"></i></button>
+                    <span class="ca-flex"></span>
+                    <div class="ca-devices" id="ca-devices" role="group" aria-label="Preview size">
+                        <button class="ca-icon on" data-w="" title="Full width"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg></button>
+                        <button class="ca-icon" data-w="768" title="Tablet"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M11 18h2"/></svg></button>
+                        <button class="ca-icon" data-w="390" title="Phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></button>
+                    </div>
+                    <button class="ca-icon" id="ca-pop" title="Open preview in a new tab" aria-label="Open preview in new tab"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></svg></button>
+                    <button class="ca-icon" id="ca-clear" title="Clear console" aria-label="Clear console"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6l12.8 12.8"/></svg></button>
+                </div>
+                <div class="ca-out-body">
+                    <div class="ca-preview" id="ca-preview-wrap">
+                        <iframe id="ca-preview" title="Preview" sandbox="allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock"></iframe>
+                        <div class="ca-empty" id="ca-preview-empty"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></span>Press <b>Run</b> to see your page here.</div>
+                    </div>
+                    <div class="ca-console" id="ca-console" hidden></div>
+                </div>
+                <div class="ca-fix" id="ca-fix" hidden>
+                    <span>Something went wrong.</span>
+                    <button class="ca-btn primary" id="ca-fix-btn">Fix with AI</button>
+                </div>
+            </section>
+            <div class="ca-resize" id="ca-rz-ai" role="separator" aria-orientation="vertical" aria-label="Resize AI panel" tabindex="0"></div>
+
+            <aside class="ca-ai" id="ca-ai" aria-label="AI coding agent">
+                <div class="ca-pane-h">
+                    <span class="ca-ai-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z"/></svg> Agent</span>
+                    <span class="ca-left" id="ca-left"></span>
+                    <button class="ca-icon" id="ca-chat-new" title="Start a new conversation" aria-label="Start a new conversation"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>
+                </div>
+                <div class="ca-chat" id="ca-chat">
+                    <div class="ca-hello" id="ca-hello">
+                        <h3>What should we build?</h3>
+                        <p>Describe it and the agent writes the code. It can also explain, fix errors and add features.</p>
+                        <div class="ca-sugg">
+                            <button>Make a to-do list app</button>
+                            <button>Build a snake game</button>
+                            <button>Explain this code</button>
+                            <button>Add a dark mode toggle</button>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <form class="ca-ask" id="ca-ask">
-                <textarea id="ca-input" rows="2" placeholder="Ask the agent… (Enter to send, Shift+Enter for a new line)" aria-label="Message the AI agent"></textarea>
-                <button class="ca-send" id="ca-send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg></button>
-            </form>
-        </aside>
-    </main>
+                <form class="ca-ask" id="ca-ask">
+                    <textarea id="ca-input" rows="2" placeholder="Ask the agent…" aria-label="Message the AI agent"></textarea>
+                    <button class="ca-send" id="ca-send" type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg></button>
+                </form>
+            </aside>
+        </main>
+    </div>
+
+    <footer class="ca-status" id="ca-status">
+        <span id="ca-st-kind" title="How this project runs"></span>
+        <span id="ca-st-save"></span>
+        <span class="ca-flex"></span>
+        <span id="ca-st-agent"></span>
+        <span id="ca-st-pos">Ln 1, Col 1</span>
+        <span id="ca-st-indent">Spaces: 2</span>
+        <span id="ca-st-lang">Plain text</span>
+    </footer>
 
     <nav class="ca-mob" id="ca-mob" aria-label="Sections">
         <button data-view="files">Files</button>
         <button data-view="code" class="on">Code</button>
         <button data-view="output">Run</button>
-        <button data-view="ai">AI</button>
+        <button data-view="ai">Agent</button>
     </nav>
 </div>
+
+<!-- start page -->
+<div class="ca-home" id="ca-home" hidden></div>
 
 <!-- dialogs -->
 <div class="ca-modal" id="ca-modal" hidden>
@@ -130,27 +178,32 @@
         <div class="ca-modal-b" id="ca-modal-b"></div>
     </div>
 </div>
+<div class="ca-pal" id="ca-pal" hidden><div class="ca-pal-card" role="dialog" aria-modal="true" aria-label="Search files and commands"><input id="ca-pal-q" placeholder="Type a file name or a command…" autocomplete="off" spellcheck="false"><div class="ca-pal-list" id="ca-pal-list" role="listbox"></div></div></div>
 
-<script src="https://cdn.jsdelivr.net/npm/marked@15.0.12/marked.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.5/purify.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/xml/xml.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/javascript/javascript.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/css/css.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/htmlmixed/htmlmixed.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/sql/sql.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/markdown/markdown.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/clike/clike.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/closebrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/edit/matchbrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/selection/active-line.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/addon/comment/comment.min.js"></script>
+<script src="/static/vendor/marked-15.0.12.min.js"></script>
+<script src="/static/vendor/purify-3.0.5.min.js"></script>
+<script src="/static/vendor/highlight-11.9.0.min.js"></script>
+<script src="/static/vendor/codemirror/codemirror.js"></script>
+<script src="/static/vendor/codemirror/mode/xml.js"></script>
+<script src="/static/vendor/codemirror/mode/javascript.js"></script>
+<script src="/static/vendor/codemirror/mode/css.js"></script>
+<script src="/static/vendor/codemirror/mode/htmlmixed.js"></script>
+<script src="/static/vendor/codemirror/mode/python.js"></script>
+<script src="/static/vendor/codemirror/mode/sql.js"></script>
+<script src="/static/vendor/codemirror/mode/markdown.js"></script>
+<script src="/static/vendor/codemirror/mode/clike.js"></script>
+<script src="/static/vendor/codemirror/addon/closebrackets.js"></script>
+<script src="/static/vendor/codemirror/addon/matchbrackets.js"></script>
+<script src="/static/vendor/codemirror/addon/active-line.js"></script>
+<script src="/static/vendor/codemirror/addon/comment.js"></script>
+<script src="/static/vendor/codemirror/addon/searchcursor.js"></script>
+<script src="/static/vendor/codemirror/addon/xml-fold.js"></script>
+<script src="/static/vendor/codemirror/addon/closetag.js"></script>
 <script src="/static/js/zpop.js"></script>
 <script src="/static/js/api.js"></script>
 <script src="/static/js/render.js"></script>
 <script src="/static/js/coding-agent.js"></script>
+<script src="/static/js/coding-agent-shell.js"></script>
 <script src="/static/js/freshness.js"></script>
 </body>
 </html>

@@ -776,6 +776,51 @@ async def staff_update(ticket_id: int, req: UpdateIn, user=Depends(require_vault
     return {"ticket": _ticket(t, staff=True)}
 
 
+@vault_router.post("/delete-many")
+async def staff_delete_many(request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Owner: delete lots of feedback at once. which = all | finished | status:<name> | kind:<name>."""
+    from auth import is_owner
+    if not is_owner(user):
+        raise HTTPException(status_code=403, detail="Only the Owner can delete feedback in bulk.")
+    body = await request.json()
+    which = str(body.get("which") or "")
+    stmt = select(FbTicket)
+    if which == "all":
+        label = "all feedback"
+    elif which == "finished":
+        stmt = stmt.where(FbTicket.status.in_(("done", "declined")))
+        label = "finished feedback (Done and Not planned)"
+    elif which == "ratings":
+        stmt = stmt.where(FbTicket.kind == "pulse")
+        label = "star ratings"
+    elif which.startswith("status:") and which[7:] in STATUSES:
+        stmt = stmt.where(FbTicket.status == which[7:])
+        label = f"feedback with status {which[7:]}"
+    elif which.startswith("kind:") and which[5:] in KINDS:
+        stmt = stmt.where(FbTicket.kind == which[5:])
+        label = f"feedback of type {which[5:]}"
+    else:
+        raise HTTPException(status_code=400, detail="Choose what to delete.")
+    if bool(body.get("keep_board")):
+        stmt = stmt.where(FbTicket.public == False)  # noqa: E712
+    rows = (await db.execute(stmt)).scalars().all()
+    if bool(body.get("count_only")):
+        return {"count": len(rows)}
+    n = 0
+    for t in rows:
+        try:
+            await _delete_ticket(db, t)
+            n += 1
+        except Exception:
+            await db.rollback()
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="feedback_delete_many", detail=f"Deleted {n} items: {label}" + (" (kept Ideas board)" if body.get("keep_board") else ""))
+    except Exception:
+        pass
+    return {"ok": True, "deleted": n}
+
+
 @vault_router.delete("/{ticket_id}")
 async def staff_delete(ticket_id: int, request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
     import perms as _perms; _perms.need(user, "feedback_manage")

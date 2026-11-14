@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 22.7 — Pictures beside each item, and a real think-mode step list
+
+**Pictures** — the router may now return `image_targets` (up to 6 named things) and `web_images_for()` fetches one photo each in parallel. `ai._place_images()` inserts a `<zimg src href alt credit>` marker above the heading / list item / bold lead-in that names each one, after the answer is written (sent as a late `{"content": …}` so the bubble re-renders, and saved with the message). Nothing matched → the old top row. `render.js` turns each marker into a `.zs-row`: photo left, that section's heading and text moved in beside it; stacks on phones.
+
+**Think mode** — `stream_chat` streams `{"step": {id, label, detail, state}}` for the real stages (planning + the planner's own steps, web search with source count and time, pictures, writing). `chat.js` renders a live `.zp-steps` list that ticks each stage, survives the bubble redraws, and collapses to "Thought for Ns · N steps" when the answer is final.
+
 ## 22.6.1 — The Owner account is permanently Ultimate
 
 - `database.py` sets `is_pro` / `is_ultimate` on the Owner at every startup with `pro_plan="owner_ultimate"` and no `trial_end`; `owner_ultimate` is not in `TIMED_PLANS`, so `expire_timed_plans()` and invite rewards leave it alone.

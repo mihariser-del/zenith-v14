@@ -1,6 +1,7 @@
 ﻿import json
 import os
 import re
+import time
 import asyncio
 import ai_meter
 import httpx
@@ -613,6 +614,55 @@ async def _auto_title(chat_id, user_text):
     yield _sse({"title": title, "chat_id": chat_id})
 
 
+def _place_images(text: str, imgs: list) -> str:
+    """Put each photo next to the heading or bold line that names it (ChatGPT style).
+    Anything that finds no home is added as a small row at the top, as before."""
+    if not imgs:
+        return text
+    lines = text.split("\n")
+    used, inserts = set(), {}
+    for im in imgs:
+        name = (im.get("target") or im.get("title") or "").strip()
+        if not name:
+            continue
+        key = re.sub(r"[^a-z0-9]+", " ", name.lower()).strip()
+        if not key or key in used:
+            continue
+        best = None
+        for i, ln in enumerate(lines):
+            if i in inserts:
+                continue
+            stripped = ln.strip()
+            # a heading, a numbered/bulleted item, or a bold lead-in
+            if not re.match(r"^(#{1,6}\s|\s*[-*+]\s|\s*\d+[.)]\s|\*\*)", stripped):
+                continue
+            plain = re.sub(r"[^a-z0-9]+", " ", re.sub(r"[#*_`\[\]()]", " ", stripped.lower())).strip()
+            if key in plain or (len(key) > 6 and key.split()[0] in plain.split()):
+                best = i
+                break
+        if best is None:
+            continue
+        used.add(key)
+        alt = re.sub(r'["\n<>]', " ", im.get("title") or name)[:90]
+        credit = re.sub(r'["\n<>]', " ", im.get("credit") or "")[:40]
+        inserts[best] = (f'<zimg src="{im["thumb"]}" href="{im.get("page") or im["thumb"]}" '
+                         f'alt="{alt}" credit="{credit}">')
+    if not inserts:
+        from router_ai import images_markdown
+        return images_markdown(imgs) + text
+    out = []
+    for i, ln in enumerate(lines):
+        if i in inserts:
+            out.append(inserts[i])
+        out.append(ln)
+    leftovers = [im for im in imgs if re.sub(r"[^a-z0-9]+", " ", (im.get("target") or im.get("title") or "").lower()).strip() not in used]
+    head = ""
+    if leftovers and len(leftovers) == len(imgs):
+        from router_ai import images_markdown
+        head = images_markdown(leftovers)
+    return head + "\n".join(out)
+
+
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False):
     user_id = None
     messages = []
@@ -673,12 +723,27 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
 
     # Decide automatically: web search? light or heavy model? photos?
-    from router_ai import plan_request, model_for, web_answer, web_images, images_markdown
+    from router_ai import plan_request, model_for, web_answer, web_images, web_images_for, images_markdown
     _history = [m for m in messages[:-1] if m.get("role") in ("user", "assistant")]
+    _steps_sent = []
+
+    def _step(sid, label, detail="", state="doing"):
+        """One real stage of this answer, for the live "what I'm doing" list."""
+        _steps_sent.append(sid)
+        return _sse({"step": {"id": sid, "label": label, "detail": detail[:160], "state": state}})
+
+    _plan_t0 = time.time()
     plan = await plan_request(_user_ask, _history, has_images=has_images, think=think, wants_file=_wants_file,
                               force_web=bool(web_search or research or factcheck), live_hint=auto_web)
     user_model = pinned_model or model_for(plan)
     use_web = (not has_images) and plan["web"] and not (_wants_file and "[File" in last_user_msg)
+    # Think mode shows the real stages of the answer as they happen.
+    _early_steps = []
+    if think:
+        _plan_took = time.time() - _plan_t0
+        _early_steps.append(_step("plan", "Working out what you need", f"{_plan_took:.1f}s" if _plan_took >= 0.3 else "", "done"))
+        for i, st in enumerate(plan.get("steps") or []):
+            _early_steps.append(_step(f"idea{i}", st, "", "planned"))
     if research or factcheck:
         plan["heavy"] = True
 
@@ -727,27 +792,43 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     _research = research or factcheck
 
     async def generate():
+        for _s in _early_steps:
+            yield _s
         full_response = ""
 
         img_task = None
-        if plan.get("images") and plan.get("image_query"):
+        _targets = [t for t in (plan.get("image_targets") or []) if t]
+        if plan.get("images") and _targets:
+            # Several named things: one photo each, shown beside the thing it belongs to.
+            img_task = asyncio.create_task(web_images_for(_targets, 1))
+        elif plan.get("images") and plan.get("image_query"):
             img_task = asyncio.create_task(web_images(plan["image_query"], 3))
 
-        async def _gallery(wait):
+        async def _photos(wait):
             if not img_task:
-                return ""
+                return []
             try:
-                imgs = await asyncio.wait_for(asyncio.shield(img_task), timeout=wait)
+                return await asyncio.wait_for(asyncio.shield(img_task), timeout=wait) or []
             except Exception:
-                return ""
-            return images_markdown(imgs)
+                return []
+
+        async def _gallery(wait):
+            return images_markdown(await _photos(wait))
 
         if use_web:
             # Tell the app we're searching so it can show "Searching the web…".
             yield _sse({"status": "searching", "query": plan.get("query", "")[:120]})
+            if think:
+                yield _step("web", "Searching the web", plan.get("query", "")[:120])
+            _t0 = time.time()
             text, sources = await web_answer(messages, plan.get("query") or _user_ask, max(user_max_tokens or 0, 2048))
+            if think:
+                yield _step("web", "Searched the web", (f"{len(sources)} sources · " if sources else "") + f"{time.time() - _t0:.1f}s", "done")
             if text:
-                full_response = (await _gallery(4.0)) + text
+                _imgs = await _photos(4.0)
+                if think and _imgs:
+                    yield _step("pics", "Found pictures", f"{len(_imgs)} photo{'' if len(_imgs) == 1 else 's'}", "done")
+                full_response = _place_images(text, _imgs)
                 if sources:
                     yield _sse({"sources": sources[:10]})
                 for i in range(0, len(full_response), 24):
@@ -764,12 +845,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             messages[0]["content"] += ("\n\nNOTE: a live web search was needed but failed just now. Answer from what you "
                                        "know, and say clearly that you couldn't check the latest information.")
 
-        # Photos for the answer (when they help): show them first, like a search result.
-        if img_task:
-            g = await _gallery(2.5)
-            if g:
-                full_response += g
-                yield _sse({"token": g})
+        # Photos go in beside the thing they show, once the answer is written (see the end of this function).
+        if think:
+            yield _step("write", "Writing the answer", "", "doing")
 
         # Normal streaming path (no web or has images) - with key rotation on 402/429
         keys = _get_openrouter_keys()
@@ -861,8 +939,20 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
         if full_response:
             full_response = strip_citations(full_response)
-            if img_task and not img_task.done():
-                img_task.cancel()
+            # Photos last: now that the answer is written we know where each one belongs.
+            if img_task:
+                _imgs = await _photos(3.0)
+                if _imgs:
+                    with_pics = _place_images(full_response, _imgs)
+                    if with_pics != full_response:
+                        full_response = with_pics
+                        if think:
+                            yield _step("pics", "Added pictures", f"{len(_imgs)} photo{'' if len(_imgs) == 1 else 's'}", "done")
+                        yield _sse({"content": full_response})
+                if not img_task.done():
+                    img_task.cancel()
+            if think:
+                yield _step("write", "Wrote the answer", "", "done")
             ai_meter.record("chat", user_model, user_id, messages, full_response)
             async with async_session() as db:
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)

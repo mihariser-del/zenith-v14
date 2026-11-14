@@ -47,10 +47,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.6.1"
+VERSION = "22.7"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.7 Pictures from the web now sit beside the thing they show. Ask something like “what are the common operating systems” and each one gets its own photo next to its heading, instead of a row of photos at the top",
+    "22.7 Think mode now shows what Zelpophai is actually doing — working out what you need, the steps it plans to take, searching the web, finding pictures, writing the answer — ticking off as each one finishes. When it's done it folds into “Thought for 6s · 5 steps”, and you can open it again to see the list",
     "22.6 Coding AGT. is now its own app at zelpophai.up.railway.app/code — tapping it no longer flashes the old code box first. New start page where you type what you want to build, a quieter professional look in light or dark, panels you can hide and drag to resize, search in all your files, a command box (Ctrl K), a live preview at phone, tablet or full width, and a status bar. You can install it on your phone or computer as a separate app with its own icon",
     "22.6 Brand-new Knowledge, Files and Reminders windows: collections you can rename and search inside, file pictures and previews with multi-select delete, and reminders with quick times, repeat, snooze and editing",
     "22.6 Voice conversation: tap Talk next to the microphone and just speak. Zelpophai answers out loud sentence by sentence as it thinks, you can cut in any time by tapping the circle or pressing Space, and you can pick the exact voice and speed",

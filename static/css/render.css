@@ -216,3 +216,21 @@ html.halloween body { --zr-accent: #ff7a1a; --zr-accent2: #a855f7; --zr-chip: rg
 .zp-search-ic svg { width: 16px; height: 16px; }
 .zp-searching.off { color: var(--zr-dim); }
 @keyframes zpSearchPulse { 0%, 100% { transform: translate(0, 0); } 25% { transform: translate(2px, -1px); } 75% { transform: translate(-2px, 1px); } }
+
+/* ── a web photo beside the thing it shows (like a search result) ── */
+.zs-row { display: flex; gap: 16px; align-items: flex-start; margin: 18px 0; padding-bottom: 18px; border-bottom: 1px solid var(--border, rgba(140, 150, 175, .18)); }
+.zs-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.zs-pic { flex: none; width: 168px; display: block; border-radius: 12px; overflow: hidden; background: var(--input-bg, rgba(140, 150, 175, .1)); text-decoration: none; position: relative; }
+.zs-pic img { display: block; width: 100%; height: 112px; object-fit: cover; }
+.zs-pic small { position: absolute; left: 0; right: 0; bottom: 0; padding: 3px 7px; font-size: 10px; color: #fff; background: linear-gradient(transparent, rgba(0, 0, 0, .72)); opacity: 0; transition: opacity .15s; }
+.zs-pic:hover small { opacity: 1; }
+.zs-body { flex: 1; min-width: 0; }
+.zs-body > :first-child { margin-top: 0; }
+.zs-body > :last-child { margin-bottom: 0; }
+.zs-row.no-pic .zs-pic, .zs-row.alone { display: none; }
+@media (max-width: 620px) {
+  .zs-row { flex-direction: column; gap: 10px; }
+  .zs-pic { width: 100%; max-width: 320px; }
+  .zs-pic img { height: 150px; }
+  .zs-pic small { opacity: 1; }
+}

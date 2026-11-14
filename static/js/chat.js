@@ -1023,6 +1023,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.step) this._addStep(assistantBubble, parsed.step);
                         if (parsed.status && !fullResponse) this._showStatus(assistantBubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
@@ -1487,7 +1488,10 @@ const Chat = {
             if (!bubble.isConnected || bubble._final) return;
             const thinking = bubble.querySelector('.thinking-text');
             if (thinking) thinking.remove();
+            const steps = bubble.querySelector('.zp-steps');
+            if (steps) steps.remove();
             ZRender.render(bubble, bubble._pendingText, { streaming: true });
+            if (steps) bubble.prepend(steps);
             Chat._wireImages(bubble);
             Chat._autoScroll();
         }), wait);
@@ -1501,7 +1505,10 @@ const Chat = {
         bubble.classList.remove('streaming-cursor');
         const thinking = bubble.querySelector('.thinking-text');
         if (thinking) thinking.remove();
+        const steps = bubble.querySelector('.zp-steps');
+        if (steps) steps.remove();
         ZRender.render(bubble, text);
+        if (steps) { bubble.prepend(steps); Chat._endSteps(bubble); }
         Chat.enhanceVideos(bubble);
         Chat._wireImages(bubble);
         Chat._autoScroll();
@@ -1522,6 +1529,53 @@ const Chat = {
 
     // Extra server events that ride along the reply stream.
     // "Searching the web…" while the AI looks things up (the server decides on its own).
+    // Think mode: a live list of the real stages of this answer. Ticks as each one finishes,
+    // then folds into "Thought for 6s · 4 steps" that you can open again.
+    _stepList(bubble) {
+        let box = bubble.querySelector('.zp-steps');
+        if (box) return box;
+        const t = bubble.querySelector('.thinking-text'); if (t) t.remove();
+        box = document.createElement('details');
+        box.className = 'zp-steps';
+        box.open = true;
+        box.dataset.t0 = String(Date.now());
+        box.innerHTML = '<summary><span class="zp-steps-spin" aria-hidden="true"></span><b>Thinking</b><span class="zp-steps-n"></span></summary><div class="zp-steps-l"></div>';
+        bubble.prepend(box);
+        return box;
+    },
+
+    _addStep(bubble, st) {
+        if (!bubble || !st || !st.id) return;
+        const box = this._stepList(bubble), list = box.querySelector('.zp-steps-l');
+        let row = list.querySelector('[data-s="' + CSS.escape(st.id) + '"]');
+        if (!row) {
+            row = document.createElement('div');
+            row.className = 'zp-step';
+            row.dataset.s = st.id;
+            row.innerHTML = '<span class="zp-step-ic" aria-hidden="true"></span><span class="zp-step-t"></span><small></small>';
+            list.appendChild(row);
+        }
+        row.dataset.state = st.state || 'doing';
+        row.querySelector('.zp-step-t').textContent = st.label || '';
+        row.querySelector('small').textContent = st.detail || '';
+        // anything still "doing" above a newer step has clearly finished
+        [...list.children].forEach(r => { if (r !== row && r.dataset.state === 'doing') r.dataset.state = 'done'; });
+        const n = list.children.length;
+        box.querySelector('.zp-steps-n').textContent = n + (n === 1 ? ' step' : ' steps');
+    },
+
+    _endSteps(bubble) {
+        const box = bubble && bubble.querySelector('.zp-steps');
+        if (!box) return;
+        box.querySelectorAll('.zp-step').forEach(r => { if (r.dataset.state === 'doing' || r.dataset.state === 'planned') r.dataset.state = 'done'; });
+        const secs = Math.max(1, Math.round((Date.now() - (+box.dataset.t0 || Date.now())) / 1000));
+        const n = box.querySelectorAll('.zp-step').length;
+        box.querySelector('b').textContent = 'Thought for ' + secs + 's';
+        box.querySelector('.zp-steps-n').textContent = n + (n === 1 ? ' step' : ' steps');
+        box.classList.add('done');
+        box.open = false;
+    },
+
     _showStatus(bubble, parsed) {
         if (!bubble) return;
         if (parsed.status === 'searching') {
@@ -1743,6 +1797,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.step) this._addStep(bubble, parsed.step);
                         if (parsed.status && !fullResponse) this._showStatus(bubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;
@@ -2065,6 +2120,7 @@ const Chat = {
                     if (data === '[DONE]') continue;
                     try {
                         const parsed = JSON.parse(data);
+                        if (parsed.step) this._addStep(bubble, parsed.step);
                         if (parsed.status && !fullResponse) this._showStatus(bubble, parsed);
                         if (parsed.token) {
                             fullResponse += parsed.token;

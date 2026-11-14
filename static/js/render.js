@@ -117,12 +117,58 @@
             files.push({ attrs: attrs(a), body: body.replace(/^\n+|\n+$/g, ''), closed: !!close });
             return '\n\n<div class="zf-slot" data-i="' + (files.length - 1) + '"></div>\n\n';
         });
+        // A photo from the web that belongs to the section right after it.
+        var shots = [];
+        out = out.replace(/<zimg\b([^>]*)>/gi, function (_, a) {
+            shots.push(attrs(a));
+            return '\n\n<div class="zs-slot" data-i="' + (shots.length - 1) + '"></div>\n\n';
+        });
         // Tool requests the AI writes (image / video / reminder) show as a small
         // "working on it" card until the server swaps in the real result.
         out = out.replace(/<(zimage|zvideo|zremind)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files };
+        return { md: out, files: files, shots: shots };
+    }
+
+    // A photo on the left and the section it belongs to on the right, like a search result.
+    function buildShots(el, shots) {
+        var slots = [].slice.call(el.querySelectorAll('.zs-slot'));
+        if (!slots.length) return;
+        // first turn every marker into an empty row, so the next pass knows where each section ends
+        var rows = slots.map(function (slot) {
+            var im = shots[Number(slot.getAttribute('data-i'))];
+            if (!im || !im.src) { slot.remove(); return null; }
+            var row = document.createElement('div');
+            row.className = 'zs-row';
+            var pic = document.createElement(im.href ? 'a' : 'span');
+            pic.className = 'zs-pic';
+            if (im.href) { pic.href = im.href; pic.target = '_blank'; pic.rel = 'noopener noreferrer'; pic.title = (im.alt || '') + (im.credit ? ' — ' + im.credit : ''); }
+            var img = document.createElement('img');
+            img.src = im.src; img.alt = im.alt || ''; img.loading = 'lazy'; img.referrerPolicy = 'no-referrer';
+            img.onerror = function () { row.classList.add('no-pic'); };
+            pic.appendChild(img);
+            if (im.credit) { var c = document.createElement('small'); c.textContent = im.credit; pic.appendChild(c); }
+            var body = document.createElement('div');
+            body.className = 'zs-body';
+            row.appendChild(pic); row.appendChild(body);
+            slot.replaceWith(row);
+            return row;
+        }).filter(Boolean);
+        // then move each section (heading + its text) in beside its picture
+        rows.forEach(function (row) {
+            var body = row.querySelector('.zs-body');
+            var start = row.nextElementSibling;
+            var lead = start && /^H[1-6]$/.test(start.tagName) ? start.tagName : '';
+            var n = start, moved = 0;
+            while (n && moved < 14) {
+                var next = n.nextElementSibling;
+                if (moved && (n.classList.contains('zs-row') || n.tagName === 'HR' || (lead && /^H[1-6]$/.test(n.tagName) && n.tagName <= lead))) break;
+                body.appendChild(n); moved++;
+                n = next;
+            }
+            if (!moved) row.classList.add('alone');
+        });
     }
 
     function toHtml(md) {
@@ -440,6 +486,7 @@
                 if (f) slot.replaceWith(buildFileCard(f, streaming && !f.closed));
                 else slot.remove();
             });
+            buildShots(el, parsed.shots || []);
             upgradeCode(el, streaming);
             upgradeTables(el, streaming);
             upgradeQuotes(el);
@@ -456,7 +503,7 @@
 
         /* Plain text for copy / speak: drop file bodies, tags and markdown noise. */
         plain: function (text) {
-            return String(text || '')
+            return String(text || '').replace(/<zimg\b[^>]*>/gi, '')
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
                 .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)');

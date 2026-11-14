@@ -34,13 +34,15 @@ _HEAVY_HINT = re.compile(
 _IMAGE_HINT = re.compile(r"\b(what does .{2,40} look like|show me (a |an |some |the )?(photo|picture|image)s?|photos? of|pictures? of)\b", re.I)
 
 ROUTER_PROMPT = """You route messages for an AI assistant. Read the conversation and the user's LATEST message, then reply with ONLY a JSON object:
-{"web": true|false, "query": "", "heavy": true|false, "images": true|false, "image_query": ""}
+{"web": true|false, "query": "", "heavy": true|false, "images": true|false, "image_query": "", "image_targets": [], "steps": []}
 
 web: true when a good answer needs fresh or checkable facts from the internet — news, current events, prices, weather, sports scores or fixtures, schedules, laws, statistics, releases, "latest", anything that may have changed since 2024, specific facts about real people, companies, products or places, or when the user asks to search, look something up, or for sources/links. false for chit-chat, opinions, creative writing, coding, maths, general knowledge that doesn't change, or questions about the user's own files.
 query: when web is true, a short web search query (max 12 words) that includes needed context from earlier messages.
 heavy: true for demanding tasks — coding or debugging, maths, logic puzzles, multi-step reasoning, careful long writing (essays, reports, CVs, letters, documents, plans), detailed analysis or comparisons. false for greetings, small talk, quick facts, short answers, simple rewrites.
 images: true when real photos would clearly help the answer — a specific place, landmark, country, animal, plant, food, vehicle, building, artwork, famous person, product, or "what does X look like". false for abstract topics, advice, code, maths, writing tasks, or when the user wants an image GENERATED.
-image_query: when images is true, 1-4 words naming the thing to photograph."""
+image_query: when images is true, 1-4 words naming the thing to photograph.
+image_targets: when the answer will cover SEVERAL named things that each deserve their own photo (e.g. "the 7 most common operating systems", "types of guitars", "famous landmarks in Paris"), list up to 6 of them, each 1-5 words, in the order they will appear. Otherwise [].
+steps: 2-5 very short plain-English steps you would take to answer this well (e.g. "List the main operating systems", "Explain how each one works"). Use everyday words a child could read. Otherwise []."""
 
 
 async def _post(payload, timeout=20):
@@ -75,7 +77,7 @@ async def plan_request(text: str, history: list, *, has_images=False, think=Fals
     """Return {web, query, heavy, images, image_query, why}."""
     t = (text or "").strip()
     plan = {"web": bool(force_web), "query": t[:200], "heavy": bool(think or wants_file), "images": False,
-            "image_query": "", "why": "rules"}
+            "image_query": "", "image_targets": [], "steps": [], "why": "rules"}
     if not t or (_SMALLTALK.match(t) and not force_web):
         return plan
     if has_images:
@@ -108,6 +110,12 @@ async def plan_request(text: str, history: list, *, has_images=False, think=Fals
         plan["heavy"] = plan["heavy"] or bool(d.get("heavy"))
         plan["images"] = bool(d.get("images")) and not wants_file
         plan["image_query"] = str(d.get("image_query") or "").strip()[:60]
+        tg = d.get("image_targets")
+        if isinstance(tg, list):
+            plan["image_targets"] = [str(x).strip()[:60] for x in tg if str(x or "").strip()][:6]
+        st = d.get("steps")
+        if isinstance(st, list):
+            plan["steps"] = [str(x).strip()[:90] for x in st if str(x or "").strip()][:5]
     else:
         plan["web"] = plan["web"] or live_hint
         plan["heavy"] = plan["heavy"] or len(t) > 600 or bool(_HEAVY_HINT.search(t))
@@ -250,6 +258,25 @@ async def web_images(query: str, n: int = 3) -> list:
             except Exception:
                 pass
     return out[:n]
+
+
+async def web_images_for(targets: list, n_each: int = 1) -> list:
+    """One photo per named thing, all looked up at the same time. [{target, thumb, page, title, credit}]"""
+    targets = [t for t in (targets or []) if t][:6]
+    if not targets:
+        return []
+    results = await asyncio.gather(*[web_images(t, n_each) for t in targets], return_exceptions=True)
+    out, seen = [], set()
+    for target, res in zip(targets, results):
+        if isinstance(res, Exception) or not res:
+            continue
+        for im in res:
+            if im["thumb"] in seen:
+                continue
+            seen.add(im["thumb"])
+            out.append({**im, "target": target})
+            break
+    return out
 
 
 def images_markdown(imgs: list) -> str:

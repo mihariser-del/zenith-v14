@@ -510,3 +510,24 @@ html[data-zst-width="full"] #chat-container > .msg-wrapper { max-width: none; }
 html.zst-times .msg-wrapper[data-at]::after { content: attr(data-at); display: block; margin-top: 4px; font-size: 11px; color: color-mix(in srgb, var(--text, #e7ebf7) 45%, transparent); }
 html.zst-times .msg-wrapper.user[data-at]::after { text-align: right; }
 html.zst-no-anim *, html.zst-no-anim *::before, html.zst-no-anim *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+
+/* ── Think mode: the live list of what Zelpophai is doing ── */
+.zp-steps { margin: 0 0 14px; border-radius: 14px; border: 1px solid var(--border, #262b3a); background: color-mix(in srgb, var(--input-bg, #171b27) 60%, transparent); overflow: hidden; }
+.zp-steps > summary { display: flex; align-items: center; gap: 9px; padding: 10px 13px; cursor: pointer; list-style: none; font-size: 13px; color: var(--text, #e7ebf7); user-select: none; }
+.zp-steps > summary::-webkit-details-marker { display: none; }
+.zp-steps > summary::after { content: ""; width: 7px; height: 7px; margin-left: auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); opacity: .45; transition: transform .18s; }
+.zp-steps[open] > summary::after { transform: rotate(-135deg); }
+.zp-steps > summary b { font-weight: 600; }
+.zp-steps-n { font-size: 12px; color: color-mix(in srgb, var(--text, #e7ebf7) 50%, transparent); }
+.zp-steps-spin { flex: none; width: 14px; height: 14px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--accent-solid, #6d7cff) 30%, transparent); border-top-color: var(--accent-solid, #6d7cff); animation: zp-spin .8s linear infinite; }
+.zp-steps.done .zp-steps-spin { border: 0; background: no-repeat center / 13px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E"); animation: none; }
+@keyframes zp-spin { to { transform: rotate(360deg); } }
+.zp-steps-l { padding: 2px 13px 11px; display: flex; flex-direction: column; }
+.zp-step { display: flex; align-items: baseline; gap: 9px; padding: 5px 0; font-size: 13px; line-height: 1.45; color: color-mix(in srgb, var(--text, #e7ebf7) 72%, transparent); }
+.zp-step small { font-size: 11.5px; color: color-mix(in srgb, var(--text, #e7ebf7) 42%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zp-step-t { flex: 1; min-width: 0; }
+.zp-step-ic { flex: none; width: 13px; height: 13px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--text, #e7ebf7) 22%, transparent); align-self: center; }
+.zp-step[data-state="doing"] { color: var(--text, #e7ebf7); }
+.zp-step[data-state="doing"] .zp-step-ic { border-color: color-mix(in srgb, var(--accent-solid, #6d7cff) 35%, transparent); border-top-color: var(--accent-solid, #6d7cff); animation: zp-spin .8s linear infinite; }
+.zp-step[data-state="done"] .zp-step-ic { border: 0; background: no-repeat center / 13px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E"); }
+.zp-step[data-state="planned"] { opacity: .72; }

@@ -899,7 +899,8 @@ async def init_db():
                 wanted = secrets.token_urlsafe(18)
                 generated = True
             owner = User(username=owner_username, email=f"{owner_username}@zenith.local",
-                         password_hash=bcrypt.hashpw(wanted.encode(), bcrypt.gensalt()).decode(), is_admin=True, role="owner")
+                         password_hash=bcrypt.hashpw(wanted.encode(), bcrypt.gensalt()).decode(), is_admin=True, role="owner",
+                         is_pro=True, is_ultimate=True, pro_plan="owner_ultimate")
             session.add(owner)
             await session.commit()
             if generated:
@@ -911,6 +912,12 @@ async def init_db():
         else:
             owner.is_admin = True
             owner.role = "owner"
+            # The Owner always holds the top plan — no trial clock, nothing to renew.
+            owner.is_pro = True
+            owner.is_ultimate = True
+            if (owner.pro_plan or "") in ("", "pro_trial", "referral_pro", "invite_pro", "invite_ultimate", "gift_ultimate_until"):
+                owner.pro_plan = "owner_ultimate"
+            owner.trial_end = None
             await session.commit()
         # Sync role for admins (they are is_admin but role might still be 'user' from migration)
         from sqlalchemy import update

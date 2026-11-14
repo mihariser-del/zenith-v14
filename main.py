@@ -47,7 +47,7 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.6"
+VERSION = "22.6.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
@@ -151,6 +151,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.6.1 Owner: your account now holds Ultimate for good — it shows as your plan everywhere (Settings, the account card, your Vault profile) and never runs out or needs renewing",
     "22.6 Owner: delete feedback in bulk — Vault → Feedback → “Delete many…” removes finished items, star ratings only, one status, or everything, with a count before you confirm and an option to keep ideas that are on the public board",
     "22.5.1 Owner and helpers: maintenance and lock no longer shut you out. On the paused screen there is now an \"Owner or helper? Sign in\" button, and once you're in you keep using Zelpophai normally with a small yellow notice at the top instead of the full-screen block",
     "22.5 Vault: Settings is rebuilt into four tabs — My Vault (theme, lock after 2, 5 or 15 minutes, starting time range, desktop alerts, PIN), Site setup (email, paid plans and Google sign-in with a status strip on top), Data & exports, and About",

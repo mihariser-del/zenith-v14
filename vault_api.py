@@ -89,7 +89,7 @@ def _need_owner(user):
 
 def _plan_of(u) -> str:
     tags = (u.tags or "").lower().split(",")
-    if getattr(u, "is_ultimate", False):
+    if getattr(u, "role", "") == "owner" or getattr(u, "is_ultimate", False):
         return "ultimate"
     if getattr(u, "is_pro", False) or (u.trial_end and _utc(u.trial_end) > datetime.now(timezone.utc)):
         return "pro"

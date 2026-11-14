@@ -20,7 +20,7 @@
   };
   Object.keys(IC).forEach((k) => { IC[k] = IC[k].replace(/(\d)?\.(\d)00\b/g, '$1.$2'); });
 
-  function plan() { return U.role === 'owner' ? 'Owner' : U.is_ultimate ? 'Ultimate' : U.is_pro ? 'Pro' : (String(U.tags || '').split(',').includes('friend') ? 'Friend' : 'Free'); }
+  function plan() { return (U.role === 'owner' || U.is_ultimate) ? 'Ultimate' : U.is_pro ? 'Pro' : (String(U.tags || '').split(',').includes('friend') ? 'Friend' : 'Free'); }
   function close() { clearTimeout(openT); clearTimeout(closeT); pinned = false; if (el) { el.remove(); el = null; document.removeEventListener('mousedown', outside, true); document.removeEventListener('keydown', onKey, true); const a = document.querySelector('.user-profile-bar'); if (a) a.setAttribute('aria-expanded', 'false'); } }
   function outside(e) { if (el && !el.contains(e.target) && !e.target.closest('.user-profile-bar')) close(); }
   function onKey(e) { if (e.key === 'Escape') { close(); const a = document.getElementById('user-avatar'); if (a) a.focus(); } }

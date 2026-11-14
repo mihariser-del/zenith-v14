@@ -189,7 +189,7 @@ const Settings = {
             },
             account() {
                 if (guest) return needAccount();
-                const plan = u.is_ultimate ? 'Ultimate' : (u.is_pro ? 'Pro' : 'Free');
+                const plan = (u.is_ultimate || u.role === 'owner') ? 'Ultimate' : (u.is_pro ? 'Pro' : 'Free');
                 const joined = u.created_at ? new Date(u.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : '';
                 return `<div class="zst-me"><span class="zst-av">${esc((u.username || '?')[0].toUpperCase())}</span><div><b>@${esc(u.username)}</b><span>${plan} plan${joined ? ' · joined ' + joined : ''}</span></div><button class="zu-btn sm" id="zst-plan">${plan === 'Free' ? 'See plans' : 'My plan'}</button></div>`
                     + group('Sign-in', '<div id="zst-account-slot"></div>'

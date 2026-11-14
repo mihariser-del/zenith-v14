@@ -61,6 +61,8 @@ def _is_pro(user):
 
 
 def _is_ultimate(user):
+    if getattr(user, "role", "") == "owner":
+        return True
     # Friends of the Owner get Ultimate-level limits.
     if (getattr(user, "pro_plan", "") or "") in ("gift_ultimate_until", "invite_ultimate"):
         # Ultimate gifted from the Vault (or earned by inviting) for a set number of days.

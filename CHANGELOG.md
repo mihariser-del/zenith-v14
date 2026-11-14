@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 22.6.1 — The Owner account is permanently Ultimate
+
+- `database.py` sets `is_pro` / `is_ultimate` on the Owner at every startup with `pro_plan="owner_ultimate"` and no `trial_end`; `owner_ultimate` is not in `TIMED_PLANS`, so `expire_timed_plans()` and invite rewards leave it alone.
+- `limits._is_ultimate()` and `vault_api._plan_of()` treat role `owner` as Ultimate; Settings and the account card label it Ultimate instead of Free/Owner.
+
 ## 22.6 — Coding AGT. as its own app, new Knowledge/Files/Reminders, voice conversation, account card, bulk feedback delete
 
 **Coding AGT.**

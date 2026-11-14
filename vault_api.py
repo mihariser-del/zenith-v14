@@ -903,6 +903,72 @@ async def staff(user=Depends(require_vault), db: AsyncSession = Depends(get_db))
     return {"staff": [d for d in out if d["role"] in ("owner", "admin")], "chosen": [d for d in out if d["is_chosen"]]}
 
 
+@router.get("/limits")
+async def limits_get(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Every daily allowance, plus how many people are on each plan."""
+    _need_owner(user)
+    import limits_config as LC
+    from database import UsageLog
+    data = await LC.load(db)
+    people = {p: 0 for p in LC.PLANS}
+    for u in (await db.execute(select(User).where(User.is_deleted == False))).scalars().all():  # noqa: E712
+        p = LC.plan_of(u)
+        people[p] = people.get(p, 0) + 1
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = (await db.execute(select(UsageLog.action, func.count()).where(UsageLog.created_at >= today)
+                             .group_by(UsageLog.action))).all()
+    by_action = {a: n for a, n in rows}
+    today_use = {
+        "messages": by_action.get("message", 0),
+        "images": by_action.get("image_gen", 0),
+        "files": sum(by_action.get(a, 0) for a in ("file_upload", "file_edit", "file_tool", "document_gen")),
+        "videos": by_action.get("video_gen", 0),
+        "mini": by_action.get("mini_agent", 0),
+        "coding": by_action.get("code_agent", 0),
+    }
+    paused = (await db.execute(select(func.count()).select_from(User)
+                               .where(User.cooldown_until != None, User.cooldown_until > datetime.now(timezone.utc)))).scalar() or 0  # noqa: E711
+    return {**LC.catalog(), "values": data, "people": people, "today": today_use, "paused": paused,
+            "resets_at": LC.resets_at()}
+
+
+@router.post("/limits")
+async def limits_set(request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Save new numbers. They apply to everyone straight away."""
+    _need_owner(user)
+    import limits_config as LC
+    body = await request.json()
+    if body.get("reset"):
+        data = await LC.save(db, {p: dict(v) for p, v in LC.DEFAULTS.items()})
+        detail = "Limits put back to the starting numbers"
+    else:
+        data = await LC.save(db, body.get("values") or {})
+        detail = "Limits changed"
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="limits", detail=detail)
+    except Exception:
+        pass
+    return {"ok": True, "values": data}
+
+
+@router.post("/limits/clear-pauses")
+async def limits_clear_pauses(request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Let everyone who is waiting out a pause carry on right now."""
+    _need_owner(user)
+    rows = (await db.execute(select(User).where(User.cooldown_until != None,  # noqa: E711
+                                                User.cooldown_until > datetime.now(timezone.utc)))).scalars().all()
+    for u in rows:
+        u.cooldown_until = None
+    await db.commit()
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="limits", detail=f"Cleared the pause for {len(rows)} people")
+    except Exception:
+        pass
+    return {"cleared": len(rows)}
+
+
 @router.get("/security")
 async def security(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
     """Sign-in health for the last 24 hours, lock state and server load."""

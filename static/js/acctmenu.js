@@ -38,7 +38,7 @@
     el = document.createElement('div');
     el.id = 'acct-menu'; el.className = 'zam'; el.setAttribute('role', 'menu'); el.setAttribute('aria-label', 'Account');
     el.innerHTML = `<div class="zam-top"><span class="zam-av">${esc((U.username || '?')[0].toUpperCase())}</span><div><b>${esc(guest ? 'Guest' : name)}</b><span>${guest ? 'Not signed in — chats aren\'t kept' : '@' + esc(U.username)}</span></div><i class="zam-plan p-${P.toLowerCase()}">${P}</i></div>
-      <div class="zam-use" id="zam-use"><div class="zam-use-t"><span>Messages today</span><b id="zam-use-n">…</b></div><div class="zam-bar"><i id="zam-use-bar"></i></div><small id="zam-use-s"></small></div>
+      <div class="zam-use" id="zam-use"><div class="zam-use-t"><span>Today</span><b id="zam-use-n">…</b></div><div class="zam-bars" id="zam-use-bars"></div><small id="zam-use-s"></small></div>
       <div class="zam-theme" role="radiogroup" aria-label="Theme">${[['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${local.theme === v}" class="${local.theme === v ? 'on' : ''}" data-theme="${v}">${l}</button>`).join('')}</div>
       <div class="zam-list">
         ${guest ? item('signup', 'key', 'Create a free account') : ''}
@@ -84,9 +84,25 @@
     document.addEventListener('keydown', onKey, true);
     fetch('/api/usage/meter', { credentials: 'same-origin' }).then((x) => x.json()).then((d) => {
       if (!el) return;
-      const n = el.querySelector('#zam-use-n'), bar2 = el.querySelector('#zam-use-bar'), s = el.querySelector('#zam-use-s');
-      if (d.limit) { const pct = Math.min(100, Math.round(d.messages_today / d.limit * 100)); n.textContent = `${d.messages_today} of ${d.limit}`; bar2.style.width = pct + '%'; bar2.className = pct >= 90 ? 'hot' : pct >= 70 ? 'warm' : ''; s.textContent = pct >= 100 ? 'You\'ve used today\'s messages. They come back at midnight (UTC).' : `${d.limit - d.messages_today} left today`; }
-      else { n.textContent = String(d.messages_today); bar2.style.width = '100%'; bar2.className = 'free'; s.textContent = 'No daily limit on your plan'; }
+      const n = el.querySelector('#zam-use-n'), bars = el.querySelector('#zam-use-bars'), s = el.querySelector('#zam-use-s');
+      const items = (d.items || []).filter((i) => i.limit !== 0);
+      const msgs = items.find((i) => i.key === 'messages');
+      n.textContent = msgs ? (msgs.limit == null ? 'no limits' : (msgs.left + ' messages left')) : '';
+      bars.innerHTML = items.map((i) => {
+        const pct = i.limit == null ? 100 : Math.min(100, Math.round(i.used / Math.max(1, i.limit) * 100));
+        const cls = i.limit == null ? 'free' : pct >= 100 ? 'hot' : pct >= 70 ? 'warm' : '';
+        const right = i.limit == null ? '∞' : i.used + '/' + i.limit;
+        return `<div class="zam-row" title="${esc(i.label)}: ${i.limit == null ? i.used + ' used, no limit' : i.left + ' left of ' + i.limit}"><span>${esc(i.label)}</span><div class="zam-bar"><i class="${cls}" style="width:${pct}%"></i></div><b>${right}</b></div>`;
+      }).join('');
+      let line = d.plan_label ? d.plan_label + ' plan' : '';
+      if (d.cooldown_until) {
+        const mins = Math.max(1, Math.round((new Date(d.cooldown_until) - Date.now()) / 60000));
+        line = 'You\'ve used everything up — you can carry on in ' + mins + ' min';
+      } else if (d.resets_at) {
+        const h = Math.max(1, Math.round((new Date(d.resets_at) - Date.now()) / 3600000));
+        line += ' · starts again in ' + h + (h === 1 ? ' hour' : ' hours');
+      }
+      s.textContent = line;
     }).catch(() => { const u = el && el.querySelector('#zam-use'); if (u) u.remove(); });
   }
 

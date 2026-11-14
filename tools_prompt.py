@@ -14,8 +14,7 @@ from datetime import datetime, timezone
 from sqlalchemy import select, func
 
 from database import Chat, Message, UsageLog, UserSettings
-from limits import (FILE_TOOL_LIMIT, FREE_IMAGE_LIMIT, GUEST_IMAGE_LIMIT, PRO_IMAGE_LIMIT,
-                    _is_guest, _is_pro, _is_ultimate)
+from limits import _is_guest, _is_pro, _is_ultimate
 
 
 async def _count_today(db, user_id, actions):
@@ -104,18 +103,22 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
     plan = _plan(user)
     tags = set((getattr(user, "tags", "") or "").lower().split(","))
 
+    # the numbers the Owner set in the Vault
+    import limits_config as LC
+    nums = (await LC.load(db)).get(LC.plan_of(user), LC.DEFAULTS["free"])
     # images
-    img_limit = PRO_IMAGE_LIMIT if pro else (GUEST_IMAGE_LIMIT if guest else FREE_IMAGE_LIMIT)
+    img_limit = nums.get("images")
     img_used = await _count_today(db, user.id, ("image_gen",))
-    img_left = max(0, img_limit - img_used)
+    img_left = None if img_limit is None else max(0, img_limit - img_used)
     # files
-    if guest:
-        files_line = "not available to guests (ask them to log in)"
-    elif pro:
-        files_line = "available (generous daily allowance)"
+    f_limit = nums.get("files")
+    if f_limit == 0:
+        files_line = "not available on this plan (ask them to log in or upgrade)"
+    elif f_limit is None:
+        files_line = "available, with no daily limit"
     else:
         f_used = await _count_today(db, user.id, ("file_upload", "file_edit", "file_tool", "document_gen"))
-        files_line = f"{max(0, FILE_TOOL_LIMIT - f_used)} of {FILE_TOOL_LIMIT} file actions left today"
+        files_line = f"{max(0, f_limit - f_used)} of {f_limit} file actions left today"
     # video
     try:
         va = await video_allowance(db, user)
@@ -157,7 +160,7 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "YOUR TOOLS — these are real features of this app. Never say you can't do them; if one isn't "
         "available on the user's plan, say so kindly. Paid plans are COMING SOON and cannot be bought yet — never tell anyone to pay or upgrade now; "
         "instead mention that limits reset by themselves, that inviting friends earns free Pro (every 5 friends who join = 3 days of Pro), and that the Upgrade screen has a 'Tell me' button. Guests should create an account.",
-        f"User's plan: {plan}. Today: images {img_left} of {img_limit} left; files {files_line}; videos {video_line}.",
+        f"User's plan: {plan}. Today: pictures {'no limit' if img_limit is None else f'{img_left} of {img_limit} left'}; files {files_line}; videos {video_line}.",
         "1. Files (Word, PDF, PowerPoint, Excel, CSV, web pages, code): use the <zfile> tag described in FILES.",
         "2. Images: when the user asks for a picture, drawing, logo, poster, wallpaper etc., write "
         "<zimage prompt=\"a detailed English description of the picture\" shape=\"square|wide|tall\"></zimage>. "

@@ -32,13 +32,7 @@ router = APIRouter(prefix="/api/code", tags=["code-agent"])
 OR_BASE = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").rstrip("/")
 MODEL = os.getenv("CODE_AGENT_MODEL", "openai/gpt-6-sol")
 MODEL_FREE = os.getenv("CODE_AGENT_MODEL_FREE", "openai/gpt-6-luna")
-DAILY = {
-    "guest": int(os.getenv("CODE_AGENT_DAILY_GUEST", "2")),
-    "free": int(os.getenv("CODE_AGENT_DAILY_FREE", "5")),
-    "pro": int(os.getenv("CODE_AGENT_DAILY_PRO", "60")),
-    "max": int(os.getenv("CODE_AGENT_DAILY_MAX", "200")),
-    "owner": 10**9,          # the Owner has no daily limit
-}
+# How many coding requests each plan gets a day comes from the Vault (System -> Limits).
 MAX_FILES = 60
 MAX_FILE_CHARS = 200_000
 MAX_PROJECT_CHARS = 1_500_000
@@ -47,16 +41,14 @@ PATH_RE = re.compile(r"^[\w\-. ()]+(/[\w\-. ()]+)*$")
 
 
 def _tier(user) -> str:
-    if _is_guest(user):
-        return "guest"
-    if get_role(user) == "owner":
-        return "owner"
-    tags = (getattr(user, "tags", "") or "").lower().split(",")
-    if get_role(user) in ("owner", "admin") or _is_ultimate(user) or "friend" in tags:
-        return "max"
-    if _is_pro(user):
-        return "pro"
-    return "free"
+    import limits_config as LC
+    return LC.plan_of(user)
+
+
+async def _code_limit(db, user):
+    """Coding requests a day for this person, set in the Vault. None = no limit."""
+    import limits_config as LC
+    return await LC.allowance(user, "coding", db)
 
 
 async def _used_today(db, user_id) -> int:
@@ -101,9 +93,9 @@ def _project_out(p: CodeProject, full=True) -> dict:
 async def agent_status(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     tier = _tier(user)
-    limit = DAILY[tier]
+    limit = await _code_limit(db, user)
     used = await _used_today(db, user.id)
-    return {"tier": tier, "limit": limit, "used": used, "left": max(0, limit - used),
+    return {"tier": tier, "limit": limit, "used": used, "left": None if limit is None else max(0, limit - used),
             "guest": tier == "guest", "free": tier in ("guest", "free"),
             "model": MODEL_FREE if tier in ("guest", "free") else MODEL}
 
@@ -261,12 +253,14 @@ def _files_block(files: dict, active: str) -> str:
 async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     tier = _tier(user)
-    limit = DAILY[tier]
+    limit = await _code_limit(db, user)
     used = await _used_today(db, user.id)
-    if used >= limit:
-        msg = ("You've used today's AI coding requests on the website. "
+    if limit == 0:
+        raise HTTPException(status_code=403, detail="The AI coding agent isn't included in your plan.")
+    if limit is not None and used >= limit:
+        msg = (f"You've used all {limit} AI coding requests for today. "
                + ("Log in for more, or get the desktop app." if tier == "guest" else
-                  "They reset at midnight (UTC). Upgrade for more, or get the Zelpophai desktop app."))
+                  "They come back at midnight (UTC). Upgrade for more, or get the Zelpophai desktop app."))
         raise HTTPException(status_code=429, detail=msg)
     text = (req.message or "").strip()
     if not text:

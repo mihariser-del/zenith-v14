@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 22.8 — One editable limits system
+
+- **`limits_config.py`** (new): every daily allowance for 8 plans (guest, free, pro, ultimate, friend, admin, trusted, owner) × 7 fields (messages, images, files, videos, mini, coding, cooldown). Stored in `system_settings["limits_json"]` over code defaults, 20s cache, `plan_of(user)` decides the plan (biggest match wins; admin vs trusted are separate). `None` = unlimited, `0` = blocked.
+- **`limits.check_limit()` rewritten** around it. Fixes a real bug: free logged-in accounts had *no* message cap while the meter advertised 60. Messages now count for everyone, and pictures/files/videos count as messages too. Friendlier 429/403 text with an `X-Limit` header.
+- `miniagent.py`, `video.py` and `codeagent.py` dropped their own `DAILY` tables and env vars and read the shared numbers; `tools_prompt.py` tells the AI the real current allowance.
+- `GET /api/usage/meter` now returns the plan, per-kind used/limit/left, `resets_at` and any running pause (old fields kept).
+- Vault: `GET/POST /api/vault/limits` and `POST /api/vault/limits/clear-pauses` (Owner only, logged), plus the `#/limits` page — editable table, today's totals, people per plan, reset-to-defaults and clear-pauses.
+- The account card shows a bar per allowance with used/limit and when it resets.
+- Free made tighter: 50 messages, 3 pictures, 5 files, 15 Mini tasks a day. Admin/Trusted/Friend Mini: 5,000 / 10,000 / 3,000.
+
 ## 22.7 — Pictures beside each item, and a real think-mode step list
 
 **Pictures** — the router may now return `image_targets` (up to 6 named things) and `web_images_for()` fetches one photo each in parallel. `ai._place_images()` inserts a `<zimg src href alt credit>` marker above the heading / list item / bold lead-in that names each one, after the answer is written (sent as a late `{"content": …}` so the bubble re-renders, and saved with the message). Nothing matched → the old top row. `render.js` turns each marker into a `.zs-row`: photo left, that section's heading and text moved in beside it; stacks on phones.

@@ -19,10 +19,7 @@ allowance. Everything is tunable with environment variables on Railway:
     VIDEO_MODEL              default model           (google/veo-3.1-lite)
     VIDEO_MODEL_ULTIMATE     model for Ultimate/staff (google/veo-3.1-fast)
     VIDEO_RESOLUTION         720p | 1080p             (720p)
-    VIDEO_DAILY_PRO          clips per day on Pro      (3)
-    VIDEO_DAILY_ULTIMATE     clips per day on Ultimate (10)
-    VIDEO_DAILY_STAFF        clips per day for admins/owner (20)
-    VIDEO_DAILY_FRIEND       clips per day for the Owner's Friends (15)
+    (how many clips each plan gets a day is set in the Vault: System -> Limits)
     VIDEO_ENABLED            set to "false" to switch the feature off
 """
 import asyncio
@@ -49,12 +46,7 @@ OR_BASE = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1").
 VIDEO_MODEL = os.environ.get("VIDEO_MODEL", "google/veo-3.1-lite").strip()
 VIDEO_MODEL_ULTIMATE = os.environ.get("VIDEO_MODEL_ULTIMATE", "google/veo-3.1-fast").strip()
 VIDEO_RESOLUTION = os.environ.get("VIDEO_RESOLUTION", "720p").strip()
-DAILY = {
-    "pro": int(os.environ.get("VIDEO_DAILY_PRO", "3")),
-    "ultimate": int(os.environ.get("VIDEO_DAILY_ULTIMATE", "10")),
-    "staff": int(os.environ.get("VIDEO_DAILY_STAFF", "20")),
-    "friend": int(os.environ.get("VIDEO_DAILY_FRIEND", "15")),
-}
+# How many videos each plan gets a day now comes from the Vault (System → Limits).
 DURATIONS = (4, 6, 8)          # what the Veo 3.1 family accepts
 ASPECTS = ("16:9", "9:16")
 POLL_EVERY = 12                 # seconds between OpenRouter polls
@@ -82,18 +74,16 @@ def _video_dir() -> Path:
 
 
 def _tier(user):
-    """('none'|'pro'|'ultimate'|'staff'). Staff = owner/admin."""
-    if _is_guest(user):
-        return "none"
-    if getattr(user, "role", "") in ("owner", "admin") or getattr(user, "is_admin", False):
-        return "staff"
-    if "friend" in (getattr(user, "tags", "") or "").lower().split(","):
-        return "friend"
-    if _is_ultimate(user):
-        return "ultimate"
-    if _is_pro(user):
-        return "pro"
-    return "none"
+    """Which plan's numbers apply (guest, free, pro, ultimate, friend, admin, trusted, owner)."""
+    import limits_config as LC
+    return LC.plan_of(user)
+
+
+async def _video_limit(db, user):
+    """Videos a day for this person, from the Vault. None = no limit."""
+    import limits_config as LC
+    n = await LC.allowance(user, "videos", db)
+    return n
 
 
 def _model_for(tier: str) -> str:
@@ -129,15 +119,15 @@ async def video_config(request: Request, db: AsyncSession = Depends(get_db)):
     """What the composer needs to know: can this person make videos, and how many are left today."""
     user = await get_current_user_from_cookie(request, db)
     tier = _tier(user)
-    allowed = _enabled() and tier != "none" and bool(_keys())
-    limit = DAILY.get(tier, 0)
-    used = await _used_today(db, user.id) if tier != "none" else 0
+    limit = await _video_limit(db, user)
+    allowed = _enabled() and limit != 0 and bool(_keys())
+    used = await _used_today(db, user.id) if allowed else 0
     return {
         "enabled": _enabled(),
         "allowed": allowed,
         "tier": tier,
         "daily_limit": limit,
-        "remaining": max(0, limit - used),
+        "remaining": None if limit is None else max(0, limit - used),
         "durations": list(DURATIONS),
         "aspects": list(ASPECTS),
         "default_duration": 6,
@@ -151,9 +141,9 @@ async def start_video_job(db: AsyncSession, user, prompt: str, duration: int = 6
     if not _enabled():
         raise HTTPException(status_code=503, detail="Video generation is switched off right now.")
     tier = _tier(user)
-    if tier == "none":
-        msg = ("Video generation is a Pro feature. Log in and upgrade to make videos."
-               if _is_guest(user) else "Video generation is a Pro feature. Upgrade to make videos.")
+    if (await _video_limit(db, user)) == 0:
+        msg = ("Videos are a Pro feature. Log in and upgrade to make videos."
+               if _is_guest(user) else "Videos aren't included in your plan. Upgrade to make them.")
         raise HTTPException(status_code=403, detail=msg)
     prompt = (prompt or "").strip()
     if len(prompt) < 3:
@@ -168,10 +158,10 @@ async def start_video_job(db: AsyncSession, user, prompt: str, duration: int = 6
     if image and len(image) > 8_000_000:
         raise HTTPException(status_code=400, detail="That image is too large for video (max ~6 MB).")
 
-    limit = DAILY.get(tier, 0)
+    limit = await _video_limit(db, user)
     used = await _used_today(db, user.id)
-    if used >= limit:
-        raise HTTPException(status_code=429, detail=f"You've used all {limit} videos for today. Your allowance resets at midnight (UTC).")
+    if limit is not None and used >= limit:
+        raise HTTPException(status_code=429, detail=f"You've used all {limit} videos for today. They come back at midnight (UTC).")
 
     chat = None
     if chat_id:
@@ -253,9 +243,9 @@ async def generate_video(req: VideoRequest, request: Request, db: AsyncSession =
 async def video_allowance(db: AsyncSession, user) -> dict:
     """(for the AI's tool list) plan tier, daily limit and what's left today."""
     tier = _tier(user)
-    limit = DAILY.get(tier, 0) if _enabled() else 0
+    limit = (await _video_limit(db, user)) if _enabled() else 0
     used = await _used_today(db, user.id) if limit else 0
-    return {"tier": tier, "limit": limit, "left": max(0, limit - used)}
+    return {"tier": tier, "limit": limit, "left": None if limit is None else max(0, limit - used)}
 
 
 async def _finish(db: AsyncSession, job: VideoJob, status: str, url: str = "", error: str = ""):

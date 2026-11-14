@@ -156,98 +156,76 @@ def _pro_timer_minutes(prof):
 
 
 async def check_limit(user: User, db: AsyncSession, action: str):
-    # actions: image_gen, file_upload, file_edit, file_tool, document_gen, message
+    """One gate for everything that costs money: messages, pictures, files, videos.
+    The numbers come from the Vault (System → Limits), not from this file."""
+    import limits_config as LC
     # An account without a real email can't keep using the AI once its grace period is over.
     import emailcheck
     emailcheck.require_ok(user)
-    is_guest = _is_guest(user)
-    is_pro = _is_pro(user)
-    is_ultimate = _is_ultimate(user)
-    # Owner / Ultimate bypass all limits
-    if user.role == "owner" or is_ultimate:
+    if user.role == "owner":
         return True
 
+    plan = LC.plan_of(user)
+    nums = (await LC.load(db)).get(plan, LC.DEFAULTS["free"])
+    is_guest = _is_guest(user)
     now = datetime.now(timezone.utc)
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Generic cooldown gate: while a cooldown timer runs, every limited action
-    # is blocked (chat, images, files, voice-generation, everything).
+    # While a pause is running, nothing that costs money is allowed.
     cd = _cooldown_remaining(user)
     if cd > 0:
-        if is_guest:
-            raise HTTPException(status_code=429, detail=f"Guest limit reached. Cooldown active — wait {_fmt_wait(cd)}. Please login for unlimited chat.")
-        raise HTTPException(status_code=429, detail=f"Daily limit reached. Cooldown active — wait {_fmt_wait(cd)}.")
+        raise HTTPException(status_code=429, detail=(
+            f"You've used everything for today. You can carry on in {_fmt_wait(cd)}."
+            + (" Create a free account for more." if is_guest else "")),
+            headers={"X-Limit": "cooldown"})
 
-    if action == "message":
-        if is_guest:
-            count = await _count(db, user.id, "message", today_start)
-            if count >= GUEST_MSG_LIMIT:
-                # Guest pause window: 30 min, blocks chat AND image gen
-                await _start_cooldown(db, user, GUEST_PAUSE_MIN)
-                user.last_pause_at = now
+    FOR = {"message": "messages", "image_gen": "images", "video_gen": "videos",
+           "file_upload": "files", "file_edit": "files", "file_tool": "files", "document_gen": "files"}
+    key = FOR.get(action)
+    if key is None:
+        db.add(UsageLog(user_id=user.id, action=action))
+        await db.commit()
+        return True
+
+    limit = nums.get(key)
+    if limit is not None:
+        if limit <= 0:
+            raise HTTPException(status_code=403, detail=_blocked_msg(key, is_guest), headers={"X-Limit": key})
+        actions = ("file_upload", "file_edit", "file_tool", "document_gen") if key == "files" else action
+        used = await _count(db, user.id, actions, today_start)
+        if used >= limit:
+            mins = int(nums.get("cooldown") or 0)
+            if mins > 0:
+                await _start_cooldown(db, user, mins)
+                if is_guest:
+                    user.last_pause_at = now
                 await db.commit()
-                raise HTTPException(status_code=429, detail=f"Guest limit {GUEST_MSG_LIMIT} messages reached. Pause active — wait 30m 0s. Please login for unlimited chat.")
-        db.add(UsageLog(user_id=user.id, action="message"))
-        await db.commit()
-        return True
+            raise HTTPException(status_code=429, detail=_used_up_msg(key, limit, mins, is_guest), headers={"X-Limit": key})
 
-    if action == "image_gen":
-        # Guest: images stay blocked while inside the 30-min message pause
-        if is_guest and user.last_pause_at:
-            elapsed = (now - _as_utc(user.last_pause_at)).total_seconds()
-            if elapsed < GUEST_PAUSE_MIN * 60:
-                remaining = int(GUEST_PAUSE_MIN * 60 - elapsed)
-                raise HTTPException(status_code=429, detail=f"Guest pause: wait {_fmt_wait(remaining)}. Please login for unlimited. Image generation paused with chat.")
-        count = await _count(db, user.id, "image_gen", today_start)
-        limit = PRO_IMAGE_LIMIT if is_pro else (GUEST_IMAGE_LIMIT if is_guest else FREE_IMAGE_LIMIT)
-        if count >= limit:
-            if is_guest:
-                raise HTTPException(status_code=429, detail=f"Guest limit {limit} image generations per day reached. Please login to continue.")
-            minutes = _pro_timer_minutes(await _usage_profile(db, user.id)) if is_pro else _free_timer_minutes(await _usage_profile(db, user.id))
-            await _raise_cooldown(db, user, minutes, False, "the daily image limit")
-        db.add(UsageLog(user_id=user.id, action="image_gen"))
-        db.add(UsageLog(user_id=user.id, action="message"))  # images count as messages
-        await db.commit()
-        return True
-
-    if action in ("file_upload", "file_edit", "file_tool", "document_gen"):
-        if is_guest:
-            # Guests cannot use the file editor/generator system at all
-            if action in ("file_edit", "file_tool", "document_gen"):
-                raise HTTPException(status_code=403, detail="Guests are not allowed to use the file editor/generator. Please log in to continue.")
-            # Uploads: guests keep 3/day (upsell only, no timer)
-            count = await _count(db, user.id, "file_upload", today_start)
-            if count >= GUEST_FILE_LIMIT:
-                raise HTTPException(status_code=429, detail=f"Guest limit {GUEST_FILE_LIMIT} file uploads per day reached. Please login to continue.")
-            db.add(UsageLog(user_id=user.id, action="file_upload"))
-            db.add(UsageLog(user_id=user.id, action="message"))  # files count as messages
-            await db.commit()
-            return True
-        if is_pro:
-            # Pro keeps 100 uploads / edits per day (no file_tool cap)
-            limit_map = {"file_upload": PRO_FILE_LIMIT, "file_edit": PRO_FILE_LIMIT}
-            limit = limit_map.get(action)
-            if limit:
-                count = await _count(db, user.id, action, today_start)
-                if count >= limit:
-                    await _raise_cooldown(db, user, PRO_EXPLOIT_TIMER, False, "the daily file limit")
-            db.add(UsageLog(user_id=user.id, action=action))
-            db.add(UsageLog(user_id=user.id, action="message"))
-            await db.commit()
-            return True
-        # Free logged-in: combined file editor/generator system — 10/day, then a fixed 1h cooldown
-        count = await _count(db, user.id, ("file_upload", "file_edit", "file_tool", "document_gen"), today_start)
-        if count >= FILE_TOOL_LIMIT:
-            await _raise_cooldown(db, user, FILE_TOOL_COOLDOWN_MIN, False, "the file editor/generator limit")
-        db.add(UsageLog(user_id=user.id, action="file_tool"))
-        db.add(UsageLog(user_id=user.id, action="message"))  # files count as messages
-        await db.commit()
-        return True
-
-    # Fallback: log unknown action and allow
     db.add(UsageLog(user_id=user.id, action=action))
+    if action != "message":
+        db.add(UsageLog(user_id=user.id, action="message"))   # pictures, files and videos count as messages too
     await db.commit()
     return True
+
+
+_THING = {"messages": ["message", "messages"], "images": ["picture", "pictures"], "files": ["file", "files"],
+          "videos": ["video", "videos"], "mini": ["Mini task", "Mini tasks"]}
+
+
+def _blocked_msg(key, is_guest) -> str:
+    one, many = _THING.get(key, ["thing", "things"])
+    if is_guest:
+        return f"{many.capitalize()} aren't available to guests. Create a free account to use them."
+    return f"{many.capitalize()} aren't included in your plan. See the plans to unlock them."
+
+
+def _used_up_msg(key, limit, mins, is_guest) -> str:
+    one, many = _THING.get(key, ["thing", "things"])
+    what = f"all {limit} {many if limit != 1 else one}" if key != "messages" else f"all {limit} messages"
+    when = f" You can carry on in {mins} minutes." if mins else " They come back at midnight (UTC)."
+    more = " Create a free account for more." if is_guest else " Upgrade for more."
+    return f"You've used {what} for today.{when}{more}"
 
 
 async def check_chat_media_window(user: User, db: AsyncSession, chat_id: int):

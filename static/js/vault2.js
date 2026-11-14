@@ -221,6 +221,7 @@
     feedback: '<path d="M21 11.500a8.400 8.400 0 0 1-12.300 7.400L3 21l2.100-5.700A8.400 8.400 0 1 1 21 11.500z"/><path d="M12 7.500l1.200 2.500 2.800.400-2 1.900.500 2.700-2.500-1.300-2.500 1.300.500-2.700-2-1.900 2.800-.400z"/>',
     security: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4M12 16h.01"/>',
     staff: '<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/><path d="M19 8l1.5 1.5L23 7"/>',
+    limits: '<path d="M4 6h9M17 6h3M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="15" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
     settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>',
     logs: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/>',
   };
@@ -235,6 +236,7 @@
     { id: 'feedback', perm: 'feedback_view', label: 'Feedback', grp: 'People', badge: 'feedback', range: true },
     { id: 'safety', perm: 'safety_view', label: 'Content safety', grp: 'People', badge: 'safety' },
     { id: 'controls', perm: 'broadcast|global_controls', label: 'Controls & broadcast', grp: 'System' },
+    { id: 'limits', label: 'Limits', grp: 'System', owner: true },
     { id: 'security', label: 'Security & emergency', grp: 'System', owner: true },
     { id: 'staff', label: 'Staff & permissions', grp: 'System', owner: true },
     { id: 'releases', perm: 'manage_releases', label: 'App releases', grp: 'System' },
@@ -275,7 +277,7 @@
       else if (page === 'staff' && arg) await pagePermissions(+arg);
       else await ({ overview: pageOverview, growth: pageGrowth, ai: pageAI, live: pageLive, users: pageUsers, people: pagePeople,
         safety: pageSafety, controls: pageControls, releases: pageReleases, backups: pageBackups, logs: pageLogs,
-        chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings }[def.id])();
+        chats: pageChats, security: pageSecurity, staff: pageStaff, settings: pageSettings, limits: pageLimits }[def.id])();
     } catch (e) {
       $('view').innerHTML = card('Something went wrong', empty('Couldn\'t load this page', e.message) + '<div style="text-align:center"><button class="btn" onclick="location.reload()">Try again</button></div>');
     }
@@ -1256,6 +1258,57 @@
         else if (b.dataset.a === 'trusted') { await api(`/api/auth/admin/users/${u.id}/tags`, { method: 'POST', body: { tag: 'trusted', on: !u.tags.includes('trusted') } }); toast('Saved'); route(); }
         else if (b.dataset.a === 'demote') { if (!(await confirmBox(`Remove @${u.username} as admin?`, 'They become a normal user and lose Vault access.', 'Remove', true))) return; await api(`/api/auth/admin/users/${u.id}/role`, { method: 'POST', body: { role: 'user' } }); toast('Removed'); route(); }
       } catch (err) { toast(err.message, true); }
+    };
+  }
+
+  /* ─────────────────────────────── limits ─────────────────────────────── */
+  async function pageLimits() {
+    const d = await api('/api/vault/limits');
+    const V = JSON.parse(JSON.stringify(d.values));
+    const orig = JSON.stringify(V);
+    const box = (plan, f) => {
+      const v = V[plan][f.key];
+      const locked = plan === 'owner';
+      return `<td class="lm-cell"><input class="input lm-in" type="number" min="0" max="1000000" inputmode="numeric" data-p="${plan}" data-k="${f.key}" value="${v == null ? '' : v}" placeholder="${locked ? '∞' : (f.key === 'cooldown' ? '0' : 'No limit')}" aria-label="${esc(f.label)} for ${esc(plan)}"${locked ? ' disabled' : ''}></td>`;
+    };
+    $('view').innerHTML = `<div class="lm fade">
+      <div class="grid g4">
+        ${kpi('Messages today', fmt.n(d.today.messages), undefined, '#6d7cff')}
+        ${kpi('Pictures today', fmt.n(d.today.images), undefined, '#f472b6')}
+        ${kpi('Files today', fmt.n(d.today.files), undefined, '#34d399')}
+        ${kpi('People waiting out a pause', fmt.n(d.paused), undefined, d.paused ? '#f87171' : '#8b95b2', null, { note: d.paused ? 'they can\'t send anything right now' : 'nobody is paused' })}
+      </div>
+      ${card('What each plan gets a day', `<p class="muted small" style="margin-top:-6px">Type a number, or leave a box empty for <b>no limit</b>. <b>0</b> means the plan can't use that at all. Everything starts again at midnight (UTC). Changes apply to everyone the moment you save.</p>
+        <div class="tbl-wrap"><table class="tbl lm-t"><thead><tr><th>Plan</th>${d.fields.map((f) => `<th title="${esc(f.about)}">${esc(f.label.replace(' a day', '').replace(' (minutes)', ''))}${f.key === 'cooldown' ? ' <span class="muted">(min)</span>' : ''}</th>`).join('')}</tr></thead>
+          <tbody>${d.plans.map((p) => `<tr><td class="lm-plan"><b>${esc(p.label)}</b><span class="muted small">${esc(p.about)}</span><span class="tag">${fmt.n(d.people[p.id] || 0)} ${d.people[p.id] === 1 ? 'person' : 'people'}</span></td>${d.fields.map((f) => box(p.id, f)).join('')}</tr>`).join('')}</tbody></table></div>`,
+        '<button class="btn sm" id="lm-default">Start numbers</button>')}
+      ${card('While people are paused', `<div class="ctrl" style="padding-top:0"><div class="grow"><b>Let everyone carry on now</b><span class="muted small">Clears the pause for ${fmt.n(d.paused)} ${d.paused === 1 ? 'person' : 'people'} who have used everything up. Their counts for today stay as they are.</span></div><button class="btn sm${d.paused ? ' pri' : ''}" id="lm-clear"${d.paused ? '' : ' disabled'}>Let them carry on</button></div>`).replace('class="card fade"', 'class="card fade mt"')}
+      <div class="lm-save" id="lm-bar"><span id="lm-state">No changes</span><button class="btn" id="lm-undo" disabled>Undo</button><button class="btn pri" id="lm-save" disabled>Save limits</button></div>
+    </div>`;
+    const dirty = () => {
+      const changed = JSON.stringify(V) !== orig;
+      $('lm-state').textContent = changed ? 'You have changes that aren\'t saved yet' : 'No changes';
+      $('lm-bar').classList.toggle('dirty', changed);
+      $('lm-save').disabled = !changed; $('lm-undo').disabled = !changed;
+    };
+    $('view').querySelectorAll('.lm-in').forEach((i) => i.oninput = () => {
+      const raw = i.value.trim();
+      V[i.dataset.p][i.dataset.k] = raw === '' ? (i.dataset.k === 'cooldown' ? 0 : null) : Math.max(0, Math.min(1000000, parseInt(raw, 10) || 0));
+      dirty();
+    });
+    $('lm-undo').onclick = () => route();
+    $('lm-default').onclick = async () => {
+      if (!(await confirmBox('Put the numbers back?', 'Every plan goes back to the numbers Zelpophai started with.', 'Put them back'))) return;
+      try { await api('/api/vault/limits', { method: 'POST', body: { reset: true } }); toast('Back to the starting numbers'); route(); } catch (e) { toast(e.message, true); }
+    };
+    $('lm-save').onclick = async () => {
+      $('lm-save').disabled = true;
+      try { await api('/api/vault/limits', { method: 'POST', body: { values: V } }); toast('Limits saved — they apply right away'); route(); }
+      catch (e) { toast(e.message, true); $('lm-save').disabled = false; }
+    };
+    $('lm-clear').onclick = async () => {
+      if (!(await confirmBox('Let everyone carry on?', 'Anyone waiting out a pause can send messages again right now.', 'Let them carry on'))) return;
+      try { const r = await api('/api/vault/limits/clear-pauses', { method: 'POST' }); toast(`${r.cleared} ${r.cleared === 1 ? 'person' : 'people'} can carry on`); route(); } catch (e) { toast(e.message, true); }
     };
   }
 

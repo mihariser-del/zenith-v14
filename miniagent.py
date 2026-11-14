@@ -39,13 +39,7 @@ ASK_MODEL_FREE = os.getenv("MINI_AGENT_MODEL_FREE", "google/gemini-3.8-flash")
 DO_MODEL = os.getenv("MINI_AGENT_DO_MODEL", "anthropic/claude-sonnet-5.5")
 DO_MODEL_FREE = os.getenv("MINI_AGENT_DO_MODEL_FREE", "google/gemini-3.8-flash")
 AUDIO_MODEL = os.getenv("MINI_AGENT_AUDIO_MODEL", "google/gemini-3.8-flash")
-DAILY = {
-    "guest": 0,
-    "free": int(os.getenv("MINI_AGENT_DAILY_FREE", "20")),
-    "pro": int(os.getenv("MINI_AGENT_DAILY_PRO", "300")),
-    "max": int(os.getenv("MINI_AGENT_DAILY_MAX", "1000")),
-    "owner": None,             # the Owner has no daily limit
-}
+# Mini's daily allowance now comes from the Vault (System → Limits), per plan.
 MAX_IMAGE_B64 = 6_000_000      # ~4.5 MB jpeg
 MAX_AUDIO_B64 = 8_000_000      # ~60 s of 16 kHz mono wav
 IMG_RE = re.compile(r"^data:image/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$")
@@ -55,16 +49,14 @@ KEY_RE = re.compile(r"^[a-z0-9+\-]{1,40}$")
 
 
 def _tier(user) -> str:
-    if _is_guest(user):
-        return "guest"
-    if get_role(user) == "owner":
-        return "owner"
-    tags = (getattr(user, "tags", "") or "").lower().split(",")
-    if get_role(user) in ("owner", "admin") or _is_ultimate(user) or "friend" in tags:
-        return "max"
-    if _is_pro(user):
-        return "pro"
-    return "free"
+    import limits_config as LC
+    return LC.plan_of(user)
+
+
+async def _mini_limit(db, user):
+    """How many Mini tasks this person gets a day. None = no limit."""
+    import limits_config as LC
+    return await LC.allowance(user, "mini", db)
 
 
 async def _used_today(db, user_id) -> int:
@@ -77,14 +69,15 @@ async def _used_today(db, user_id) -> int:
 async def _spend(db, user) -> tuple:
     """Check the daily allowance and count one use. Returns (tier, left)."""
     tier = _tier(user)
-    limit = DAILY[tier]
-    if tier == "guest":
-        raise HTTPException(status_code=403, detail="Log in to use Zelpophai Mini.")
+    limit = await _mini_limit(db, user)
+    if tier == "guest" or limit == 0:
+        raise HTTPException(status_code=403, detail="Log in to use Zelpophai Mini." if tier == "guest"
+                            else "Zelpophai Mini isn't included in your plan.")
     used = await _used_today(db, user.id)
     if limit is not None and used >= limit:
         raise HTTPException(status_code=429, detail=(
-            "You've used today's Zelpophai Mini requests. They reset at midnight (UTC)"
-            + (" — upgrade for many more." if tier == "free" else ".")))
+            f"You've used all {limit} Zelpophai Mini tasks for today. They come back at midnight (UTC)"
+            + (" — upgrade for many more." if tier in ("free", "pro") else ".")))
     db.add(UsageLog(user_id=user.id, action="mini_agent"))
     await db.commit()
     return tier, (None if limit is None else max(0, limit - used - 1))
@@ -132,9 +125,10 @@ async def _post(payload: dict, timeout=90) -> dict:
 async def status(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
     tier = _tier(user)
-    limit = DAILY[tier]
+    limit = await _mini_limit(db, user)
     used = await _used_today(db, user.id)
-    return {"tier": tier, "limit": limit, "left": None if limit is None else max(0, limit - used), "guest": tier == "guest",
+    return {"tier": tier, "limit": limit, "used": used,
+            "left": None if limit is None else max(0, limit - used), "guest": tier == "guest" or limit == 0,
             "name": getattr(user, "display_name", "") or user.username}
 
 

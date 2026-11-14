@@ -47,10 +47,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.7"
+VERSION = "22.8"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.8 You can now see exactly where you stand. Hover your name at the bottom of the sidebar and the card shows what you've used today — messages, pictures, files, videos, Mini tasks and coding requests — with a bar for each and when everything starts again",
+    "22.8 Clearer messages when you run out: Zelpophai now tells you what you used up, how long until you can carry on, and when it comes back, instead of a vague \"limit reached\"",
+    "22.8 Free accounts now have a real daily message allowance. Before, the app said 60 a day but nothing was actually counted",
     "22.7 Pictures from the web now sit beside the thing they show. Ask something like “what are the common operating systems” and each one gets its own photo next to its heading, instead of a row of photos at the top",
     "22.7 Think mode now shows what Zelpophai is actually doing — working out what you need, the steps it plans to take, searching the web, finding pictures, writing the answer — ticking off as each one finishes. When it's done it folds into “Thought for 6s · 5 steps”, and you can open it again to see the list",
     "22.6 Coding AGT. is now its own app at zelpophai.up.railway.app/code — tapping it no longer flashes the old code box first. New start page where you type what you want to build, a quieter professional look in light or dark, panels you can hide and drag to resize, search in all your files, a command box (Ctrl K), a live preview at phone, tablet or full width, and a status bar. You can install it on your phone or computer as a separate app with its own icon",
@@ -153,6 +156,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.8 Owner: a new Limits page in the Vault (System → Limits). Every daily allowance for every plan — guest, free, Pro, Ultimate, Friend, Admin, Trusted admin — in one table you can edit: messages, pictures, files, videos, Mini tasks, Coding AGT. requests and how long the pause lasts. Leave a box empty for no limit, type 0 to switch something off, and changes apply to everyone the moment you save, with no new release. It also shows today's totals, how many people are on each plan, and a button to let anyone who is paused carry on",
+    "22.8 Owner: Admins now get 5,000 Mini tasks a day, Trusted admins 10,000 and Friends 3,000. Admins and Trusted admins are separate plans now, so you can give them different allowances",
     "22.6.1 Owner: your account now holds Ultimate for good — it shows as your plan everywhere (Settings, the account card, your Vault profile) and never runs out or needs renewing",
     "22.6 Owner: delete feedback in bulk — Vault → Feedback → “Delete many…” removes finished items, star ratings only, one status, or everything, with a count before you confirm and an option to keep ideas that are on the public board",
     "22.5.1 Owner and helpers: maintenance and lock no longer shut you out. On the paused screen there is now an \"Owner or helper? Sign in\" button, and once you're in you keep using Zelpophai normally with a small yellow notice at the top instead of the full-screen block",
@@ -724,22 +729,46 @@ async def react_shared_message(share_id: str, message_id: int, request: Request)
 
 @app.get("/api/usage/meter")
 async def usage_meter(request: Request, db=Depends(get_db)):
+    """What this person has used today, and when it starts again."""
+    import limits_config as LC
     user = await get_current_user_from_cookie(request, db)
+    plan = LC.plan_of(user)
+    nums = (await LC.load(db)).get(plan, LC.DEFAULTS["free"])
     today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
-    chat_ids = (await db.execute(select(Chat.id).where(Chat.user_id == user.id))).scalars().all()
-    if chat_ids:
-        msg_count = (await db.execute(
-            select(func.count()).where(Message.chat_id.in_(chat_ids), Message.created_at >= today_start)
-        )).scalar() or 0
-    else:
-        msg_count = 0
-    is_pro = bool(getattr(user, "is_pro", False) or getattr(user, "is_ultimate", False))
-    limit = None if is_pro else 60
+    from database import UsageLog
+
+    async def used(actions):
+        q = select(func.count()).select_from(UsageLog).where(
+            UsageLog.user_id == user.id, UsageLog.created_at >= today_start)
+        q = q.where(UsageLog.action.in_(list(actions))) if isinstance(actions, (list, tuple)) else q.where(UsageLog.action == actions)
+        return (await db.execute(q)).scalar() or 0
+
+    counts = {
+        "messages": await used("message"),
+        "images": await used("image_gen"),
+        "files": await used(("file_upload", "file_edit", "file_tool", "document_gen")),
+        "videos": await used("video_gen"),
+        "mini": await used("mini_agent"),
+        "coding": await used("code_agent"),
+    }
+    items = []
+    for key, label, _about in LC.FIELDS:
+        if key == "cooldown":
+            continue
+        lim = nums.get(key)
+        items.append({"key": key, "label": label.replace(" a day", ""), "used": counts.get(key, 0),
+                      "limit": lim, "left": None if lim is None else max(0, lim - counts.get(key, 0))})
     cooldown_until = getattr(user, "cooldown_until", None)
+    if cooldown_until and cooldown_until.tzinfo is None:
+        cooldown_until = cooldown_until.replace(tzinfo=timezone.utc)
+    if cooldown_until and cooldown_until <= datetime.now(timezone.utc):
+        cooldown_until = None
     return {
-        "messages_today": msg_count,
-        "limit": limit,
-        "is_pro": is_pro,
+        "plan": plan, "plan_label": LC.PLAN_LABELS.get(plan, plan),
+        "items": items, "resets_at": LC.resets_at(),
+        # kept for anything still reading the old shape
+        "messages_today": counts["messages"], "limit": nums.get("messages"),
+        "is_pro": bool(getattr(user, "is_pro", False) or getattr(user, "is_ultimate", False)),
         "cooldown_until": cooldown_until.isoformat() if cooldown_until else None,
     }
 

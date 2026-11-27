@@ -535,3 +535,47 @@ html.zst-no-anim *, html.zst-no-anim *::before, html.zst-no-anim *::after { anim
 .zp-step[data-state="doing"] .zp-step-ic { border-color: color-mix(in srgb, var(--accent-solid, #6d7cff) 35%, transparent); border-top-color: var(--accent-solid, #6d7cff); animation: zp-spin .8s linear infinite; }
 .zp-step[data-state="done"] .zp-step-ic { border: 0; background: no-repeat center / 13px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2322c55e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12.5l5 5L20 6.5'/%3E%3C/svg%3E"); }
 .zp-step[data-state="planned"] { opacity: .72; }
+
+/* ───────── Security window (zsec-) ───────── */
+.zsec-top { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line); background: var(--soft); }
+.zsec-top b { font-size: 15.5px; } .zsec-top span { font-size: 13px; color: var(--dim); line-height: 1.5; }
+.zsec-top.good { border-color: color-mix(in srgb, #34d399 45%, var(--line)); }
+.zsec-top.warn { border-color: color-mix(in srgb, #fbbf24 50%, var(--line)); }
+.zsec-nums { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.zsec-nums > div { padding: 12px 14px; border-radius: 13px; border: 1px solid var(--line); background: var(--soft); display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.zsec-nums b { font-size: 22px; line-height: 1.1; }
+.zsec-nums span { font-size: 11.5px; color: var(--dim); line-height: 1.4; }
+.zsec-nums .alert b { color: #f87171; }
+.zsec-tips { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.zsec-tip { display: flex; align-items: center; gap: 11px; padding: 12px 14px; border-radius: 13px; border: 1px solid var(--line); background: var(--soft); }
+.zsec-tip.bad { border-color: color-mix(in srgb, #f87171 45%, var(--line)); }
+.zsec-tip.warn { border-color: color-mix(in srgb, #fbbf24 45%, var(--line)); }
+.zsec-dot { flex: none; width: 9px; height: 9px; border-radius: 50%; background: #34d399; }
+.zsec-tip.warn .zsec-dot { background: #fbbf24; } .zsec-tip.bad .zsec-dot { background: #f87171; }
+.zsec-what { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.zsec-what b { font-size: 13.5px; line-height: 1.4; overflow-wrap: anywhere; }
+.zsec-what span { font-size: 12.5px; color: var(--dim); line-height: 1.5; overflow-wrap: anywhere; }
+.zsec-tip .zu-btn { flex: none; }
+.zsec-h { margin: 20px 0 4px; font-size: 14px; }
+.zsec-note { margin: 0 0 10px; font-size: 12.5px; color: var(--dim); line-height: 1.55; }
+.zsec-list { display: flex; flex-direction: column; gap: 6px; }
+.zsec-row { display: flex; align-items: center; gap: 11px; padding: 10px 13px; border-radius: 12px; border: 1px solid var(--line); background: var(--soft); border-left: 3px solid #34d399; }
+.zsec-row.no { border-left-color: #f87171; }
+.zsec-ic { flex: none; font-size: 15px; line-height: 1; }
+.zsec-row .zsec-what b { font-size: 13px; }
+.zsec-row.no .zsec-what b { color: #f87171; }
+.zsec-when { flex: none; font-size: 11.5px; color: var(--dim); }
+.zsec-more { width: 100%; margin-top: 4px; }
+@media (max-width: 560px) {
+  /* One per line reads better than a 2-wide grid with an orphan on the end. */
+  .zsec-nums { grid-template-columns: 1fr; gap: 8px; }
+  .zsec-nums > div { flex-direction: row; align-items: baseline; gap: 10px; padding: 10px 14px; }
+  .zsec-nums b { font-size: 19px; min-width: 42px; }
+  .zsec-nums span { font-size: 12.5px; }
+  /* Let the words have the full width and drop the button underneath. */
+  .zsec-tip { flex-wrap: wrap; }
+  .zsec-tip .zsec-what { flex-basis: 100%; }
+  .zsec-tip .zu-btn { margin-left: 20px; }
+  .zsec-row { flex-wrap: wrap; }
+  .zsec-when { margin-left: 26px; }
+}

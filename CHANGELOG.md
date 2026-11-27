@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 23.2 — The user's own Security window, rebuilt
+
+- `security.py` rewritten: `/dashboard` now returns lifetime/recent counts, the last two successful sign-ins and a short list of `tips` (email on file, recent failures, sign-out-everywhere), each with a state and an action. `/login-history` returns `device`, `kind`, `place`, `ip` and `here` via `secops`, so the window never shows a user-agent string. Legacy fields kept so a cached copy of the app and `vault.js` keep working.
+- New `POST /api/security/signout-others`: bumps `token_version`, then re-issues the caller's cookie from the new version, so every other device drops while this one stays in. Verified end to end.
+- `static/js/security.js` rebuilt on the `zui.js` kit (the old one was hand-styled inline and clipped its own rows because of nested fixed-height scrollers). New `zsec-` styles, including a phone layout that stacks the stat tiles and drops a tip's button below its text.
+
 ## 23.1 — The Security page, rebuilt
 
 - **`secops.py`** (new): `describe_device()` turns a user-agent into "Chrome on Windows"; `describe_place()` / `learn_places()` name the country behind an address (one batched lookup, cached, silently skipped when offline); `is_local()` marks loopback and RFC1918 so your own network is never offered as something to block.

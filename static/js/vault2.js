@@ -1317,6 +1317,7 @@
   async function pageSettings() {
     const canExport = S.owner || S.can.export_data !== false;
     const TABS = [['vault', 'My Vault', 'Your PIN, how the Vault looks and when it locks.'], ['site', 'Site setup', 'Email, paid plans and Google sign-in for Zelpophai.'],
+      ...(S.owner ? [['ai', 'AI key', 'The key that lets Zelpophai answer messages.']] : []),
       ['data', 'Data & exports', 'Download information as files.'], ['about', 'About', 'Version and useful links.']];
     if (!TABS.some((t) => t[0] === setTab)) setTab = 'vault';
     const row = (title, about, control) => `<div class="ctrl"><div class="grow"><b>${title}</b>${about ? `<span class="muted small">${about}</span>` : ''}</div>${control || ''}</div>`;
@@ -1391,6 +1392,45 @@
         if ($('g-toggle')) $('g-toggle').onclick = async () => { try { await api('/api/vault/google-signin', { method: 'POST', body: { on: !em.google_signin } }); toast(em.google_signin ? 'Google button hidden' : 'Google button shown'); draw(); } catch (e) { toast(e.message, true); } };
         if ($('g-copy')) $('g-copy').onclick = () => navigator.clipboard.writeText(em.site_origin).then(() => toast('Copied')).catch(() => toast('Copy failed', true));
         if ($('em-test')) $('em-test').onclick = async () => { const to = $('em-to').value.trim(); if (!to) return toast('Type an email address', true); $('em-test').disabled = true; try { await api('/api/vault/email/test', { method: 'POST', body: { to } }); toast('Test email sent — check the inbox'); } catch (e) { toast(e.message, true); } $('em-test').disabled = false; };
+      },
+      async ai() {
+        pane.innerHTML = '<div class="card skeleton" style="height:220px"></div>';
+        let k; try { k = await api('/api/vault/ai-key'); } catch (e) { pane.innerHTML = card('AI key', empty('Couldn\'t load this', e.message)); return; }
+        if (setTab !== 'ai') return;
+        const working = k.working === true, broken = k.working === false;
+        const where = k.source === 'vault' ? 'Saved here in the Vault' : k.source === 'railway' ? 'Coming from the server settings' : 'Not set';
+        const money = (v) => '$' + (Math.round(v * 100) / 100).toFixed(2);
+        pane.innerHTML = `<div class="vs-status">
+            <div><span class="muted small">Zelpophai's answers</span><b>${working ? 'Working' : broken ? 'Not working' : 'No key'}</b><span class="tag ${working ? 'good' : 'warn'}">${working ? 'On' : 'Off'}</span></div>
+            <div><span class="muted small">Where the key is kept</span><b>${where}</b>${k.source === 'vault' ? '<span class="tag good">Safe</span>' : ''}</div>
+            <div><span class="muted small">Money left on it</span><b>${k.credit == null ? (k.free_tier ? 'Free credit' : 'No limit set') : money(k.credit)}</b></div></div>
+          ${broken ? `<div class="mt">${card('What\'s wrong', `<p class="muted small" style="margin-top:-6px">${esc(k.error || 'The key isn\'t being accepted.')}</p>${k.recent_refusal ? `<p class="muted small">OpenRouter said: <code>${esc(String(k.recent_refusal).slice(0, 160))}</code></p>` : ''}<p class="muted small">Until this is fixed, people are told Zelpophai can\'t reach the AI right now and to try again shortly.</p>`)}</div>` : ''}
+          <div class="mt">${card('Change the key', `<p class="muted small" style="margin-top:-6px">Paste a key from <b>openrouter.ai → Keys</b>. It's checked before it's saved, kept locked away in Zelpophai's own database, and never shown again — not even to you. ${k.count ? `The one in use now ends in <code>${esc((k.masked[0] || '').slice(-4))}</code>.` : ''}</p>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input class="input grow" id="ak-new" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…" aria-label="New OpenRouter key" style="min-width:240px">
+            <button class="btn" id="ak-check">Check it</button><button class="btn pri" id="ak-save">Save and use it</button></div>
+            <p class="muted small" id="ak-msg" role="alert" style="margin-top:10px"></p>
+            <p class="muted small">You can paste several keys separated by commas. Zelpophai moves to the next one by itself if the first runs out of money.</p>`)}</div>
+          <div class="mt">${card('Keys in use', (k.count ? `<div class="list">${k.masked.map((m, i) => `<div class="li"><div class="grow small"><code>${esc(m)}</code>${i === 0 ? ' <span class="tag">main</span>' : ' <span class="tag">spare</span>'}</div></div>`).join('')}</div>` : empty('No key yet', 'Paste one above so Zelpophai can answer messages.'))
+            + (k.env_count ? `<p class="muted small" style="margin-top:10px">There ${k.env_count === 1 ? 'is also 1 key' : `are also ${k.env_count} keys`} set on the server (Railway). ${k.source === 'vault' ? 'Those are only used if you remove the one saved here.' : 'Saving one above replaces ' + (k.env_count === 1 ? 'it' : 'them') + ' without touching Railway.'}</p>` : '')
+            + (k.source === 'vault' ? `<div class="vs-foot"><span class="muted small">Removing it makes Zelpophai fall back to the server's own key, if there is one.</span><button class="btn danger" id="ak-rm">Remove the saved key</button></div>` : '')
+            + `<div style="margin-top:10px"><button class="btn sm" id="ak-re">Check the key in use</button></div>`)}</div>`;
+        const msg = $('ak-msg'), say = (t, bad) => { msg.textContent = t; msg.style.color = bad ? 'var(--bad, #e5484d)' : ''; };
+        $('ak-check').onclick = async () => {
+          const key = $('ak-new').value.trim(); if (!key) return say('Paste a key first.', true);
+          $('ak-check').disabled = true; say('Checking…');
+          try { const r = await api('/api/vault/ai-key/test', { method: 'POST', body: { key } }); say(r.ok ? `That key works${r.left != null ? ` — ${money(r.left)} left on it` : r.free_tier ? ' (free credit)' : ''}. Press “Save and use it”.` : (r.error || 'That key didn\'t work.'), !r.ok); } catch (e) { say(e.message, true); }
+          $('ak-check').disabled = false;
+        };
+        $('ak-save').onclick = async () => {
+          const key = $('ak-new').value.trim(); if (!key) return say('Paste a key first.', true);
+          $('ak-save').disabled = true; say('Checking and saving…');
+          try { await api('/api/vault/ai-key', { method: 'POST', body: { key } }); $('ak-new').value = ''; toast('Saved — Zelpophai is using the new key'); draw(); } catch (e) { say(e.message, true); $('ak-save').disabled = false; }
+        };
+        $('ak-re').onclick = async () => { $('ak-re').disabled = true; try { const r = await api('/api/vault/ai-key/test', { method: 'POST', body: {} }); toast(r.ok ? 'The key is working' : (r.error || 'The key isn\'t working'), !r.ok); } catch (e) { toast(e.message, true); } $('ak-re').disabled = false; draw(); };
+        if ($('ak-rm')) $('ak-rm').onclick = async () => {
+          if (!await confirmBox('Remove the saved key?', 'Zelpophai will fall back to the key set on the server, if there is one. If there isn\'t, it can\'t answer anyone until you paste a new key.', 'Remove it', true)) return;
+          try { await api('/api/vault/ai-key', { method: 'POST', body: { remove: true } }); toast('Removed'); draw(); } catch (e) { toast(e.message, true); }
+        };
       },
       async data() {
         pane.innerHTML = card('Export data', canExport ? `<p class="muted small" style="margin-top:-6px">Download everything as files you can open on your computer. These contain private information, so keep them safe.</p>`

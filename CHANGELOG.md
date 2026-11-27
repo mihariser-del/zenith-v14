@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 22.9 — The AI key lives in the Vault
+
+- **`aikeys.py`** (new): OpenRouter keys stored encrypted in `system_settings["openrouter_keys_enc"]` (Fernet from `SECRET_KEY`, which persists to `/data`, so they survive redeploys). `current()` is sync and cheap for the hot path; `check()` asks `GET /key` for validity and remaining credit; `status()` feeds the Vault card; `warm()` loads them at startup and logs which source is in use. Railway `OPENROUTER_API_KEY(S)` stays as a fallback.
+- `ai._get_openrouter_keys()` prefers the Vault key; `personality.py` now goes through it too, so every caller shares one source.
+- `ai._ai_error_text()` replaces the raw `err:401 …` with plain language ("Zelpophai can't reach the AI right now…", out-of-credit, try-again), and `aikeys.note_failure()` records refusals for the Vault.
+- Vault (Owner only, logged): `GET /api/vault/ai-key`, `POST /api/vault/ai-key` (validates before saving; `{remove:true}` clears), `POST /api/vault/ai-key/test`, plus a new **Settings → AI key** tab — status strip, masked keys, paste box with Check / Save, re-check and Remove. The key is never sent back to the browser.
+
 ## 22.8 — One editable limits system
 
 - **`limits_config.py`** (new): every daily allowance for 8 plans (guest, free, pro, ultimate, friend, admin, trusted, owner) × 7 fields (messages, images, files, videos, mini, coding, cooldown). Stored in `system_settings["limits_json"]` over code defaults, 20s cache, `plan_of(user)` decides the plan (biggest match wins; admin vs trusted are separate). `None` = unlimited, `0` = blocked.

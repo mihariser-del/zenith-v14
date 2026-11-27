@@ -30,8 +30,8 @@ class MirrorSettings(BaseModel):
 
 async def _analyze_style(texts) -> str:
     """Ask a cheap model to describe how the user writes; returns a JSON string."""
-    from database import settings as _s
-    keys = _s.get_openrouter_keys()
+    from ai import _get_openrouter_keys
+    keys = _get_openrouter_keys()
     key = keys[0] if keys else ""
     if not key:
         raise RuntimeError("No API key configured")

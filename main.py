@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.8"
+VERSION = "22.9"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "22.9 Zelpophai answers again. The key that lets it talk to the AI had stopped being accepted, which is what caused the \"err:401\" message when you sent anything. If it ever happens again you'll now get a clear note saying Zelpophai can't reach the AI right now and to try again shortly, instead of a code",
     "22.8 You can now see exactly where you stand. Hover your name at the bottom of the sidebar and the card shows what you've used today — messages, pictures, files, videos, Mini tasks and coding requests — with a bar for each and when everything starts again",
     "22.8 Clearer messages when you run out: Zelpophai now tells you what you used up, how long until you can carry on, and when it comes back, instead of a vague \"limit reached\"",
     "22.8 Free accounts now have a real daily message allowance. Before, the app said 60 a day but nothing was actually counted",
@@ -156,6 +157,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "22.9 Owner: a new AI key page in the Vault (Settings → AI key). It shows whether Zelpophai's answers are working, where the key is kept and how much money is left on it, and lets you paste a new key yourself. The key is checked before it's saved, kept locked away in Zelpophai's own database, and never shown again — so you never have to touch Railway or the code for this, and the key is never in the public code",
     "22.8 Owner: a new Limits page in the Vault (System → Limits). Every daily allowance for every plan — guest, free, Pro, Ultimate, Friend, Admin, Trusted admin — in one table you can edit: messages, pictures, files, videos, Mini tasks, Coding AGT. requests and how long the pause lasts. Leave a box empty for no limit, type 0 to switch something off, and changes apply to everyone the moment you save, with no new release. It also shows today's totals, how many people are on each plan, and a button to let anyone who is paused carry on",
     "22.8 Owner: Admins now get 5,000 Mini tasks a day, Trusted admins 10,000 and Friends 3,000. Admins and Trusted admins are separate plans now, so you can give them different allowances",
     "22.6.1 Owner: your account now holds Ultimate for good — it shows as your plan everywhere (Settings, the account card, your Vault profile) and never runs out or needs renewing",
@@ -238,6 +240,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"init_db failed (non-fatal): {e} — continuing, app will be live but DB may be ephemeral")
     await _owner_pin_reset_once()
+    try:
+        import aikeys
+        await aikeys.warm()          # load the AI key the Owner saved in the Vault
+    except Exception as e:
+        print(f"[aikeys] startup load skipped: {e}")
     reminder_task = asyncio.create_task(_reminder_loop())
     from vault_jobs import alert_loop, backup_loop
     from feedback import migrate_legacy

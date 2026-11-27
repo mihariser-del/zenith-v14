@@ -16,14 +16,34 @@ from docgen import looks_like_file_request
 
 
 def _get_openrouter_keys() -> list[str]:
-    """Return list of OpenRouter keys with rotation support."""
-    # Uses Settings.get_openrouter_keys() which checks OPENROUTER_API_KEYS env (comma-separated) then fallback to singular key
+    """The AI keys to use: the one saved in the Vault first, else the server's own setting."""
+    try:
+        import aikeys
+        keys = aikeys.current()
+        if keys:
+            return keys
+    except Exception:
+        pass
     try:
         keys = settings.get_openrouter_keys()
     except Exception:
         raw = os.getenv("OPENROUTER_API_KEYS") or getattr(settings, "openrouter_api_keys", "") or getattr(settings, "openrouter_api_key", "") or ""
         keys = [k.strip() for k in raw.split(",") if k.strip()]
     return keys
+
+
+def _ai_error_text(status_code: int, body: str) -> str:
+    """What to show someone when the AI service refuses. Plain words, no jargon."""
+    if status_code in (401, 403):
+        return ("Zelpophai can't reach the AI right now because its key isn't being accepted. "
+                "The team has been told — please try again shortly.")
+    if status_code == 402:
+        return "Zelpophai has run out of AI credit. The team has been told — please try again later."
+    if status_code in (408, 504):
+        return "The AI took too long to answer. Please try again."
+    if status_code >= 500:
+        return "The AI service is having trouble right now. Please try again in a minute."
+    return f"Something went wrong talking to the AI (error {status_code}). Please try again."
 
 
 def _is_exhausted(status_code: int, body: str) -> bool:
@@ -873,6 +893,11 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                     error_body += chunk
                                 last_error_body = error_body
                                 last_status = resp.status_code
+                                try:
+                                    import aikeys
+                                    aikeys.note_failure(resp.status_code, error_body)
+                                except Exception:
+                                    pass
                                 if _is_exhausted(resp.status_code, error_body) and idx < len(keys) - 1:
                                     continue
                                 if _is_exhausted(resp.status_code, error_body):
@@ -899,7 +924,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                     except: pass
                                     yield f"data: {json.dumps({'error': 'Zelpophai AI is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                                 else:
-                                    yield f"data: {json.dumps({'error': f'API error {resp.status_code}: {error_body[:300]}'})}\n\n"
+                                    yield f"data: {json.dumps({'error': _ai_error_text(resp.status_code, error_body)})}\n\n"
                                 return
                             # success - stream tokens
                             streamed = True
@@ -934,7 +959,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                     if _is_exhausted(last_status, last_error_body):
                         yield f"data: {json.dumps({'error': 'Zelpophai AI is busy — too many requests at once. Please wait 10 seconds and try again.'})}\n\n"
                     else:
-                        yield f"data: {json.dumps({'error': f'API error {last_status}: {last_error_body[:300]}'})}\n\n"
+                        yield f"data: {json.dumps({'error': _ai_error_text(last_status, last_error_body)})}\n\n"
                     return
 
         if full_response:

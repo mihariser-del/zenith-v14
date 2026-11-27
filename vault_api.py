@@ -903,6 +903,59 @@ async def staff(user=Depends(require_vault), db: AsyncSession = Depends(get_db))
     return {"staff": [d for d in out if d["role"] in ("owner", "admin")], "chosen": [d for d in out if d["is_chosen"]]}
 
 
+@router.get("/ai-key")
+async def ai_key_get(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Is Zelpophai's AI key working, and where does it come from?"""
+    _need_owner(user)
+    import aikeys
+    return await aikeys.status(db)
+
+
+@router.post("/ai-key")
+async def ai_key_set(request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Save a new AI key (checked first), or remove the saved one."""
+    _need_owner(user)
+    import aikeys
+    body = await request.json()
+    if body.get("remove"):
+        await aikeys.save(db, [])
+        try:
+            from audit import log_action
+            await log_action(db=db, request=request, actor=user, action="ai_key", detail="Removed the saved AI key")
+        except Exception:
+            pass
+        return {"ok": True, **(await aikeys.status(db))}
+    keys = [k.strip() for k in str(body.get("key") or "").replace("\n", ",").split(",") if k.strip()]
+    if not keys:
+        raise HTTPException(status_code=400, detail="Paste your OpenRouter key first.")
+    first = await aikeys.check(keys[0])
+    if not first.get("ok"):
+        raise HTTPException(status_code=400, detail=first.get("error") or "That key didn't work.")
+    await aikeys.save(db, keys)
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="ai_key",
+                         detail=f"Saved a new AI key ({aikeys.mask(keys[0])})" + (f" and {len(keys) - 1} spare" if len(keys) > 1 else ""))
+    except Exception:
+        pass
+    return {"ok": True, **(await aikeys.status(db))}
+
+
+@router.post("/ai-key/test")
+async def ai_key_test(request: Request, user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Try a key without saving it, or re-check the one in use."""
+    _need_owner(user)
+    import aikeys
+    body = await request.json()
+    key = str(body.get("key") or "").strip()
+    if not key:
+        keys = aikeys.current()
+        if not keys:
+            raise HTTPException(status_code=400, detail="There's no key to test yet.")
+        key = keys[0]
+    return await aikeys.check(key)
+
+
 @router.get("/limits")
 async def limits_get(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
     """Every daily allowance, plus how many people are on each plan."""

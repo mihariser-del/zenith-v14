@@ -20,7 +20,7 @@
     <button id="retry">Try again</button>
   </main>
 <script>
-  const to = new URLSearchParams(location.search).get('to') || 'https://zelpophai.up.railway.app/app';
+  const to = new URLSearchParams(location.search).get('to') || 'https://zelpophai.com/app';
   const go = () => { if (/^https:\/\/zelpophai\.up\.railway\.app\//.test(to)) location.href = to; };
   document.getElementById('retry').onclick = go;
   addEventListener('online', go);

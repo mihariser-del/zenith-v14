@@ -37,7 +37,8 @@ STRIPE_PRICE_IDS = {
     "pro_lifetime": os.getenv("STRIPE_PRICE_PRO_LIFETIME", ""),
     "ultimate_lifetime": os.getenv("STRIPE_PRICE_ULTIMATE_LIFETIME", ""),
 }
-APP_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app")
+import site_address
+APP_BASE = site_address.base()
 # Paid plans are only on sale when Stripe is fully set up AND the Owner switched them on
 # (BILLING_LIVE=1). Otherwise the app shows "Coming soon" and nothing can be bought or granted.
 BILLING_LIVE = bool(STRIPE_SECRET and STRIPE_WEBHOOK_SECRET and os.getenv("BILLING_LIVE", "").strip() == "1")

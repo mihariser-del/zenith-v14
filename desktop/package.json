@@ -4,7 +4,7 @@
   "version": "1.4.0",
   "description": "Zelpophai AI for Windows",
   "author": "Wanzu Ibrahim",
-  "homepage": "https://zelpophai.up.railway.app",
+  "homepage": "https://zelpophai.com",
   "main": "main.js",
   "private": true,
   "scripts": {
@@ -71,7 +71,7 @@
     "publish": [
       {
         "provider": "generic",
-        "url": "https://zelpophai.up.railway.app/downloads/win",
+        "url": "https://zelpophai.com/downloads/win",
         "channel": "latest"
       }
     ],

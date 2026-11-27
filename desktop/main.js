@@ -9,7 +9,11 @@ const { autoUpdater } = require('electron-updater');
 const runner = require('./runner');
 const mini = require('./mini');
 
-const SITE = process.env.ZELPOPHAI_URL || 'https://zelpophai.up.railway.app';
+const SITE = process.env.ZELPOPHAI_URL || 'https://zelpophai.com';
+// The site moved to zelpophai.com in 24.2. The old Railway address still works,
+// so treat both as ours — otherwise a link or a redirect between the two would
+// open in the browser instead of the app, and Zelpophai Mini would refuse it.
+const OUR_ORIGINS = new Set([new URL(SITE).origin, 'https://zelpophai.com', 'https://www.zelpophai.com', 'https://zelpophai.up.railway.app']);
 const START = SITE + '/app';
 const ICON = path.join(__dirname, 'build', 'icon.png');
 const STATE_FILE = () => path.join(app.getPath('userData'), 'window.json');
@@ -39,7 +43,7 @@ function getSetting(k, d) { const s = loadState(); return k in s ? s[k] : d; }
 function setSetting(k, v) { const s = loadState(); s[k] = v; try { fs.writeFileSync(STATE_FILE(), JSON.stringify(s)); } catch (e) {} }
 
 function isOurs(url) {
-    try { return new URL(url).origin === new URL(SITE).origin; } catch (e) { return false; }
+    try { return OUR_ORIGINS.has(new URL(url).origin); } catch (e) { return false; }
 }
 
 function createWindow() {

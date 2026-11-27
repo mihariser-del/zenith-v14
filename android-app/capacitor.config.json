@@ -3,9 +3,13 @@
   "appName": "Zelpophai AI",
   "webDir": "www",
   "server": {
-    "url": "https://zelpophai.up.railway.app/app",
+    "url": "https://zelpophai.com/app",
     "androidScheme": "https",
-    "allowNavigation": ["zelpophai.up.railway.app"],
+    "allowNavigation": [
+      "zelpophai.com",
+      "www.zelpophai.com",
+      "zelpophai.up.railway.app"
+    ],
     "errorPath": "offline.html"
   },
   "android": {

@@ -1244,7 +1244,7 @@ async def email_overview(user=Depends(require_vault), db: AsyncSession = Depends
             "missing_users": [{"id": u.id, "username": u.username} for u in missing[:30]],
             "grace_days": emailcheck.EMAIL_GRACE_DAYS,
             "google_signin": (await _sys_setting(db, "google_signin", "off")) == "on",
-            "site_origin": os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app").rstrip("/"),
+            "site_origin": __import__("site_address").base(),
             "billing_live": BILLING_LIVE, "plan_interest": len(waiting),
             "plan_interest_users": [{"id": w.user_id, "username": w.username, "plan": w.plan, "t": _iso(w.created_at)} for w in waiting[:30]]}
 

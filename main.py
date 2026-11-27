@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "24.1.1"
+VERSION = "24.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "24.2 Zelpophai has its own address: zelpophai.com. The old one still works and simply sends you to the new one. You'll be asked to sign in once more on the new address — after that you're remembered as usual. The Windows and Android apps carry on exactly as before",
     "24.1.1 The Christmas look is on now, and stays until 2 January: fairy lights along the top, snow falling past, a moonlit scene of snowy hills and fir trees, holly on the greeting card, and red and gold throughout. Baubles drift down now and then — catch one and it bursts into sparkles, and Zelpophai keeps count. It's being tried out first with a small group, so most people will see it next year. Switch it off any time in Settings → General → Seasonal look",
     "24.0.1 Fixed: making a video said \"internal server error\" even though the video was being made perfectly well — it turned up as soon as you reloaded. Accounts with no daily video limit (yours, Ultimate and staff) hit the error every single time. The same fault was in Coding AGT. Both are fixed, and the video window now says \"no daily limit\" instead of \"null of null videos left today\"",
     "24.0 Zelpophai now sets itself up for you. The first time you open it you're asked two quick questions — what you'll mostly use it for (Work, A bit of everything, Fun and creative, or Learning) and roughly how old you are — and it tailors itself to your answers: how it talks to you, whether festive looks like the Halloween theme appear at all, which tools sit first in the row, and the six starting points on a new chat. Work accounts get a plain, quiet look with no seasonal themes; Fun accounts get Image and Video first and all the playful bits. You can skip the questions, and change your answers any time in Settings → General",
@@ -166,6 +167,9 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "24.2 Owner: every canonical link, the sitemap, robots.txt, the structured data Google reads, share and invite previews, the privacy and terms pages, payment return addresses and the Vault's sign-in origin now use https://zelpophai.com, from one place (site_address.py). An APP_BASE_URL still set to the old Railway address is ignored, so a leftover setting can't undo the move",
+    "24.2 Owner: web browsers that reach zelpophai.up.railway.app or www.zelpophai.com get a permanent (301) redirect to zelpophai.com, which tells Google to move the listing across. Never redirected: the installed Windows and Android apps (both are locked to the old address and would break), anything under /api/ (a redirect turns a POST into a GET), /static/, and /downloads/ where the Windows app checks for updates",
+    "24.2 Owner: the Windows and Android app source now points at zelpophai.com and trusts both addresses, ready for their next build. Apps already installed keep using the old address, which keeps working",
     "24.1.1 Owner: the Christmas season now runs 25 November to 2 January rather than starting on 1 December, so it is on from today. The date lives in one place (seasons.py) and is repeated in the page head so the theme is up before the first paint",
     "24.1 Owner: the Christmas look is yours, your admins' and your Friends' for now. In the Vault, System → Controls & broadcast, a new \"Christmas look\" switch moves it between that early group, everyone, and nobody — no release needed. It's all decided on the server, so nobody can switch it on from their own browser",
     "24.1 Owner: Christmas is a dark winter look, so while it's on it holds light mode aside and gives it straight back when the season ends or you choose Never. It also takes precedence over Halloween, obeys the Animations setting and the device's reduced-motion preference, and never shows for a Work profile",
@@ -1197,7 +1201,8 @@ async def shared_code_page(share_id: str):
 
 # ---------------------------------------------------------------- SEO ----
 # Public base URL used for canonical links, Open Graph and the sitemap.
-SITE_BASE = os.getenv("APP_BASE_URL", "https://zelpophai.up.railway.app").rstrip("/")
+import site_address
+SITE_BASE = site_address.base()
 
 
 @app.get("/robots.txt", include_in_schema=False)
@@ -1320,6 +1325,22 @@ async def seo_headers(request: Request, call_next):
                 or ctype.startswith("text/html")):
             response.headers["Cache-Control"] = "no-cache"
     return response
+
+
+@app.middleware("http")
+async def move_to_canonical(request: Request, call_next):
+    """Web browsers on the old Railway address (or on www.) go to zelpophai.com.
+
+    A permanent 301 is what tells search engines the site has moved, so they
+    carry its listing across. The installed apps, API calls, update checks and
+    static files are never redirected — see site_address.redirect_for().
+    """
+    to = site_address.redirect_for(
+        request.headers.get("host", ""), request.method, request.url.path,
+        request.url.query, request.headers.get("user-agent", ""))
+    if to:
+        return RedirectResponse(to, status_code=301)
+    return await call_next(request)
 
 
 if __name__ == "__main__":

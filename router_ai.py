@@ -22,7 +22,7 @@ LIGHT_MODEL = os.getenv("CHAT_MODEL_LIGHT", "openai/gpt-6-luna")
 HEAVY_MODEL = os.getenv("CHAT_MODEL_HEAVY", "openai/gpt-6-sol")
 ROUTER_MODEL = os.getenv("CHAT_ROUTER_MODEL", "openai/gpt-6-luna")
 SEARCH_MODEL = os.getenv("CHAT_SEARCH_MODEL", "perplexity/sonar")
-UA = "ZelpophaiAI/1.0 (+https://zelpophai.up.railway.app/privacy)"
+UA = "ZelpophaiAI/1.0 (+https://zelpophai.com/privacy)"
 
 _SMALLTALK = re.compile(
     r"^\s*(hi+|hey+|hello+|hiya|yo|sup|good (morning|afternoon|evening|night)|thanks?|thank you|thx|ok(ay)?|cool|nice|great|"

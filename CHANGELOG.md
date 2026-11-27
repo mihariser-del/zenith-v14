@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 24.2 — zelpophai.com
+
+- **`site_address.py`** (new): the canonical address in one place. `base()` returns `APP_BASE_URL` unless it still points at `*.up.railway.app`, in which case it returns `https://zelpophai.com`, so a forgotten Railway variable cannot undo the move.
+- **Redirect:** a `move_to_canonical` middleware sends `GET`/`HEAD` requests on `zelpophai.up.railway.app` or `www.zelpophai.com` to `https://zelpophai.com` with a 301, keeping the path and query. It never redirects: the installed apps (UA `ZelpophaiDesktop` / `ZelpophaiAndroid` / `ZelpophaiMini` / `Electron` / `electron-builder`), `/api/` (a 301 would turn POSTs into GETs), `/static/`, `/downloads/` (the Windows auto-updater), `/.well-known/`, `/sw.js` and health checks.
+- **Why the apps are exempt:** `desktop/main.js` decided "ours" by an exact origin match and `capacitor.config.json` allowed navigation only to the Railway host. A redirect would have made the Windows app open every link externally and Zelpophai Mini's IPC refuse its own page, and the Android app send people to Chrome.
+- 30 absolute URLs across `index.html`, `download.html`, `whats-new.html`, `share.html`, `invite.html` and the privacy/terms pages, plus `billing.py`, `vault_api.py`, `router_ai.py` and the sitemap/robots/IndexNow base, now use the new address.
+- App source for the next builds: desktop `SITE` and update feed → zelpophai.com with `isOurs()` trusting all three hosts; Android `server.url` → zelpophai.com with `allowNavigation` listing all three.
+
 ## 24.1.1 — Start the Christmas look now
 
 - The Christmas season is 25 Nov – 2 Jan instead of 1 Dec – 2 Jan, so it is on from today. Changed in `seasons.py` (the one declaration), `christmas.js`'s `inSeason()` and the pre-paint snippet in `app.html`, with the Settings and Vault wording to match.

@@ -1,9 +1,9 @@
 # Zelpophai AI for Windows
 
-Electron shell around https://zelpophai.up.railway.app with a tray icon,
+Electron shell around https://zelpophai.com with a tray icon,
 notifications, Ctrl+Shift+Space quick ask, local code running for Coding AGT.
 (`runner.js`, asks first) and self-updates from
-`https://zelpophai.up.railway.app/downloads/win/latest.yml`.
+`https://zelpophai.com/downloads/win/latest.yml`.
 
 ## Zelpophai Mini (Ctrl+Shift+Z)
 `mini.js` opens a small panel (`SITE/mini`) after taking a screenshot of the screen

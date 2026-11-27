@@ -1,6 +1,6 @@
 # Zelpophai AI for Android
 
-Capacitor 6 shell around https://zelpophai.up.railway.app/app. `native/MainActivity.java`
+Capacitor 6 shell around https://zelpophai.com/app. `native/MainActivity.java`
 adds file downloads (with the login cookie) and hands `.apk` updates to the system.
 The site shows an "update available" prompt when `/api/app/latest` has a newer
 version than the `ZelpophaiAndroid/<version>` in the app's user agent.

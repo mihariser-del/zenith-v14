@@ -153,6 +153,8 @@ function buildTray() {
           click: (i) => setSetting('closeToTray', i.checked) },
         { label: 'Ctrl+Shift+Z opens Zelpophai Mini', type: 'checkbox', checked: getSetting('miniShortcut', true),
           click: (i) => { setSetting('miniShortcut', i.checked); if (i.checked) mini.register(); else mini.unregister(); } },
+        { label: 'Show the Zelpophai Mini bubble', type: 'checkbox', checked: getSetting('miniBubble', true),
+          click: (i) => mini.setBubble(i.checked) },
         { label: updateReady ? `Restart to update to ${updateReady}` : 'Check for updates', click: () => updateReady ? installNow() : checkUpdates(true) },
         { type: 'separator' },
         { label: `Version ${app.getVersion()}`, enabled: false },

@@ -721,6 +721,8 @@
         card.setAttribute('data-r', idx);
         var title = r.attrs.title || 'Working it out with code';
         var sub = { writing: 'Writing the code…', waiting: 'Running it on your device…', done: 'Worked out with real code, not a guess', fail: 'The code hit a problem' }[state];
+        if (r.attrs.engine && state === 'done') sub = 'Calculated exactly on Zelpophai\u2019s calculation engine';
+        if (r.attrs.engine) card.classList.add('engine');
         card.innerHTML = '<div class="zrn-top"><span class="zrn-ic" aria-hidden="true">{ }</span><div class="zrn-tt"><b></b><span class="zrn-sub"></span></div>'
             + (state === 'writing' || state === 'waiting' ? '<span class="zf-spin" aria-hidden="true"></span>' : '')
             + '<button type="button" class="zrn-tog" aria-expanded="false">Show the code</button></div>'

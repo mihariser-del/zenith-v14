@@ -1606,6 +1606,8 @@ const Chat = {
         } else if (parsed.status === 'reading') {
             bubble.innerHTML = '<div class="zp-searching" role="status"><span class="zp-search-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><span>Reading the page\u2026</span><small></small></div>';
             bubble.querySelector('small').textContent = String(parsed.url || '').slice(0, 80);
+        } else if (parsed.status === 'calculating') {
+            bubble.innerHTML = '<div class="zp-searching" role="status"><span class="zp-search-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M12 12h2M16 12h0M8 16h2M12 16h2M16 16h0"/></svg></span><span>Calculating it exactly…</span><small>on Zelpophai’s calculation engine</small></div>';
         } else if (parsed.status === 'search_failed') {
             bubble.innerHTML = '<div class="zp-searching off" role="status"><span>Couldn\u2019t reach the web \u2014 answering from what I know\u2026</span></div>';
         }
@@ -1869,7 +1871,7 @@ const Chat = {
                                 fullContent += `\n\n[File content: ${att.name}]\n${jj.content.slice(0, 12000)}`;
                             }
                             if (jj.frames && jj.frames.length) {
-                                jj.frames.slice(0, 4).forEach(fr => images.push(fr));
+                                jj.frames.slice(0, 8).forEach(fr => images.push(fr));
                             }
                         }
                     } finally {
@@ -2389,7 +2391,14 @@ const Chat = {
         this.attachments.forEach((att, i) => {
             const div = document.createElement('div');
             div.className = 'att-preview';
-            if (att.type === 'image') {
+            const isVid = att.file && /^video\//.test(att.file.type || '') && !att.uploading;
+            if (isVid) {
+                if (!att.preview) { try { att.preview = URL.createObjectURL(att.file); } catch (e) { att.preview = ''; } }
+                div.innerHTML = `<div class="att-vid"><video src="${att.preview}#t=0.5" muted playsinline preload="metadata"></video><span class="att-vid-play">\u25B6</span><span class="att-vid-name">${this.escapeHtml(att.name)}</span></div><button class="remove-att" data-i="${i}">\u2715</button>`;
+                const v = div.querySelector('video');
+                v.addEventListener('mouseenter', () => { v.play().catch(() => {}); });
+                v.addEventListener('mouseleave', () => { v.pause(); });
+            } else if (att.type === 'image') {
                 div.innerHTML = `<img src="${att.data}" alt="${att.name}">${att.uploading ? '<div class="att-spin-overlay"><span class="att-spin"></span></div>' : `<button class="remove-att" data-i="${i}">\u2715</button>`}`;
             } else {
                 const icon = fileIcon(att.name);

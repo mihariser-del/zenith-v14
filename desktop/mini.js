@@ -71,8 +71,24 @@ function toScreen(x, y) {
 
 function placePanel(display) {
     const wa = display.workArea;
+    // Where the person last left it (moved / resized), if that's on this screen.
+    const saved = opts.getSetting('miniBounds', null);
+    if (saved && saved.display === String(display.id) && saved.width >= 340 && saved.height >= 420 &&
+        saved.x >= wa.x - 8 && saved.y >= wa.y - 8 && saved.x + saved.width <= wa.x + wa.width + 8 && saved.y + saved.height <= wa.y + wa.height + 8) {
+        panel.setBounds({ x: saved.x, y: saved.y, width: saved.width, height: saved.height });
+        return;
+    }
     const w = Math.min(PANEL.width, wa.width - 24), h = Math.min(PANEL.height, wa.height - 24);
     panel.setBounds({ x: wa.x + wa.width - w - 16, y: wa.y + wa.height - h - 16, width: w, height: h });
+}
+let saveT = null;
+function rememberBounds() {
+    clearTimeout(saveT);
+    saveT = setTimeout(() => {
+        if (!panel || panel.isDestroyed() || !panel.isVisible()) return;
+        const b = panel.getBounds();
+        opts.setSetting('miniBounds', Object.assign({ display: String(screen.getDisplayMatching(b).id) }, b));
+    }, 400);
 }
 
 function createPanel() {
@@ -92,6 +108,40 @@ function createPanel() {
     panel.webContents.on('will-navigate', (e, url) => { if (!opts.isOurs(url) && !url.startsWith('file:')) { e.preventDefault(); shell.openExternal(url); } });
     panel.on('blur', () => { if (!pinned && !control && panel && panel.isVisible() && !regionOpen) panel.hide(); });
     panel.on('closed', () => { panel = null; });
+    panel.on('moved', rememberBounds);
+    panel.on('resized', rememberBounds);
+    panel.on('show', () => bubbleVisible(false));
+    panel.on('hide', () => bubbleVisible(true));
+}
+
+/* ─────────────────────────── the bubble ── */
+// A small round Zelpophai button that floats at the edge of the screen while
+// Mini is closed: click it to open Mini, drag it anywhere, right-click to hide.
+let bubble = null;
+function bubbleOn() { return opts && opts.getSetting('miniBubble', true); }
+function makeBubble() {
+    if (bubble || !bubbleOn()) return;
+    const wa = screen.getPrimaryDisplay().workArea;
+    const at = opts.getSetting('miniBubbleAt', null);
+    bubble = new BrowserWindow({
+        width: 58, height: 58, x: at ? at.x : wa.x + wa.width - 74, y: at ? at.y : wa.y + Math.round(wa.height * 0.62),
+        frame: false, transparent: true, resizable: false, movable: true, alwaysOnTop: true, skipTaskbar: true, focusable: false,
+        fullscreenable: false, hasShadow: false, show: false, backgroundColor: '#00000000',
+        webPreferences: { preload: path.join(__dirname, 'bubble-preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    });
+    bubble.setAlwaysOnTop(true, 'floating');
+    bubble.loadFile(path.join(__dirname, 'bubble.html'));
+    bubble.once('ready-to-show', () => { if (bubble && !(panel && panel.isVisible())) bubble.showInactive(); });
+    bubble.on('moved', () => { if (bubble) opts.setSetting('miniBubbleAt', bubble.getBounds()); });
+    bubble.on('closed', () => { bubble = null; });
+}
+function bubbleVisible(on) {
+    if (!bubble || bubble.isDestroyed()) return;
+    if (on && bubbleOn() && !control) bubble.showInactive(); else bubble.hide();
+}
+function setBubble(on) {
+    opts.setSetting('miniBubble', !!on);
+    if (on) { makeBubble(); bubbleVisible(true); } else if (bubble) { bubble.destroy(); bubble = null; }
 }
 
 async function toggle() {
@@ -101,6 +151,7 @@ async function toggle() {
     let shot = null;
     try {
         if (panel && panel.isVisible()) { panel.hide(); await sleep(150); }
+        if (bubble && !bubble.isDestroyed() && bubble.isVisible()) { bubble.hide(); await sleep(60); }
         shot = await captureNow(display);
     } catch (e) { shot = { error: String(e.message || e) }; }
     if (!panel) createPanel();
@@ -233,6 +284,7 @@ async function launchApp(name) {
 function stopControl() {
     if (!control) return;
     control = null;
+    bubbleVisible(!(panel && panel.isVisible()));
     try { globalShortcut.unregister('Escape'); } catch (e) {}
     if (panel && !panel.isDestroyed()) {
         panel.webContents.send('mini-stop');
@@ -266,7 +318,7 @@ async function runAction(a) {
     else if (t === 'type') { const text = String(a.text || '').slice(0, 2000); if (text) await input.send({ op: 'type', text }); }
     else if (t === 'key') { const keys = String(a.keys || '').toLowerCase().replace(/\s+/g, ''); if (!/^[a-z0-9+\-]{1,40}$/.test(keys)) throw new Error('Bad keys'); await input.send({ op: 'keys', keys }); }
     else throw new Error('Unknown action');
-    await sleep(t === 'type' ? 250 : 450);
+    await sleep(t === 'type' ? 180 : 320);
 }
 
 function fromPanel(e) {
@@ -275,6 +327,15 @@ function fromPanel(e) {
 
 function setup(o) {
     opts = o;
+    ipcMain.on('bubble-click', (e) => { if (bubble && e.sender === bubble.webContents) toggle(); });
+    ipcMain.on('bubble-hide', (e) => { if (bubble && e.sender === bubble.webContents) setBubble(false); });
+    ipcMain.on('bubble-drag', (e, d) => {
+        if (!bubble || e.sender !== bubble.webContents || !d) return;
+        const b = bubble.getBounds();
+        bubble.setBounds({ x: Math.round(b.x + (Number(d.dx) || 0)), y: Math.round(b.y + (Number(d.dy) || 0)), width: 58, height: 58 });
+    });
+    ipcMain.on('bubble-dragged', (e) => { if (bubble && e.sender === bubble.webContents) opts.setSetting('miniBubbleAt', bubble.getBounds()); });
+    setTimeout(makeBubble, 1500);
     const guard = (fn) => async (e, ...args) => { if (!fromPanel(e)) throw new Error('Not allowed'); return fn(e, ...args); };
 
     ipcMain.handle('mini-last-capture', guard(async () => {
@@ -287,6 +348,17 @@ function setup(o) {
         const r = await selectArea();
         if (panel && !panel.isDestroyed()) { panel.show(); panel.focus(); }
         return r;
+    }));
+    ipcMain.handle('mini-crop', guard(async (e, r) => {
+        // A close-up of the last screenshot at full resolution, around (x, y) in
+        // the coordinates the AI saw. Returned at 2× so small things are clear.
+        if (!last || !r) return null;
+        const w = Math.max(40, Math.min(600, Number(r.w) || 320)), h = Math.max(40, Math.min(400, Number(r.h) || 220));
+        const ox = Math.max(0, Math.min(last.sent.w - w, Number(r.x) - w / 2)), oy = Math.max(0, Math.min(last.sent.h - h, Number(r.y) - h / 2));
+        const full = last.image.getSize(), fx = full.width / last.sent.w, fy = full.height / last.sent.h;
+        const part = last.image.crop({ x: Math.round(ox * fx), y: Math.round(oy * fy), width: Math.round(w * fx), height: Math.round(h * fy) });
+        const out = part.resize({ width: w * 2, height: h * 2, quality: 'best' });
+        return { image: 'data:image/jpeg;base64,' + out.toJPEG(90).toString('base64'), width: w * 2, height: h * 2, ox, oy, scale: 2 };
     }));
     ipcMain.handle('mini-apps', guard(async () => (await listApps()).map((a) => a.name).slice(0, 400)));
     ipcMain.handle('mini-clipboard', guard(async () => String(clipboard.readText() || '').slice(0, 20000)));
@@ -336,4 +408,4 @@ function register(accel) {
 }
 function unregister(accel) { try { globalShortcut.unregister(accel || 'Control+Shift+Z'); } catch (e) {} }
 
-module.exports = { setup, toggle, register, unregister, stop: () => { stopControl(); input.stop(); } };
+module.exports = { setup, toggle, register, unregister, setBubble, bubbleOn, stop: () => { stopControl(); input.stop(); } };

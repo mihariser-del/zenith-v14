@@ -5,7 +5,9 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Environment;
+import android.provider.Settings;
 import android.webkit.CookieManager;
+import android.webkit.JavascriptInterface;
 import android.webkit.URLUtil;
 import android.webkit.WebView;
 import android.widget.Toast;
@@ -22,6 +24,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         WebView web = getBridge().getWebView();
+        web.addJavascriptInterface(new AppBridge(), "ZPApp");
+        openPath(getIntent());
         web.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
             try {
                 String name = URLUtil.guessFileName(url, contentDisposition, mimeType);
@@ -50,5 +54,47 @@ public class MainActivity extends BridgeActivity {
                 startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
             }
         });
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        openPath(intent);
+    }
+
+    /** "Open in Zelpophai" from the assistant: show that page in the app. */
+    private void openPath(Intent intent) {
+        if (intent == null) return;
+        String p = intent.getStringExtra("zp_path");
+        if (p == null || !p.startsWith("/")) return;
+        intent.removeExtra("zp_path");
+        final WebView web = getBridge().getWebView();
+        web.post(() -> web.loadUrl(ZpAssistActivity.SITE + p));
+    }
+
+    /** Lets the site offer "Use Zelpophai like Siri" set-up from inside the app. */
+    private class AppBridge {
+        @JavascriptInterface
+        public String status() {
+            String a = Settings.Secure.getString(getContentResolver(), "assistant");
+            boolean isAssistant = a != null && a.startsWith(getPackageName() + "/");
+            return "{\"assistant\":" + isAssistant + ",\"access\":" + ZpAccess.on() + ",\"screen\":" + (android.os.Build.VERSION.SDK_INT >= 30) + "}";
+        }
+        @JavascriptInterface
+        public void openAssistant() {
+            startActivity(new Intent(MainActivity.this, ZpAssistActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
+        @JavascriptInterface
+        public void openAssistantSettings() {
+            try { startActivity(new Intent("android.settings.MANAGE_DEFAULT_APPS_SETTINGS").addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+            catch (Exception e) {
+                try { startActivity(new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+                catch (Exception e2) { startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+            }
+        }
+        @JavascriptInterface
+        public void openAccessibilitySettings() {
+            startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        }
     }
 }

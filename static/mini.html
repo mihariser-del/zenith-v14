@@ -22,6 +22,8 @@
       <button type="button" role="tab" data-mode="do" aria-selected="false">Do</button>
     </div>
     <div class="tools">
+      <button type="button" class="ib" id="newChat" title="New conversation">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button>
       <button type="button" class="ib" id="pin" title="Keep open when I click elsewhere" aria-pressed="false">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg></button>
       <button type="button" class="ib" id="openApp" title="Open Zelpophai">
@@ -43,6 +45,11 @@
       <button type="button" class="chip" id="addShot" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 18v3"/></svg>Use my screen</button>
       <button type="button" class="chip" id="clip" hidden aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg><span id="clipText">Clipboard</span></button>
     </div>
+  </div>
+
+  <div class="orb-wrap" id="orbWrap" hidden>
+    <button type="button" class="orb" id="orb" aria-label="Talk to Zelpophai"><span></span><span></span><span></span></button>
+    <p class="heard" id="heard">Listening…</p>
   </div>
 
   <main class="body" id="body">
@@ -80,6 +87,7 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 <script src="/static/js/render.js"></script>
+<script src="/static/js/mini-android.js"></script>
 <script src="/static/js/mini.js"></script>
 <script src="/static/js/freshness.js"></script>
 </body>

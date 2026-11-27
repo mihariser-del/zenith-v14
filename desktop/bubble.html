@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<style>
+html,body{margin:0;width:58px;height:58px;background:transparent;overflow:hidden;user-select:none;-webkit-user-select:none}
+#b{position:absolute;left:5px;top:5px;width:48px;height:48px;border-radius:50%;cursor:pointer;display:grid;place-items:center;
+   background:radial-gradient(circle at 35% 30%,#a5b4fc,#6366f1 48%,#db2777);box-shadow:0 4px 14px rgba(40,30,120,.5);
+   color:#fff;font:900 22px/1 system-ui,Segoe UI,sans-serif;transition:transform .15s}
+#b:hover{transform:scale(1.07)}
+#m{position:absolute;inset:0;display:none}
+</style></head>
+<body><div id="b" title="Zelpophai Mini — click to open, drag to move, right-click to hide">Z</div>
+<script>
+// Click opens Mini; dragging moves the bubble; right-click hides it (bring it back from the tray menu).
+var b=document.getElementById('b'),down=null,moved=false;
+b.addEventListener('mousedown',function(e){if(e.button!==0)return;down={x:e.screenX,y:e.screenY};moved=false;});
+window.addEventListener('mousemove',function(e){if(!down)return;var dx=e.screenX-down.x,dy=e.screenY-down.y;
+  if(!moved&&Math.abs(dx)+Math.abs(dy)<4)return;moved=true;down={x:e.screenX,y:e.screenY};window.bubble.drag(dx,dy);});
+window.addEventListener('mouseup',function(){if(!down)return;var was=moved;down=null;if(was)window.bubble.dragged();else window.bubble.click();});
+b.addEventListener('contextmenu',function(e){e.preventDefault();if(confirm('Hide the Zelpophai Mini bubble? You can bring it back from the tray icon menu.'))window.bubble.hide();});
+</script></body></html>

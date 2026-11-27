@@ -187,6 +187,7 @@ _CALC_RE = re.compile(
     r"convert \d|exchange rate|how old|days (until|between|since)|statistic\w*|regression|correlat\w*|"
     r"chart|graph|plot)\b", re.I)
 _NUM_RE = re.compile(r"\d")
+_CHART_RE = re.compile(r"\b(chart|graph|plot|histogram|visuali[sz]\w*|diagram|pie)\b", re.I)
 
 
 def _needs_calc(text: str) -> bool:
@@ -843,6 +844,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         use_web = False
     if _calc:
         user_max_tokens = max(user_max_tokens or 0, 4096)
+    # Most maths is worked out on the server's calculation engine (calcengine.py)
+    # before the answer is written. Charts and attached spreadsheets still go to
+    # Python on the person's device, which has matplotlib and pandas.
+    _engine = (_calc and not continuation and not has_images and not _wants_file
+               and not _CHART_RE.search(_user_ask)
+               and not re.search(r"\[File content: [^\]]+\.(csv|xlsx?|xlsm|tsv|json)\]", last_user_msg, re.I))
     # Think mode shows the real stages of the answer as they happen.
     _early_steps = []
     if think:
@@ -992,9 +999,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                         _m["content"] += (
                             "\n\n[FACTS FROM A WEB SEARCH JUST NOW]\n" + strip_citations(_facts) +
                             ("\n\nSOURCES (numbered):\n" + _listing if _listing else "") +
-                            "\n[END OF FACTS]\n\nUse these facts for the numbers you need, cite them with [n] from the "
-                            "SOURCES list, and do the calculation with a <zrun> block as your tools describe — never "
-                            "estimate it in your head and never say you can't calculate. Don't write your own Sources list.")
+                            "\n[END OF FACTS]\n\nUse these facts for the numbers you need and cite them with [n] from the "
+                            "SOURCES list. Never estimate the maths in your head and never say you can't calculate. "
+                            "Don't write your own Sources list.")
                         break
                 yield _step("web", "Looked up the facts", (f"{len(_deep_sources)} sources · " if _deep_sources else "") + f"{time.time() - _t0:.1f}s", "done")
             else:
@@ -1030,8 +1037,43 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             messages[0]["content"] += ("\n\nNOTE: a live web search was needed but failed just now. Answer from what you "
                                        "know, and say clearly that you couldn't check the latest information.")
 
+        # Exact maths first, on the calculation engine (see calcflow.py).
+        _prefix = ""
+        if _engine:
+            import calcflow
+            yield _sse({"status": "calculating"})
+            yield _step("calc", "Calculating it exactly", "on the calculation engine", "doing")
+            _t0 = time.time()
+            try:
+                _cres = await calcflow.work_out(messages)
+            except Exception as _ce:
+                print(f"[calcflow] {type(_ce).__name__}: {_ce}")
+                _cres = None
+            if _cres and _cres.get("ok"):
+                _prefix = calcflow.card(_cres)
+                for _m in reversed(messages):
+                    if _m.get("role") == "user" and isinstance(_m.get("content"), str):
+                        _m["content"] += calcflow.brief(_cres)
+                        break
+                yield _step("calc", "Calculated it exactly",
+                            f"{time.time() - _t0:.1f}s" + (f" · fixed itself {_cres['tries'] - 1}×" if _cres["tries"] > 1 else ""), "done")
+                full_response = _prefix
+                yield _sse({"token": _prefix})
+            else:
+                yield _step("calc", "Switching to Python on your device", "the engine couldn't finish it", "done")
+                for _m in reversed(messages):
+                    if _m.get("role") == "user" and isinstance(_m.get("content"), str):
+                        _m["content"] += ("\n\n[Do the calculation with a <zrun> block as your tools describe — never "
+                                          "estimate it in your head and never say you can't calculate.]")
+                        break
+        elif _calc and use_web and not continuation:
+            for _m in reversed(messages):
+                if _m.get("role") == "user" and isinstance(_m.get("content"), str):
+                    _m["content"] += "\n\n[Do the calculation with a <zrun> block as your tools describe.]"
+                    break
+
         # Photos go in beside the thing they show, once the answer is written (see the end of this function).
-        if think:
+        if think or _engine or (use_web and _calc):
             yield _step("write", "Writing the answer", "", "doing")
 
         # Normal streaming path (no web or has images) - with key rotation on 402/429
@@ -1128,13 +1170,16 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                     return
 
         if full_response:
+            _body = full_response[len(_prefix):] if _prefix and full_response.startswith(_prefix) else full_response
+            _keep = _prefix if _body is not full_response else ""
             if _deep_sources:
                 from router_ai import cite as _cite
-                full_response = _cite(full_response, _deep_sources)
+                full_response = _keep + _cite(_body, _deep_sources)
                 yield _sse({"content": full_response})
-                yield _step("rwrite", "Wrote the report", f"{len(_deep_sources)} sources", "done")
+                if "rwrite" in _steps_sent:
+                    yield _step("rwrite", "Wrote the report", f"{len(_deep_sources)} sources", "done")
             else:
-                full_response = strip_citations(full_response)
+                full_response = _keep + strip_citations(_body)
             # Photos last: now that the answer is written we know where each one belongs.
             if img_task:
                 _imgs = await _photos(3.0)
@@ -1147,7 +1192,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                         yield _sse({"content": full_response})
                 if not img_task.done():
                     img_task.cancel()
-            if think:
+            if "write" in _steps_sent:
                 yield _step("write", "Wrote the answer", "", "done")
             ai_meter.record("chat", user_model, user_id, messages, full_response)
             async with async_session() as db:

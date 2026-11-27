@@ -753,11 +753,116 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (ok) { await Chat.clearAll(); closeSidebar(); }
     });
 
+    // Android app 1.1+: Zelpophai as the phone's assistant (hold home / power).
+    (function phoneAssistant() {
+        const A = window.ZPApp;
+        if (!A || !$('assist-btn')) return;
+        const status = () => { try { return JSON.parse(A.status()); } catch (e) { return {}; } };
+        function sheet() {
+            const st = status();
+            document.querySelectorAll('.zp-asst').forEach(e => e.remove());
+            const w = document.createElement('div');
+            w.className = 'zp-asst';
+            w.innerHTML = `<div class="zp-asst-card" role="dialog" aria-label="Phone assistant">
+                <div class="zp-asst-orb"></div>
+                <h3>Use Zelpophai like Siri</h3>
+                <p>Hold your phone's home or power button anywhere and just talk. Zelpophai answers out loud, sets alarms and timers, opens apps, makes calls — and can do tasks on your screen for you.</p>
+                <div class="zp-asst-step ${st.assistant ? 'ok' : ''}"><b>1</b><span>Make Zelpophai your phone's assistant<small>Settings → Default apps → Digital assistant app → Zelpophai</small></span>
+                    <button type="button" data-a="assist">${st.assistant ? 'Done ✓' : 'Open settings'}</button></div>
+                <div class="zp-asst-step ${st.access ? 'ok' : ''}"><b>2</b><span>Let it see the screen and tap for you <em>(optional)</em><small>Accessibility → Zelpophai assistant → On${st.screen ? '' : ' · seeing the screen needs Android 11+'}</small></span>
+                    <button type="button" data-a="access">${st.access ? 'Done ✓' : 'Open settings'}</button></div>
+                <p class="zp-asst-tip">Also: long-press the Zelpophai icon → <b>Talk</b>, or add the <b>Zelpophai</b> tile to Quick Settings.</p>
+                <div class="zp-asst-row"><button type="button" data-a="try" class="pri">Try it now</button><button type="button" data-a="close">Close</button></div>
+            </div>`;
+            w.addEventListener('click', (e) => {
+                const b = e.target.closest('[data-a]');
+                if (!b) { if (e.target === w) w.remove(); return; }
+                const a = b.dataset.a;
+                if (a === 'assist') A.openAssistantSettings();
+                if (a === 'access') A.openAccessibilitySettings();
+                if (a === 'try') { w.remove(); A.openAssistant(); }
+                if (a === 'close') w.remove();
+            });
+            document.body.appendChild(w);
+        }
+        $('assist-btn').hidden = false;
+        $('assist-btn').addEventListener('click', sheet);
+        // When they come back from Settings, refresh the ticks.
+        document.addEventListener('visibilitychange', () => { if (!document.hidden && document.querySelector('.zp-asst')) sheet(); });
+        try {
+            if (!localStorage.getItem('zp_asst_seen') && !status().assistant) {
+                localStorage.setItem('zp_asst_seen', '1');
+                setTimeout(sheet, 6000);
+            }
+        } catch (e) {}
+    })();
+
     $('attach-btn').addEventListener('click', () => $('file-input').click());
     $('file-input').addEventListener('change', e => {
         if (e.target.files.length) Chat.handleFiles(e.target.files);
         e.target.value = '';
     });
+
+    // Paste pictures, videos and files straight into the typing box (Ctrl+V),
+    // or drop them anywhere on the chat. Plain text still pastes as text.
+    (function pasteAndDrop() {
+        const stamp = () => { const d = new Date(); const p = n => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}.${p(d.getMinutes())}.${p(d.getSeconds())}`; };
+        const extFor = (t) => ({ 'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp', 'image/bmp': 'bmp', 'image/svg+xml': 'svg', 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' }[t] || (t.split('/')[1] || 'bin').replace(/[^a-z0-9]/gi, ''));
+        // Screenshots pasted from the clipboard are all called "image.png" — give them real names.
+        function named(f, i) {
+            const generic = !f.name || /^(image|blob|clipboard|untitled)\.\w+$/i.test(f.name);
+            if (!generic) return f;
+            const kind = f.type.startsWith('video/') ? 'Pasted video' : f.type.startsWith('image/') ? 'Pasted image' : 'Pasted file';
+            try { return new File([f], `${kind} ${stamp()}${i ? ' (' + (i + 1) + ')' : ''}.${extFor(f.type || '')}`, { type: f.type, lastModified: Date.now() }); }
+            catch (e) { return f; }
+        }
+        function take(files) {
+            const list = Array.from(files || []).filter(f => f && f.size !== undefined).map(named);
+            if (!list.length) return false;
+            if (typeof Chat === 'undefined') return false;
+            Chat.handleFiles(list);
+            showToast(list.length === 1 ? 'Added ' + list[0].name : 'Added ' + list.length + ' files', 'success');
+            return true;
+        }
+        $('user-input').addEventListener('paste', (e) => {
+            const cd = e.clipboardData;
+            if (!cd) return;
+            let files = Array.from(cd.files || []);
+            if (!files.length && cd.items) {
+                files = Array.from(cd.items).filter(it => it.kind === 'file').map(it => it.getAsFile()).filter(Boolean);
+            }
+            if (!files.length) return;                 // ordinary text — let it paste
+            e.preventDefault();
+            // Some apps put both the picture and its text (e.g. a file name) on the clipboard; keep the text too.
+            const txt = cd.getData('text/plain');
+            take(files);
+            if (txt && !/^[^\n]{0,260}\.(png|jpe?g|gif|webp|bmp|mp4|mov|webm|pdf)$/i.test(txt.trim()) && !files.some(f => f.name === txt.trim())) {
+                document.execCommand('insertText', false, txt);
+            }
+        });
+
+        let depth = 0, veil = null;
+        const hasFiles = (e) => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+        function showVeil(on) {
+            if (on && !veil) {
+                veil = document.createElement('div');
+                veil.className = 'zp-dropveil';
+                veil.innerHTML = '<div class="zp-dropbox"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg><b>Drop to add to your message</b><span>Pictures, videos, documents — anything</span></div>';
+                document.body.appendChild(veil);
+            } else if (!on && veil) { veil.remove(); veil = null; }
+        }
+        window.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; showVeil(true); });
+        window.addEventListener('dragover', (e) => { if (!hasFiles(e)) return; e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; });
+        window.addEventListener('dragleave', (e) => { if (!hasFiles(e)) return; depth = Math.max(0, depth - 1); if (!depth) showVeil(false); });
+        window.addEventListener('drop', (e) => {
+            if (!hasFiles(e)) return;
+            depth = 0; showVeil(false);
+            // Let other drop zones (Files window, Vault uploads, Knowledge) keep theirs.
+            if (e.target.closest && e.target.closest('.drop, .zp-modal, .zp-wn, #files-modal, [data-own-drop]')) return;
+            e.preventDefault();
+            if (take(e.dataTransfer.files)) $('user-input').focus();
+        });
+    })();
 
     $('logout-btn').addEventListener('click', async () => {
         let ok;

@@ -871,3 +871,36 @@ body.admin-owner .sidebar .btn.info { color: #dfe7f5 !important; border-color: r
 
 /* ── Sidebar reminders button styling match ─────────────────────── */
 #reminders-open { color: #4CC9F0; }
+
+/* 26.0 — pasted / dropped videos and the drop veil */
+.att-vid { position: relative; width: 112px; height: 64px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border); background: #000; box-shadow: 0 2px 10px rgba(0,0,0,.4); }
+.att-vid video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.att-vid-play { position: absolute; left: 6px; bottom: 5px; width: 20px; height: 20px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; font-size: 9px; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+.att-vid-name { position: absolute; left: 30px; right: 6px; bottom: 6px; color: #fff; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 3px #000; pointer-events: none; }
+.att-preview:has(.att-vid) .remove-att { z-index: 2; }
+.zp-dropveil { position: fixed; inset: 0; z-index: 99980; background: rgba(5,8,18,.62); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; pointer-events: none; animation: zpFadeIn .15s ease; }
+.zp-dropbox { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 34px 46px; border: 2px dashed var(--accent, #60a5fa); border-radius: 22px; background: rgba(17,19,24,.85); color: #f2f4f8; text-align: center; }
+.zp-dropbox svg { width: 40px; height: 40px; color: var(--accent, #60a5fa); }
+.zp-dropbox b { font-size: 17px; }
+.zp-dropbox span { font-size: 13px; opacity: .7; }
+@keyframes zpFadeIn { from { opacity: 0 } to { opacity: 1 } }
+
+/* 26.0 — Android: "Use Zelpophai like Siri" set-up sheet */
+.zp-asst { position: fixed; inset: 0; z-index: 99970; background: rgba(4,6,14,.6); display: flex; align-items: flex-end; justify-content: center; }
+.zp-asst-card { width: 100%; max-width: 520px; background: #0f1426; color: #eef2ff; border-radius: 24px 24px 0 0; padding: 22px 18px calc(18px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 40px rgba(0,0,0,.5); animation: zpUp .25s ease; }
+@keyframes zpUp { from { transform: translateY(40px); opacity: 0 } to { transform: none; opacity: 1 } }
+.zp-asst-orb { width: 56px; height: 56px; margin: 0 auto 10px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #a5b4fc, #6366f1 45%, #db2777); box-shadow: 0 8px 26px rgba(99,102,241,.45); }
+.zp-asst-card h3 { text-align: center; margin: 0 0 6px; font-size: 19px; }
+.zp-asst-card > p { margin: 0 0 14px; font-size: 14px; line-height: 1.45; color: #b8c0e0; text-align: center; }
+.zp-asst-step { display: flex; align-items: center; gap: 10px; padding: 11px 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; margin-bottom: 8px; }
+.zp-asst-step b { flex: none; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; background: #312e81; font-size: 12px; }
+.zp-asst-step.ok b { background: #15803d; }
+.zp-asst-step span { flex: 1; font-size: 14px; }
+.zp-asst-step small { display: block; color: #8f98bd; font-size: 12px; margin-top: 2px; }
+.zp-asst-step em { color: #8f98bd; font-style: normal; font-size: 12px; }
+.zp-asst-step button, .zp-asst-row button { flex: none; border: 0; border-radius: 10px; padding: 8px 12px; font: 600 13px inherit; background: rgba(255,255,255,.08); color: #eef2ff; cursor: pointer; }
+.zp-asst-step.ok button { color: #4ade80; }
+.zp-asst-tip { font-size: 12.5px; color: #8f98bd; margin: 10px 2px 14px; }
+.zp-asst-row { display: flex; gap: 8px; }
+.zp-asst-row button { flex: 1; padding: 12px; }
+.zp-asst-row .pri { background: linear-gradient(90deg, #6366f1, #db2777); }

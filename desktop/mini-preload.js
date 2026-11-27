@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('zelpophaiMini', {
     // a fresh screenshot (the panel hides itself while it's taken)
     capture: (opts) => ipcRenderer.invoke('mini-capture', opts || {}),
     selectArea: () => ipcRenderer.invoke('mini-select-area'),
+    // a sharp close-up of the last screenshot around a point (for aiming clicks)
+    crop: (r) => ipcRenderer.invoke('mini-crop', r || {}),
     clipboard: () => ipcRenderer.invoke('mini-clipboard'),
     // names of apps installed on this PC (Start menu + desktop shortcuts)
     apps: () => ipcRenderer.invoke('mini-apps'),

@@ -121,3 +121,34 @@ button { font-family: inherit; }
 .toast { position: fixed; left: 50%; bottom: 84px; transform: translateX(-50%) translateY(10px); opacity: 0; padding: 7px 13px; border-radius: 10px; background: #18224a; border: 1px solid var(--line); font-size: 12.5px; transition: all .18s; pointer-events: none; z-index: 9; }
 .toast.on { opacity: 1; transform: translateX(-50%); }
 ::-webkit-scrollbar { width: 8px; height: 8px; } ::-webkit-scrollbar-thumb { background: rgba(122, 152, 255, .2); border-radius: 8px; }
+
+/* 26.0 — plan, self-check, calculating, pictures, new chat */
+.plan { padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(96,165,250,.35); background: rgba(96,165,250,.07); }
+.plan .pt { display: flex; align-items: baseline; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
+.plan .pt b { letter-spacing: .04em; text-transform: uppercase; font-size: 11px; color: #93c5fd; }
+.plan .pt span { color: var(--dim); font-size: 11.5px; }
+.plan ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; color: var(--dim); }
+.plan li.ok { color: #4ade80; text-decoration: line-through; text-decoration-color: rgba(74,222,128,.5); }
+.plan li.now { color: var(--ink); font-weight: 600; }
+.step .chk { font-size: 12px; color: var(--dim); font-style: italic; margin-bottom: 3px; }
+.calc-note { display: inline-flex; align-items: center; gap: 8px; color: var(--dim); font-size: 13px; }
+.calc-note .spin, .working .spin { flex: none; }
+body.dropping .mini { outline: 2px dashed #60a5fa; outline-offset: -6px; }
+
+/* 26.0 — Zelpophai on Android: a voice-first assistant sheet */
+body.android .modes, body.android #openApp { display: none; }
+body.android .mini { border-radius: 26px 26px 0 0; }
+.orb-wrap { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 12px 6px; }
+.orb { position: relative; width: 74px; height: 74px; border-radius: 50%; border: 0; cursor: pointer; padding: 0;
+       background: radial-gradient(circle at 35% 30%, #a5b4fc, #6366f1 45%, #db2777 100%); box-shadow: 0 8px 30px rgba(99,102,241,.45); }
+.orb span { position: absolute; inset: 0; border-radius: 50%; border: 2px solid rgba(165,180,252,.55); opacity: 0; }
+.orb-wrap[data-state="listening"] .orb span { animation: orbRing 1.6s ease-out infinite; }
+.orb-wrap[data-state="listening"] .orb span:nth-child(2) { animation-delay: .5s; }
+.orb-wrap[data-state="listening"] .orb span:nth-child(3) { animation-delay: 1s; }
+.orb-wrap[data-state="thinking"] .orb { animation: orbSpin 1.2s linear infinite; background: conic-gradient(from 0deg, #6366f1, #db2777, #22d3ee, #6366f1); }
+.orb-wrap[data-state="speaking"] .orb { animation: orbPulse .9s ease-in-out infinite; }
+@keyframes orbRing { from { transform: scale(1); opacity: .9; } to { transform: scale(1.9); opacity: 0; } }
+@keyframes orbSpin { to { transform: rotate(360deg); } }
+@keyframes orbPulse { 50% { transform: scale(1.08); box-shadow: 0 8px 40px rgba(219,39,119,.55); } }
+.heard { margin: 0; min-height: 20px; font-size: 14px; color: var(--dim); text-align: center; max-width: 92%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (prefers-reduced-motion: reduce) { .orb, .orb span { animation: none !important; } }

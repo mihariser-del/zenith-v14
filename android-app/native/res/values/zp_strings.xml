@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="zp_access_desc">Lets Zelpophai see what\'s on your screen and tap, scroll and type for you — only while a task you asked for is running. It never types passwords or payment details, and you can stop it at any moment from the \"Zelpophai is working\" label.</string>
+    <string name="zp_access_summary">See the screen and do tasks you ask for</string>
+    <string name="zp_access_label">Zelpophai assistant</string>
+    <string name="zp_talk_short">Talk</string>
+    <string name="zp_talk_long">Talk to Zelpophai</string>
+    <string name="zp_tile">Zelpophai</string>
+</resources>

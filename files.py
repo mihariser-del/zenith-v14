@@ -43,6 +43,7 @@ def _pick_upload_dir() -> str:
 UPLOAD_DIR = _pick_upload_dir()
 
 MAX_SIZE = 20 * 1024 * 1024
+MAX_VIDEO_SIZE = 100 * 1024 * 1024     # videos (screen recordings especially) are big
 MAX_TEXT = 50000
 
 ALLOWED_TYPES = {
@@ -131,26 +132,42 @@ async def upload_file(
     user = await get_current_user_from_cookie(request, db)
     await check_limit(user, db, "file_upload")
 
-    content = await file.read()
-    if len(content) > MAX_SIZE:
-        raise HTTPException(status_code=400, detail="File too large (max 20MB)")
-
     if file.content_type and not _file_allowed(file.content_type, file.filename):
         raise HTTPException(status_code=400, detail=f"File type not allowed: {file.content_type}")
+    lower = (file.filename or "").lower()
+    is_video = (file.content_type or "").startswith("video/") or lower.endswith((".mp4", ".webm", ".mov", ".avi", ".mkv", ".3gp"))
+    cap = MAX_VIDEO_SIZE if is_video else MAX_SIZE
 
     ext = os.path.splitext(file.filename or "file")[1]
     stored_name = f"{user.id}_{uuid.uuid4().hex[:12]}{ext}"
     file_path = os.path.join(UPLOAD_DIR, stored_name)
 
-    with open(file_path, "wb") as f:
-        f.write(content)
+    # Written to disk a piece at a time so a big video doesn't sit in memory.
+    size = 0
+    try:
+        with open(file_path, "wb") as f:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > cap:
+                    raise HTTPException(status_code=400, detail=f"File too large (max {cap // (1024 * 1024)} MB{' for videos' if is_video else ''})")
+                f.write(chunk)
+    except HTTPException:
+        try:
+            os.remove(file_path)
+        except OSError:
+            pass
+        raise
+    content_len = size
 
     db_file = UploadedFile(
         user_id=user.id,
         chat_id=chat_id,
         filename=file.filename or "unnamed",
         stored_name=stored_name,
-        file_size=len(content),
+        file_size=content_len,
         mime_type=file.content_type or "application/octet-stream",
     )
     db.add(db_file)
@@ -240,7 +257,7 @@ async def read_file(file_id: int, request: Request, db: AsyncSession = Depends(g
             "type": "text",
             "source": "video",
             "content": content,
-            "frames": frames[:4],
+            "frames": frames[:8],
         }
 
     try:
@@ -496,15 +513,17 @@ def extract_video_info(file_path: str):
     exe = _ffmpeg_exe()
     if exe:
         duration = _video_duration(file_path, exe)
-        points = [duration * f for f in (0.1, 0.5, 0.9)] if duration > 0 else [0.0]
+        # Enough frames to follow what happens (a screen recording changes a lot).
+        n = 3 if duration < 8 else 5 if duration < 25 else 8
+        points = [duration * (k + 0.5) / n for k in range(n)] if duration > 0 else [0.0]
         with tempfile.TemporaryDirectory() as td:
-            for i, t in enumerate(points[:3]):
+            for i, t in enumerate(points[:8]):
                 out = os.path.join(td, f"frame{i}.jpg")
                 try:
                     cmd = [
                         exe, "-y", "-ss", f"{t:.2f}", "-i", file_path,
                         "-frames:v", "1", "-q:v", "3",
-                        "-vf", "scale=640:-2", out,
+                        "-vf", "scale='min(1024,iw)':-2", out,
                     ]
                     subprocess.run(cmd, capture_output=True, timeout=30)
                     if os.path.exists(out) and os.path.getsize(out) > 0:
@@ -526,5 +545,5 @@ def extract_video_info(file_path: str):
     else:
         parts.append("[No transcript available: audio transcription needs a WHISPER_API_KEY or OPENAI_API_KEY env]")
     if frames:
-        parts.append(f"[Extracted {len(frames)} key frame(s) attached for context]")
+        parts.append(f"[Extracted {len(frames)} frame(s), evenly spaced from start to end, attached in order]")
     return _safe_text("\n\n".join(parts)), frames

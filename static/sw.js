@@ -1,4 +1,4 @@
-﻿const CACHE = 'zenith-v63';
+﻿const CACHE = 'zenith-v64';
 const URLS = [
   '/',
   '/app',
@@ -24,6 +24,7 @@ const URLS = [
   '/static/js/acctmenu.js',
   '/static/js/voicechat.js',
   '/static/js/zui.js',
+  '/static/js/setup.js',
   '/static/css/studio.css',
   '/static/css/feedback.css',
   '/static/js/freshness.js',

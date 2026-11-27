@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 24.0 — Zelpophai sets itself up for you
+
+- **`profiles.py`** (new): the single source for both questions (four use styles, four age bands) and everything they switch on — `seasonal`, `animations`, starting `persona`, tool order, starter set, and the wording added to the AI's instructions. Stored as JSON on `users.profile`; `GET/POST /api/settings/profile` reads and writes it.
+- The age wording is appended in **every** mode, research and fact-check included, because it is a safety rule; the style wording is skipped in those modes so they keep their own strict voice.
+- **`static/js/setup.js`** (new): the two-step window on the `zui` kit, with Skip, a summary of what was set, and `apply()` which writes the seasonal/animation settings, reorders the composer tools and stores the starter set. It runs **first** from `app.js`, deliberately not behind `whenFree()` — the "add your email" prompt never closes, so it would have blocked the setup for ever (and was already blocking the welcome tour). A 12s fallback makes sure the later pop-ups run even if it fails.
+- `Settings → General → Profile` gains a row showing the current answers with a Change button that reopens the same window.
+- `chat.js` starter cards are now four sets (work / fun / learn / mixed) chosen by the profile, replacing six hard-coded ones, and clicking one fills the box properly instead of pasting the last line of the prompt.
+- **Bug fix, unrelated but found while testing:** `memories.for_prompt()` called `scored.append(score, m)` instead of `append((score, m))`. Every lookup raised `TypeError`, swallowed by the caller's `try/except`, so **no memory had reached a system prompt since 22.1**.
+
 ## 23.3 — The typing box, rebuilt
 
 - `.composer-box` is a column (attachments → textarea → tool row) instead of one wrapping flex row, so the textarea gets the full width rather than whatever is left between nine buttons. It grows to 190px, and phones get 16px type so iOS stops zooming on focus.

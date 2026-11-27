@@ -146,6 +146,7 @@ class User(Base):
     is_deleted = Column(Boolean, default=False)
     deleted_by = Column(String(50), default="")  # admin | owner
     token_version = Column(Integer, default=0)
+    profile = Column(Text, default="")              # JSON: age band + what they use Zelpophai for
     pending_password = Column(Text, default="")
     pending_password_by = Column(String(50), default="")  # admin | owner
     # Billing - Pro/Ultimate
@@ -734,6 +735,7 @@ async def init_db():
             ("is_deleted", "BOOLEAN DEFAULT 0"),
             ("deleted_by", "VARCHAR(50) DEFAULT ''"),
             ("token_version", "INTEGER DEFAULT 0"),
+            ("profile", "TEXT DEFAULT ''"),
             ("pending_password", "TEXT DEFAULT ''"),
             ("pending_password_by", "VARCHAR(50) DEFAULT ''"),
             ("role", "VARCHAR(20) DEFAULT 'user'"),

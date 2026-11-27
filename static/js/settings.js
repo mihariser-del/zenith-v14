@@ -73,7 +73,7 @@ const Settings = {
     /* ───────────── the Settings window ─────────────
        Everything saves by itself as you change it. Sections: General, Chat, Personality & memory,
        Voice, Notifications, Account, About. Settings.open('account') jumps straight to a section. */
-    _m: null, _sec: 'general', _srv: null, _saveT: null,
+    _m: null, _sec: 'general', _srv: null, _prof: null, _saveT: null,
 
     close() { if (this._m) { this._m.close(); this._m = null; } },
 
@@ -124,6 +124,8 @@ const Settings = {
         const data = await this.loadServer();
         if (this._m !== M) return;
         this._srv = data ? { ...data.settings } : null;
+        if (!guest) { try { this._prof = (await window.ZUI.call('/api/settings/profile')).profile; } catch (e) { this._prof = null; } }
+        if (this._m !== M) return;
         const self = this;
         const row = (title, about, control, cls) => `<div class="zst-row${cls ? ' ' + cls : ''}"><div class="zst-row-t"><b>${title}</b>${about ? `<span>${about}</span>` : ''}</div><div class="zst-row-c">${control}</div></div>`;
         const seg = (name, opts, val) => `<div class="zst-seg" role="radiogroup" data-seg="${name}">${opts.map(([v, l]) => `<button type="button" role="radio" aria-checked="${String(v) === String(val)}" class="${String(v) === String(val) ? 'on' : ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div>`;
@@ -136,8 +138,14 @@ const Settings = {
             general() {
                 const s = self.getLocal(), srv = self._srv || {};
                 const ACC = [['#8b5cf6', 'Purple'], ['#ff3db4', 'Pink'], ['#22d3ee', 'Cyan'], ['#0066ff', 'Blue'], ['#22c55e', 'Green'], ['#f97316', 'Orange']];
+                const P = self._prof, SL = { professional: 'Work', everyday: 'A bit of everything', casual: 'Fun and creative', student: 'Learning' },
+                    AL = { under13: 'Under 13', teen: '13 to 17', adult: '18 or older', private: 'Rather not say' };
                 return group('Profile', row('Display name', 'The name shown in the app and how Zelpophai greets you. Leave empty to use your username.',
-                        `<input class="zu-in" id="zst-name" maxlength="50" placeholder="${esc(u.username || '')}" value="${esc(srv.display_name || '')}"${guest ? ' disabled' : ''}>`, 'stack'))
+                        `<input class="zu-in" id="zst-name" maxlength="50" placeholder="${esc(u.username || '')}" value="${esc(srv.display_name || '')}"${guest ? ' disabled' : ''}>`, 'stack')
+                        + (guest ? '' : row('What you use Zelpophai for',
+                            P ? `Set to <b>${esc(SL[P.style] || SL.everyday)}</b>, age <b>${esc(AL[P.age] || AL.private)}</b>. This decides how Zelpophai talks to you, whether festive looks appear, and what you see first.`
+                              : 'Decides how Zelpophai talks to you, whether festive looks appear, and what you see first.',
+                            '<button class="zu-btn" id="zst-profile">Change</button>')))
                     + group('Look', `<div class="zst-themes" data-seg="theme" role="radiogroup">${[['auto', 'Match my device'], ['light', 'Light'], ['dark', 'Dark']].map(([v, l]) => `<button type="button" role="radio" aria-checked="${s.theme === v}" class="zst-theme ${v}${s.theme === v ? ' on' : ''}" data-v="${v}"><i><em></em><em></em><em></em></i><span>${l}</span></button>`).join('')}</div>`
                         + (owner ? '' : row('Colour', 'Used for buttons and your message bubbles.', `<div class="zst-swatches" data-seg="accent" role="radiogroup">${ACC.map(([v, l]) => `<button type="button" role="radio" aria-checked="${(s.accent || '').toLowerCase() === v}" class="${(s.accent || '').toLowerCase() === v ? 'on' : ''}" data-v="${v}" title="${l}" aria-label="${l}" style="--c:${v}"></button>`).join('')}</div>`))
                         + row('Text size', 'How big the words in your chats are.', seg('textSize', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], s.textSize || 'normal'))
@@ -271,6 +279,13 @@ const Settings = {
             };
             if (q('zst-delchats')) q('zst-delchats').onclick = () => self._dangerForm('chats');
             if (q('zst-delacct')) q('zst-delacct').onclick = () => self._dangerForm('account');
+            if (q('zst-profile')) q('zst-profile').onclick = () => {
+                if (!window.ZPSetup) return;
+                window.ZPSetup.open({ onDone: async () => {
+                    try { self._prof = (await window.ZUI.call('/api/settings/profile')).profile; } catch (e) {}
+                    if (self._m === M) draw();
+                } });
+            };
             if (q('zst-ver')) fetch('/api/version').then((r) => r.json()).then((d) => { const el = q('zst-ver'); if (el) el.textContent = 'You\'re on version ' + d.version; }).catch(() => {});
             if (q('zst-new')) q('zst-new').onclick = () => { window.open('/whats-new', '_blank', 'noopener'); };
             if (q('zst-fb')) q('zst-fb').onclick = () => { self.close(); if (window.ZPFeedback) window.ZPFeedback.open(); };

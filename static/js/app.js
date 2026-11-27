@@ -845,13 +845,28 @@ document.addEventListener('DOMContentLoaded', async () => {
     $('admin-refresh').addEventListener('click', () => AdminPanel.load());
     $('admin-user-search').addEventListener('input', (e) => AdminPanel.filter(e.target.value));
 
-    // --- What's new (cards, welcome tour, sidebar icon) — see whatsnew.js ---
-    if (window.ZPWhatsNew) window.ZPWhatsNew.init({ user, staffView: isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM' });
-
-    // --- Feedback (send, replies, ideas board, answer thumbs, monthly rating) — see feedback.js ---
-    if (window.ZPFeedback) window.ZPFeedback.init({ user, isStaff: !!(isAdmin || isOwner), isGuest });
-    // --- Email (every account needs a real one) + Personality row in Settings ---
-    if (window.ZPAccount) window.ZPAccount.init({ user, isGuest });
+    // --- The rest of the first-run pop-ups, in order ---
+    const afterSetup = () => {
+        // --- What's new (cards, welcome tour, sidebar icon) — see whatsnew.js ---
+        if (window.ZPWhatsNew) window.ZPWhatsNew.init({ user, staffView: isAdmin || user.role === 'owner' || user.username === 'WANZU-IBRAHIM' });
+        // --- Feedback (send, replies, ideas board, answer thumbs, monthly rating) — see feedback.js ---
+        if (window.ZPFeedback) window.ZPFeedback.init({ user, isStaff: !!(isAdmin || isOwner), isGuest });
+        // --- Email (every account needs a real one) + Personality row in Settings ---
+        if (window.ZPAccount) window.ZPAccount.init({ user, isGuest });
+    };
+    // The two setup questions come first on a brand-new account: they decide the
+    // look and tone, so everything after them is already tailored. On every other
+    // account ZPSetup.maybe() just applies what was chosen before and calls back
+    // straight away. It is deliberately NOT queued behind the other pop-ups —
+    // one that never closes (the "add your email" prompt) would block it for ever.
+    if (window.ZPSetup && !isGuest) {
+        let went = false;
+        const once = () => { if (!went) { went = true; afterSetup(); } };
+        setTimeout(once, 12000);                       // never leave the rest stuck
+        window.ZPSetup.maybe(once).catch(once);
+    } else {
+        afterSetup();
+    }
     if (window.ZPPersona) window.ZPPersona.mountSettings();
     if (window.ZPSlash) window.ZPSlash.init({ isGuest });   // "/" commands in the message box
     // Broadcast polling — all users get popup when staff broadcasts

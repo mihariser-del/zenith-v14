@@ -318,6 +318,27 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
     if mirror_text:
         parts.append(mirror_text)
 
+    # Who this person said they are (roughly how old, and what they use Zelpophai
+    # for). The age part is a safety rule and applies in every mode, including
+    # research and fact-check; the style part only shapes the voice.
+    try:
+        import profiles
+        async with async_session() as pdb:
+            from sqlalchemy import select as _psel
+            from database import User as _PU
+            prow = (await pdb.execute(_psel(_PU).where(_PU.id == user_id))).scalar_one_or_none()
+        if prow is not None:
+            _p = profiles.of(prow)
+            _age = profiles.AGE_EFFECTS.get(_p["age"], {}).get("tone", "")
+            if _age:
+                parts.append(_age)
+            if not (research or factcheck):
+                _st = profiles.STYLE_EFFECTS.get(_p["style"], {}).get("tone", "")
+                if _st:
+                    parts.append(_st)
+    except Exception as _pfe:
+        print(f"[profiles] tone skipped: {_pfe}")
+
     # Self-awareness: give Zelpophai AI live knowledge of the platform it runs on,
     # so when users ask "how many users are on here?", "how many admins?", "who made
     # you?" etc. it can answer from its own context instead of guessing.

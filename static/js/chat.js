@@ -588,31 +588,11 @@ const Chat = {
             <h2>Hello! I'm <span>Zelpophai AI.</span></h2>
             <p class="welcome-sub">Pick a starting point or ask anything below.</p>
             <div class="zp-greetcard" id="zp-greetcard" hidden></div>
-            <div class="template-grid" id="template-grid">
-                <button class="template-card" data-tpl="1">
-                    <div class="tpl-ic">✍️</div>
-                    <div class="tpl-t">Write a poem<small>Rhyming verse on any topic</small></div>
-                </button>
-                <button class="template-card" data-tpl="2">
-                    <div class="tpl-ic">🐞</div>
-                    <div class="tpl-t">Debug my code<small>Paste code, find the bug</small></div>
-                </button>
-                <button class="template-card" data-tpl="3">
-                    <div class="tpl-ic">🌍</div>
-                    <div class="tpl-t">Translate<small>Any language, naturally</small></div>
-                </button>
-                <button class="template-card" data-tpl="4">
-                    <div class="tpl-ic">💡</div>
-                    <div class="tpl-t">Brainstorm<small>Ideas for my project</small></div>
-                </button>
-                <button class="template-card" data-tpl="5">
-                    <div class="tpl-ic">📚</div>
-                    <div class="tpl-t">Summarize<small>TL;DR of anything</small></div>
-                </button>
-                <button class="template-card" data-tpl="6">
-                    <div class="tpl-ic">📧</div>
-                    <div class="tpl-t">Write an email<small>Professional or casual</small></div>
-                </button>
+            <div class="template-grid" id="template-grid">${this.starters().map((t) => `
+                <button class="template-card" data-tpl="${this.escapeHtml(t.id)}">
+                    <div class="tpl-ic">${t.icon}</div>
+                    <div class="tpl-t">${this.escapeHtml(t.title)}<small>${this.escapeHtml(t.sub)}</small></div>
+                </button>`).join('')}
             </div>
         </div>`;
     },
@@ -662,26 +642,60 @@ const Chat = {
         };
     },
 
+    // The six starting points on a new chat. Which set you get depends on what
+    // you said you use Zelpophai for during setup (Settings → General → Profile).
+    STARTERS: {
+        work: [
+            { id: 'email', icon: '📧', title: 'Write an email', sub: 'Professional, ready to send', p: 'Draft a professional email about ' },
+            { id: 'sum', icon: '📄', title: 'Summarise a document', sub: 'The key points, quickly', p: 'Summarise the key points of this:\n\n' },
+            { id: 'report', icon: '📊', title: 'Write a report', sub: 'Structured and sourced', p: 'Write a short report on ' },
+            { id: 'debug', icon: '🐞', title: 'Fix my code', sub: 'Paste it, find the bug', p: 'Help me find the bug in this code:\n\n' },
+            { id: 'plan', icon: '🗂️', title: 'Plan a project', sub: 'Steps, owners and dates', p: 'Help me plan a project: ' },
+            { id: 'data', icon: '📈', title: 'Make sense of data', sub: 'Numbers into an answer', p: 'What does this data tell me?\n\n' },
+        ],
+        fun: [
+            { id: 'pic', icon: '🎨', title: 'Make a picture', sub: 'Anything you can describe', p: 'Make a picture of ' },
+            { id: 'vid', icon: '🎬', title: 'Make a short video', sub: 'A few seconds of anything', p: 'Make a short video of ' },
+            { id: 'story', icon: '📖', title: 'Write a story', sub: 'You set the scene', p: 'Write me a short story about ' },
+            { id: 'poem', icon: '✍️', title: 'Write a poem', sub: 'Rhyming verse on any topic', p: 'Write a poem about ' },
+            { id: 'chat', icon: '💬', title: 'Just chat', sub: 'About anything at all', p: "Let's chat about " },
+            { id: 'idea', icon: '💡', title: 'Give me ideas', sub: 'When you are stuck', p: 'Give me creative ideas for ' },
+        ],
+        learn: [
+            { id: 'explain', icon: '🎓', title: 'Explain something', sub: 'In plain words, step by step', p: 'Explain this to me simply: ' },
+            { id: 'homework', icon: '📝', title: 'Help with homework', sub: 'Shows the working', p: 'Help me work through this question: ' },
+            { id: 'quiz', icon: '❓', title: 'Test me', sub: 'Practice questions on a topic', p: 'Ask me practice questions on ' },
+            { id: 'sum', icon: '📚', title: 'Summarise my notes', sub: 'The parts that matter', p: 'Summarise the key points of this:\n\n' },
+            { id: 'lang', icon: '🌍', title: 'Translate', sub: 'Any language, naturally', p: 'Translate this into English:\n\n' },
+            { id: 'essay', icon: '🖊️', title: 'Plan an essay', sub: 'Structure and arguments', p: 'Help me plan an essay about ' },
+        ],
+        mixed: [
+            { id: 'poem', icon: '✍️', title: 'Write a poem', sub: 'Rhyming verse on any topic', p: 'Write a poem about ' },
+            { id: 'debug', icon: '🐞', title: 'Fix my code', sub: 'Paste it, find the bug', p: 'Help me find the bug in this code:\n\n' },
+            { id: 'lang', icon: '🌍', title: 'Translate', sub: 'Any language, naturally', p: 'Translate this into English:\n\n' },
+            { id: 'idea', icon: '💡', title: 'Brainstorm', sub: 'Ideas for my project', p: 'Give me creative ideas for ' },
+            { id: 'sum', icon: '📚', title: 'Summarise', sub: 'The short version of anything', p: 'Summarise the key points of this:\n\n' },
+            { id: 'pic', icon: '🎨', title: 'Make a picture', sub: 'Anything you can describe', p: 'Make a picture of ' },
+        ],
+    },
+    starters() {
+        let k = 'mixed';
+        try { k = localStorage.getItem('zp_starters') || 'mixed'; } catch (e) {}
+        return this.STARTERS[k] || this.STARTERS.mixed;
+    },
     initTemplates() {
         const grid = document.getElementById('template-grid');
         if (!grid) return;
-        const prompts = {
-            1: "Write a poem about ",
-            2: "Help me debug this code:\n```\n<PASTE CODE HERE>\n```",
-            3: "Translate the following text into English:\n\n<PASTE TEXT HERE>",
-            4: "Give me a list of creative ideas for my project. Project: ",
-            5: "Summarize the key points of this:\n\n<PASTE TEXT HERE>",
-            6: "Draft a professional email about ",
-        };
+        const set = this.starters();
         grid.querySelectorAll('[data-tpl]').forEach(btn => {
-            btn.addEventListener('click', async () => {
-                const tpl = prompts[btn.dataset.tpl] || '';
+            btn.addEventListener('click', () => {
+                const t = set.find((x) => x.id === btn.dataset.tpl);
                 const input = document.getElementById('user-input');
-                if (input) {
+                if (input && t) {
+                    input.value = t.p;
                     input.focus();
-                    // Prefill the prompt so the user can complete it or just press Send
-                    const last = tpl.split('\n').pop().replace('<PASTE TEXT HERE>', '').replace('<PASTE CODE HERE>', '');
-                    if (last) input.value = last;
+                    try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
                 }
             });
         });

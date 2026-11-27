@@ -93,3 +93,35 @@ async def update_settings(req: UpdateSettingsRequest, request: Request, db: Asyn
     await db.commit()
     await db.refresh(s)
     return {"settings": SettingsResponse.model_validate(s)}
+
+
+# ────────────────────────────────────────────── who this person is ──
+# The two short questions a new account answers, and everything they switch on.
+class ProfileIn(BaseModel):
+    age: str | None = None
+    style: str | None = None
+    done: bool | None = None
+    skipped: bool = False
+
+
+@router.get("/profile")
+async def get_profile(request: Request, db: AsyncSession = Depends(get_db)):
+    """What this person chose, what it switches on, and the questions themselves."""
+    import profiles
+    user = await get_current_user_from_cookie(request, db)
+    return {"profile": profiles.of(user), "effects": profiles.effects(profiles.of(user)),
+            **profiles.catalog()}
+
+
+@router.post("/profile")
+async def set_profile(req: ProfileIn, request: Request, db: AsyncSession = Depends(get_db)):
+    """Save an answer from the setup screen, or a later change in Settings."""
+    import profiles
+    user = await get_current_user_from_cookie(request, db)
+    if req.age is not None and req.age not in profiles.AGE_IDS:
+        raise HTTPException(status_code=400, detail="That isn't one of the choices.")
+    if req.style is not None and req.style not in profiles.STYLE_IDS:
+        raise HTTPException(status_code=400, detail="That isn't one of the choices.")
+    p = await profiles.save(db, user, age=req.age, style=req.style,
+                            done=req.done, skipped=req.skipped)
+    return {"profile": p, "effects": profiles.effects(p)}

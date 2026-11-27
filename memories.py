@@ -101,7 +101,7 @@ async def for_prompt(db: AsyncSession, user_id: int, query: str = "") -> list:
         overlap = len(qw & _words(m.content)) if qw else 0
         recency = max(0.0, 1.0 - i / 40.0)                 # the newest ~40 get a small boost
         base_cat = 0.6 if _cat(m.category) in ("about", "preferences") else 0.0   # who they are matters in every chat
-        scored.append((1000 if m.pinned else 0) + overlap * 3 + recency + base_cat, m)
+        scored.append(((1000 if m.pinned else 0) + overlap * 3 + recency + base_cat, m))
     scored.sort(key=lambda x: -x[0])
     chosen = [m for _, m in scored[:PROMPT_BUDGET]]
     try:

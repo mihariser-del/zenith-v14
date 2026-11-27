@@ -19,7 +19,7 @@ AUDIENCES = ("early", "everyone", "off")
 
 THEMES = {
     "halloween": {"label": "Halloween", "from": (10, 15), "to": (11, 2), "audience": "everyone"},
-    "christmas": {"label": "Christmas", "from": (12, 1), "to": (1, 2), "audience": AUDIENCE_KEY},
+    "christmas": {"label": "Christmas", "from": (11, 25), "to": (1, 2), "audience": AUDIENCE_KEY},
 }
 
 

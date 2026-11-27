@@ -27,8 +27,8 @@
     }
     function inSeason(d) {
         d = d || new Date();
-        var m = d.getMonth(), day = d.getDate();        // Dec = 11, Jan = 0
-        return (m === 11 && day >= 1) || (m === 0 && day <= 2);
+        var m = d.getMonth(), day = d.getDate();        // Nov = 10, Dec = 11, Jan = 0
+        return (m === 10 && day >= 25) || m === 11 || (m === 0 && day <= 2);
     }
     function maySee() { return allowed === null ? store(OK_KEY) === '1' : allowed; }
     function shouldBeOn(choice) {

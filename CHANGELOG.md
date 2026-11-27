@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 24.1.1 — Start the Christmas look now
+
+- The Christmas season is 25 Nov – 2 Jan instead of 1 Dec – 2 Jan, so it is on from today. Changed in `seasons.py` (the one declaration), `christmas.js`'s `inSeason()` and the pre-paint snippet in `app.html`, with the Settings and Vault wording to match.
+- Verified on the real clock, no date faking: on for the Owner and the early group, off for everyone else, and up at first paint on the second visit from the cached flag.
+
 ## 24.1 — A Christmas look, for the early group first
 
 - **`seasons.py`** (new): which seasonal theme a person may see, and when. Dates are declared once (`halloween` 15 Oct – 2 Nov, `christmas` 1 Dec – 2 Jan, with the December range wrapping New Year correctly) and eligibility is decided on the server. Christmas's audience is a setting — `early` (Owner, any admin, anyone tagged Friend), `everyone`, or `off` — so it opens up without a release. `GET /api/settings/seasonal` reports it; `POST /api/admin/system/christmas-audience` changes it, logged.

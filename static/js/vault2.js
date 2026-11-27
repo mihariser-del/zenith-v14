@@ -670,7 +670,7 @@
     $('view').innerHTML = `<div class="grid g2">
       ${card('Global controls', C.map(([ep, key, t, sub, danger]) => `<div class="ctrl"><div class="grow"><b>${t}</b><span class="muted small">${sub}</span></div><button class="switch${danger ? ' danger' : ''}${st[key] === 'on' ? ' on' : ''}" data-ep="${ep}" data-key="${key}" aria-label="${t}"></button></div>`).join('') +
         `<div class="ctrl"><div class="grow"><b>Sign everyone out</b><span class="muted small">Ends every session (staff too). Use after a security problem.</span></div><button class="btn sm danger" id="force-out">Sign out all</button></div>
-         <div class="ctrl"><div class="grow"><b>Christmas look</b><span class="muted small">Who gets the festive theme from 1 December to 2 January. It's new, so it starts with just you, your admins and your Friends.</span></div>
+         <div class="ctrl"><div class="grow"><b>Christmas look</b><span class="muted small">Who gets the festive theme from 25 November to 2 January. It's new, so it starts with just you, your admins and your Friends.</span></div>
            <div class="vs-seg" id="xmas-aud">${[['early', 'Early group'], ['everyone', 'Everyone'], ['off', 'Nobody']].map(([v, l]) => `<button type="button" class="${(st.christmas_audience || 'early') === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div>
          <p class="muted small" style="margin-top:12px">Locking every account, the emergency backup and the owner password reset are in <a href="#/security">Security &amp; emergency</a>.</p>`)}
       ${card('Broadcast', `<p class="muted small" style="margin-top:-6px">A message that pops up for people in Zelpophai.</p>

@@ -20,6 +20,7 @@
     var FMT_COLOR = { docx: '#2563eb', pdf: '#dc2626', pptx: '#ea580c', xlsx: '#16a34a', csv: '#16a34a', html: '#7c3aed', md: '#475569', txt: '#475569' };
 
     var I = {
+        expand: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>',
         copy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
         check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
         wrap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M3 12h15a3 3 0 1 1 0 6h-4"/><polyline points="16 16 14 18 16 20"/><path d="M3 18h7"/></svg>',
@@ -123,12 +124,40 @@
             shots.push(attrs(a));
             return '\n\n<div class="zs-slot" data-i="' + (shots.length - 1) + '"></div>\n\n';
         });
+        // Live pages: a working page the AI built. Kept whole so it can be opened.
+        var pages = [];
+        out = out.replace(/<zpage\b([^>]*)>([\s\S]*?)(<\/zpage>|$)/gi, function (_, a, body, close) {
+            pages.push({ attrs: attrs(a), html: body.replace(/^\s*```[a-z]*\s*\n?|\n?```\s*$/gi, ''), closed: !!close });
+            return '\n\n<div class="zpg-slot" data-i="' + (pages.length - 1) + '"></div>\n\n';
+        });
+        // Questions with buttons.
+        var asks = [];
+        out = out.replace(/<zask\b([^>]*)>([\s\S]*?)(<\/zask>|$)/gi, function (_, a, body, close) {
+            var opts = body.split('\n').map(function (l) { return l.replace(/^\s*[-*\d.)]+\s*/, '').trim(); }).filter(Boolean).slice(0, 6);
+            asks.push({ attrs: attrs(a), opts: opts, closed: !!close });
+            return '\n\n<div class="zq-slot" data-i="' + (asks.length - 1) + '"></div>\n\n';
+        });
+        // Checklists: how many items are done so far, from the <zdone n="…"/> markers.
+        var done = {};
+        out = out.replace(/<zdone\b[^>]*?n\s*=\s*"(\d+)"[^>]*?\/?>(?:<\/zdone>)?/gi, function (_, n) { done[Number(n)] = true; return ''; });
+        var todos = [];
+        out = out.replace(/<ztodo\b([^>]*)>([\s\S]*?)(<\/ztodo>|$)/gi, function (_, a, body, close) {
+            var items = [];
+            body.split('\n').forEach(function (l) {
+                var m = /^\s*[-*]\s*\[([ xX])\]\s*(.+)$/.exec(l) || /^\s*[-*\d.)]+\s+(.+)$/.exec(l);
+                if (!m) return;
+                if (m.length === 3) items.push({ text: m[2].trim(), done: m[1] !== ' ' });
+                else items.push({ text: m[1].trim(), done: false });
+            });
+            todos.push({ attrs: attrs(a), items: items, closed: !!close });
+            return '\n\n<div class="zd-slot" data-i="' + (todos.length - 1) + '"></div>\n\n';
+        });
         // Tool requests the AI writes (image / video / reminder) show as a small
         // "working on it" card until the server swaps in the real result.
         out = out.replace(/<(zimage|zvideo|zremind)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files, shots: shots };
+        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done };
     }
 
     // A photo on the left and the section it belongs to on the right, like a search result.
@@ -452,6 +481,229 @@
         ov.querySelector('.zf-pv-x').focus();
     }
 
+
+    // Chat is declared with `const` at the top of chat.js, so it is NOT a property
+    // of window; it has to be looked up by name.
+    function chatApi() { try { return typeof Chat !== 'undefined' ? Chat : null; } catch (e) { return null; } }
+
+    /* ── live pages ───────────────────────────────────────────────────── */
+    // A page is untrusted HTML the AI wrote. It only ever runs inside an iframe
+    // sandbox WITHOUT allow-same-origin, so it gets a throw-away origin: it can't
+    // read the sign-in cookie, call our API as you, or reach into this page.
+    var PAGE_SANDBOX = 'allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads';
+    function pageDoc(html) {
+        var h = String(html || '');
+        if (!/<html[\s>]/i.test(h)) h = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>' + h + '</body></html>';
+        return h;
+    }
+    function pageFrame(html, title) {
+        var f = document.createElement('iframe');
+        f.className = 'zpg-frame';
+        f.setAttribute('sandbox', PAGE_SANDBOX);
+        f.setAttribute('referrerpolicy', 'no-referrer');
+        f.setAttribute('loading', 'lazy');
+        f.title = title || 'Live page';
+        f.srcdoc = pageDoc(html);
+        return f;
+    }
+    function downloadPage(p) {
+        var name = String((p.attrs.title || 'page')).replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'page';
+        var url = URL.createObjectURL(new Blob([pageDoc(p.html)], { type: 'text/html' }));
+        var a = document.createElement('a'); a.href = url; a.download = name + '.html';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    }
+    function sharePage(p, btn) {
+        if (PUBLIC) return;
+        var C = chatApi(), chatId = (C && C.activeId) || null;
+        if (btn) { btn.disabled = true; btn.querySelector('span').textContent = 'Sharing…'; }
+        fetch('/api/pages', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: p.attrs.title || 'Page', html: pageDoc(p.html), chat_id: chatId }) })
+            .then(function (r) { return r.json().then(function (d) { if (!r.ok) throw new Error(d.detail || 'Couldn\'t share it'); return d; }); })
+            .then(function (d) {
+                var link = location.origin + d.url;
+                copyText(link);
+                toast('Link copied — anyone with it can use this page');
+                if (btn) { btn.querySelector('span').textContent = 'Link copied'; setTimeout(function () { btn.disabled = false; btn.querySelector('span').textContent = 'Share link'; }, 2200); }
+            })
+            .catch(function (e) { toast(e.message, 'error'); if (btn) { btn.disabled = false; btn.querySelector('span').textContent = 'Share link'; } });
+    }
+    function openPagePanel(p) {
+        var old = document.getElementById('zpg-panel'); if (old) old.remove();
+        var w = document.createElement('div');
+        w.id = 'zpg-panel'; w.className = 'zpg-panel';
+        w.setAttribute('role', 'dialog'); w.setAttribute('aria-label', p.attrs.title || 'Live page');
+        w.innerHTML = '<div class="zpg-ph"><b></b><div class="zpg-ph-r">'
+            + (PUBLIC ? '' : '<button type="button" class="zpg-b" data-a="share">' + I.link + '<span>Share link</span></button>')
+            + '<button type="button" class="zpg-b" data-a="dl">' + I.dl + '<span>Download</span></button>'
+            + '<button type="button" class="zpg-b" data-a="reload" title="Start it again">↻<span>Restart</span></button>'
+            + '<button type="button" class="zpg-x" data-a="close" aria-label="Close">✕</button></div></div><div class="zpg-pb"></div>';
+        w.querySelector('b').textContent = p.attrs.title || 'Live page';
+        var body = w.querySelector('.zpg-pb');
+        body.appendChild(pageFrame(p.html, p.attrs.title));
+        w.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-a]'); if (!b) return;
+            var a = b.getAttribute('data-a');
+            if (a === 'close') close();
+            else if (a === 'dl') downloadPage(p);
+            else if (a === 'share') sharePage(p, b);
+            else if (a === 'reload') { body.innerHTML = ''; body.appendChild(pageFrame(p.html, p.attrs.title)); }
+        });
+        function close() { w.classList.remove('on'); document.removeEventListener('keydown', key); setTimeout(function () { w.remove(); }, 220); }
+        function key(e) { if (e.key === 'Escape') close(); }
+        document.addEventListener('keydown', key);
+        document.body.appendChild(w);
+        requestAnimationFrame(function () { w.classList.add('on'); });
+    }
+    function buildPageCard(p, writing) {
+        var card = document.createElement('div');
+        card.className = 'zpg-card' + (writing ? ' writing' : '');
+        var lines = (p.html.match(/\n/g) || []).length + 1;
+        var title = p.attrs.title || 'Live page';
+        card.innerHTML = '<div class="zpg-top"><span class="zpg-ic" aria-hidden="true">▦</span><div class="zpg-tt"><b></b><span class="zpg-sub"></span></div>'
+            + (writing ? '<span class="zf-spin" aria-hidden="true"></span>' : '<div class="zpg-acts">'
+                + '<button type="button" class="zpg-b pri" data-a="open">' + I.expand + '<span>Open</span></button>'
+                + (PUBLIC ? '' : '<button type="button" class="zpg-b" data-a="share">' + I.link + '<span>Share link</span></button>')
+                + '<button type="button" class="zpg-b" data-a="dl" title="Download as a web page">' + I.dl + '</button></div>')
+            + '</div>';
+        card.querySelector('b').textContent = title;
+        card.querySelector('.zpg-sub').textContent = writing ? 'Building it… ' + lines + ' lines so far' : 'Live page · tap to try it';
+        if (!writing) {
+            var view = document.createElement('div');
+            view.className = 'zpg-view';
+            view.appendChild(pageFrame(p.html, title));
+            card.appendChild(view);
+            card.addEventListener('click', function (e) {
+                var b = e.target.closest('[data-a]'); if (!b) return;
+                var a = b.getAttribute('data-a');
+                if (a === 'open') openPagePanel(p);
+                else if (a === 'dl') downloadPage(p);
+                else if (a === 'share') sharePage(p, b);
+            });
+        }
+        return card;
+    }
+
+    /* ── questions with buttons ───────────────────────────────────────── */
+    function buildAsk(q, idx, streaming) {
+        var card = document.createElement('div');
+        card.className = 'zq-card' + (q.attrs.multi === 'true' ? ' multi' : '');
+        card.setAttribute('data-q', idx);
+        var h = document.createElement('p'); h.className = 'zq-q'; h.textContent = q.attrs.q || 'Which would you like?';
+        card.appendChild(h);
+        var row = document.createElement('div'); row.className = 'zq-opts';
+        row.setAttribute('role', q.attrs.multi === 'true' ? 'group' : 'radiogroup');
+        row.setAttribute('aria-label', q.attrs.q || 'Options');
+        q.opts.forEach(function (o) {
+            var b = document.createElement('button');
+            b.type = 'button'; b.className = 'zq-opt'; b.textContent = o;
+            b.setAttribute('aria-pressed', 'false');
+            if (streaming && !q.closed) b.disabled = true;
+            row.appendChild(b);
+        });
+        card.appendChild(row);
+        return card;
+    }
+    // Wire every question in one answer together: a single question with a
+    // single choice sends straight away; otherwise pick, then press Send.
+    function wireAsks(el) {
+        var cards = [].slice.call(el.querySelectorAll('.zq-card'));
+        if (!cards.length || PUBLIC) return;
+        var instant = cards.length === 1 && !cards[0].classList.contains('multi');
+        var foot = null;
+        if (!instant) {
+            foot = document.createElement('div'); foot.className = 'zq-foot';
+            foot.innerHTML = '<button type="button" class="zq-send" disabled>Send answers</button><span>or type your own below</span>';
+            cards[cards.length - 1].after(foot);
+        } else {
+            var hint = document.createElement('span'); hint.className = 'zq-hint'; hint.textContent = 'or type your own answer below';
+            cards[0].appendChild(hint);
+        }
+        function answer() {
+            return cards.map(function (c) {
+                var picked = [].slice.call(c.querySelectorAll('.zq-opt.on')).map(function (b) { return b.textContent; });
+                if (!picked.length) return null;
+                var q = c.querySelector('.zq-q').textContent;
+                return cards.length === 1 ? picked.join(', ') : q + ' ' + picked.join(', ');
+            });
+        }
+        function refresh() {
+            if (!foot) return;
+            foot.querySelector('.zq-send').disabled = answer().some(function (a) { return a === null; });
+        }
+        function send() {
+            var a = answer(); if (a.some(function (x) { return x === null; })) return;
+            var text = a.join('\n');
+            cards.forEach(function (c) { c.classList.add('answered'); c.querySelectorAll('.zq-opt').forEach(function (b) { b.disabled = true; }); });
+            if (foot) foot.remove();
+            var inp = document.getElementById('user-input');
+            var C = chatApi();
+            if (inp && C && typeof C.send === 'function') {
+                inp.value = text; inp.dispatchEvent(new Event('input', { bubbles: true }));
+                C.send();
+            }
+        }
+        cards.forEach(function (c) {
+            var multi = c.classList.contains('multi');
+            c.addEventListener('click', function (e) {
+                var b = e.target.closest('.zq-opt'); if (!b || b.disabled || c.classList.contains('answered')) return;
+                if (multi) { b.classList.toggle('on'); }
+                else { c.querySelectorAll('.zq-opt').forEach(function (x) { x.classList.toggle('on', x === b); }); }
+                c.querySelectorAll('.zq-opt').forEach(function (x) { x.setAttribute('aria-pressed', x.classList.contains('on') ? 'true' : 'false'); });
+                if (instant) send(); else refresh();
+            });
+        });
+        if (foot) foot.querySelector('.zq-send').addEventListener('click', send);
+    }
+
+    /* ── checklists ───────────────────────────────────────────────────── */
+    function buildTodo(t, idx, done, streaming) {
+        var items = t.items.map(function (it, i) { return { text: it.text, done: it.done || !!done[i + 1] }; });
+        var n = items.filter(function (x) { return x.done; }).length;
+        var card = document.createElement('div');
+        card.className = 'zd-card' + (n === items.length && items.length ? ' all' : '');
+        card.setAttribute('data-t', idx);
+        var head = document.createElement('div'); head.className = 'zd-head';
+        head.innerHTML = '<div class="zd-ht"><b></b><span class="zd-count"></span></div><div class="zd-bar" aria-hidden="true"><i></i></div>';
+        head.querySelector('b').textContent = t.attrs.title || 'The plan';
+        card.appendChild(head);
+        var list = document.createElement('ol'); list.className = 'zd-list';
+        var nowSet = false;
+        items.forEach(function (it, i) {
+            var li = document.createElement('li');
+            var now = streaming && !it.done && !nowSet && t.closed;
+            if (now) nowSet = true;
+            li.className = it.done ? 'done' : (now ? 'now' : '');
+            li.innerHTML = '<button type="button" class="zd-box" aria-pressed="' + it.done + '"><span aria-hidden="true">✓</span></button><span class="zd-tx"></span>';
+            li.querySelector('.zd-tx').textContent = it.text;
+            li.querySelector('.zd-box').setAttribute('aria-label', (it.done ? 'Untick: ' : 'Tick off: ') + it.text);
+            li.querySelector('.zd-box').setAttribute('data-i', i);
+            list.appendChild(li);
+        });
+        card.appendChild(list);
+        function sync() {
+            var lis = list.querySelectorAll('li'), k = 0;
+            lis.forEach(function (li) { if (li.classList.contains('done')) k++; });
+            card.querySelector('.zd-count').textContent = k + ' of ' + lis.length + ' done';
+            card.querySelector('.zd-bar i').style.width = (lis.length ? Math.round(k / lis.length * 100) : 0) + '%';
+            card.classList.toggle('all', k === lis.length && lis.length > 0);
+        }
+        sync();
+        if (!PUBLIC) list.addEventListener('click', function (e) {
+            var b = e.target.closest('.zd-box'); if (!b) return;
+            var li = b.closest('li'), on = !li.classList.contains('done');
+            li.classList.toggle('done', on); li.classList.remove('now');
+            b.setAttribute('aria-pressed', on ? 'true' : 'false');
+            sync();
+            var wrap = card.closest('.msg-wrapper'), mid = wrap && wrap.dataset.mid, C = chatApi(), cid = C && C.activeId;
+            if (!mid || !cid) return;           // not saved yet — the tick still shows
+            fetch('/api/chats/' + cid + '/messages/' + mid + '/todo', { method: 'POST', credentials: 'same-origin',
+                headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ i: Number(b.getAttribute('data-i')), done: on }) })
+                .catch(function () {});
+        });
+        return card;
+    }
+
     /* ── main entry ───────────────────────────────────────────────────── */
     var ZRender = {
         icons: I,
@@ -486,6 +738,22 @@
                 if (f) slot.replaceWith(buildFileCard(f, streaming && !f.closed));
                 else slot.remove();
             });
+            el.querySelectorAll('.zpg-slot').forEach(function (slot) {
+                var pg = parsed.pages[Number(slot.getAttribute('data-i'))];
+                if (pg) slot.replaceWith(buildPageCard(pg, streaming && !pg.closed));
+                else slot.remove();
+            });
+            el.querySelectorAll('.zq-slot').forEach(function (slot) {
+                var i = Number(slot.getAttribute('data-i')), q = parsed.asks[i];
+                if (q && q.opts.length) slot.replaceWith(buildAsk(q, i, streaming));
+                else slot.remove();
+            });
+            if (!streaming) wireAsks(el);
+            el.querySelectorAll('.zd-slot').forEach(function (slot) {
+                var i = Number(slot.getAttribute('data-i')), t = parsed.todos[i];
+                if (t && t.items.length) slot.replaceWith(buildTodo(t, i, parsed.done || {}, streaming));
+                else slot.remove();
+            });
             buildShots(el, parsed.shots || []);
             upgradeCode(el, streaming);
             upgradeTables(el, streaming);
@@ -504,6 +772,10 @@
         /* Plain text for copy / speak: drop file bodies, tags and markdown noise. */
         plain: function (text) {
             return String(text || '').replace(/<zimg\b[^>]*>/gi, '')
+                .replace(/<zpage\b([^>]*)>[\s\S]*?(?:<\/zpage>|$)/gi, function (_, a) { return '[Live page: ' + (attrs(a).title || 'page') + ']'; })
+                .replace(/<zask\b([^>]*)>([\s\S]*?)(?:<\/zask>|$)/gi, function (_, a, b) { return (attrs(a).q || '') + '\n' + b.trim(); })
+                .replace(/<ztodo\b([^>]*)>([\s\S]*?)(?:<\/ztodo>|$)/gi, function (_, a, b) { return (attrs(a).title || '') + '\n' + b.trim(); })
+                .replace(/<zdone\b[^>]*\/?>(?:<\/zdone>)?/gi, '')
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
                 .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)');

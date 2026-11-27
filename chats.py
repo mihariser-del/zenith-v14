@@ -306,6 +306,49 @@ async def delete_chat(chat_id: int, request: Request, db: AsyncSession = Depends
     return {"message": "Deleted"}
 
 
+class TodoTick(BaseModel):
+    i: int
+    done: bool
+
+
+@router.post("/{chat_id}/messages/{message_id}/todo")
+async def tick_todo(chat_id: int, message_id: int, req: TodoTick, request: Request, db: AsyncSession = Depends(get_db)):
+    """Tick or untick one item on a checklist Zelpophai wrote, so it stays ticked."""
+    import re as _re
+    user = await get_current_user_from_cookie(request, db)
+    chat = (await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))).scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    msg = (await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id,
+                                                  Message.role == "assistant"))).scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    text = msg.content or ""
+    m = _re.search(r"<ztodo\b[^>]*>([\s\S]*?)</ztodo>", text, _re.I)
+    if not m:
+        raise HTTPException(status_code=400, detail="There's no checklist in that answer.")
+    body = m.group(1)
+    lines = body.split("\n")
+    n = -1
+    for k, line in enumerate(lines):
+        mm = _re.match(r"^(\s*[-*]\s*\[)([ xX])(\].*)$", line)
+        if mm:
+            n += 1
+            if n == req.i:
+                lines[k] = mm.group(1) + ("x" if req.done else " ") + mm.group(3)
+                break
+    else:
+        raise HTTPException(status_code=400, detail="That item isn't on the checklist.")
+    new_body = "\n".join(lines)
+    text = text[:m.start(1)] + new_body + text[m.end(1):]
+    if not req.done:
+        # The AI may have ticked it while writing (<zdone n="…"/>, counted from 1).
+        text = _re.sub(r'<zdone\b[^>]*?n\s*=\s*"%d"[^>]*?/?>(?:</zdone>)?' % (req.i + 1), "", text, flags=_re.I)
+    msg.content = text
+    await db.commit()
+    return {"ok": True}
+
+
 @router.patch("/{chat_id}/messages/{message_id}")
 async def edit_message(chat_id: int, message_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     from ai import stream_chat

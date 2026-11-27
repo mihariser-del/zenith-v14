@@ -47,10 +47,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "24.2"
+VERSION = "25.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "25.0 Live pages: ask for a calculator, a quiz, flashcards, a timer, a little game or a tool, and Zelpophai builds one that works right there in the chat. Tap Open for a bigger view, Download to keep it, or Share link to send it to anyone — they can use it without an account",
+    "25.0 Questions with buttons: when something you ask could go a few ways, Zelpophai now asks with options to tap instead of a paragraph of questions. Pick one and it carries on; or just type your own answer",
+    "25.0 Checklists for big jobs: ask for a plan, a trip, an event or anything with several parts, and Zelpophai shows a checklist that ticks itself off as it writes each part. You can tick items yourself afterwards and they stay ticked",
     "24.2 Zelpophai has its own address: zelpophai.com. The old one still works and simply sends you to the new one. You'll be asked to sign in once more on the new address — after that you're remembered as usual. The Windows and Android apps carry on exactly as before",
     "24.1.1 The Christmas look is on now, and stays until 2 January: fairy lights along the top, snow falling past, a moonlit scene of snowy hills and fir trees, holly on the greeting card, and red and gold throughout. Baubles drift down now and then — catch one and it bursts into sparkles, and Zelpophai keeps count. It's being tried out first with a small group, so most people will see it next year. Switch it off any time in Settings → General → Seasonal look",
     "24.0.1 Fixed: making a video said \"internal server error\" even though the video was being made perfectly well — it turned up as soon as you reloaded. Accounts with no daily video limit (yours, Ultimate and staff) hit the error every single time. The same fault was in Coding AGT. Both are fixed, and the video window now says \"no daily limit\" instead of \"null of null videos left today\"",
@@ -167,6 +170,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "25.0 Owner: live pages are AI-written HTML, so they are treated as untrusted everywhere. In the chat they run in an iframe sandbox without same-origin; shared at /p/<link> the server sends a CSP sandbox header that does the same for a page opened directly. Either way a page gets a throw-away origin and cannot read anyone's sign-in or call the API as them — tested: the page computes fine and its cookie check comes back blocked. Pages are only stored when someone presses Share (up to 200 each), and are kept out of search engines",
     "24.2 Owner: every canonical link, the sitemap, robots.txt, the structured data Google reads, share and invite previews, the privacy and terms pages, payment return addresses and the Vault's sign-in origin now use https://zelpophai.com, from one place (site_address.py). An APP_BASE_URL still set to the old Railway address is ignored, so a leftover setting can't undo the move",
     "24.2 Owner: web browsers that reach zelpophai.up.railway.app or www.zelpophai.com get a permanent (301) redirect to zelpophai.com, which tells Google to move the listing across. Never redirected: the installed Windows and Android apps (both are locked to the old address and would break), anything under /api/ (a redirect turns a POST into a GET), /static/, and /downloads/ where the Windows app checks for updates",
     "24.2 Owner: the Windows and Android app source now points at zelpophai.com and trusts both addresses, ready for their next build. Apps already installed keep using the old address, which keeps working",
@@ -337,6 +341,8 @@ app.include_router(analytics_router)
 app.include_router(global_controls_router)
 app.include_router(personality_router)
 app.include_router(audit_router)
+from livepages import router as livepages_router
+app.include_router(livepages_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

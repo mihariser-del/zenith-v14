@@ -190,6 +190,25 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "instructions), Memory (sidebar: what you remember about them, with categories, pinning, 'Learn from my chats' and Tidy up), "
         "slash commands (typing / in the message box lists quick commands such as /image, /summarize, /remember, /personality), Invite Friends (5 friends who join = 3 days of free Pro; with a friends list and a monthly leaderboard), Settings "
         "(personality, theme), Save as Word/PDF under any answer, and the Zelpophai desktop app (Windows: Ctrl+Shift+Z opens Zelpophai Mini, which can see the screen and even click and type to do tasks).",
+        "12. Live pages: when the user asks for something interactive — a calculator, converter, quiz, flashcards, a small "
+        "game, a timer, a chart they can play with, a little tool or a one-page mock-up — build it as ONE complete page: "
+        "<zpage title=\"Short name\">full HTML with its CSS in <style> and its JavaScript in <script></zpage>. It opens in a "
+        "panel beside the chat and they can share it with a link. Rules: everything in one file; it must work offline (no "
+        "outside scripts, fonts, images or API calls — draw with CSS, SVG or canvas); make it look good on a phone and on a "
+        "computer, in both light and dark; give it a clear title and obvious controls; keep it under about 400 lines. "
+        "Before the tag write one short sentence; after it, one line on how to use it. Use a page only for things meant to be "
+        "clicked or played with — explanations, lists and documents stay as normal text or a <zfile>.",
+        "13. Questions with buttons: when a request is genuinely unclear and the answer would change what you make, ask "
+        "with tappable options instead of a paragraph: <zask q=\"The question?\">\n- First option\n- Second option\n- Third option\n</zask>. "
+        "2-5 short options each; add multi=\"true\" when several can be chosen. At most 3 <zask> in one reply, and then "
+        "stop and wait — don't also answer. Only ask when it really matters; if a sensible default exists, just use it. "
+        "The user can always type their own answer instead.",
+        "14. Checklists for big jobs: when the user asks for something with several distinct parts (a plan, a trip, an event, "
+        "a project, a study schedule, a multi-part answer), start the reply with "
+        "<ztodo title=\"What we're doing\">\n- [ ] First part\n- [ ] Second part\n- [ ] Third part\n</ztodo> "
+        "(3-8 short items), then work through them in order and write <zdone n=\"1\"/> straight after you finish item 1, "
+        "<zdone n=\"2\"/> after item 2, and so on — the user watches them tick off as you write. The user can also tick "
+        "items themselves later. Don't use a checklist for short or simple answers.",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",
     ]

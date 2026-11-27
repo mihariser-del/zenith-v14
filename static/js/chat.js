@@ -730,6 +730,7 @@ const Chat = {
             try { viewer = JSON.parse(msg.viewer_reactions || '{}'); } catch (e2) {}
             this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer, msg.created_at);
         });
+        this._settleQuestions();
         container.scrollTop = container.scrollHeight;
         this.resumeVideos(this.activeId);
     },
@@ -740,6 +741,7 @@ const Chat = {
         if (welcome) welcome.remove();
         const wrapper = document.createElement('div');
         wrapper.className = `msg-wrapper ${role}`;
+        if (messageId) wrapper.dataset.mid = messageId;     // checklists save their ticks against this
         // Settings → Chat → "Show the time on each message"
         try {
             const d = at ? new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(at) ? at : at + 'Z') : new Date();
@@ -1043,7 +1045,7 @@ const Chat = {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(assistantBubble, fullResponse);
                         }
-                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title || parsed.message_id) {
                             const st = { text: fullResponse };
                             this._handleStreamMeta(parsed, assistantBubble, st);
                             fullResponse = st.text;
@@ -1606,6 +1608,7 @@ const Chat = {
     },
 
     _handleStreamMeta(parsed, bubble, state) {
+        if (parsed.message_id && bubble && bubble.parentElement) bubble.parentElement.dataset.mid = parsed.message_id;
         (parsed.video_jobs || []).forEach(job => {
             if (!job || !job.id || this._videoTimers[job.id]) return;
             const vb = this.appendMessage('assistant', '', true);
@@ -1659,6 +1662,28 @@ const Chat = {
             });
             pre.style.position = 'relative';
             pre.insertBefore(header, pre.firstChild);
+        });
+    },
+
+    // Questions with buttons are only live until the next thing the user says.
+    // Older ones are greyed out, with the option they picked (if any) still lit.
+    _settleQuestions() {
+        const wraps = [...document.querySelectorAll('#chat-container .msg-wrapper')];
+        wraps.forEach((w, i) => {
+            const cards = w.querySelectorAll('.zq-card');
+            if (!cards.length) return;
+            const next = wraps.slice(i + 1).find(x => x.classList.contains('user'));
+            if (!next) return;
+            const said = (next.textContent || '').toLowerCase();
+            cards.forEach(c => {
+                c.classList.add('answered');
+                c.querySelectorAll('.zq-opt').forEach(b => {
+                    b.disabled = true;
+                    if (said.includes(b.textContent.trim().toLowerCase())) b.classList.add('on');
+                });
+            });
+            const foot = w.querySelector('.zq-foot'); if (foot) foot.remove();
+            const hint = w.querySelector('.zq-hint'); if (hint) hint.remove();
         });
     },
 
@@ -1739,6 +1764,7 @@ const Chat = {
         const displayFiles = this.attachments.filter(a => a.type !== 'image');
         const displayImages = imageUrls.length > 0 ? imageUrls : sendImages;
         const userBubble = this.appendMessage('user', displayText || (displayFiles.length ? '' : '(image)'), false, displayImages, displayFiles);
+        this._settleQuestions();
         const userWrapper = userBubble ? userBubble.parentElement : null;
         input.value = '';
         input.style.height = 'auto';
@@ -1821,7 +1847,7 @@ const Chat = {
                             if (window.ZPVoice && window.ZPVoice.active) window.ZPVoice.feed(fullResponse);
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
-                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title || parsed.message_id) {
                             const st = { text: fullResponse };
                             this._handleStreamMeta(parsed, bubble, st);
                             fullResponse = st.text;
@@ -2143,7 +2169,7 @@ const Chat = {
                             fullResponse += parsed.token;
                             this.updateStreamingBubble(bubble, fullResponse);
                         }
-                        if (parsed.files || parsed.content || parsed.file_error || parsed.title) {
+                        if (parsed.files || parsed.content || parsed.file_error || parsed.title || parsed.message_id) {
                             const st = { text: fullResponse };
                             this._handleStreamMeta(parsed, bubble, st);
                             fullResponse = st.text;

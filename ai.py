@@ -178,6 +178,19 @@ def convert_citations_to_links(text: str, urls: list) -> str:
         return strip_citations(text)
 
 
+_PAGE_RE = re.compile(
+    r"\b(calculator|converter|quiz|flash ?cards?|game|timer|stopwatch|countdown|tracker|dashboard|simulator|"
+    r"interactive|widget|tool|app|mock-?up|landing page|web ?page|website|generator|planner|chart i can|"
+    r"slider|picker|visuali[sz]e|playground)\b", re.I)
+_MAKE_RE = re.compile(r"\b(make|build|create|code|design|give me|i need|can you (do|make|build))\b", re.I)
+
+
+def _wants_page(text: str) -> bool:
+    """Does this sound like a request for something to click and play with?"""
+    t = (text or "")[:500]
+    return bool(_PAGE_RE.search(t) and _MAKE_RE.search(t))
+
+
 async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False, factcheck: bool = False) -> str:
     async with async_session() as db:
         from sqlalchemy import select
@@ -537,8 +550,8 @@ async def _after_reply(chat_id, user_id, user_text, tz_name=None):
         files, file_error = [], None
 
         blocks = docgen.extract_files(text)
-        if not blocks and "<zfile" not in text.lower() and len(text) >= 250 and looks_like_file_request(user_text) \
-                and not _TOOL_RE.search(text):
+        if not blocks and "<zfile" not in text.lower() and "<zpage" not in text.lower() and len(text) >= 250 \
+                and looks_like_file_request(user_text) and not _TOOL_RE.search(text):
             intro, body, name, fmt, outro = docgen.wrap_untagged(text, user_text)
             if len(body) >= 200:
                 text = "\n\n".join(x for x in (intro, f'<zfile name="{name}">\n{body}\n</zfile>', outro) if x)
@@ -759,8 +772,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     _wants_file = looks_like_file_request(_user_ask)
     auto_web = (not has_images) and _needs_live_data(_user_ask) and not (
         _wants_file and "[File" in last_user_msg)
-    if _wants_file:
-        # Whole documents need room: the default 2048 tokens cuts CVs/decks short.
+    if _wants_file or _wants_page(_user_ask):
+        # Whole documents and working pages need room: the default 2048 tokens
+        # cuts CVs, decks and calculators off half way.
         user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
 
     # Decide automatically: web search? light or heavy model? photos?
@@ -1004,6 +1018,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 ai_msg = Message(chat_id=chat_id, role="assistant", content=full_response)
                 db.add(ai_msg)
                 await db.commit()
+                await db.refresh(ai_msg)
+            # The browser needs the saved message's id to keep checklist ticks.
+            yield _sse({"message_id": ai_msg.id})
 
         yield "data: [DONE]\n\n"
 

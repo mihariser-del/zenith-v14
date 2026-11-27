@@ -617,6 +617,26 @@ class ClientSeen(Base):
     last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+class LivePage(Base):
+    """A working page Zelpophai built in a chat (a calculator, quiz, game,
+    chart…) that its owner chose to share with a link.
+
+    Pages are only stored when someone presses Share; until then they live in
+    the chat message itself. They are always served from /p/<slug> inside a
+    browser sandbox, so a page can never read anyone's Zelpophai account.
+    """
+    __tablename__ = "live_pages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    slug = Column(String(24), unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    chat_id = Column(Integer, nullable=True)
+    title = Column(String(120), default="")
+    html = Column(Text, default="")
+    views = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class BlockedAddress(Base):
     """Places (IP addresses) that may not sign in.
 

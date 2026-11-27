@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## 25.0 — Live pages, questions with buttons, checklists
+
+Part one of bringing the assistant's own abilities into Zelpophai.
+
+- **Live pages** — `<zpage title="…">…</zpage>`. `render.js` shows a card with an inline preview, Open (side panel, full screen on phones), Download (.html) and Share link. The page runs in `<iframe sandbox="allow-scripts allow-forms allow-modals allow-popups allow-popups-to-escape-sandbox allow-downloads">` — deliberately **without** `allow-same-origin`, so it gets an opaque origin.
+- **`livepages.py`** (new) + `live_pages` table: `POST/GET /api/pages`, `DELETE /api/pages/{slug}`, and `GET /p/{slug}` served with `Content-Security-Policy: sandbox …`, `X-Robots-Tag: noindex`, `Referrer-Policy: no-referrer`. Stored only on Share, de-duplicated, 600 KB and 200 per user. Verified: inside the chat the frame's origin is `null`, and both in the chat and at `/p/` the page's `document.cookie` check throws.
+- `ai._wants_page()` gives page requests the same 8,000-token room as files, and the auto-file safety net now skips any reply containing `<zpage`.
+- **Questions with buttons** — `<zask q="…" multi="true">` with one option per line, up to 3 per reply. One single-choice question sends on tap; otherwise a Send answers button enables once every question is answered. `Chat._settleQuestions()` greys out any question the user has since replied to, lighting the option they picked, on send and on reload.
+- **Checklists** — `<ztodo title="…">` with `- [ ]` items, ticked live by `<zdone n="…"/>` as the reply streams (the next item shows a spinner). Users tick and untick by hand; `POST /api/chats/{chat}/messages/{msg}/todo` rewrites the `[ ]`/`[x]` and, when unticking, removes the matching `<zdone>`.
+- Streamed replies now end with a `{"message_id"}` event and every message wrapper carries `data-mid`, so per-message actions work before a reload.
+- Fixed in passing (found in testing): new code reached the chat through `window.Chat`, but `Chat` is a top-level `const` and isn't on `window` — answers and ticks silently did nothing. `render.js` now looks it up by name.
+
 ## 24.2 — zelpophai.com
 
 - **`site_address.py`** (new): the canonical address in one place. `base()` returns `APP_BASE_URL` unless it still points at `*.up.railway.app`, in which case it returns `https://zelpophai.com`, so a forgotten Railway variable cannot undo the move.

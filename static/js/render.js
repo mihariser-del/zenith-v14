@@ -162,7 +162,7 @@
         });
         // Tool requests the AI writes (image / video / reminder) show as a small
         // "working on it" card until the server swaps in the real result.
-        out = out.replace(/<(zimage|zvideo|zremind)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
+        out = out.replace(/<(zimage|zvideo|zremind|zjob)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
         return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs };
@@ -779,8 +779,8 @@
             el.innerHTML = toHtml(md);
             el.querySelectorAll('.zt-slot').forEach(function (slot) {
                 var k = slot.getAttribute('data-kind');
-                var label = { zimage: 'Creating your image', zvideo: 'Starting your video', zremind: 'Setting your reminder' }[k] || 'Working on it';
-                var icon = { zimage: '🎨', zvideo: '🎬', zremind: '⏰' }[k] || '✨';
+                var label = { zimage: 'Creating your image', zvideo: 'Starting your video', zremind: 'Setting your reminder', zjob: 'Setting up your scheduled job' }[k] || 'Working on it';
+                var icon = { zimage: '🎨', zvideo: '🎬', zremind: '⏰', zjob: '🗓️' }[k] || '✨';
                 var card = document.createElement('div');
                 card.className = 'zt-card';
                 card.innerHTML = '<span class="zt-ic" aria-hidden="true">' + icon + '</span><span class="zt-t">' + label + '\u2026</span><span class="zf-spin" aria-hidden="true"></span>';
@@ -838,7 +838,7 @@
                 .replace(/<zrun\b[^>]*>[\s\S]*?(?:<\/zrun>|$)/gi, '')
                 .replace(/<zout\b[^>]*>([\s\S]*?)<\/zout>/gi, function (_, b) { return b.trim(); })
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
-                .replace(/<(zimage|zvideo|zremind)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
+                .replace(/<(zimage|zvideo|zremind|zjob)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
                 .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)');
         }
     };

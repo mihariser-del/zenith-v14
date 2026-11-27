@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 25.2 — Scheduled jobs and deeper research
+
+Part three — the last of the seven.
+
+- **`scheduler.py`** (new) + `scheduled_jobs` table: `every` daily/weekdays/weekly/once, `at` HH:MM in the person's own time zone, `day` for weekly. `next_run()` does the zone maths (verified across London, Lagos and New York, including weekday roll-over). `GET/POST /api/jobs`, `PATCH`/`DELETE /api/jobs/{id}`, `POST /api/jobs/{id}/run`. A loop every 60 s sets each due job's next time **before** running it, then runs it by writing the request into the job's own chat and draining `ai.stream_chat()` — the same path as a typed message — with a 240 s cap. Each run is one message from the allowance (skipped with a reason if none are left); completion or failure goes to `pending_notification`.
+- The AI creates jobs with `<zjob title every at day>instruction</zjob>`, handled in `_run_tools` with a confirmation tip giving the first run in local time (2 per reply).
+- New **`jobs`** allowance in `limits_config` (guest 0, free 1, pro 5, ultimate/friend/admin 20, trusted 50, owner unlimited), so it appears on the Vault's Limits page; the account card counts jobs held rather than jobs per day.
+- Reminders window → **Reminders & jobs** with a Scheduled jobs tab: add (with four ready-made ideas), list with schedule, next run and last result, and Run now / Open its chat / Pause–Resume / Edit / Delete.
+- **`research.py`** (new): with Research on, a small model splits the question into 3–5 standalone searches; each runs at once as a Sonar helper returning cited notes; `merge()` renumbers every helper's `[n]` into one de-duplicated source list; the heavy model writes the report from those notes only; and `router_ai.cite()` turns its `[n]` into links plus a Sources list (instead of the usual `strip_citations`). Each part is a live step. Falls back to the old single search if every helper fails.
+- Fixed in testing: the job confirmation showed the first run in the wrong hour, because SQLite returns naive datetimes and one was converted as if local.
+
 ## 25.1 — Answers worked out with code, and links read properly
 
 Part two.

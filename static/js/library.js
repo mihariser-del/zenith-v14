@@ -189,13 +189,20 @@
   const dayLabel = (d) => { const t = new Date(); const a = new Date(d.getFullYear(), d.getMonth(), d.getDate()), b = new Date(t.getFullYear(), t.getMonth(), t.getDate()); const n = Math.round((a - b) / 864e5);
     return n <= 0 ? 'Today' : n === 1 ? 'Tomorrow' : n < 7 ? d.toLocaleDateString(undefined, { weekday: 'long' }) : d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' }); };
   const until = (d) => { const s = Math.max(0, (d - Date.now()) / 1000); return s < 60 ? 'in under a minute' : s < 3600 ? `in ${Math.round(s / 60)} min` : s < 86400 ? `in ${Math.round(s / 3600)} h` : `in ${Math.round(s / 86400)} day${Math.round(s / 86400) === 1 ? '' : 's'}`; };
-  async function rOpen() {
-    R.m = modal({ id: 'zrm', title: 'Reminders', icon: 'clock', sub: 'Zelpophai will nudge you at the right time.', tall: true });
-    R.m.body.innerHTML = '<div class="zu-load">Loading…</div>';
-    await rLoad();
+  async function rOpen(tab) {
+    R.m = modal({ id: 'zrm', title: 'Reminders & jobs', icon: 'clock', sub: 'Nudges at the right time, and jobs Zelpophai does by itself.', tall: true });
+    R.tab = tab === 'jobs' ? 'jobs' : 'rem';
+    R.m.body.innerHTML = `<div class="zrm-tabs" role="tablist">
+        <button type="button" role="tab" data-t="rem">Reminders</button><button type="button" role="tab" data-t="jobs">Scheduled jobs</button></div>
+      <div id="zrm-pane"><div class="zu-load">Loading…</div></div>`;
+    const tabs = R.m.body.querySelector('.zrm-tabs');
+    const show = () => { tabs.querySelectorAll('[data-t]').forEach((b) => { const on = b.dataset.t === R.tab; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); }); return R.tab === 'jobs' ? jLoad() : rLoad(); };
+    tabs.onclick = (e) => { const b = e.target.closest('[data-t]'); if (!b || b.dataset.t === R.tab) return; R.tab = b.dataset.t; show(); };
+    await show();
   }
+  const pane = () => R.m && R.m.body.querySelector('#zrm-pane');
   async function rLoad() {
-    try { R.list = (await call('/api/reminders')).reminders.sort((a, b) => new Date(a.next_run_at) - new Date(b.next_run_at)); } catch (e) { R.m.body.innerHTML = `<div class="zu-empty"><b>Couldn't load reminders</b><span>${esc(e.message)}</span></div>`; return; }
+    try { R.list = (await call('/api/reminders')).reminders.sort((a, b) => new Date(a.next_run_at) - new Date(b.next_run_at)); } catch (e) { pane().innerHTML = `<div class="zu-empty"><b>Couldn't load reminders</b><span>${esc(e.message)}</span></div>`; return; }
     rDraw();
   }
   function quick() {
@@ -205,11 +212,11 @@
     return [['In 1 hour', mk(h1)], [tonight.getDate() === n.getDate() ? 'Tonight 8pm' : 'Tomorrow 8pm', mk(tonight)], ['Tomorrow 9am', mk(tmr)], ['Next week', mk(wk)]];
   }
   function rDraw() {
-    const M = R.m; if (!M) return;
+    const M = R.m; if (!M || R.tab === 'jobs') return;
     const np = 'Notification' in window ? Notification.permission : 'unsupported';
     const groups = {}; R.list.forEach((r) => { const d = new Date(r.next_run_at); (groups[dayLabel(d)] = groups[dayLabel(d)] || []).push(r); });
     const def = new Date(Date.now() + 3600e3); def.setMinutes(0, 0, 0);
-    M.body.innerHTML = `<div class="zlb-add"><input class="zu-in" id="zrm-text" maxlength="500" placeholder="Remind me to…" autocomplete="off">
+    pane().innerHTML = `<div class="zlb-add"><input class="zu-in" id="zrm-text" maxlength="500" placeholder="Remind me to…" autocomplete="off">
         <div class="zlb-chips" id="zrm-quick">${quick().map(([l, v]) => `<button data-v="${v}">${l}</button>`).join('')}</div>
         <div class="zrm-when"><div><label class="zu-l" for="zrm-at">When</label><input class="zu-in" type="datetime-local" id="zrm-at" value="${toLocalInput(def)}" min="${toLocalInput(new Date())}"></div>
           <div><label class="zu-l" for="zrm-rep">Repeat</label><select class="zu-in" id="zrm-rep">${REP.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
@@ -265,10 +272,111 @@
     };
   }
 
+
+  /* ═══════════════════════ Scheduled jobs ═══════════════════════ */
+  const J = { list: [], limit: null };
+  const EVERY = [['daily', 'Every day'], ['weekdays', 'Every weekday'], ['weekly', 'Every week'], ['once', 'Just once']];
+  const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const IDEAS = [
+    ['Morning news', 'Give me the five most important news stories from the last 24 hours, one short paragraph each, with sources.', 'weekdays', '07:30'],
+    ['Word of the day', 'Teach me one interesting English word: what it means, where it comes from, and two example sentences.', 'daily', '09:00'],
+    ['Weekly tech roundup', 'Summarise the biggest technology stories of the past week in plain English, and say why each one matters.', 'weekly', '18:00'],
+    ['Weather and plan', 'Tell me today\'s weather where I live and suggest how to plan my day around it.', 'daily', '07:00'],
+  ];
+  const tzName = () => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'; } catch (e) { return 'UTC'; } };
+  async function jLoad() {
+    const P = pane(); if (!P) return;
+    try { const d = await call('/api/jobs'); J.list = d.jobs; J.limit = d.limit; } catch (e) { P.innerHTML = `<div class="zu-empty"><b>Couldn't load your jobs</b><span>${esc(e.message)}</span></div>`; return; }
+    jDraw();
+  }
+  function jWhenText(j) {
+    if (!j.enabled) return 'Paused';
+    if (!j.next_run) return 'Finished';
+    const d = new Date(j.next_run);
+    return 'Next: ' + dayLabel(d) + ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  function jDraw() {
+    const P = pane(); if (!P || R.tab !== 'jobs') return;
+    const full = J.limit !== null && J.list.length >= J.limit;
+    const blocked = J.limit === 0;
+    P.innerHTML = `${blocked ? `<div class="zu-empty">${icon('clock')}<b>Scheduled jobs aren't on your plan yet</b><span>They let Zelpophai do things by itself — like sending you the news every morning.</span></div>` : `
+      <div class="zlb-add zj-add">
+        <label class="zu-l" for="zj-p">What should Zelpophai do?</label>
+        <textarea class="zu-in" id="zj-p" rows="3" maxlength="2000" placeholder="e.g. Give me the top five news stories with sources"${full ? ' disabled' : ''}></textarea>
+        <div class="zlb-chips" id="zj-ideas">${IDEAS.map((x, i) => `<button type="button" data-i="${i}"${full ? ' disabled' : ''}>${esc(x[0])}</button>`).join('')}</div>
+        <div class="zj-when">
+          <div><label class="zu-l" for="zj-every">How often</label><select class="zu-in" id="zj-every"${full ? ' disabled' : ''}>${EVERY.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select></div>
+          <div id="zj-dayw" hidden><label class="zu-l" for="zj-day">On</label><select class="zu-in" id="zj-day">${DAYS.map((d, i) => `<option value="${i}">${d}</option>`).join('')}</select></div>
+          <div><label class="zu-l" for="zj-at">At</label><input class="zu-in" type="time" id="zj-at" value="08:00"${full ? ' disabled' : ''}></div>
+          <div class="zj-name"><label class="zu-l" for="zj-t">Name (optional)</label><input class="zu-in" id="zj-t" maxlength="80" placeholder="Morning news"${full ? ' disabled' : ''}></div>
+        </div>
+        <div class="zj-foot"><span class="zj-count">${J.limit === null ? `${J.list.length} job${J.list.length === 1 ? '' : 's'}` : `${J.list.length} of ${J.limit} job${J.limit === 1 ? '' : 's'} on your plan`}${full ? ' — delete one to add another' : ''}</span>
+          <button class="zu-btn pri" id="zj-add"${full ? ' disabled' : ''}>${icon('plus')} Add job</button></div>
+      </div>`}
+      <div id="zj-list">${J.list.length ? J.list.map((j) => `<div class="zj-row${j.enabled ? '' : ' off'}" data-id="${j.id}">
+          <div class="zj-t"><b>${esc(j.title)}</b><span>${esc(j.when)} · ${esc(jWhenText(j))}</span>
+            ${j.last_run ? `<i class="${/^Done/.test(j.last_status) ? 'ok' : 'bad'}">Last run ${esc(ago(j.last_run))}: ${esc(j.last_status || '—')}</i>` : '<i>Hasn’t run yet</i>'}</div>
+          <span class="zlb-file-a">
+            <button data-a="run" title="Run it now" aria-label="Run it now">▶</button>
+            ${j.chat_id ? `<button data-a="open" title="Open its chat" aria-label="Open its chat">${icon('reply')}</button>` : ''}
+            <button data-a="pause" title="${j.enabled ? 'Pause' : 'Resume'}" aria-label="${j.enabled ? 'Pause' : 'Resume'}">${j.enabled ? '❚❚' : '↻'}</button>
+            <button data-a="edit" title="Edit" aria-label="Edit">${icon('pen')}</button>
+            <button data-a="del" class="bad" title="Delete" aria-label="Delete">${icon('trash')}</button></span></div>`).join('')
+        : (blocked ? '' : `<div class="zu-empty">${icon('clock')}<b>No jobs yet</b><span>Add one above, or just tell Zelpophai in a chat: “every morning at 8, send me the top news”.</span></div>`)}</div>`;
+    const g = (i) => P.querySelector('#' + i);
+    if (!blocked) {
+      const every = g('zj-every');
+      every.onchange = () => { g('zj-dayw').hidden = every.value !== 'weekly'; };
+      g('zj-ideas').onclick = (e) => { const b = e.target.closest('[data-i]'); if (!b) return; const x = IDEAS[+b.dataset.i];
+        g('zj-t').value = x[0]; g('zj-p').value = x[1]; every.value = x[2]; g('zj-at').value = x[3]; every.onchange(); };
+      g('zj-add').onclick = async () => {
+        const prompt = g('zj-p').value.trim();
+        if (prompt.length < 4) { g('zj-p').focus(); return toast('Say what the job should do', 'error'); }
+        g('zj-add').disabled = true;
+        try {
+          const d = await call('/api/jobs', { method: 'POST', body: { title: g('zj-t').value.trim(), prompt, every: every.value, at: g('zj-at').value || '08:00', day: +g('zj-day').value, tz: tzName() } });
+          toast('Job added — ' + d.job.when.toLowerCase(), 'success'); jLoad();
+        } catch (e) { toast(e.message, 'error'); g('zj-add').disabled = false; }
+      };
+    }
+    g('zj-list').onclick = async (e) => {
+      const b = e.target.closest('[data-a]'); if (!b) return;
+      const j = J.list.find((x) => x.id === +b.closest('[data-id]').dataset.id); if (!j) return;
+      try {
+        if (b.dataset.a === 'run') { b.disabled = true; await call(`/api/jobs/${j.id}/run`, { method: 'POST' }); toast('Running it now — you’ll get a note when it’s ready', 'success'); setTimeout(jLoad, 1500); }
+        else if (b.dataset.a === 'pause') { await call(`/api/jobs/${j.id}`, { method: 'PATCH', body: { enabled: !j.enabled } }); toast(j.enabled ? 'Paused' : 'Resumed', 'success'); jLoad(); }
+        else if (b.dataset.a === 'del') { if (!(await window.ZUI.confirmBox('Delete this job?', `“${j.title}” won't run again. The chat with its past answers stays.`, true))) return; await call(`/api/jobs/${j.id}`, { method: 'DELETE' }); toast('Job deleted', 'success'); jLoad(); }
+        else if (b.dataset.a === 'edit') jEdit(j);
+        else if (b.dataset.a === 'open') { R.m.close(); await jOpenChat(j.chat_id); }
+      } catch (err) { toast(err.message, 'error'); b.disabled = false; }
+    };
+  }
+  async function jOpenChat(id) {
+    if (typeof Chat === 'undefined') return;
+    if (!Chat.chats[id]) { try { const { chats } = await call('/api/chats'); chats.forEach((c) => { Chat.chats[c.id] = c; }); } catch (e) {} }
+    if (Chat.chats[id]) Chat.switchTo(id); else toast('That chat has been deleted', 'error');
+  }
+  function jEdit(j) {
+    const P = modal({ id: 'zj-edit', title: 'Edit job', icon: 'pen' });
+    P.body.innerHTML = `<label class="zu-l" for="zje-t">Name</label><input class="zu-in" id="zje-t" maxlength="80" value="${esc(j.title)}">
+      <label class="zu-l" for="zje-p">What Zelpophai does</label><textarea class="zu-in" id="zje-p" rows="4" maxlength="2000">${esc(j.prompt)}</textarea>
+      <div class="zj-when"><div><label class="zu-l" for="zje-e">How often</label><select class="zu-in" id="zje-e">${EVERY.map(([v, l]) => `<option value="${v}"${v === j.every ? ' selected' : ''}>${l}</option>`).join('')}</select></div>
+        <div id="zje-dw"${j.every === 'weekly' ? '' : ' hidden'}><label class="zu-l" for="zje-d">On</label><select class="zu-in" id="zje-d">${DAYS.map((d, i) => `<option value="${i}"${i === j.day ? ' selected' : ''}>${d}</option>`).join('')}</select></div>
+        <div><label class="zu-l" for="zje-a">At</label><input class="zu-in" type="time" id="zje-a" value="${esc(j.at)}"></div></div>
+      <div class="zst-err" id="zje-err" role="alert"></div><button class="zu-btn pri wide" id="zje-s">Save</button>`;
+    const g = (i) => P.body.querySelector('#' + i);
+    g('zje-e').onchange = () => { g('zje-dw').hidden = g('zje-e').value !== 'weekly'; };
+    g('zje-s').onclick = async () => {
+      try { await call(`/api/jobs/${j.id}`, { method: 'PATCH', body: { title: g('zje-t').value.trim(), prompt: g('zje-p').value.trim(), every: g('zje-e').value, at: g('zje-a').value, day: +g('zje-d').value, tz: tzName(), enabled: true } });
+        P.close(); toast('Saved', 'success'); jLoad(); } catch (e) { g('zje-err').textContent = e.message; }
+    };
+  }
+
   /* hook the new windows up under the old names */
   const need = () => { if (guest()) { toast('Create a free account to use this', 'error'); return false; } return true; };
   if (typeof Knowledge !== 'undefined') { Knowledge.open = () => { if (need()) kOpen(); }; Knowledge.close = () => { if (K.m) K.m.close(); }; }
   if (typeof Files !== 'undefined') { Files.open = () => { if (need()) fOpen(); }; Files.close = () => { if (F.m) F.m.close(); }; }
-  window.Reminders = { open: () => { if (need()) rOpen(); }, refresh: () => { if (R.m && document.getElementById('zrm')) rLoad(); } };
+  window.Reminders = { open: (tab) => { if (need()) rOpen(tab); }, openJobs: () => { if (need()) rOpen('jobs'); },
+    refresh: () => { if (R.m && document.getElementById('zrm')) (R.tab === 'jobs' ? jLoad() : rLoad()); } };
   window.ZPLibrary = { knowledge: kOpen, files: fOpen, reminders: rOpen };
 })();

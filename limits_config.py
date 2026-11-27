@@ -36,20 +36,21 @@ FIELDS = [
     ("videos", "Videos a day", "Short videos the AI makes. These cost real money per second."),
     ("mini", "Mini tasks a day", "Jobs given to Zelpophai Mini on a Windows PC."),
     ("coding", "Coding AGT. requests a day", "Times the coding agent is asked to write or fix code."),
+    ("jobs", "Scheduled jobs", "Jobs Zelpophai runs by itself on a schedule. This is how many each person can keep, not a daily count."),
     ("cooldown", "Pause after running out (minutes)", "How long someone waits once they've used everything up."),
 ]
 FIELD_KEYS = [f[0] for f in FIELDS]
 
 # None = no limit
 DEFAULTS = {
-    "guest":    {"messages": 20,   "images": 2,   "files": 3,   "videos": 0,  "mini": 0, "coding": 2,     "cooldown": 30},
-    "free":     {"messages": 50,   "images": 3,   "files": 5,   "videos": 0,  "mini": 15, "coding": 5,    "cooldown": 60},
-    "pro":      {"messages": 600,  "images": 50,  "files": 100, "videos": 3,  "mini": 300, "coding": 60,   "cooldown": 20},
-    "ultimate": {"messages": None, "images": 200, "files": 300, "videos": 10, "mini": 2000, "coding": 300,  "cooldown": 10},
-    "friend":   {"messages": None, "images": 100, "files": 150, "videos": 15, "mini": 3000, "coding": 300,  "cooldown": 10},
-    "admin":    {"messages": None, "images": 150, "files": 200, "videos": 20, "mini": 5000, "coding": 500,  "cooldown": 10},
-    "trusted":  {"messages": None, "images": 300, "files": 400, "videos": 30, "mini": 10000, "coding": 1000, "cooldown": 5},
-    "owner":    {"messages": None, "images": None, "files": None, "videos": None, "mini": None, "coding": None, "cooldown": 0},
+    "guest":    {"messages": 20,   "images": 2,   "files": 3,   "videos": 0,  "mini": 0, "coding": 2, "jobs": 0,     "cooldown": 30},
+    "free":     {"messages": 50,   "images": 3,   "files": 5,   "videos": 0,  "mini": 15, "coding": 5, "jobs": 1,    "cooldown": 60},
+    "pro":      {"messages": 600,  "images": 50,  "files": 100, "videos": 3,  "mini": 300, "coding": 60, "jobs": 5,   "cooldown": 20},
+    "ultimate": {"messages": None, "images": 200, "files": 300, "videos": 10, "mini": 2000, "coding": 300, "jobs": 20,  "cooldown": 10},
+    "friend":   {"messages": None, "images": 100, "files": 150, "videos": 15, "mini": 3000, "coding": 300, "jobs": 20,  "cooldown": 10},
+    "admin":    {"messages": None, "images": 150, "files": 200, "videos": 20, "mini": 5000, "coding": 500, "jobs": 20,  "cooldown": 10},
+    "trusted":  {"messages": None, "images": 300, "files": 400, "videos": 30, "mini": 10000, "coding": 1000, "jobs": 50, "cooldown": 5},
+    "owner":    {"messages": None, "images": None, "files": None, "videos": None, "mini": None, "coding": None, "jobs": None, "cooldown": 0},
 }
 
 _cache = {"data": None, "at": 0.0}

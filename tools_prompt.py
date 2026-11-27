@@ -222,6 +222,14 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "every figure; to use a file the user uploaded, add files=\"exact-file-name.csv\" and open it by that name; keep it "
         "short; write ONE short sentence before the tag and NOTHING after it — stop and wait for the result. Don't use it for "
         "simple maths like 12 x 4, or for things that aren't calculations.",
+        "16. Scheduled jobs: when the user wants you to DO something regularly by yourself — \"every morning send me the "
+        "news\", \"every Friday summarise the week's tech stories\", \"each weekday give me a word of the day\" — write "
+        "<zjob title=\"Short name\" every=\"daily|weekdays|weekly|once\" at=\"HH:MM\" day=\"mon|tue|wed|thu|fri|sat|sun\">"
+        "exactly what to do each time, written as an instruction to yourself</zjob> (day only for weekly; at is the user's "
+        "LOCAL time). Each run is a full answer — you can search the web then — written into the job's own chat, and the user "
+        "is told when it's ready. This is different from a reminder: a reminder only pops up a note; a job does the work. If "
+        "they didn't say when, ask (with <zask>). Their plan limits how many jobs they can keep; the app tells them if they're "
+        "at the limit.",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",
     ]

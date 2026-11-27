@@ -613,3 +613,25 @@ html.zst-no-anim *, html.zst-no-anim *::before, html.zst-no-anim *::after { anim
   .zsu-opts { grid-template-columns: 1fr; }
   .zsu-foot { flex-wrap: wrap; } .zsu-foot-r { flex: 1; justify-content: flex-end; }
 }
+
+/* ───────── Reminders & jobs: tabs, and the scheduled jobs list (zj-) ───────── */
+.zrm-tabs { display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 13px; border: 1px solid var(--line); background: var(--soft); }
+.zrm-tabs button { flex: 1; padding: 9px 12px; border: 0; border-radius: 10px; background: transparent; color: var(--dim); font: 650 13.5px/1 inherit; cursor: pointer; }
+.zrm-tabs button.on { background: var(--a); color: #fff; }
+.zrm-tabs button:focus-visible { outline: 2px solid var(--a); outline-offset: 2px; }
+.zj-add textarea { resize: vertical; min-height: 70px; }
+.zj-add .zu-l { margin: 0; }
+.zj-when { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; align-items: end; }
+.zj-when .zu-l { margin-top: 0; } .zj-when select { appearance: auto; }
+.zj-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.zj-count { font-size: 12.5px; color: var(--dim); }
+.zj-row { display: flex; align-items: center; gap: 12px; padding: 12px 13px; margin-bottom: 8px; border-radius: 13px; border: 1px solid var(--line); background: var(--soft); }
+.zj-row.off { opacity: .62; }
+.zj-t { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+.zj-t b { font-size: 14px; overflow-wrap: anywhere; }
+.zj-t span { font-size: 12.5px; color: var(--dim); }
+.zj-t i { font-size: 12px; font-style: normal; color: var(--dim); }
+.zj-t i.ok::before { content: '✓ '; color: var(--good); }
+.zj-t i.bad::before { content: '! '; color: var(--warn); font-weight: 800; }
+.zj-row .zlb-file-a button { font-size: 12px; }
+@media (max-width: 620px) { .zj-row { flex-wrap: wrap; } .zj-row .zlb-file-a { width: 100%; justify-content: flex-end; } }

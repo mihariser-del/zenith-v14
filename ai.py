@@ -420,7 +420,7 @@ def _sse(obj):
     return f"data: {json.dumps(obj)}\n\n"
 
 
-_TOOL_RE = re.compile(r"<(zimage|zvideo|zremind)\b([^>]*?)(?:/>|>(.*?)(?:</\1>|$))", re.S | re.I)
+_TOOL_RE = re.compile(r"<(zimage|zvideo|zremind|zjob)\b([^>]*?)(?:/>|>(.*?)(?:</\1>|$))", re.S | re.I)
 _TOOL_ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 
 
@@ -450,8 +450,8 @@ async def _run_tools(db, user, chat_id, text, tz_name):
     from video import start_video_job
     from database import Reminder
     jobs, notes = [], []
-    counts = {"zimage": 0, "zvideo": 0, "zremind": 0}
-    caps = {"zimage": 4, "zvideo": 1, "zremind": 5}
+    counts = {"zimage": 0, "zvideo": 0, "zremind": 0, "zjob": 0}
+    caps = {"zimage": 4, "zvideo": 1, "zremind": 5, "zjob": 2}
     out = text
     for m in reversed(found):
         kind = m.group(1).lower()
@@ -485,6 +485,16 @@ async def _run_tools(db, user, chat_id, text, tz_name):
                 shape_word = "tall" if aspect == "9:16" else "wide"
                 repl = (f"> [!NOTE]\n> 🎬 Making your {job['duration']}-second {shape_word} video. It usually takes 1–3 minutes "
                         f"and will appear below by itself. ({job['remaining']} left today)")
+            elif kind == "zjob":
+                import scheduler
+                what = (inner or a.get("prompt") or "").strip()
+                job = await scheduler.create(db, user, a.get("title") or "", what, (a.get("every") or "daily").lower(),
+                                             a.get("at") or "08:00", a.get("day") or 0, tz_name or "UTC")
+                _nr = job.next_run if job.next_run.tzinfo else job.next_run.replace(tzinfo=timezone.utc)   # the database drops the zone; it's UTC
+                nxt = _nr.astimezone(_local_now(tz_name)[1]).strftime("%a %d %b, %H:%M").replace(" 0", " ")
+                repl = (f"> [!TIP]\n> 🗓️ **{job.title}** — {scheduler.describe(job.every, job.at, job.day).lower()}. "
+                        f"First run: **{nxt}**. Each one arrives in its own chat and I'll let you know. "
+                        "Change or pause it any time under Reminders → Scheduled jobs.")
             elif kind == "zremind":
                 what = (inner or a.get("text") or "").strip()[:500]
                 if not what:
@@ -517,7 +527,8 @@ async def _run_tools(db, user, chat_id, text, tz_name):
             repl = f"> [!WARNING]\n> {e.detail}"
         except Exception as e:
             print(f"[tools] {kind} failed: {type(e).__name__}: {e}")
-            label = {"zimage": "make that image", "zvideo": "start that video", "zremind": "set that reminder"}[kind]
+            label = {"zimage": "make that image", "zvideo": "start that video", "zremind": "set that reminder",
+                     "zjob": "set up that scheduled job"}[kind]
             repl = f"> [!WARNING]\n> Sorry, I couldn't {label} just now. Please try again."
         out = out[:m.start()] + "\n\n" + repl + "\n\n" + out[m.end():]
     out = re.sub(r"\n{3,}", "\n\n", out).strip()
@@ -903,7 +914,42 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         async def _gallery(wait):
             return images_markdown(await _photos(wait))
 
-        if use_web:
+        # Research button: split the question, research every part at once, then
+        # write one report from all the notes (see research.py).
+        _deep_sources = None
+        if research and not factcheck and not has_images:
+            import research as _rs
+            yield _sse({"status": "searching", "query": "Planning the research"})
+            yield _step("rplan", "Splitting your question into parts")
+            _t0 = time.time()
+            _parts = await _rs.plan(_user_ask, _history)
+            yield _step("rplan", f"Split it into {len(_parts)} part{'s' if len(_parts) != 1 else ''}", f"{time.time() - _t0:.1f}s", "done")
+            for _i, _p in enumerate(_parts):
+                yield _step(f"r{_i}", _p, "researching…", "doing")
+
+            async def _one(i, p):
+                try:
+                    return i, await _rs.dig(p)
+                except Exception:
+                    return i, {"ok": False, "text": "", "sources": []}
+
+            _results = [None] * len(_parts)
+            for _fut in asyncio.as_completed([_one(i, p) for i, p in enumerate(_parts)]):
+                _i, _res = await _fut
+                _results[_i] = _res
+                _n = len(_res.get("sources") or [])
+                yield _step(f"r{_i}", _parts[_i], (f"{_n} source{'s' if _n != 1 else ''}" if _res.get("ok") else "nothing came back"), "done")
+            _notes, _srcs = _rs.merge(_parts, _results)
+            if any(r and r.get("ok") for r in _results):
+                _deep_sources = _srcs
+                for _m in reversed(messages):
+                    if _m.get("role") == "user" and isinstance(_m.get("content"), str):
+                        _m["content"] += _rs.writer_brief(_notes)
+                        break
+                yield _step("rwrite", "Writing the report", f"from {len(_srcs)} sources", "doing")
+                ai_meter.record("search", "perplexity/sonar", user_id, messages, _notes)
+
+        if use_web and _deep_sources is None:
             # Tell the app we're searching so it can show "Searching the web…".
             yield _sse({"status": "searching", "query": plan.get("query", "")[:120]})
             if think:
@@ -1031,7 +1077,13 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                     return
 
         if full_response:
-            full_response = strip_citations(full_response)
+            if _deep_sources:
+                from router_ai import cite as _cite
+                full_response = _cite(full_response, _deep_sources)
+                yield _sse({"content": full_response})
+                yield _step("rwrite", "Wrote the report", f"{len(_deep_sources)} sources", "done")
+            else:
+                full_response = strip_citations(full_response)
             # Photos last: now that the answer is written we know where each one belongs.
             if img_task:
                 _imgs = await _photos(3.0)

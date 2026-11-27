@@ -617,6 +617,29 @@ class ClientSeen(Base):
     last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+class ScheduledJob(Base):
+    """A job Zelpophai does by itself on a schedule ("every morning at 8, send
+    me the top news"). Each run is a normal answer written into the job's own
+    chat, and the person is told when it's ready."""
+    __tablename__ = "scheduled_jobs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False)
+    chat_id = Column(Integer, nullable=True)
+    title = Column(String(80), default="")
+    prompt = Column(Text, default="")
+    every = Column(String(12), default="daily")      # daily | weekdays | weekly | once
+    at = Column(String(5), default="08:00")          # HH:MM in the person's own time
+    day = Column(Integer, default=0)                 # for weekly: 0 = Monday … 6 = Sunday
+    tz = Column(String(64), default="UTC")
+    enabled = Column(Boolean, default=True)
+    next_run = Column(DateTime, nullable=True, index=True)
+    last_run = Column(DateTime, nullable=True)
+    last_status = Column(String(200), default="")
+    runs = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class LivePage(Base):
     """A working page Zelpophai built in a chat (a calculator, quiz, game,
     chart…) that its owner chose to share with a link.

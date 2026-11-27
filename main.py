@@ -47,10 +47,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "25.1"
+VERSION = "25.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "25.2 Scheduled jobs: tell Zelpophai \"every morning at 8, send me the top news\" or \"every Friday, summarise the week's tech stories\" and it does the job by itself, on time, in its own chat — searching the web and all — then lets you know it's ready. See, pause, edit, run or delete them under Reminders → Scheduled jobs, where there are a few ready-made ideas too. Free accounts can keep one; Pro and above more",
+    "25.2 Deeper research: the Research button now splits your question into parts, researches every part at the same time, then writes one proper report with each fact linked to its source and a numbered source list at the end. You watch each part tick off while it works",
     "25.1 Answers worked out properly: for sums, money, loans, dates, statistics and charts, Zelpophai now writes a little bit of code and runs it to get the exact number, instead of guessing — AI on its own is often wrong at arithmetic. You see the result (and any chart) in a card, with the code there if you're curious, then the answer in plain words. It runs on your own device, sealed off from your account. Attach a spreadsheet or CSV and it can analyse that too",
     "25.1 Paste a link and Zelpophai reads it: web pages, articles and PDFs, the whole thing, not just what a search turns up. You'll see \"Reading the page…\" while it does. If it can't open a link (a sign-in page, a private address), it tells you why",
     "25.0 Live pages: ask for a calculator, a quiz, flashcards, a timer, a little game or a tool, and Zelpophai builds one that works right there in the chat. Tap Open for a bigger view, Download to keep it, or Share link to send it to anyone — they can use it without an account",
@@ -172,6 +174,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "25.2 Owner: how many scheduled jobs each plan can keep is a new row on the Limits page (System → Limits) — Free 1, Pro 5, Ultimate, Friends and Admins 20, Trusted admins 50, you unlimited. Each run goes through exactly the same answering path as a typed message, so it gets every tool and safety rule, and counts as one message; if someone has used up their day, that run is skipped and they're told why. The next run time is worked out before a job runs, so a crash can never make one repeat",
     "25.1 Owner: code the AI writes never runs on the server (server-side running is still yours alone, because it once let people read the database). It runs in Python on the person's own device, inside a background worker in a sealed frame with no origin of its own — tested: it can't read the sign-in cookie or call the Zelpophai API, and a runaway loop is stopped after 30 seconds. Results and charts are saved onto the message, so they're there after a reload and nothing runs twice",
     "25.1 Owner: link reading refuses anything that isn't an ordinary public web address — private and internal networks, this server itself, cloud metadata addresses, unusual ports, links with passwords, and sneaky encoded forms of those — and checks again after every redirect. On the live server the connection is pinned to the address that passed the check. 5 MB and 12 seconds at most",
     "25.0 Owner: live pages are AI-written HTML, so they are treated as untrusted everywhere. In the chat they run in an iframe sandbox without same-origin; shared at /p/<link> the server sends a CSP sandbox header that does the same for a page opened directly. Either way a page gets a throw-away origin and cannot read anyone's sign-in or call the API as them — tested: the page computes fine and its cookie check comes back blocked. Pages are only stored when someone presses Share (up to 200 each), and are kept out of search engines",
@@ -285,6 +288,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"[secops] block list skipped: {e}")
     reminder_task = asyncio.create_task(_reminder_loop())
+    import scheduler as _scheduler
+    asyncio.create_task(_scheduler.loop())      # scheduled jobs (see scheduler.py)
     from vault_jobs import alert_loop, backup_loop
     from feedback import migrate_legacy
     await migrate_legacy()            # old Feedback + Personal Requests → new inbox (once)
@@ -347,6 +352,8 @@ app.include_router(personality_router)
 app.include_router(audit_router)
 from livepages import router as livepages_router
 app.include_router(livepages_router)
+from scheduler import router as scheduler_router
+app.include_router(scheduler_router)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -799,6 +806,13 @@ async def usage_meter(request: Request, db=Depends(get_db)):
         "mini": await used("mini_agent"),
         "coding": await used("code_agent"),
     }
+    # Scheduled jobs aren't a daily count — it's how many the person has set up.
+    try:
+        from database import ScheduledJob
+        counts["jobs"] = (await db.execute(select(func.count()).select_from(ScheduledJob)
+                                           .where(ScheduledJob.user_id == user.id))).scalar() or 0
+    except Exception:
+        counts["jobs"] = 0
     items = []
     for key, label, _about in LC.FIELDS:
         if key == "cooldown":

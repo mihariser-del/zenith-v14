@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "22.9"
+VERSION = "23.0"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "23.0 Zelpophai now tells you when it has been updated. If you're looking at an old copy — which can happen after a wobbly connection, or if you leave the app open for days — a small bar appears at the top saying a new version is ready. Tap Update and it clears the old copy out properly and brings in the new one. Before, a normal refresh (even Ctrl+F5) could quietly give you the old version back",
     "22.9 Zelpophai answers again. The key that lets it talk to the AI had stopped being accepted, which is what caused the \"err:401\" message when you sent anything. If it ever happens again you'll now get a clear note saying Zelpophai can't reach the AI right now and to try again shortly, instead of a code",
     "22.8 You can now see exactly where you stand. Hover your name at the bottom of the sidebar and the card shows what you've used today — messages, pictures, files, videos, Mini tasks and coding requests — with a bar for each and when everything starts again",
     "22.8 Clearer messages when you run out: Zelpophai now tells you what you used up, how long until you can carry on, and when it comes back, instead of a vague \"limit reached\"",
@@ -157,6 +158,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "23.0 Owner: every page now carries the version it was built from (a <meta name=\"zp-build\"> stamp the server injects, with the shell served no-store), so an out-of-date copy is spotted on its very first load rather than only when a release happens to land while the tab is open. \"Update\" empties the offline caches and asks the service worker to update before reloading on a fresh address, which a plain reload could not do",
     "22.9 Owner: a new AI key page in the Vault (Settings → AI key). It shows whether Zelpophai's answers are working, where the key is kept and how much money is left on it, and lets you paste a new key yourself. The key is checked before it's saved, kept locked away in Zelpophai's own database, and never shown again — so you never have to touch Railway or the code for this, and the key is never in the public code",
     "22.8 Owner: a new Limits page in the Vault (System → Limits). Every daily allowance for every plan — guest, free, Pro, Ultimate, Friend, Admin, Trusted admin — in one table you can edit: messages, pictures, files, videos, Mini tasks, Coding AGT. requests and how long the pause lasts. Leave a box empty for no limit, type 0 to switch something off, and changes apply to everyone the moment you save, with no new release. It also shows today's totals, how many people are on each plan, and a button to let anyone who is paused carry on",
     "22.8 Owner: Admins now get 5,000 Mini tasks a day, Trusted admins 10,000 and Friends 3,000. Admins and Trusted admins are separate plans now, so you can give them different allowances",
@@ -1025,13 +1027,41 @@ async def changelog_seen(request: Request, db=Depends(get_db)):
     return {"ok": True}
 
 
+# ── Page shells ───────────────────────────────────────────────────────────────
+# Every page that people keep open for days carries a stamp of the version it
+# was built from. freshness.js compares that stamp with /api/version, so an old
+# copy out of the offline cache is spotted on the very first load instead of
+# only when a new release lands while the tab happens to be open.
+_SHELL_CACHE: dict[str, tuple[float, str]] = {}
+
+
+def _shell(name: str, extra_head: str = "") -> HTMLResponse:
+    """Serve one of the app's HTML shells with the current build stamped in."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", name)
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return FileResponse(f"static/{name}")
+    hit = _SHELL_CACHE.get(name)
+    if hit and hit[0] == mt:
+        html = hit[1]
+    else:
+        with open(path, "r", encoding="utf-8") as fh:
+            html = fh.read()
+        stamp = f'<meta name="zp-build" content="{VERSION}|{BUILD_ID}">'
+        html = html.replace("</head>", f"    {stamp}\n</head>", 1) if "</head>" in html else stamp + html
+        _SHELL_CACHE[name] = (mt, html)
+    if extra_head:
+        html = html.replace("</head>", f"    {extra_head}\n</head>", 1)
+    # The shell must never be served from a browser or proxy cache, or the stamp
+    # inside it goes stale and the app can't tell it is out of date.
+    return HTMLResponse(html, headers={"Cache-Control": "no-store, must-revalidate"})
+
+
 @app.get("/", response_class=HTMLResponse)
 async def landing():
     """Serve the landing page, injecting search-engine verification tags when
     the corresponding env vars are set (Railway-friendly, no code edits)."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
-    with open(path, "r", encoding="utf-8") as fh:
-        html = fh.read()
     tags = []
     gsv = (os.getenv("GOOGLE_SITE_VERIFICATION") or "").strip()
     if gsv:
@@ -1039,14 +1069,12 @@ async def landing():
     bing = (os.getenv("BING_SITE_VERIFICATION") or "").strip()
     if bing:
         tags.append(f'<meta name="msvalidate.01" content="{bing}">')
-    if tags:
-        html = html.replace("</head>", "\n    ".join([""] + tags) + "\n</head>", 1)
-    return HTMLResponse(html)
+    return _shell("index.html", "\n    ".join(tags))
 
 
 @app.get("/app", response_class=HTMLResponse)
 async def chat_app():
-    return FileResponse("static/app.html")
+    return _shell("app.html")
 
 
 @app.get("/app/c/{link_id}", response_class=HTMLResponse)
@@ -1061,7 +1089,7 @@ async def chat_app_link(link_id: str, request: Request, db=Depends(get_db)):
             url=f"/denied.html?reason=login&link={link_id}",
             status_code=302,
         )
-    return FileResponse("static/app.html")
+    return _shell("app.html")
 
 
 @app.get("/denied.html", response_class=HTMLResponse)
@@ -1093,7 +1121,7 @@ async def vault_auth_page():
 @app.get("/code", response_class=HTMLResponse)
 async def coding_agent_app():
     # Coding AGT. is its own app with its own address, start page and install icon.
-    return FileResponse("static/coding-agent.html")
+    return _shell("coding-agent.html")
 
 
 @app.get("/app/coding-agent")
@@ -1133,13 +1161,13 @@ async def terms_page():
 @app.get("/mini", response_class=HTMLResponse)
 async def mini_page():
     # Zelpophai Mini panel (opened by Ctrl+Shift+Z in the Windows app).
-    return FileResponse("static/mini.html")
+    return _shell("mini.html")
 
 
 @app.get("/code/{share_id}", response_class=HTMLResponse)
 async def shared_code_page(share_id: str):
     # Read-only view of a shared Coding AGT. project (the page loads it by id).
-    return FileResponse("static/coding-agent.html")
+    return _shell("coding-agent.html")
 
 
 # ---------------------------------------------------------------- SEO ----

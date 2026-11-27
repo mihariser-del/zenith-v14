@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 23.0 — An app that knows when it is out of date
+
+- `main._shell()` serves `index/app/coding-agent/mini.html` with `<meta name="zp-build" content="VERSION|BUILD_ID">` injected and `Cache-Control: no-store, must-revalidate` (content cached in memory by mtime). The landing page's search-engine verification tags go through the same helper.
+- `freshness.js` seeds its baseline from that stamp instead of from the first poll, so a stale copy out of the service-worker fallback is caught on first load — previously it was only noticed if a release landed while the tab was open, which is exactly the case that bit us.
+- "Update" now does a *hard* reload: `caches.delete()` on every cache, `registration.update()` on every service worker, then `location.replace()` with a cache-busting `?v=`. A plain `location.reload()` can be answered by the very copy that is stale.
+- Bar reworded ("A new version of Zelpophai is ready" / Update / Not now) and wraps instead of squashing under 420px.
+
 ## 22.9 — The AI key lives in the Vault
 
 - **`aikeys.py`** (new): OpenRouter keys stored encrypted in `system_settings["openrouter_keys_enc"]` (Fernet from `SECRET_KEY`, which persists to `/data`, so they survive redeploys). `current()` is sync and cheap for the hot path; `check()` asks `GET /key` for validity and remaining credit; `status()` feeds the Vault card; `warm()` loads them at startup and logs which source is in use. Railway `OPENROUTER_API_KEY(S)` stays as a fallback.

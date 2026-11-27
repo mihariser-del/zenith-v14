@@ -731,6 +731,7 @@ const Chat = {
             this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer, msg.created_at);
         });
         this._settleQuestions();
+        this._settleRuns();
         container.scrollTop = container.scrollHeight;
         this.resumeVideos(this.activeId);
     },
@@ -1602,6 +1603,9 @@ const Chat = {
             bubble.innerHTML = '<div class="zp-searching" role="status"><span class="zp-search-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></span><span>Searching the web\u2026</span>' +
                 (q ? '<small></small>' : '') + '</div>';
             if (q) bubble.querySelector('small').textContent = '\u201c' + q + '\u201d';
+        } else if (parsed.status === 'reading') {
+            bubble.innerHTML = '<div class="zp-searching" role="status"><span class="zp-search-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></span><span>Reading the page\u2026</span><small></small></div>';
+            bubble.querySelector('small').textContent = String(parsed.url || '').slice(0, 80);
         } else if (parsed.status === 'search_failed') {
             bubble.innerHTML = '<div class="zp-searching off" role="status"><span>Couldn\u2019t reach the web \u2014 answering from what I know\u2026</span></div>';
         }
@@ -1662,6 +1666,134 @@ const Chat = {
             });
             pre.style.position = 'relative';
             pre.insertBefore(header, pre.firstChild);
+        });
+    },
+
+    /* ── Code that works an answer out ─────────────────────────────────
+       When a reply contains <zrun>, run it on this device (see runner.js —
+       it's sealed off from the account), show the result in the card, save
+       it to the message, then stream the rest of the answer. At most two
+       rounds, so a broken script can't loop. */
+    async _maybeRunCode(bubble, text, depth = 0) {
+        if (!bubble || !window.ZRunner || depth > 1) return;
+        const runs = [];
+        const re = /<zrun\b([^>]*)>([\s\S]*?)<\/zrun>(\s*<zout\b)?/gi;
+        let m;
+        while ((m = re.exec(text || ''))) runs.push({ attrs: m[1], code: m[2], done: !!m[3] });
+        if (!runs.length || runs.some(r => r.done)) return;
+        const wrap = bubble.closest('.msg-wrapper');
+        const mid = wrap && wrap.dataset.mid, chatId = this.activeId;
+        if (!mid || !chatId) return;
+        const cards = [...bubble.querySelectorAll('.zrn-card')];
+        const results = [];
+        for (let i = 0; i < runs.length; i++) {
+            const card = cards[i];
+            const code = runs[i].code.replace(/^\s*```[a-z]*\s*\n?|\n?```\s*$/gi, '');
+            if (card) { card.className = 'zrn-card waiting'; const sub = card.querySelector('.zrn-sub'); if (sub) sub.textContent = window.ZRunner.isWarm() ? 'Running it on your device…' : 'Starting Python on your device (first time takes a few seconds)…'; }
+            const files = await this._runFiles(runs[i].attrs);
+            const r = await window.ZRunner.run(code, files);
+            results.push({ i, ok: r.ok, stdout: r.stdout, error: r.error, images: r.images });
+            if (card) {
+                card.className = 'zrn-card ' + (r.ok ? 'done' : 'fail');
+                const sp = card.querySelector('.zf-spin'); if (sp) sp.remove();
+                const sub = card.querySelector('.zrn-sub'); if (sub) sub.textContent = r.ok ? 'Worked out with real code, not a guess' : 'The code hit a problem';
+                ZRender.fillRunOutput(card, (r.stdout || '') + (r.error ? (r.stdout ? '\n' : '') + 'Error: ' + r.error : ''), r.images, !r.ok);
+            }
+        }
+        // Hand the results back and stream the finished answer into a new bubble.
+        const nb = this.appendMessage('assistant', '', true);
+        let tz = ''; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) {}
+        let res;
+        try {
+            res = await fetch(`/api/chats/${chatId}/messages/${mid}/run`, {
+                method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ results, tz }),
+            });
+        } catch (e) { nb.parentElement && nb.parentElement.remove(); return; }
+        if (!res.ok) {
+            let d = {}; try { d = await res.json(); } catch (e) {}
+            if (nb.parentElement) nb.parentElement.remove();
+            if (res.status !== 409) showToast(d.detail || 'Couldn’t finish the answer', 'error');
+            return;
+        }
+        this.isStreaming = true;
+        let full = '';
+        try {
+            const reader = res.body.getReader(), dec = new TextDecoder();
+            let buf = '';
+            for (;;) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buf += dec.decode(value, { stream: true });
+                const lines = buf.split('\n'); buf = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const parsed = JSON.parse(data);
+                        if (parsed.token) { full += parsed.token; this.updateStreamingBubble(nb, full); }
+                        if (parsed.files || parsed.content || parsed.message_id) {
+                            const st = { text: full }; this._handleStreamMeta(parsed, nb, st); full = st.text;
+                        }
+                        if (parsed.error) { showToast(parsed.error, 'error'); this._showReplyError(nb, parsed.error, full); }
+                    } catch (e) {}
+                }
+            }
+        } finally { this.isStreaming = false; }
+        nb.classList.remove('streaming-cursor');
+        if (full) { this.finalizeBubble(nb, full); await this._maybeRunCode(nb, full, depth + 1); }
+    },
+
+    // Files the code asked for by name (<zrun files="sales.csv">), from the
+    // person's own file library. The bytes are handed in; the code can't fetch.
+    async _runFiles(attrText) {
+        const m = /files\s*=\s*"([^"]*)"/i.exec(attrText || '');
+        if (!m) return [];
+        const want = m[1].split(',').map(x => x.trim()).filter(Boolean).slice(0, 5);
+        if (!want.length) return [];
+        let list = [];
+        try { list = (await api('/api/files')).files || []; } catch (e) { return []; }
+        const out = [];
+        for (const name of want) {
+            const f = list.find(x => x.filename === name) || list.find(x => x.filename.toLowerCase() === name.toLowerCase());
+            if (!f || f.file_size > 15 * 1024 * 1024) continue;
+            try {
+                const r = await fetch(`/api/files/${f.id}/download`, { credentials: 'same-origin' });
+                if (r.ok) out.push({ name: f.filename.replace(/[\\/]/g, '_'), bytes: await r.arrayBuffer() });
+            } catch (e) {}
+        }
+        return out;
+    },
+
+    // Code that never got run (the tab was closed mid-way): offer to run it if
+    // it's the latest answer, otherwise just say it wasn't run.
+    _settleRuns() {
+        const wraps = [...document.querySelectorAll('#chat-container .msg-wrapper')];
+        wraps.forEach((w, i) => {
+            const cards = w.querySelectorAll('.zrn-card.waiting');
+            if (!cards.length) return;
+            const last = i === wraps.length - 1;
+            cards.forEach(c => {
+                const sp = c.querySelector('.zf-spin'); if (sp) sp.remove();
+                c.classList.remove('waiting'); c.classList.add('idle');
+                const sub = c.querySelector('.zrn-sub');
+                if (sub) sub.textContent = last ? 'This wasn\u2019t run yet' : 'This wasn\u2019t run';
+            });
+            if (!last) return;
+            const first = cards[0];
+            const btn = document.createElement('button');
+            btn.type = 'button'; btn.className = 'zrn-run'; btn.textContent = 'Run it now';
+            btn.onclick = () => {
+                btn.remove();
+                const bubble = w.querySelector('.msg-bubble');
+                const text = (this._msgText && this._msgText(w)) || null;
+                api(`/api/chats/${this.activeId}/messages`).then((d) => {
+                    const msg = (d.messages || []).find(x => String(x.id) === String(w.dataset.mid));
+                    if (msg) this._maybeRunCode(bubble, msg.content);
+                }).catch(() => {});
+            };
+            first.querySelector('.zrn-top').appendChild(btn);
         });
     },
 
@@ -1886,6 +2018,7 @@ const Chat = {
             bubble.classList.remove('streaming-cursor');
             if (fullResponse) {
                 this.finalizeBubble(bubble, fullResponse);
+                if (/<zrun\b/i.test(fullResponse)) setTimeout(() => this._maybeRunCode(bubble, fullResponse), 0);
                 // Voice-to-voice auto speak if enabled
                 if (window.ZPVoice && window.ZPVoice.active) window.ZPVoice.feed(fullResponse, true);
                 else if (Voice.voiceToVoice || Settings.getLocal().autoRead) {

@@ -176,7 +176,10 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "checkable facts), shows 'Searching the web…', and answers with clickable sources; it also adds real photos "
         "when they help. The user can also tap Research (deep report) or Fact (fact-check). The AI model is chosen "
         "automatically for each message (fast for simple things, stronger for hard tasks) — users don't pick one.",
-        "6. Reading files: users can attach PDFs, Word, Excel, PowerPoint, images, audio and video; you get their contents.",
+        "6. Reading files: users can attach PDFs, Word, Excel, PowerPoint, images, audio and video; you get their contents. "
+        "Reading links: when a message contains a web address, the app opens it first (web pages and PDFs) and gives you "
+        "the text right inside the message, marked [The app read this link for you]. Use it, and say the answer comes "
+        "from that page. If it says the app could NOT read the link, tell the user why in plain words — never pretend you read it.",
         "7. Memory: " + ("ON — you remember useful facts about the user between chats; they can see or delete them "
                          "under Memory in the sidebar." if mem_on else "turned OFF by the user in Settings."),
         "8. Knowledge: users can upload their own documents under Knowledge (sidebar) so you can answer from them.",
@@ -209,6 +212,16 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "(3-8 short items), then work through them in order and write <zdone n=\"1\"/> straight after you finish item 1, "
         "<zdone n=\"2\"/> after item 2, and so on — the user watches them tick off as you write. The user can also tick "
         "items themselves later. Don't use a checklist for short or simple answers.",
+        "15. Working things out with real code: you are bad at arithmetic, so whenever an answer depends on a calculation "
+        "you can't do exactly in your head — sums with several steps, percentages, interest, loans and mortgages, currency or "
+        "unit maths, dates and ages, statistics, anything about a spreadsheet or CSV the user attached, or a chart they asked "
+        "for — write Python that prints the answer: <zrun title=\"What it works out, in a few words\">python code</zrun>. "
+        "The app runs it on the user's own device (numpy, pandas and matplotlib work; there is NO internet, so don't fetch "
+        "anything) and hands you the printed output, then you finish the answer with the real numbers. Rules: print clearly "
+        "labelled results; for a chart use matplotlib with a title and labelled axes and don't call show() — the app captures "
+        "every figure; to use a file the user uploaded, add files=\"exact-file-name.csv\" and open it by that name; keep it "
+        "short; write ONE short sentence before the tag and NOTHING after it — stop and wait for the result. Don't use it for "
+        "simple maths like 12 x 4, or for things that aren't calculations.",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",
     ]

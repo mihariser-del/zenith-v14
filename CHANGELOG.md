@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## 25.1 — Answers worked out with code, and links read properly
+
+Part two.
+
+- **`static/js/runner.js`** (new): `ZRunner.run(code, files)` runs Pyodide 0.26.4 in a Web Worker created inside `<iframe sandbox="allow-scripts">` — no `allow-same-origin`, so an opaque origin. numpy/pandas/matplotlib load from the code's imports; every matplotlib figure is captured as a PNG. A run is stopped by discarding the frame after 30 s (90 s for the first run, which downloads Python). File bytes are transferred in; the code can't fetch them. Verified: `document.cookie` unavailable, `pyfetch` to our API fails, origin `null`, an endless loop stops and the runner recovers.
+- **`<zrun title="…" files="…">python</zrun>`**: `render.js` shows a card (writing → running → result, with charts; code hidden behind *Show the code*). `Chat._maybeRunCode()` runs it after the reply, then `POST /api/chats/{chat}/messages/{msg}/run` stores each result as an HTML-escaped `<zout ok imgs>` after its `<zrun>` (charts saved as `/api/image/serve/…` PNGs, 3 MB each, 6 per run) and streams the finished answer via `stream_chat(continuation=…)`, which adds the results as an unsaved user turn. Refuses a second run (409) or a stale one; doesn't count against the message allowance; at most one corrective retry. Unrun code after a reload offers *Run it now* on the latest answer.
+- **`linkreader.py`** (new): up to 3 links per message. Resolves every hop and refuses unless every IP is global (private, loopback, link-local, reserved, multicast, IPv4-mapped, encoded forms), non-standard ports, credentials in URLs and `.local`/`.internal`-style names; re-checks after each of up to 4 redirects; pins the connection to the vetted IP with SNI on the live server. 5 MB / 12 s caps. HTML → readable text with the standard library parser (prefers `<article>`/`<main>`), PDFs via pypdf. `stream_chat` shows *Reading the page…*, reads in parallel and appends the text (or a plain refusal reason) to the user's turn.
+- Fixed: the general code-block upgrader was wrapping the code card's own `<pre>`s.
+
 ## 25.0 — Live pages, questions with buttons, checklists
 
 Part one of bringing the assistant's own abilities into Zelpophai.

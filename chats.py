@@ -349,6 +349,87 @@ async def tick_todo(chat_id: int, message_id: int, req: TodoTick, request: Reque
     return {"ok": True}
 
 
+class RunResult(BaseModel):
+    i: int
+    ok: bool = True
+    stdout: str = ""
+    error: str = ""
+    images: list[str] = []
+
+
+class RunResults(BaseModel):
+    results: list[RunResult]
+    tz: str | None = None
+
+
+@router.post("/{chat_id}/messages/{message_id}/run")
+async def code_ran(chat_id: int, message_id: int, req: RunResults, request: Request, db: AsyncSession = Depends(get_db)):
+    """The code Zelpophai wrote has run on the person's device. Keep the results
+    on the message (so they're there after a reload), then let the AI finish the
+    answer with them. Doesn't count as another message."""
+    import base64, re as _re, secrets as _sec
+    from html import escape as _esc
+    from ai import stream_chat
+    user = await get_current_user_from_cookie(request, db)
+    chat = (await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))).scalar_one_or_none()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    msg = (await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id,
+                                                  Message.role == "assistant"))).scalar_one_or_none()
+    if not msg:
+        raise HTTPException(status_code=404, detail="Message not found")
+    text = msg.content or ""
+    spans = [m for m in _re.finditer(r"<zrun\b[^>]*>[\s\S]*?</zrun>(\s*<zout\b[^>]*>[\s\S]*?</zout>)?", text, _re.I)]
+    if not spans:
+        raise HTTPException(status_code=400, detail="There's no code in that answer.")
+    if any(m.group(1) for m in spans):
+        raise HTTPException(status_code=409, detail="That code has already been run.")
+    # Only one follow-up per run, and a run's follow-up may run code once more at most.
+    later = (await db.execute(select(Message).where(Message.chat_id == chat_id, Message.id > message_id))).scalars().first()
+    if later:
+        raise HTTPException(status_code=409, detail="The conversation has moved on.")
+
+    from image import _image_dir
+    by_i = {r.i: r for r in req.results}
+    summary = []
+    # Work backwards so the positions of earlier blocks stay valid while we insert.
+    for n in range(len(spans) - 1, -1, -1):
+        m = spans[n]
+        r = by_i.get(n) or RunResult(i=n, ok=False, error="It didn't run.")
+        urls = []
+        for data in (r.images or [])[:6]:
+            mm = _re.match(r"^data:image/png;base64,([A-Za-z0-9+/=]+)$", data or "")
+            if not mm:
+                continue
+            raw = base64.b64decode(mm.group(1))
+            if len(raw) > 3_000_000 or not raw.startswith(b"\x89PNG"):
+                continue
+            name = f"img_{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}_{_sec.token_hex(4)}.png"
+            _image_dir().joinpath(name).write_bytes(raw)
+            urls.append(f"/api/image/serve/{name}")
+        out = (r.stdout or "")[:20000]
+        if r.error:
+            out = (out + "\n" if out else "") + "Error: " + r.error[:3000]
+        # Stored escaped, so nothing the code printed can turn into a tag.
+        block = f'\n<zout ok="{"true" if r.ok and not r.error else "false"}" imgs="{"|".join(urls)}">{_esc(out, quote=False)}</zout>'
+        text = text[:m.end()] + block + text[m.end():]
+        summary.insert(0, (n, r, out, len(urls)))
+    msg.content = text
+    await db.commit()
+
+    lines = ["[The app ran your code on the user's device. Results:]"]
+    for n, r, out, k in summary:
+        lines.append(f"--- run {n + 1}: {'worked' if r.ok and not r.error else 'FAILED'}"
+                     + (f", made {k} chart{'s' if k != 1 else ''} the user can already see" if k else ""))
+        lines.append(out.strip()[:6000] or "(it printed nothing)")
+    failed = any(not r.ok or r.error for _, r, _, _ in summary)
+    lines.append("Now finish your answer for the user using these results. Give the actual numbers plainly; don't show "
+                 "or repeat the code, and don't mention running code unless it helps." +
+                 (" A run failed: if you can see the mistake, you may write ONE corrected <zrun> and stop; otherwise "
+                  "explain what you can without it." if failed else " Don't write another <zrun>."))
+    return await stream_chat(chat_id, think=False, client_tz=req.tz, continuation="\n".join(lines))
+
+
 @router.patch("/{chat_id}/messages/{message_id}")
 async def edit_message(chat_id: int, message_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     from ai import stream_chat

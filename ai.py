@@ -717,7 +717,7 @@ def _place_images(text: str, imgs: list) -> str:
     return head + "\n".join(out)
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False, continuation: str = ""):
     user_id = None
     messages = []
     user_model = "openai/gpt-6-luna"
@@ -765,6 +765,12 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 last_user_msg = content
             break
 
+    # After Zelpophai's code has run on the person's device, it's given the
+    # results (not saved as a message) and asked to finish the answer. The
+    # routing below still looks at what the person actually asked.
+    if continuation:
+        messages.append({"role": "user", "content": continuation})
+
     # Auto web search: live-data questions (news, prices, scores, "latest"...)
     # are routed to Sonar without any toggle. Explicit web/research/factcheck
     # flags still force it.
@@ -776,6 +782,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         # Whole documents and working pages need room: the default 2048 tokens
         # cuts CVs, decks and calculators off half way.
         user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
+
+    # Links the person pasted are read before answering (see linkreader.py).
+    import linkreader
+    _links = [] if continuation else linkreader.find_links(_user_ask)
 
     # Decide automatically: web search? light or heavy model? photos?
     from router_ai import plan_request, model_for, web_answer, web_images, web_images_for, images_markdown
@@ -850,6 +860,29 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         for _s in _early_steps:
             yield _s
         full_response = ""
+
+        if _links:
+            from urllib.parse import urlsplit as _us
+            _host = (_us(_links[0]).hostname or "").removeprefix("www.")
+            _what = _host + (f" and {len(_links) - 1} more" if len(_links) > 1 else "")
+            yield _sse({"status": "reading", "url": _what})
+            if think:
+                yield _step("read", "Reading " + _what)
+            _t0 = time.time()
+            _read = await asyncio.gather(*[linkreader.read(u) for u in _links])
+            _block = linkreader.prompt_block(_read)
+            for _m in reversed(messages):
+                if _m.get("role") != "user":
+                    continue
+                if isinstance(_m.get("content"), str):
+                    _m["content"] = _m["content"] + "\n\n" + _block
+                elif isinstance(_m.get("content"), list):
+                    _m["content"] = _m["content"] + [{"type": "text", "text": _block}]
+                break
+            _ok = [r for r in _read if r.get("ok")]
+            if think:
+                yield _step("read", f"Read {len(_ok)} of {len(_read)} link{'s' if len(_read) != 1 else ''}" if _ok else "Couldn't read the link",
+                            f"{time.time() - _t0:.1f}s", "done")
 
         img_task = None
         _targets = [t for t in (plan.get("image_targets") or []) if t]

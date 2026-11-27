@@ -47,10 +47,12 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "25.0"
+VERSION = "25.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "25.1 Answers worked out properly: for sums, money, loans, dates, statistics and charts, Zelpophai now writes a little bit of code and runs it to get the exact number, instead of guessing — AI on its own is often wrong at arithmetic. You see the result (and any chart) in a card, with the code there if you're curious, then the answer in plain words. It runs on your own device, sealed off from your account. Attach a spreadsheet or CSV and it can analyse that too",
+    "25.1 Paste a link and Zelpophai reads it: web pages, articles and PDFs, the whole thing, not just what a search turns up. You'll see \"Reading the page…\" while it does. If it can't open a link (a sign-in page, a private address), it tells you why",
     "25.0 Live pages: ask for a calculator, a quiz, flashcards, a timer, a little game or a tool, and Zelpophai builds one that works right there in the chat. Tap Open for a bigger view, Download to keep it, or Share link to send it to anyone — they can use it without an account",
     "25.0 Questions with buttons: when something you ask could go a few ways, Zelpophai now asks with options to tap instead of a paragraph of questions. Pick one and it carries on; or just type your own answer",
     "25.0 Checklists for big jobs: ask for a plan, a trip, an event or anything with several parts, and Zelpophai shows a checklist that ticks itself off as it writes each part. You can tick items yourself afterwards and they stay ticked",
@@ -170,6 +172,8 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "25.1 Owner: code the AI writes never runs on the server (server-side running is still yours alone, because it once let people read the database). It runs in Python on the person's own device, inside a background worker in a sealed frame with no origin of its own — tested: it can't read the sign-in cookie or call the Zelpophai API, and a runaway loop is stopped after 30 seconds. Results and charts are saved onto the message, so they're there after a reload and nothing runs twice",
+    "25.1 Owner: link reading refuses anything that isn't an ordinary public web address — private and internal networks, this server itself, cloud metadata addresses, unusual ports, links with passwords, and sneaky encoded forms of those — and checks again after every redirect. On the live server the connection is pinned to the address that passed the check. 5 MB and 12 seconds at most",
     "25.0 Owner: live pages are AI-written HTML, so they are treated as untrusted everywhere. In the chat they run in an iframe sandbox without same-origin; shared at /p/<link> the server sends a CSP sandbox header that does the same for a page opened directly. Either way a page gets a throw-away origin and cannot read anyone's sign-in or call the API as them — tested: the page computes fine and its cookie check comes back blocked. Pages are only stored when someone presses Share (up to 200 each), and are kept out of search engines",
     "24.2 Owner: every canonical link, the sitemap, robots.txt, the structured data Google reads, share and invite previews, the privacy and terms pages, payment return addresses and the Vault's sign-in origin now use https://zelpophai.com, from one place (site_address.py). An APP_BASE_URL still set to the old Railway address is ignored, so a leftover setting can't undo the move",
     "24.2 Owner: web browsers that reach zelpophai.up.railway.app or www.zelpophai.com get a permanent (301) redirect to zelpophai.com, which tells Google to move the listing across. Never redirected: the installed Windows and Android apps (both are locked to the old address and would break), anything under /api/ (a redirect turns a POST into a GET), /static/, and /downloads/ where the Windows app checks for updates",

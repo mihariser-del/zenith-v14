@@ -124,6 +124,14 @@
             shots.push(attrs(a));
             return '\n\n<div class="zs-slot" data-i="' + (shots.length - 1) + '"></div>\n\n';
         });
+        // Code the AI wrote to work something out, and (once run) its result.
+        var runs = [];
+        out = out.replace(/<zrun\b([^>]*)>([\s\S]*?)(<\/zrun>|$)(\s*<zout\b([^>]*)>([\s\S]*?)<\/zout>)?/gi,
+            function (_, a, code, close, _o, oa, obody) {
+                runs.push({ attrs: attrs(a), code: code.replace(/^\s*```[a-z]*\s*\n?|\n?```\s*$/gi, '').replace(/^\n+|\s+$/g, ''),
+                            closed: !!close, out: obody === undefined ? null : { attrs: attrs(oa || ''), text: obody } });
+                return '\n\n<div class="zr-slot" data-i="' + (runs.length - 1) + '"></div>\n\n';
+            });
         // Live pages: a working page the AI built. Kept whole so it can be opened.
         var pages = [];
         out = out.replace(/<zpage\b([^>]*)>([\s\S]*?)(<\/zpage>|$)/gi, function (_, a, body, close) {
@@ -157,7 +165,7 @@
         out = out.replace(/<(zimage|zvideo|zremind)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done };
+        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs };
     }
 
     // A photo on the left and the section it belongs to on the right, like a search result.
@@ -214,7 +222,7 @@
     function upgradeCode(root, streaming) {
         var pres = root.querySelectorAll('pre');
         pres.forEach(function (pre, idx) {
-            if (pre.closest('.zr-code') || pre.closest('.zf-card')) return;
+            if (pre.closest('.zr-code') || pre.closest('.zf-card') || pre.closest('.zrn-card')) return;
             var code = pre.querySelector('code') || pre;
             var m = /language-([\w+#-]+)/.exec(code.className || '');
             var lang = m ? m[1].toLowerCase() : '';
@@ -704,6 +712,51 @@
         return card;
     }
 
+
+    /* ── code that works an answer out ────────────────────────────────── */
+    function buildRun(r, idx, streaming) {
+        var card = document.createElement('div');
+        var state = r.out ? (r.out.attrs.ok === 'false' ? 'fail' : 'done') : (streaming && !r.closed ? 'writing' : 'waiting');
+        card.className = 'zrn-card ' + state;
+        card.setAttribute('data-r', idx);
+        var title = r.attrs.title || 'Working it out with code';
+        var sub = { writing: 'Writing the code…', waiting: 'Running it on your device…', done: 'Worked out with real code, not a guess', fail: 'The code hit a problem' }[state];
+        card.innerHTML = '<div class="zrn-top"><span class="zrn-ic" aria-hidden="true">{ }</span><div class="zrn-tt"><b></b><span class="zrn-sub"></span></div>'
+            + (state === 'writing' || state === 'waiting' ? '<span class="zf-spin" aria-hidden="true"></span>' : '')
+            + '<button type="button" class="zrn-tog" aria-expanded="false">Show the code</button></div>'
+            + '<pre class="zrn-code" hidden><code></code></pre><div class="zrn-out"></div>';
+        card.querySelector('b').textContent = title;
+        card.querySelector('.zrn-sub').textContent = sub;
+        card.querySelector('code').textContent = r.code;
+        // The server stores the output HTML-escaped so nothing printed can become a tag; undo that for display.
+        if (r.out) fillRunOutput(card, unesc(r.out.text), (r.out.attrs.imgs || '').split('|').filter(Boolean), r.out.attrs.ok === 'false');
+        card.querySelector('.zrn-tog').addEventListener('click', function () {
+            var pre = card.querySelector('.zrn-code'), open = pre.hidden;
+            pre.hidden = !open;
+            this.setAttribute('aria-expanded', String(open));
+            this.textContent = open ? 'Hide the code' : 'Show the code';
+            if (open && window.hljs) { try { window.hljs.highlightElement(pre.querySelector('code')); } catch (e) {} }
+        });
+        return card;
+    }
+    function fillRunOutput(card, text, imgs, failed) {
+        var box = card.querySelector('.zrn-out');
+        box.innerHTML = '';
+        var t = String(text || '').replace(/^\n+|\s+$/g, '');
+        if (t) {
+            var pre = document.createElement('pre');
+            pre.className = 'zrn-result' + (failed ? ' bad' : '');
+            pre.textContent = t.length > 4000 ? t.slice(0, 4000) + '\n…' : t;
+            box.appendChild(pre);
+        }
+        (imgs || []).forEach(function (src) {
+            if (!/^(\/api\/image\/serve\/|data:image\/png;base64,)/.test(src)) return;   // only our own charts
+            var im = document.createElement('img');
+            im.className = 'zrn-img'; im.alt = 'Chart'; im.loading = 'lazy'; im.src = src;
+            box.appendChild(im);
+        });
+    }
+
     /* ── main entry ───────────────────────────────────────────────────── */
     var ZRender = {
         icons: I,
@@ -738,6 +791,11 @@
                 if (f) slot.replaceWith(buildFileCard(f, streaming && !f.closed));
                 else slot.remove();
             });
+            el.querySelectorAll('.zr-slot').forEach(function (slot) {
+                var i = Number(slot.getAttribute('data-i')), r = parsed.runs[i];
+                if (r && r.code) slot.replaceWith(buildRun(r, i, streaming));
+                else slot.remove();
+            });
             el.querySelectorAll('.zpg-slot').forEach(function (slot) {
                 var pg = parsed.pages[Number(slot.getAttribute('data-i'))];
                 if (pg) slot.replaceWith(buildPageCard(pg, streaming && !pg.closed));
@@ -767,6 +825,7 @@
         },
 
         fileCard: buildFileCard,
+        fillRunOutput: fillRunOutput,
         hasFiles: function (text) { return /<zfile\b/i.test(text || ''); },
 
         /* Plain text for copy / speak: drop file bodies, tags and markdown noise. */
@@ -776,6 +835,8 @@
                 .replace(/<zask\b([^>]*)>([\s\S]*?)(?:<\/zask>|$)/gi, function (_, a, b) { return (attrs(a).q || '') + '\n' + b.trim(); })
                 .replace(/<ztodo\b([^>]*)>([\s\S]*?)(?:<\/ztodo>|$)/gi, function (_, a, b) { return (attrs(a).title || '') + '\n' + b.trim(); })
                 .replace(/<zdone\b[^>]*\/?>(?:<\/zdone>)?/gi, '')
+                .replace(/<zrun\b[^>]*>[\s\S]*?(?:<\/zrun>|$)/gi, '')
+                .replace(/<zout\b[^>]*>([\s\S]*?)<\/zout>/gi, function (_, b) { return b.trim(); })
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')
                 .replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1 ($2)');

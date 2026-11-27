@@ -18,7 +18,7 @@
 /* the answer itself: no card, no border, no glow — just well-set text */
 body .msg-wrapper.assistant .msg-bubble,
 html body .msg-wrapper.assistant .msg-bubble,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .msg-wrapper.assistant .msg-bubble,
+html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .msg-wrapper.assistant .msg-bubble,
 html.halloween body .msg-wrapper.assistant .msg-bubble,
 html.light-theme body.light-theme .msg-wrapper.assistant .msg-bubble {
     background: none !important;
@@ -177,7 +177,7 @@ html.light-theme body.light-theme .sidebar .sb-label { border-top-color: #e5eaf6
 html.light-theme body.light-theme .sidebar .bottom-bar.sb-icons { border-top-color: #e5eaf6 !important; }
 .sidebar .sb-icons > .btn,
 html body .sidebar .sb-icons > .btn,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn {
+html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn {
     position: relative;
     width: 28px !important;
     height: 32px !important;
@@ -208,7 +208,7 @@ html:not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #admin-panel-
 
 /* Upgrade: gold crown */
 html body .sidebar .sb-icons > .btn.sb-upgrade,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn {
+html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn {
     color: #ffc463 !important;
     border-color: rgba(255, 196, 99, .55) !important;
     background: linear-gradient(135deg, rgba(58, 40, 10, .7), rgba(26, 18, 6, .8)) !important;
@@ -282,7 +282,7 @@ html.light-theme body.light-theme .sidebar .sb-icons > #upgrade-btn { background
     .sidebar .sb-tools .btn, html body .sidebar .sb-tools .btn { width: 44px; height: 40px; justify-content: center !important; font-size: 0 !important; padding: 0 !important; gap: 0 !important; }
     .sidebar .sb-label { font-size: 0; padding: 0; margin: 2px 10px 6px; }
     .sidebar .bottom-bar.sb-icons { display: grid !important; grid-template-columns: repeat(2, 26px); justify-content: center; gap: 4px !important; padding: 8px 2px !important; }
-    .sidebar .sb-icons > .btn, html body .sidebar .sb-icons > .btn, html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: 26px !important; min-width: 26px; height: 28px !important; border-radius: 8px !important; }
+    .sidebar .sb-icons > .btn, html body .sidebar .sb-icons > .btn, html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: 26px !important; min-width: 26px; height: 28px !important; border-radius: 8px !important; }
     .sidebar .sb-icons > .btn svg { width: 15px !important; height: 15px !important; }
     .sidebar .user-profile-bar .user-meta { display: none !important; }
     .sidebar .sb-tools .btn, html body .sidebar .sb-tools .btn { height: 34px; }
@@ -416,16 +416,16 @@ html.light-theme body.light-theme .zp-inv-stats div, html.light-theme body.light
 .sidebar .bottom-bar.sb-icons { flex-wrap: nowrap !important; justify-content: space-between !important; gap: 2px !important; padding: 8px 10px !important; }
 .sidebar .sb-icons > .btn,
 html body .sidebar .sb-icons > .btn,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn,
+html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn,
 html body .sidebar .sb-icons > .btn.sb-upgrade,
-html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn,
+html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn,
 .sidebar .sb-icons > #admin-panel-btn, .sidebar .sb-icons > #pending-pwd-btn {
     width: 34px !important; height: 34px !important; min-width: 0 !important; max-width: none; flex: 0 0 34px !important;
     padding: 0 !important; margin: 0 !important; border-radius: 10px !important; display: inline-flex !important; align-items: center !important; justify-content: center !important;
 }
 .sidebar .sb-icons > #admin-panel-btn, .sidebar .sb-icons > #pending-pwd-btn { border: 1px solid transparent !important; background: transparent !important; }
 .sidebar .sb-icons > #admin-panel-btn svg { stroke: #ffc463 !important; }
-html body .sidebar .sb-icons > #upgrade-btn, html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn {
+html body .sidebar .sb-icons > #upgrade-btn, html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > #upgrade-btn {
     background: rgba(255, 196, 99, .12) !important; border: 1px solid rgba(255, 196, 99, .35) !important; box-shadow: none !important;
 }
 .sidebar .sb-icons > .btn svg { width: 18px !important; height: 18px !important; }
@@ -491,6 +491,6 @@ body.light-theme .zg-chip.pri { color: #fff; }
     html body .sidebar .bottom-bar.sb-icons::-webkit-scrollbar { display: none; }
     html body .sidebar .bottom-bar.sb-icons { flex: 0 0 auto !important; }
     html body .sidebar .chat-list { flex: 1 1 auto !important; min-height: 0 !important; }
-    html body .sidebar .bottom-bar.sb-icons > *, html:not(.halloween):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: 24px !important; min-width: 0 !important; max-width: 24px !important; height: 28px !important; padding: 0 !important; margin: 0 !important; border-radius: 8px !important; font-size: 0 !important; }
+    html body .sidebar .bottom-bar.sb-icons > *, html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: 24px !important; min-width: 0 !important; max-width: 24px !important; height: 28px !important; padding: 0 !important; margin: 0 !important; border-radius: 8px !important; font-size: 0 !important; }
     html body .sidebar .bottom-bar.sb-icons > * svg { width: 15px !important; height: 15px !important; }
 }

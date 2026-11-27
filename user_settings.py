@@ -125,3 +125,19 @@ async def set_profile(req: ProfileIn, request: Request, db: AsyncSession = Depen
     p = await profiles.save(db, user, age=req.age, style=req.style,
                             done=req.done, skipped=req.skipped)
     return {"profile": p, "effects": profiles.effects(p)}
+
+
+# ──────────────────────────────────────────────── seasonal looks ──
+@router.get("/seasonal")
+async def seasonal_state(request: Request, db: AsyncSession = Depends(get_db)):
+    """Which seasonal themes this person may see, and which is in season now.
+
+    Christmas is new, so for its first year only the Owner, admins and Friends
+    get it; the Vault can open it to everyone without a release.
+    """
+    import seasons
+    try:
+        user = await get_current_user_from_cookie(request, db)
+    except HTTPException:
+        user = None
+    return await seasons.state(user, db)

@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 24.1 — A Christmas look, for the early group first
+
+- **`seasons.py`** (new): which seasonal theme a person may see, and when. Dates are declared once (`halloween` 15 Oct – 2 Nov, `christmas` 1 Dec – 2 Jan, with the December range wrapping New Year correctly) and eligibility is decided on the server. Christmas's audience is a setting — `early` (Owner, any admin, anyone tagged Friend), `everyone`, or `off` — so it opens up without a release. `GET /api/settings/seasonal` reports it; `POST /api/admin/system/christmas-audience` changes it, logged.
+- **`static/css/christmas.css` + `static/js/christmas.js`** (new): fairy lights strung across the top (one bulb per 50px, rebuilt on resize), a winter scene (aurora, snowy hills, fir trees, drift) at `z-index:-1`, falling snow capped at 70 flakes, and catchable baubles every 25–55s with a sparkle burst and a count. All the artwork is inline SVG — no extra requests.
+- The theme caches "may see" in `localStorage` so the pre-paint snippet in `app.html` can apply the class before first paint, with the server as the authority on the next load.
+- Christmas takes precedence over Halloween and tears down its layers; when it ends it hands the season back. It obeys the Seasonal look setting, the Animations setting and `prefers-reduced-motion`.
+- Light mode's selectors are far more specific than a theme's, so while Christmas is on it holds `light-theme` aside (remembered in `dataset.xmLight`) and restores it the moment the theme goes off. `Settings.applyTheme()` respects the same.
+- The 106 `:not(.halloween)` guards in `brand.css` / `layout.css` became `:not(.halloween):not(.christmas)`, so the normal brand look stops overriding the festive one.
+- **Bug fix from 24.0:** `setup.js` wrote the profile's look to `zp_settings`, but everything reads `zenith_settings` — a Work profile's "no festive themes" and "no animations" were never actually applied. It now writes the right key and tells both seasonal themes to re-apply at once.
+
 ## 24.0.1 — Videos no longer report a 500 they didn't have
 
 - `video.start_video_job()` ended with `"remaining": max(0, limit - used - 1)`. `limits_config.allowance()` returns `None` for an uncapped plan (Owner, Ultimate, staff since 22.8), so that line raised `TypeError` — *after* `db.commit()` and after `_watch()` was scheduled. The clip was made and written to the chat; the request still became a 500. Exactly the reported "internal server error, but the video is there after a reload".

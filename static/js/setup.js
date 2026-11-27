@@ -27,17 +27,19 @@
   /* ── what the answers switch on, applied to this browser ── */
   function apply(fx) {
     if (!fx) return;
+    // Settings keeps everything under one key; write to that same one, or the
+    // choice is stored somewhere nothing ever reads.
     try {
-      const s = (typeof Settings !== 'undefined' && Settings.getLocal) ? Settings.getLocal() : null;
-      if (s) {
-        s.seasonal = fx.seasonal;
-        s.animations = !!fx.animations;
-        localStorage.setItem('zp_settings', JSON.stringify(s));
-      } else {
-        localStorage.setItem('zp_seasonal', fx.seasonal);
-      }
+      let s = {};
+      try { s = JSON.parse(localStorage.getItem('zenith_settings') || '{}'); } catch (e) { s = {}; }
+      s.seasonal = fx.seasonal;
+      s.animations = !!fx.animations;
+      localStorage.setItem('zenith_settings', JSON.stringify(s));
     } catch (e) {}
-    try { if (window.Halloween) window.Halloween.apply(fx.seasonal); } catch (e) {}
+    // Tell both seasonal themes straight away; Christmas goes first because it
+    // takes precedence over Halloween while it's on.
+    try { if (window.Christmas) window.Christmas.apply(fx.seasonal); } catch (e) {}
+    try { if (window.Halloween && !document.documentElement.classList.contains('christmas')) window.Halloween.apply(fx.seasonal); } catch (e) {}
     document.documentElement.classList.toggle('zst-no-anim', !fx.animations);
     orderTools(fx.tools);
     try { localStorage.setItem('zp_starters', fx.starters || 'mixed'); } catch (e) {}

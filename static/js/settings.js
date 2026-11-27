@@ -73,7 +73,7 @@ const Settings = {
     /* ───────────── the Settings window ─────────────
        Everything saves by itself as you change it. Sections: General, Chat, Personality & memory,
        Voice, Notifications, Account, About. Settings.open('account') jumps straight to a section. */
-    _m: null, _sec: 'general', _srv: null, _prof: null, _saveT: null,
+    _m: null, _sec: 'general', _srv: null, _prof: null, _xmas: false, _saveT: null,
 
     close() { if (this._m) { this._m.close(); this._m = null; } },
 
@@ -125,6 +125,7 @@ const Settings = {
         if (this._m !== M) return;
         this._srv = data ? { ...data.settings } : null;
         if (!guest) { try { this._prof = (await window.ZUI.call('/api/settings/profile')).profile; } catch (e) { this._prof = null; } }
+        try { this._xmas = !!((await window.ZUI.call('/api/settings/seasonal')).themes || {}).christmas.allowed; } catch (e) { this._xmas = false; }
         if (this._m !== M) return;
         const self = this;
         const row = (title, about, control, cls) => `<div class="zst-row${cls ? ' ' + cls : ''}"><div class="zst-row-t"><b>${title}</b>${about ? `<span>${about}</span>` : ''}</div><div class="zst-row-c">${control}</div></div>`;
@@ -150,7 +151,7 @@ const Settings = {
                         + (owner ? '' : row('Colour', 'Used for buttons and your message bubbles.', `<div class="zst-swatches" data-seg="accent" role="radiogroup">${ACC.map(([v, l]) => `<button type="button" role="radio" aria-checked="${(s.accent || '').toLowerCase() === v}" class="${(s.accent || '').toLowerCase() === v ? 'on' : ''}" data-v="${v}" title="${l}" aria-label="${l}" style="--c:${v}"></button>`).join('')}</div>`))
                         + row('Text size', 'How big the words in your chats are.', seg('textSize', [['small', 'Small'], ['normal', 'Normal'], ['large', 'Large']], s.textSize || 'normal'))
                         + row('Space between messages', '', seg('msgSpacing', [['compact', 'Tight'], ['cozy', 'Normal'], ['spacious', 'Roomy']], s.msgSpacing))
-                        + row('Seasonal look', 'A Halloween theme from 15 October to 2 November.', seg('seasonal', [['auto', 'In season'], ['on', 'Always'], ['off', 'Never']], s.seasonal || 'auto')))
+                        + row('Seasonal look', self._xmas ? 'A Halloween theme from 15 October to 2 November, and a Christmas one from 1 December to 2 January.' : 'A Halloween theme from 15 October to 2 November.', seg('seasonal', [['auto', 'In season'], ['on', 'Always'], ['off', 'Never']], s.seasonal || 'auto')))
                     + group('When Zelpophai opens', row('Start with', 'What you see when you open Zelpophai.', seg('startPage', [['new', 'A new chat'], ['last', 'My last chat']], s.startPage || 'new'), 'stack')
                         + row('Ask before deleting', 'Check with you before a chat, file or memory is deleted.', sw('askBeforeDelete', s.askBeforeDelete !== false, 'Ask before deleting')));
             },
@@ -349,6 +350,15 @@ const Settings = {
 
     applyTheme(choice) {
         const useLight = choice === 'light' || (choice !== 'dark' && window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches);
+        // The Christmas look is a dark one; it holds light mode aside while it's on
+        // and gives it back when it ends, so don't fight it here.
+        if (useLight && document.documentElement.classList.contains('christmas')) {
+            document.documentElement.dataset.xmLight = '1';
+            document.body.classList.remove('light-theme');
+            document.documentElement.classList.remove('light-theme');
+            return;
+        }
+        if (!useLight) delete document.documentElement.dataset.xmLight;
         document.body.classList.toggle('light-theme', useLight);
         document.documentElement.classList.toggle('light-theme', useLight);   // the sidebar/app styles key off <html> too
         if (!document.body.classList.contains('admin-owner') && !document.body.classList.contains('admin-gold')) {
@@ -360,7 +370,8 @@ const Settings = {
     async apply() {
         const s = this.getLocal();
         this.applyTheme(s.theme);
-        if (window.Halloween) window.Halloween.apply(s.seasonal);
+        if (window.Christmas) window.Christmas.apply(s.seasonal);
+        if (window.Halloween && !document.documentElement.classList.contains('christmas')) window.Halloween.apply(s.seasonal);
         let isOwner = false;
         let isAdminUser = false;
         try {

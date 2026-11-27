@@ -670,6 +670,8 @@
     $('view').innerHTML = `<div class="grid g2">
       ${card('Global controls', C.map(([ep, key, t, sub, danger]) => `<div class="ctrl"><div class="grow"><b>${t}</b><span class="muted small">${sub}</span></div><button class="switch${danger ? ' danger' : ''}${st[key] === 'on' ? ' on' : ''}" data-ep="${ep}" data-key="${key}" aria-label="${t}"></button></div>`).join('') +
         `<div class="ctrl"><div class="grow"><b>Sign everyone out</b><span class="muted small">Ends every session (staff too). Use after a security problem.</span></div><button class="btn sm danger" id="force-out">Sign out all</button></div>
+         <div class="ctrl"><div class="grow"><b>Christmas look</b><span class="muted small">Who gets the festive theme from 1 December to 2 January. It's new, so it starts with just you, your admins and your Friends.</span></div>
+           <div class="vs-seg" id="xmas-aud">${[['early', 'Early group'], ['everyone', 'Everyone'], ['off', 'Nobody']].map(([v, l]) => `<button type="button" class="${(st.christmas_audience || 'early') === v ? 'on' : ''}" data-v="${v}">${l}</button>`).join('')}</div></div>
          <p class="muted small" style="margin-top:12px">Locking every account, the emergency backup and the owner password reset are in <a href="#/security">Security &amp; emergency</a>.</p>`)}
       ${card('Broadcast', `<p class="muted small" style="margin-top:-6px">A message that pops up for people in Zelpophai.</p>
         <label class="muted small">Who sees it</label><select class="select" id="b-aud" style="margin:6px 0 10px"><option value="all">Everyone</option><option value="users">Users only</option><option value="admins">Staff only</option></select>
@@ -681,6 +683,13 @@
       if (sw.dataset.ep === 'maintenance' && on && !(await confirmBox('Turn on maintenance?', 'Everyone except staff will see the maintenance screen.', 'Turn on', true))) return;
       try { await api('/api/admin/system/' + sw.dataset.ep, { method: 'POST', body: { value: on ? 'on' : 'off' } }); sw.classList.toggle('on', on); toast('Saved'); } catch (e) { toast(e.message, true); }
     });
+    $('xmas-aud').onclick = async (e) => {
+      const b = e.target.closest('[data-v]'); if (!b || b.classList.contains('on')) return;
+      try { await api('/api/admin/system/christmas-audience', { method: 'POST', body: { value: b.dataset.v } });
+        $('xmas-aud').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+        toast(b.dataset.v === 'everyone' ? 'Everyone gets the Christmas look' : b.dataset.v === 'off' ? 'Christmas look switched off' : 'Back to you, admins and Friends');
+      } catch (err) { toast(err.message, true); }
+    };
     $('force-out').onclick = async () => { if (!(await confirmBox('Sign everyone out?', 'All sessions end, including yours.', 'Sign out all', true))) return; try { await api('/api/admin/system/force-logout', { method: 'POST' }); toast('Everyone signed out'); } catch (e) { toast(e.message, true); } };
     $('b-text').oninput = () => { $('b-count').textContent = $('b-text').value.length + ' / 2000'; };
     $('b-send').onclick = async () => {

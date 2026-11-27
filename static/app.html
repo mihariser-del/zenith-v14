@@ -22,6 +22,7 @@
     <link rel="stylesheet" href="/static/css/brand.css">
     <link rel="stylesheet" href="/static/css/render.css">
     <link rel="stylesheet" href="/static/css/halloween.css">
+    <link rel="stylesheet" href="/static/css/christmas.css">
     <link rel="stylesheet" href="/static/css/layout.css">
     <link rel="stylesheet" href="/static/css/feedback.css">
     <link rel="stylesheet" href="/static/css/studio.css">
@@ -34,8 +35,16 @@
                 document.documentElement.classList.toggle('light-theme', useLight);
                 /* seasonal theme, applied before first paint (full logic in js/halloween.js) */
                 var sea = st.seasonal || 'auto', d = new Date(), m = d.getMonth(), day = d.getDate();
-                var inSeason = (m === 9 && day >= 15) || (m === 10 && day <= 2);
-                if (sea === 'on' || (sea === 'auto' && inSeason)) document.documentElement.classList.add('halloween');
+                /* Christmas wins inside its own dates; it only shows for people
+                   allowed to see it, which the server told us last time. */
+                var xmasOn = (m === 11 && day >= 1) || (m === 0 && day <= 2);
+                var mayXmas = localStorage.getItem('zp_xmas_ok') === '1';
+                var hwOn = (m === 9 && day >= 15) || (m === 10 && day <= 2);
+                if (sea !== 'off' && mayXmas && (sea === 'on' || xmasOn)) {
+                    document.documentElement.classList.add('christmas');
+                    /* the festive look is a dark one; light mode comes back when it ends */
+                    if (useLight) { document.documentElement.dataset.xmLight = '1'; document.documentElement.classList.remove('light-theme'); }
+                } else if (sea === 'on' || (sea === 'auto' && hwOn)) document.documentElement.classList.add('halloween');
             } catch (e) {}
         })();
     </script>
@@ -560,5 +569,6 @@
 <script src="/static/js/library.js"></script>
 <script src="/static/js/sidebar.js"></script>
 <script src="/static/js/halloween.js"></script>
+<script src="/static/js/christmas.js"></script>
 </body>
 </html>

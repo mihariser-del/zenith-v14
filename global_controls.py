@@ -48,6 +48,7 @@ async def get_state(request: Request, db: AsyncSession = Depends(get_db)):
         "messaging": await _get_setting(db, "messaging", "on"),
         "ai_enabled": await _get_setting(db, "ai_enabled", "on"),
         "locked": await _get_setting(db, "locked", "off"),
+        "christmas_audience": await _get_setting(db, "christmas_audience", "early"),
     }
 
 
@@ -90,6 +91,27 @@ async def set_chosen(req: ChosenRequest, request: Request, db: AsyncSession = De
     await _set_setting(db, "chosen", ",".join(str(c["id"]) for c in chosen))
     await log_action(db=db, request=request, actor=user, action="set_chosen", detail=f"Chosen helpers: {[c['username'] for c in chosen]}")
     return {"chosen": chosen}
+
+
+@router.post("/christmas-audience", dependencies=[Depends(require_vault)])
+async def set_christmas_audience(req: SettingRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    """Who may see the Christmas look: the early group, everyone, or nobody."""
+    import seasons
+    user = await get_current_user_from_cookie(request, db)
+    if not is_staff(user):
+        raise HTTPException(status_code=403, detail="Admin only")
+    v = (req.value or "").strip().lower()
+    if v not in seasons.AUDIENCES:
+        raise HTTPException(status_code=400, detail="Choose early, everyone or off.")
+    await _set_setting(db, seasons.AUDIENCE_KEY, v)
+    try:
+        from audit import log_action
+        await log_action(db=db, request=request, actor=user, action="christmas_audience",
+                         detail={"early": "Owner, admins and Friends only", "everyone": "Everyone",
+                                 "off": "Nobody"}[v])
+    except Exception:
+        pass
+    return {"ok": True, "value": v}
 
 
 @router.post("/maintenance", dependencies=[Depends(require_vault)])

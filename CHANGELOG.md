@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 23.3 — The typing box, rebuilt
+
+- `.composer-box` is a column (attachments → textarea → tool row) instead of one wrapping flex row, so the textarea gets the full width rather than whatever is left between nine buttons. It grows to 190px, and phones get 16px type so iOS stops zooming on focus.
+- New `.composer-tools`: `.ct-scroll` (attach, search | think, research, fact | image, video) scrolls sideways under a CSS mask that fades whichever end has more, with `.at-start` / `.at-end` kept in sync from `app.js`; `.ct-right` pins mic, Talk (injected by `voicechat.js` after `#mic-btn`) and send/stop.
+- The mobile `tools-expanded` toggle and `#tools-expand-btn` are gone — at 390px all seven tools plus mic/Talk/send fit on one row (measured: 239px of 239px), so nothing is hidden any more.
+- Labels now survive down to 900px; below that it is icons only. Placeholder unified with `slash.js` ("Ask anything, or type / for a shortcut").
+
 ## 23.2 — The user's own Security window, rebuilt
 
 - `security.py` rewritten: `/dashboard` now returns lifetime/recent counts, the last two successful sign-ins and a short list of `tips` (email on file, recent failures, sign-out-everywhere), each with a state and an action. `/login-history` returns `device`, `kind`, `place`, `ip` and `here` via `secops`, so the window never shows a user-agent string. Legacy fields kept so a cached copy of the app and `vault.js` keep working.

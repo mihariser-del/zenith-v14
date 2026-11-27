@@ -523,10 +523,17 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (isGuest) { if (typeof Billing !== 'undefined' && Billing.showUpgrade) Billing.showUpgrade('Guest invite'); return; }
         if (window.ZPInvite) window.ZPInvite.open();
     });
-    const composerBox = document.querySelector('.composer-box');
-    const toolsExpandBtn = $('tools-expand-btn');
-    if (toolsExpandBtn && composerBox) {
-        toolsExpandBtn.addEventListener('click', () => composerBox.classList.toggle('tools-expanded'));
+    // The tool row scrolls sideways on narrow screens; a little fade on each
+    // end shows there is more to swipe to.
+    const toolScroll = document.querySelector('.composer-tools .ct-scroll');
+    if (toolScroll) {
+        const edges = () => {
+            toolScroll.classList.toggle('at-start', toolScroll.scrollLeft < 4);
+            toolScroll.classList.toggle('at-end', toolScroll.scrollLeft + toolScroll.clientWidth >= toolScroll.scrollWidth - 4);
+        };
+        toolScroll.addEventListener('scroll', edges, { passive: true });
+        window.addEventListener('resize', edges);
+        edges();
     }
 
     $('new-chat-btn').addEventListener('click', async () => {

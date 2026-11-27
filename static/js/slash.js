@@ -130,7 +130,7 @@
     cfg = c || {};
     input = document.getElementById('user-input');
     if (!input || !Z) return;
-    input.placeholder = 'Ask anything…  or type / for commands';
+    input.placeholder = 'Ask anything, or type / for a shortcut';
     input.addEventListener('input', () => { sel = 0; render(); });
     input.addEventListener('blur', () => setTimeout(hide, 150));
     input.addEventListener('focus', render);

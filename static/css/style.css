@@ -174,9 +174,20 @@ body.auth-page { display: block; }
 
 /* INPUT */
 .input-wrapper { padding: 15px; background: transparent; display: flex; flex-direction: column; gap: 8px; }
-.composer-box { display: flex; align-items: center; gap: 8px; background: var(--input-bg); border: 1px solid var(--border); border-radius: 20px; padding: 8px 12px; flex-wrap: wrap; }
+.composer-box { display: flex; flex-direction: column; align-items: stretch; gap: 0; background: var(--input-bg); border: 1px solid var(--border); border-radius: 22px; padding: 10px 12px 8px; }
 .composer-box:focus-within { border-color: var(--accent-solid); }
-.composer-icon { font-size: 13px; cursor: pointer; color: #888; background: transparent; border: none; padding: 6px 8px; transition: 0.2s; border-radius: 8px; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+.composer-tools { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+/* The tools scroll sideways rather than wrapping, so the box never jumps in height. */
+.ct-scroll { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; padding-bottom: 1px; }
+.ct-scroll::-webkit-scrollbar { display: none; }
+/* A soft fade on whichever end still has more to scroll to. */
+.ct-scroll { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 14px, #000 calc(100% - 14px), transparent 100%); }
+.ct-scroll.at-start { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent 100%); }
+.ct-scroll.at-end { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 14px); mask-image: linear-gradient(90deg, transparent 0, #000 14px); }
+.ct-scroll.at-start.at-end { -webkit-mask-image: none; mask-image: none; }
+.ct-sep { flex: none; width: 1px; height: 18px; margin: 0 4px; background: var(--border); }
+.ct-right { display: flex; align-items: center; gap: 6px; flex: none; }
+.composer-icon { font-size: 13px; cursor: pointer; color: #888; background: transparent; border: none; padding: 7px 10px; transition: 0.18s; border-radius: 10px; display: flex; align-items: center; gap: 6px; white-space: nowrap; flex: none; }
 .composer-icon:hover { color: var(--accent-solid); background: var(--hover-bg); }
 .composer-icon.active { color: var(--accent-solid); background: rgba(0, 102, 255, 0.15); }
 .composer-icon svg { width: 16px; height: 16px; }
@@ -256,10 +267,13 @@ body.auth-page { display: block; }
     .msg-bubble img { max-height: 320px; }
     .img-lightbox img { max-height: 66vh; }
 }
-.input-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-#user-input { background: transparent; border: none; color: var(--text); font-size: 15px; resize: none; outline: none; max-height: 150px; font-family: inherit; }
+.input-col { width: 100%; min-width: 0; display: flex; flex-direction: column; }
+#user-input { width: 100%; box-sizing: border-box; background: transparent; border: none; color: var(--text); font-size: 15.5px; line-height: 1.5; resize: none; outline: none; min-height: 26px; max-height: 190px; padding: 4px 2px; font-family: inherit; }
 #user-input::placeholder { color: #777; }
-#send-btn { color: white; background: var(--accent-solid); border-radius: 50%; width: 35px; height: 35px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
+#send-btn { color: white; background: var(--accent-solid); border-radius: 50%; width: 38px; height: 38px; display: flex; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; transition: transform .15s, opacity .15s; }
+#send-btn:hover { transform: scale(1.06); }
+#stop-btn { color: #fff; background: var(--error); border-radius: 50%; width: 38px; height: 38px; align-items: center; justify-content: center; border: none; cursor: pointer; flex-shrink: 0; }
+#stop-btn svg { width: 16px; height: 16px; }
 #send-btn svg { width: 16px; height: 16px; }
 #send-btn:disabled { cursor: wait; opacity: .85; }
 .att-spin, .snd-spin { display: inline-block; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); border-top-color: #7df0ff; animation: attSpin .7s linear infinite; }
@@ -349,9 +363,8 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; box-shadow: 
     .sidebar-tools-toggle span, .sidebar-tools .btn span { display: none; }
     .user-profile-bar { justify-content: center; padding: 10px 5px; }
     .user-profile-bar .user-meta, .user-profile-bar .logout-btn { display: none; }
-    .composer-icon span { display: none; }
-    .composer-icon { padding: 6px; }
-    #attach-btn span, #mic-btn span { display: none; }
+    .ct-right .composer-icon span { display: none; }
+    .composer-icon { padding: 7px 9px; }
 }
 @media (max-width: 900px) {
     .hamburger { display: flex; }
@@ -362,9 +375,8 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; box-shadow: 
     .sidebar.open { transform: translateX(0); box-shadow: 4px 0 20px rgba(0,0,0,0.5); }
     .sidebar-overlay.active { display: block; }
     .main { width: 100%; min-height: 100dvh; }
-    .composer-icon span { display: none; }
-    .composer-icon { padding: 6px; font-size: 12px; }
-    #attach-btn span, #mic-btn span { display: none; }
+    .ct-right .composer-icon span { display: none; }
+    .composer-icon { padding: 7px 9px; font-size: 12.5px; }
 }
 /* ========== MOBILE ========== */
 @media (max-width: 768px) {
@@ -396,24 +408,15 @@ body.admin-gold .composer-box:focus-within { border-color: #FFD700; box-shadow: 
     .welcome-message h2 { font-size: 20px; }
     .welcome-message .welcome-sub { font-size: 14px; margin-bottom: 16px; }
 
-    .composer-box { flex-wrap: wrap; gap: 6px; padding: 8px 10px; border-radius: 16px; }
+    /* Every tool stays reachable: the row swipes sideways instead of hiding things. */
+    .composer-box { padding: 9px 10px 7px; border-radius: 18px; }
+    /* Icons alone below this width: labels would mean swiping for everything. */
     .composer-icon span { display: none; }
-    .composer-icon { padding: 6px; font-size: 12px; }
-    .composer-box .composer-icon#think-btn,
-    .composer-box .composer-icon#web-btn,
-    .composer-box .composer-icon#research-btn,
-    .composer-box .composer-icon#factcheck-btn,
-    .composer-box .composer-icon#search-toggle-btn { display: none; }
-    .composer-box.tools-expanded .composer-icon#think-btn,
-    .composer-box.tools-expanded .composer-icon#web-btn,
-    .composer-box.tools-expanded .composer-icon#research-btn,
-    .composer-box.tools-expanded .composer-icon#factcheck-btn,
-    .composer-box.tools-expanded .composer-icon#search-toggle-btn { display: flex; }
-    .mobile-tools-toggle { display: flex !important; }
-    .composer-box.tools-expanded .mobile-tools-toggle { color: var(--accent-solid); background: rgba(0,102,255,0.15); }
-
+    .composer-icon { padding: 8px; font-size: 12px; }
+    .composer-icon svg { width: 18px; height: 18px; }
+    .ct-sep { margin: 0 2px; }
     .input-col { min-width: 0; }
-    #user-input { font-size: 14px; }
+    #user-input { font-size: 16px; }   /* 16px stops iPhones zooming in when you tap it */
 
     .modal-content { width: 96%; padding: 16px; margin: 10px; max-height: 88vh; }
     .modal-content h3 { font-size: 16px; }
@@ -667,12 +670,13 @@ body.admin-owner .sidebar .btn.info { color: #dfe7f5 !important; border-color: r
     #admin-stats {
         grid-template-columns: 1fr 1fr !important;
     }
-    .composer-row {
-        gap: 4px !important;
-    }
-    .composer-icon span {
-        font-size: 10px;
-    }
+    /* Tight enough that all seven tools fit on a narrow phone without swiping. */
+    .composer-tools { gap: 5px; }
+    .composer-icon { padding: 7px; }
+    .ct-scroll { gap: 0; }
+    .ct-sep { margin: 0 1px; }
+    .ct-right { gap: 3px; }
+    #send-btn, #stop-btn { width: 34px; height: 34px; }
 }
 
 /* ── Folder groups in the chat list ─────────────────────────────── */

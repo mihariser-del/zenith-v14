@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 24.0.1 — Videos no longer report a 500 they didn't have
+
+- `video.start_video_job()` ended with `"remaining": max(0, limit - used - 1)`. `limits_config.allowance()` returns `None` for an uncapped plan (Owner, Ultimate, staff since 22.8), so that line raised `TypeError` — *after* `db.commit()` and after `_watch()` was scheduled. The clip was made and written to the chat; the request still became a 500. Exactly the reported "internal server error, but the video is there after a reload".
+- `codeagent.py` had the identical `left = max(0, limit - used - 1)` with the same consequence, after its `UsageLog` was committed.
+- Both now yield `None` when there is no cap. `chat.js`'s video dialog shows "As many as you like — no daily limit" rather than "null of null", and the coding agent's status bar treats a null limit as unlimited.
+- Reproduced before the fix (500) and verified after (200 with `remaining: null`), on both endpoints.
+
 ## 24.0 — Zelpophai sets itself up for you
 
 - **`profiles.py`** (new): the single source for both questions (four use styles, four age bands) and everything they switch on — `seasonal`, `animations`, starting `persona`, tool order, starter set, and the wording added to the AI's instructions. Stored as JSON on `users.profile`; `GET/POST /api/settings/profile` reads and writes it.

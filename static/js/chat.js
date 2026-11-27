@@ -1450,7 +1450,10 @@ const Chat = {
             '</div>';
         document.body.appendChild(ov);
         const sub = ov.querySelector('.zp-vdlg-sub');
-        sub.textContent = cfg ? (cfg.remaining + ' of ' + cfg.daily_limit + ' videos left today') : 'Short clips with sound';
+        // daily_limit is null for accounts with no cap, so don't print "null of null".
+        sub.textContent = !cfg ? 'Short clips with sound'
+            : cfg.daily_limit == null ? 'As many as you like \u2014 no daily limit'
+            : cfg.remaining + ' of ' + cfg.daily_limit + ' videos left today';
         const sel = { duration: 6, aspect: '16:9' };
         ov.querySelectorAll('.zp-seg').forEach(seg => seg.addEventListener('click', e => {
             const b = e.target.closest('button'); if (!b) return;

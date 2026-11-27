@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "24.0"
+VERSION = "24.0.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "24.0.1 Fixed: making a video said \"internal server error\" even though the video was being made perfectly well — it turned up as soon as you reloaded. Accounts with no daily video limit (yours, Ultimate and staff) hit the error every single time. The same fault was in Coding AGT. Both are fixed, and the video window now says \"no daily limit\" instead of \"null of null videos left today\"",
     "24.0 Zelpophai now sets itself up for you. The first time you open it you're asked two quick questions — what you'll mostly use it for (Work, A bit of everything, Fun and creative, or Learning) and roughly how old you are — and it tailors itself to your answers: how it talks to you, whether festive looks like the Halloween theme appear at all, which tools sit first in the row, and the six starting points on a new chat. Work accounts get a plain, quiet look with no seasonal themes; Fun accounts get Image and Video first and all the playful bits. You can skip the questions, and change your answers any time in Settings → General",
     "24.0 Your age answer is only ever used to keep answers suitable for you, and is never shown to anyone. Under-13 and under-18 accounts get a gentler Zelpophai that won't go near adult subjects",
     "24.0 Fixed: the things you ask Zelpophai to remember were not actually reaching it when it answered. Memory has been quietly broken since version 22.1 — it works properly now",
@@ -164,6 +165,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "24.0.1 Owner: video.start_video_job() returned max(0, limit - used - 1) and codeagent did the same, but limits_config gives None for an uncapped plan — so both raised TypeError on the line *after* the job was committed and its watcher started. The work went ahead, the HTTP response became a 500. Introduced in 22.8 when uncapped plans started returning None. Both now return None for remaining/left, and the two places that printed it handle null",
     "24.0 Owner: everything a profile switches on lives in one file (profiles.py) — two questions, four styles, four age bands — so the app, the settings screen and the AI's own instructions can never drift apart. The age wording is added to the AI's instructions in every mode including research and fact-check; the style wording shapes the voice only. Stored as JSON on the account, read by GET/POST /api/settings/profile",
     "24.0 Owner: everyone already signed up is asked the two questions once as well, so existing accounts get the benefit. One tap on \"Skip for now\" and they're never asked again",
     "24.0 Owner: memories.for_prompt() was calling list.append(score, memory) instead of append((score, memory)), so every memory lookup threw and was swallowed by the try/except around it — no memory had reached a prompt since 22.1",

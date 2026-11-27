@@ -230,8 +230,13 @@ async def start_video_job(db: AsyncSession, user, prompt: str, duration: int = 6
     t = asyncio.create_task(_watch(job.id))
     _watchers.add(t)
     t.add_done_callback(_watchers.discard)
+    # limit is None for accounts with no daily cap (Owner, Ultimate, staff), so
+    # it can never go into the arithmetic — that raised a TypeError *after* the
+    # job was already running, which showed as "internal server error" even
+    # though the video was being made.
+    remaining = None if limit is None else max(0, limit - used - 1)
     return {"id": job.id, "status": job.status, "duration": duration, "aspect": aspect, "prompt": prompt,
-            "remaining": max(0, limit - used - 1), "chat_title": chat.title if chat else None}
+            "remaining": remaining, "chat_title": chat.title if chat else None}
 
 
 @router.post("/generate")

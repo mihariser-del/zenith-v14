@@ -268,7 +268,7 @@ async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_d
     files = _clean_files(req.files or {})
     db.add(UsageLog(user_id=user.id, action="code_agent"))
     await db.commit()
-    left = max(0, limit - used - 1)
+    left = None if limit is None else max(0, limit - used - 1)   # None = no daily cap
 
     context = f"PROJECT FILES (active file: {req.active or 'none'}):\n{_files_block(files, req.active)}"
     if (req.selection or "").strip():

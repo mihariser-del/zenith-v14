@@ -54,7 +54,7 @@
     document.addEventListener('ca:project', () => { paintFile(); document.title = (S.project.name || 'Project') + ' · Coding AGT.'; });
     document.addEventListener('ca:save', (e) => { $('ca-st-save').textContent = e.detail; });
     document.addEventListener('ca:kind', (e) => { $('ca-st-kind').textContent = { web: 'Website · runs in Preview', python: 'Python · runs in your browser', sql: 'SQL · runs in your browser', none: 'Edit and download' }[e.detail] || ''; });
-    document.addEventListener('ca:status', () => { const st = S.status; if (st) $('ca-st-agent').textContent = st.tier === 'owner' ? 'Agent: unlimited' : `Agent: ${st.left} of ${st.limit} left today`; });
+    document.addEventListener('ca:status', () => { const st = S.status; if (st) $('ca-st-agent').textContent = (st.tier === 'owner' || st.limit == null) ? 'Agent: unlimited' : `Agent: ${st.left} of ${st.limit} left today`; });
     // Auto-run the preview after a save (websites only), if switched on.
     document.addEventListener('ca:saved', () => { if (P.autoRun && S.project && S.project.kind === 'web') CA.run(); });
 

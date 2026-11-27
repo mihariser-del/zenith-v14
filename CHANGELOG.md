@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 25.2.1 — Web facts and real maths in the same answer
+
+- Reported live: "If I borrow … with Uganda's inflation …" was routed to the web, and the web path hands the whole answer to the search model, which has no code tool — so it fetched the inflation figure and then said it couldn't calculate.
+- `ai._needs_calc()` spots questions that need real arithmetic (loans, interest, NPV/IRR, compounding, percentages among several numbers, projections, statistics, charts…). When one also needs the web, `web_answer` now only gathers facts; they're appended to the user's turn with a numbered source list and an instruction to use `<zrun>`, the main model writes the answer, and `cite()` links its `[n]` at the end (the deep-research path).
+- Maths questions always get the heavy model and at least 4,096 tokens.
+- `stream_chat(continuation=…)` now forces `use_web = False`, so finishing an answer after code has run can't be sent back to the search model.
+
 ## 25.2 — Scheduled jobs and deeper research
 
 Part three — the last of the seven.

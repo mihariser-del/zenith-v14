@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "25.2"
+VERSION = "25.2.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "25.2.1 Fixed: a question that needed both today's facts from the web and real maths — like a loan worked out against the latest inflation figure — got \"I can't compute this right now\". Zelpophai now looks up the facts first, then works out the numbers with real code, with the sources linked",
     "25.2 Scheduled jobs: tell Zelpophai \"every morning at 8, send me the top news\" or \"every Friday, summarise the week's tech stories\" and it does the job by itself, on time, in its own chat — searching the web and all — then lets you know it's ready. See, pause, edit, run or delete them under Reminders → Scheduled jobs, where there are a few ready-made ideas too. Free accounts can keep one; Pro and above more",
     "25.2 Deeper research: the Research button now splits your question into parts, researches every part at the same time, then writes one proper report with each fact linked to its source and a numbered source list at the end. You watch each part tick off while it works",
     "25.1 Answers worked out properly: for sums, money, loans, dates, statistics and charts, Zelpophai now writes a little bit of code and runs it to get the exact number, instead of guessing — AI on its own is often wrong at arithmetic. You see the result (and any chart) in a card, with the code there if you're curious, then the answer in plain words. It runs on your own device, sealed off from your account. Attach a spreadsheet or CSV and it can analyse that too",
@@ -174,6 +175,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "25.2.1 Owner: web questions used to be answered entirely by the search model, which can't run code. When a question also needs arithmetic (ai._needs_calc), the search model now only gathers the facts, which are handed to the main model with a numbered source list; it writes <zrun>, and its [n] citations are linked at the end. Maths questions also always get the stronger model and more room, and finishing an answer after code has run can no longer be routed back to the search model",
     "25.2 Owner: how many scheduled jobs each plan can keep is a new row on the Limits page (System → Limits) — Free 1, Pro 5, Ultimate, Friends and Admins 20, Trusted admins 50, you unlimited. Each run goes through exactly the same answering path as a typed message, so it gets every tool and safety rule, and counts as one message; if someone has used up their day, that run is skipped and they're told why. The next run time is worked out before a job runs, so a crash can never make one repeat",
     "25.1 Owner: code the AI writes never runs on the server (server-side running is still yours alone, because it once let people read the database). It runs in Python on the person's own device, inside a background worker in a sealed frame with no origin of its own — tested: it can't read the sign-in cookie or call the Zelpophai API, and a runaway loop is stopped after 30 seconds. Results and charts are saved onto the message, so they're there after a reload and nothing runs twice",
     "25.1 Owner: link reading refuses anything that isn't an ordinary public web address — private and internal networks, this server itself, cloud metadata addresses, unusual ports, links with passwords, and sneaky encoded forms of those — and checks again after every redirect. On the live server the connection is pinned to the address that passed the check. 5 MB and 12 seconds at most",

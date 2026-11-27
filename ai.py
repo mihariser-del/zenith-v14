@@ -178,6 +178,27 @@ def convert_citations_to_links(text: str, urls: list) -> str:
         return strip_citations(text)
 
 
+_CALC_RE = re.compile(
+    r"\b(calculat\w*|compute|work out|how much (will|would|do|does|is|are)|how many (years|months|days)|"
+    r"interest|mortgage|loan|amorti[sz]\w*|(re)?payments?|monthly|per (month|year|week)|instal+ments?|compound\w*|"
+    r"npv|irr|net present|roi|return on|payback|break[- ]?even|projection|forecast|percent\w*|average|mean|median|"
+    r"standard deviation|"
+    r"inflation[- ]adjusted|real terms|depreciat\w*|annuit\w*|cash ?flow|budget|savings? plan|tax(es)? on|"
+    r"convert \d|exchange rate|how old|days (until|between|since)|statistic\w*|regression|correlat\w*|"
+    r"chart|graph|plot)\b", re.I)
+_NUM_RE = re.compile(r"\d")
+
+
+def _needs_calc(text: str) -> bool:
+    """Does answering this properly need real arithmetic (and so the code tool)?"""
+    t = (text or "")[:2000]
+    if not _NUM_RE.search(t):
+        return False
+    # "%" can't sit inside a word boundary, so it's checked on its own: a
+    # percentage next to another number is nearly always a calculation.
+    return bool(_CALC_RE.search(t) or (re.search(r"\d\s*%", t) and len(_NUM_RE.findall(t)) >= 3))
+
+
 _PAGE_RE = re.compile(
     r"\b(calculator|converter|quiz|flash ?cards?|game|timer|stopwatch|countdown|tracker|dashboard|simulator|"
     r"interactive|widget|tool|app|mock-?up|landing page|web ?page|website|generator|planner|chart i can|"
@@ -811,8 +832,17 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     _plan_t0 = time.time()
     plan = await plan_request(_user_ask, _history, has_images=has_images, think=think, wants_file=_wants_file,
                               force_web=bool(web_search or research or factcheck), live_hint=auto_web)
+    # Real maths needs the main model — the web-search model can't run code.
+    _calc = bool(continuation) or (_needs_calc(_user_ask) and not (research or factcheck))
+    if _calc:
+        plan["heavy"] = True
     user_model = pinned_model or model_for(plan)
     use_web = (not has_images) and plan["web"] and not (_wants_file and "[File" in last_user_msg)
+    if continuation:
+        # Finishing an answer after code ran: everything needed is already here.
+        use_web = False
+    if _calc:
+        user_max_tokens = max(user_max_tokens or 0, 4096)
     # Think mode shows the real stages of the answer as they happen.
     _early_steps = []
     if think:
@@ -948,6 +978,27 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                         break
                 yield _step("rwrite", "Writing the report", f"from {len(_srcs)} sources", "doing")
                 ai_meter.record("search", "perplexity/sonar", user_id, messages, _notes)
+
+        if use_web and _calc and _deep_sources is None:
+            yield _sse({"status": "searching", "query": plan.get("query", "")[:120]})
+            yield _step("web", "Looking up the facts", plan.get("query", "")[:120])
+            _t0 = time.time()
+            _facts, _fsrc = await web_answer(messages, plan.get("query") or _user_ask, 1200)
+            _deep_sources = _fsrc or []
+            if _facts:
+                _listing = "\n".join(f"[{i}] {x.get('title') or x['url']} — {x['url']}" for i, x in enumerate(_deep_sources, start=1))
+                for _m in reversed(messages):
+                    if _m.get("role") == "user" and isinstance(_m.get("content"), str):
+                        _m["content"] += (
+                            "\n\n[FACTS FROM A WEB SEARCH JUST NOW]\n" + strip_citations(_facts) +
+                            ("\n\nSOURCES (numbered):\n" + _listing if _listing else "") +
+                            "\n[END OF FACTS]\n\nUse these facts for the numbers you need, cite them with [n] from the "
+                            "SOURCES list, and do the calculation with a <zrun> block as your tools describe — never "
+                            "estimate it in your head and never say you can't calculate. Don't write your own Sources list.")
+                        break
+                yield _step("web", "Looked up the facts", (f"{len(_deep_sources)} sources · " if _deep_sources else "") + f"{time.time() - _t0:.1f}s", "done")
+            else:
+                yield _step("web", "Couldn't reach the web", "working from what I know", "done")
 
         if use_web and _deep_sources is None:
             # Tell the app we're searching so it can show "Searching the web…".

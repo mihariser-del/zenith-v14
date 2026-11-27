@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 23.1 — The Security page, rebuilt
+
+- **`secops.py`** (new): `describe_device()` turns a user-agent into "Chrome on Windows"; `describe_place()` / `learn_places()` name the country behind an address (one batched lookup, cached, silently skipped when offline); `is_local()` marks loopback and RFC1918 so your own network is never offered as something to block.
+- **Blocking.** New `blocked_addresses` table; `is_blocked()` is sync and served from an in-memory map (reloaded on every change and every 2 min) because `auth._block_guard()` calls it on every sign-in attempt, *before* the password is checked — so a blocked place is refused even with the right password. `note_failure()` auto-blocks a place that passes the configured wrong-password count in 24h (default 15 tries → 24h block, Owner-editable).
+- **`checkup()`** scores the whole setup: AI key, owner email, email sending, admins with no end date, Trusted admins, lock/maintenance left on, failed-sign-in spikes, auto-blocking, backup age, users with no email — each as good/warn/bad with a fix link.
+- Vault: `GET/POST/DELETE /api/vault/security/blocks`, `POST .../autoblock`, `GET .../online`, `POST .../signout/{uid}`, `GET .../checkup` (Owner only, logged). `/api/vault/security` now returns `device`, `kind`, `place`, `blocked`, `local` per row and 120 rows.
+- `pageSecurity()` rebuilt as five tabs on the `vs-` kit (Check-up / Sign-ins / Who's online / Blocked places / Emergency), new `sc-` styles. The three destructive actions now need a typed word (LOCK / SIGN OUT / NEW) rather than a single click.
+
 ## 23.0 — An app that knows when it is out of date
 
 - `main._shell()` serves `index/app/coding-agent/mini.html` with `<meta name="zp-build" content="VERSION|BUILD_ID">` injected and `Cache-Control: no-store, must-revalidate` (content cached in memory by mtime). The landing page's search-engine verification tags go through the same helper.

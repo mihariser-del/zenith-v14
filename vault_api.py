@@ -6,6 +6,7 @@ are Owner-only.
 """
 
 import asyncio
+import ipaddress
 import json
 import os
 import re
@@ -1044,6 +1045,10 @@ async def security(user=Depends(require_vault), db: AsyncSession = Depends(get_d
         maint = await _get_setting(db, "maintenance_mode", "off")
     except Exception:
         locked = maint = "off"
+    import secops
+    await secops.maybe_refresh(db)
+    if owner:
+        await secops.learn_places([l.ip_address for l, _ in rows[:120]] + [ip for ip, _ in by_ip.most_common(8)])
     server = None
     try:
         import psutil
@@ -1063,12 +1068,161 @@ async def security(user=Depends(require_vault), db: AsyncSession = Depends(get_d
         "logins_24h": len(last24) - len(failed), "failed_24h": len(failed),
         "unique_ips_24h": len({l.ip_address for l, _ in last24 if l.ip_address}),
         "top_failed_users": [{"username": n, "count": c} for n, c in by_user.most_common(6)],
-        "top_failed_ips": [{"ip": ip if owner else "hidden", "count": c} for ip, c in by_ip.most_common(6)],
+        "top_failed_ips": [{"ip": ip if owner else "hidden", "count": c, "blocked": secops.is_blocked(ip),
+                            "local": secops.is_local(ip),
+                            "place": secops.describe_place(ip) if owner else ""} for ip, c in by_ip.most_common(8)],
         "labels": _labels(start, end, step), "ok_series": series_ok, "failed_series": series_bad,
         "recent": [{"username": n, "user_id": l.user_id, "ok": bool(l.success), "ip": l.ip_address if owner else "",
-                    "ua": (l.user_agent or "")[:100], "t": _iso(l.login_at)} for l, n in rows[:40]],
+                    "device": secops.describe_device(l.user_agent), "kind": secops.device_kind(l.user_agent),
+                    "place": secops.describe_place(l.ip_address) if owner else "",
+                    "blocked": secops.is_blocked(l.ip_address) if owner else False,
+                    "local": secops.is_local(l.ip_address),
+                    "ua": (l.user_agent or "")[:100], "t": _iso(l.login_at)} for l, n in rows[:120]],
         "locked": locked, "maintenance": maint, "server": server,
+        "blocked_count": len(await secops.blocks(db)) if owner else 0,
     }
+
+
+# ───────────────────────────────────────── security: blocks, sessions, check-up ──
+@router.get("/security/blocks")
+async def security_blocks(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """The places that can't sign in, plus the automatic-blocking settings."""
+    _need_owner(user)
+    import secops
+    await secops.maybe_refresh(db)
+    rows = await secops.blocks(db)
+    await secops.learn_places([r["ip"] for r in rows])
+    for r in rows:
+        r["place"] = secops.describe_place(r["ip"])
+    return {"blocks": rows, "settings": await secops.settings_of(db)}
+
+
+class BlockIn(BaseModel):
+    ip: str = ""
+    reason: str = ""
+    hours: int | None = None
+
+
+@router.post("/security/blocks")
+async def security_block(body: BlockIn, request: Request, user=Depends(require_vault),
+                         db: AsyncSession = Depends(get_db)):
+    """Stop a place signing in. hours empty = for good."""
+    _need_owner(user)
+    import secops
+    ip = (body.ip or "").strip()
+    if not ip:
+        raise HTTPException(status_code=400, detail="Type the address you want to block.")
+    try:
+        ipaddress.ip_address(ip)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="That isn't a valid address. It should look like 102.89.1.4.")
+    from auth import _client_ip
+    if ip == _client_ip(request):
+        raise HTTPException(status_code=400, detail="That's the place you're signing in from — blocking it would lock you out.")
+    await secops.block(db, ip, reason=(body.reason or "").strip()[:300], by=user.username,
+                       hours=body.hours if body.hours else None)
+    from audit import log_action
+    await log_action(db=db, request=request, actor=user, action="ip_block",
+                     detail=f"Blocked {ip}" + (f" for {body.hours}h" if body.hours else " for good"))
+    return {"ok": True, "blocks": await secops.blocks(db)}
+
+
+@router.delete("/security/blocks/{ip}")
+async def security_unblock(ip: str, request: Request, user=Depends(require_vault),
+                           db: AsyncSession = Depends(get_db)):
+    _need_owner(user)
+    import secops
+    if not await secops.unblock(db, ip):
+        raise HTTPException(status_code=404, detail="That address isn't blocked.")
+    from audit import log_action
+    await log_action(db=db, request=request, actor=user, action="ip_unblock", detail=f"Unblocked {ip}")
+    return {"ok": True, "blocks": await secops.blocks(db)}
+
+
+class AutoBlockIn(BaseModel):
+    on: bool | None = None
+    tries: int | None = None
+    hours: int | None = None
+
+
+@router.post("/security/autoblock")
+async def security_autoblock(body: AutoBlockIn, request: Request, user=Depends(require_vault),
+                             db: AsyncSession = Depends(get_db)):
+    """Change when Zelpophai blocks a place by itself."""
+    _need_owner(user)
+    import secops
+    from global_controls import _set_setting
+    if body.on is not None:
+        await _set_setting(db, secops.AUTOBLOCK_ON, "on" if body.on else "off")
+    if body.tries is not None:
+        await _set_setting(db, secops.AUTOBLOCK_TRIES, str(max(3, min(1000, int(body.tries)))))
+    if body.hours is not None:
+        await _set_setting(db, secops.AUTOBLOCK_HOURS, str(max(1, min(8760, int(body.hours)))))
+    cfg = await secops.settings_of(db)
+    from audit import log_action
+    await log_action(db=db, request=request, actor=user, action="autoblock",
+                     detail=("On" if cfg["on"] else "Off") + f" · {cfg['tries']} tries · {cfg['hours']}h")
+    return {"ok": True, "settings": cfg}
+
+
+@router.get("/security/online")
+async def security_online(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """Who is using Zelpophai right now, and on what."""
+    _need_owner(user)
+    import secops
+    now = datetime.now(timezone.utc)
+    cut = now - timedelta(minutes=15)
+    people = (await db.execute(
+        select(User).where(User.is_deleted.is_(False), User.last_seen.isnot(None), User.last_seen >= cut)
+        .order_by(User.last_seen.desc()).limit(80))).scalars().all()
+    ids = [u.id for u in people]
+    latest: dict[int, LoginHistory] = {}
+    if ids:
+        rows = (await db.execute(select(LoginHistory).where(LoginHistory.user_id.in_(ids), LoginHistory.success.is_(True))
+                                 .order_by(LoginHistory.login_at.desc()).limit(600))).scalars().all()
+        for r in rows:
+            latest.setdefault(r.user_id, r)
+    await secops.learn_places([l.ip_address for l in latest.values()])
+    out = []
+    for u in people:
+        l = latest.get(u.id)
+        out.append({
+            "id": u.id, "username": u.username, "role": get_role(u),
+            "plan": _plan_of(u), "avatar": getattr(u, "avatar_url", "") or "",
+            "last_seen": _iso(u.last_seen),
+            "device": secops.describe_device(l.user_agent if l else ""),
+            "kind": secops.device_kind(l.user_agent if l else ""),
+            "place": secops.describe_place(l.ip_address) if l else "",
+            "ip": (l.ip_address if l else "") if is_owner(user) else "",
+            "since": _iso(l.login_at) if l else "",
+        })
+    return {"online": out, "minutes": 15}
+
+
+@router.post("/security/signout/{uid}")
+async def security_signout(uid: int, request: Request, user=Depends(require_vault),
+                           db: AsyncSession = Depends(get_db)):
+    """Sign one person out of every device they're using."""
+    _need_owner(user)
+    u = (await db.execute(select(User).where(User.id == uid))).scalar_one_or_none()
+    if not u:
+        raise HTTPException(status_code=404, detail="No such person.")
+    if is_owner(u) and u.id != user.id:
+        raise HTTPException(status_code=400, detail="You can't sign the Owner out.")
+    u.token_version = (u.token_version or 0) + 1
+    await db.commit()
+    from audit import log_action
+    await log_action(db=db, request=request, actor=user, action="signout_user",
+                     detail=f"Signed @{u.username} out of every device")
+    return {"ok": True, "username": u.username}
+
+
+@router.get("/security/checkup")
+async def security_checkup(user=Depends(require_vault), db: AsyncSession = Depends(get_db)):
+    """What's safe about this setup and what isn't."""
+    _need_owner(user)
+    import secops
+    return await secops.checkup(db)
 
 
 # ───────────────────────────────────────── email + paid plans ──

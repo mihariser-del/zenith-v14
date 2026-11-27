@@ -118,6 +118,30 @@ def _client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _block_guard(ip: str):
+    """A place the Owner (or Zelpophai) has blocked never gets as far as a password."""
+    try:
+        import secops
+        if secops.is_blocked(ip):
+            raise HTTPException(
+                status_code=403,
+                detail="Sign-ins from this place have been blocked. If this is a mistake, contact the site owner.",
+            )
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+
+async def _autoblock(db, ip: str):
+    """Block a place that has got far too many passwords wrong. Never fatal."""
+    try:
+        import secops
+        await secops.note_failure(db, ip)
+    except Exception:
+        pass
+
+
 def _login_guard(prefix: str, username: str, ip: str):
     """Checked BEFORE the password is verified, so a locked-out guesser can't
     keep trying (the old code only complained after a wrong guess, so a right
@@ -657,6 +681,7 @@ async def register(req: RegisterRequest, request: Request, response: Response, d
 @router.post("/login")
 async def login(req: LoginRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     ip = _client_ip(request)
+    _block_guard(ip)
     _login_guard("login", req.username, ip)
     result = await db.execute(select(User).where(User.username == req.username))
     user = result.scalar_one_or_none()
@@ -667,6 +692,7 @@ async def login(req: LoginRequest, request: Request, response: Response, db: Asy
             db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
             await db.commit()
         _login_failed("login", req.username, ip)
+        await _autoblock(db, ip)
         raise HTTPException(status_code=401, detail="Invalid username or password")
 
     if getattr(user, 'is_deleted', False):
@@ -978,6 +1004,7 @@ async def guest_login(request: Request, response: Response, db: AsyncSession = D
 @router.post("/admin/login")
 async def admin_login(req: AdminRequest, request: Request, response: Response, db: AsyncSession = Depends(get_db)):
     ip = _client_ip(request)
+    _block_guard(ip)
     _login_guard("adminlogin", req.username, ip)
     result = await db.execute(select(User).where(User.username == req.username, User.is_admin == True))
     user = result.scalar_one_or_none()
@@ -988,6 +1015,7 @@ async def admin_login(req: AdminRequest, request: Request, response: Response, d
             # Record the failed admin login so it shows in Security history.
             db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=False))
             await db.commit()
+        await _autoblock(db, ip)
         raise HTTPException(status_code=401, detail="Invalid admin credentials")
     _login_ok("adminlogin", req.username, ip)
     db.add(LoginHistory(user_id=user.id, ip_address=ip, user_agent=ua, success=True))

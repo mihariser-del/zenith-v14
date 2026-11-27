@@ -616,6 +616,24 @@ class ClientSeen(Base):
     last_seen = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
 
 
+class BlockedAddress(Base):
+    """Places (IP addresses) that may not sign in.
+
+    Added by the Owner from the Vault, or by Zelpophai itself after too many
+    wrong passwords from the same place. `until` empty means it never expires.
+    """
+    __tablename__ = "blocked_addresses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    ip = Column(String(45), unique=True, index=True, nullable=False)
+    reason = Column(String(300), default="")
+    added_by = Column(String(50), default="")
+    auto = Column(Boolean, default=False)
+    tries = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    until = Column(DateTime, nullable=True)
+
+
 class PlanInterest(Base):
     """People who asked to be told when paid plans open."""
     __tablename__ = "plan_interest"

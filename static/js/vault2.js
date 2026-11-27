@@ -1080,65 +1080,221 @@
   /* ─────────────────────────────── security & emergency ─────────────────────────────── */
   function upFor(s) { const d = Math.floor(s / 86400), h = Math.floor(s / 3600) % 24, m = Math.floor(s / 60) % 60; return d ? `${d}d ${h}h` : h ? `${h}h ${m}m` : `${m}m`; }
   function meter(label, pct, note) { const c = pct > 85 ? 'var(--bad)' : pct > 65 ? 'var(--warn)' : 'var(--good)'; return `<div class="bar-row"><span>${label}</span><div class="track"><div class="fill" style="width:${Math.min(100, pct)}%;background:${c}"></div></div><span class="num">${Math.round(pct)}%</span></div>${note ? `<div class="muted small" style="margin:-2px 0 8px">${note}</div>` : ''}`; }
+  /* ─────────────────────────────── security ───────────────────────────────
+     Four tabs: Check-up (what's safe and what isn't), Sign-ins (who got in and
+     who didn't, in plain words), Who's online (and sign them out), Emergency
+     (the dangerous buttons, kept apart and behind a typed confirmation). */
+  let secTab = 'checkup';
+  const SEC_ICON = { phone: '📱', tablet: '📟', computer: '💻' };
+  const secDot = (st) => `<span class="sc-dot ${st}" aria-hidden="true"></span>`;
+  const secWord = { good: 'All good', warn: 'Worth doing', bad: 'Needs fixing' };
+
+  function secLine(l) {
+    const where = [l.place, l.ip].filter(Boolean).join(' · ');
+    return `<div class="li sc-li"><span class="ev-ic" title="${esc(l.kind || '')}">${l.ok ? (SEC_ICON[l.kind] || '🔑') : '⚠️'}</span>
+      <div class="grow small"><div><a href="#/users/${l.user_id}">@${esc(l.username)}</a> ${l.ok ? 'signed in' : '<b style="color:var(--bad)">got the password wrong</b>'}</div>
+      <div class="muted">${esc(l.device || 'Unknown device')}${where ? ' · ' + esc(where) : ''}${l.blocked ? ' <span class="tag bad">blocked</span>' : ''}</div></div>
+      ${l.ip && !l.blocked && !l.local ? `<button class="btn sm" data-block="${esc(l.ip)}" title="Stop this place signing in">Block</button>` : ''}
+      <span class="t">${fmt.ago(l.t)}</span></div>`;
+  }
+
   async function pageSecurity() {
-    const d = await api('/api/vault/security');
-    const sv = d.server;
-    $('view').innerHTML = `<div class="grid g4">
-        ${kpi('Sign-ins (24h)', fmt.n(d.logins_24h), undefined, '#34d399', null, { note: fmt.n(d.unique_ips_24h) + ' different places' })}
-        ${kpi('Failed sign-ins (24h)', fmt.n(d.failed_24h), undefined, d.failed_24h > 20 ? '#f87171' : '#fbbf24', null, { note: d.failed_24h > 20 ? 'higher than usual — check below' : 'wrong passwords' })}
-        ${kpi('Accounts', d.locked === 'on' ? 'Locked' : 'Open', undefined, d.locked === 'on' ? '#f87171' : '#34d399', null, { note: d.locked === 'on' ? 'everyone except you and helpers is locked out' : 'people can sign in normally' })}
-        ${kpi('Server', sv ? upFor(sv.uptime_s) : '—', undefined, '#6d7cff', null, { note: sv ? 'running since the last deploy' : 'stats unavailable' })}
-      </div>
-      <div class="grid g21 mt">
-        ${card('Sign-ins', '<div class="chart"><canvas id="ch-sec"></canvas></div>', '', 'last 7 days')}
-        ${card('Server health', sv ? meter('CPU', sv.cpu) + meter('Memory', sv.ram, `${sv.ram_used_gb} of ${sv.ram_total_gb} GB · Zelpophai uses ${sv.app_ram_mb} MB`) + meter('Disk', sv.disk, `${sv.disk_free_gb} GB free`) : empty('No server stats'))}
-      </div>
-      <div class="card fade mt emergency"><div class="card-h"><h3>Emergency controls</h3><span class="sub">for when something goes badly wrong</span></div>
-        <div class="em-grid">
-          <div class="em"><b>${d.locked === 'on' ? 'Unlock every account' : 'Lock every account'}</b><span class="muted small">${d.locked === 'on' ? 'Let everyone sign in again.' : 'Instantly locks everyone out except you and your chosen helpers.'}</span><button class="btn ${d.locked === 'on' ? 'pri' : 'danger solid'}" id="em-lock">${d.locked === 'on' ? 'Unlock all' : 'Lock all'}</button></div>
-          <div class="em"><b>Maintenance mode</b><span class="muted small">${d.maintenance === 'on' ? 'On — only staff can use Zelpophai.' : 'Show a maintenance screen to everyone but staff.'}</span><button class="btn ${d.maintenance === 'on' ? 'pri' : 'danger'}" id="em-maint">${d.maintenance === 'on' ? 'Turn off' : 'Turn on'}</button></div>
-          <div class="em"><b>Emergency backup</b><span class="muted small">Download a copy of the whole database right now.</span><button class="btn" id="em-backup">Download backup</button></div>
-          <div class="em"><b>My password leaked</b><span class="muted small">Gives you a new random password and signs out every other session.</span><button class="btn danger" id="em-pw">New password</button></div>
-          <div class="em"><b>Sign everyone out</b><span class="muted small">Ends every session, including yours.</span><button class="btn danger" id="em-out">Sign out all</button></div>
-        </div></div>
-      <div class="grid g21 mt">
-        ${card('Recent sign-ins', `<div class="list">${d.recent.map((l) => `<div class="li"><span class="ev-ic">${l.ok ? '🔑' : '⚠️'}</span><div class="grow small"><div><a href="#/users/${l.user_id}">@${esc(l.username)}</a> ${l.ok ? 'signed in' : '<b style="color:var(--bad)">wrong password</b>'}${l.ip ? ` · <span class="muted">${esc(l.ip)}</span>` : ''}</div><div class="muted" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.ua)}</div></div><span class="t">${fmt.ago(l.t)}</span></div>`).join('') || empty('No sign-ins yet')}</div>`)}
-        ${card('Most failed (24h)', `<div class="muted small" style="margin-bottom:6px">Accounts</div>${d.top_failed_users.map((x) => `<div class="li"><div class="grow small">@${esc(x.username)}</div><b>${x.count}</b></div>`).join('') || '<div class="muted small">None — all good.</div>'}
-          <div class="muted small" style="margin:14px 0 6px">Places (IP)</div>${d.top_failed_ips.map((x) => `<div class="li"><div class="grow small"><code>${esc(x.ip)}</code></div><b>${x.count}</b></div>`).join('') || '<div class="muted small">None.</div>'}`)}
-      </div>`;
-    barChart('ch-sec', d.labels, 'day', [{ label: 'Signed in', data: d.ok_series, color: '#34d399' }, { label: 'Wrong password', data: d.failed_series, color: '#f87171' }], { stacked: true, legend: true });
-    $('em-lock').onclick = async () => {
-      const lockIt = d.locked !== 'on';
-      if (lockIt && !(await confirmBox('Lock every account?', 'Everyone except you and your chosen helpers is signed out and can\'t sign in until you unlock.', 'Lock all', true))) return;
-      try { const r = await api('/api/admin/system/' + (lockIt ? 'lock-all' : 'unlock-all'), { method: 'POST' }); toast(lockIt ? `Locked ${r.locked} accounts` : `Unlocked ${r.unlocked} accounts`); route(); } catch (e) { toast(e.message, true); }
-    };
-    $('em-maint').onclick = async () => {
-      const on = d.maintenance !== 'on';
-      if (on && !(await confirmBox('Turn on maintenance?', 'Everyone except staff sees the maintenance screen.', 'Turn on', true))) return;
-      try { await api('/api/admin/system/maintenance', { method: 'POST', body: { value: on ? 'on' : 'off' } }); toast(on ? 'Maintenance on' : 'Maintenance off'); route(); } catch (e) { toast(e.message, true); }
-    };
-    $('em-backup').onclick = async () => {
-      $('em-backup').disabled = true;
-      try {
-        const r = await api('/api/admin/system/backup', { method: 'POST' });
-        const blob = await r.blob();
-        const name = (r.headers.get('Content-Disposition') || '').match(/filename="?([^"]+)"?/)?.[1] || `zelpophai-emergency-${Date.now()}.db`;
-        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
-        toast('Backup downloaded');
-      } catch (e) { toast(e.message, true); }
-      $('em-backup').disabled = false;
-    };
-    $('em-pw').onclick = async () => {
-      if (!(await confirmBox('Get a new owner password?', 'Your password changes to a new random one and every other session is signed out. Make sure nobody can see your screen — the new password is shown once.', 'Change it', true))) return;
-      try {
-        const r = await api('/api/auth/emergency-password', { method: 'POST' });
-        modal(`<h3>Your new password</h3><p>Save it somewhere safe — it's shown only this once.</p><div class="secret"><code id="np">${esc(r.new_password)}</code></div>
-          <div class="modal-actions"><button class="btn" id="np-copy">Copy</button><button class="btn pri" data-close>I saved it</button></div>`, () => {
-          $('np-copy').onclick = () => navigator.clipboard.writeText(r.new_password).then(() => toast('Copied')).catch(() => toast('Copy failed', true));
+    const TABS = [['checkup', 'Check-up', 'What\'s safe and what needs attention.'],
+      ['signins', 'Sign-ins', 'Who got in, who didn\'t, and from where.'],
+      ['online', 'Who\'s online', 'People using Zelpophai right now.'],
+      ['blocks', 'Blocked places', 'Addresses that can\'t sign in.'],
+      ['danger', 'Emergency', 'The buttons for when something goes badly wrong.']];
+    if (!TABS.some((t) => t[0] === secTab)) secTab = 'checkup';
+    $('view').innerHTML = `<div class="vs fade"><nav class="vs-nav" id="sc-nav">${TABS.map(([k, l, d]) =>
+      `<button type="button" data-t="${k}" class="${k === secTab ? 'on' : ''}"><b>${l}</b><span>${d}</span></button>`).join('')}</nav><div class="vs-pane" id="sc-pane"></div></div>`;
+    $('sc-nav').onclick = (e) => { const b = e.target.closest('[data-t]'); if (!b) return; secTab = b.dataset.t; $('sc-nav').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b)); draw(); };
+    const pane = $('sc-pane');
+    const row = (title, about, control) => `<div class="ctrl"><div class="grow"><b>${title}</b>${about ? `<span class="muted small">${about}</span>` : ''}</div>${control || ''}</div>`;
+
+    // Blocking a place is offered from several tabs, so it lives here.
+    async function blockIp(ip, suggested) {
+      const ok = await confirmBox('Block this place?', `Nobody will be able to sign in from ${ip}. You can undo this any time on the Blocked places tab.`, 'Block it', true);
+      if (!ok) return;
+      try { await api('/api/vault/security/blocks', { method: 'POST', body: { ip, reason: suggested || 'Blocked by hand', hours: null } }); toast('Blocked ' + ip); draw(); } catch (e) { toast(e.message, true); }
+    }
+    function wireBlocks(el) { el.querySelectorAll('[data-block]').forEach((b) => b.onclick = () => blockIp(b.dataset.block, 'Blocked from the sign-ins list')); }
+
+    const TAB = {
+      /* ── what's safe and what isn't ── */
+      async checkup() {
+        pane.innerHTML = '<div class="card skeleton" style="height:320px"></div>';
+        let c; try { c = await api('/api/vault/security/checkup'); } catch (e) { pane.innerHTML = card('Check-up', empty('Couldn\'t load this', e.message)); return; }
+        if (secTab !== 'checkup') return;
+        const n = c.counts, head = c.state === 'bad' ? 'Some things need fixing' : c.state === 'warn' ? 'Mostly fine, a few things worth doing' : 'Everything looks good';
+        pane.innerHTML = `<div class="sc-head ${c.state}"><div><b>${head}</b><span class="muted small">Checked just now · ${n.good} fine${n.warn ? ` · ${n.warn} worth doing` : ''}${n.bad ? ` · ${n.bad} to fix` : ''}</span></div><button class="btn sm" id="sc-again">Check again</button></div>
+          <div class="sc-list mt">${c.items.map((it) => `<div class="sc-item ${it.state}">${secDot(it.state)}
+            <div class="grow"><b>${esc(it.title)}</b><span class="muted small">${esc(it.detail)}</span></div>
+            <span class="tag ${it.state === 'good' ? 'good' : it.state === 'bad' ? 'bad' : 'warn'}">${secWord[it.state]}</span>
+            ${it.fix ? (it.href ? `<a class="btn sm${it.state === 'bad' ? ' pri' : ''}" href="${esc(it.href)}"${it.href.startsWith('/') ? ' target="_blank" rel="noopener"' : ''}>${esc(it.fix)}</a>`
+              : `<button class="btn sm${it.state === 'bad' ? ' pri' : ''}" data-fix="${esc(it.key)}">${esc(it.fix)}</button>`) : ''}</div>`).join('')}</div>`;
+        $('sc-again').onclick = () => draw();
+        pane.querySelectorAll('[data-fix]').forEach((b) => b.onclick = async () => {
+          if (b.dataset.fix !== 'autoblock') return;
+          try { await api('/api/vault/security/autoblock', { method: 'POST', body: { on: true } }); toast('Automatic blocking is on'); draw(); } catch (e) { toast(e.message, true); }
         });
-      } catch (e) { toast(e.message, true); }
+      },
+
+      /* ── who got in, who didn't ── */
+      async signins() {
+        pane.innerHTML = '<div class="card skeleton" style="height:360px"></div>';
+        let d; try { d = await api('/api/vault/security'); } catch (e) { pane.innerHTML = card('Sign-ins', empty('Couldn\'t load this', e.message)); return; }
+        if (secTab !== 'signins') return;
+        const bad = d.failed_24h, tone = bad > 50 ? 'bad' : bad > 10 ? 'warn' : 'good';
+        const fails = d.recent.filter((l) => !l.ok);
+        pane.innerHTML = `<div class="vs-status">
+            <div><span class="muted small">Signed in (24h)</span><b>${fmt.n(d.logins_24h)}</b><span class="tag good">${fmt.n(d.unique_ips_24h)} place${d.unique_ips_24h === 1 ? '' : 's'}</span></div>
+            <div><span class="muted small">Wrong passwords (24h)</span><b>${fmt.n(bad)}</b><span class="tag ${tone}">${tone === 'good' ? 'Normal' : tone === 'warn' ? 'Higher' : 'High'}</span></div>
+            <div><span class="muted small">Blocked places</span><b>${fmt.n(d.blocked_count)}</b><span class="tag">${d.blocked_count ? 'in force' : 'none'}</span></div></div>
+          <div class="mt">${card('Last 7 days', '<div class="chart"><canvas id="ch-sec"></canvas></div>')}</div>
+          ${fails.length ? `<div class="mt">${card('Wrong passwords', `<p class="muted small" style="margin-top:-6px">Someone typed a password that didn't match. A handful is normal — people forget. Lots from one place is worth blocking.</p><div class="list">${fails.slice(0, 25).map(secLine).join('')}</div>`)}</div>` : ''}
+          <div class="mt">${card('Everyone who signed in', `<div class="list" id="sc-all">${d.recent.slice(0, 40).map(secLine).join('') || empty('No sign-ins yet')}</div>
+            ${d.recent.length > 40 ? `<div style="text-align:center;margin-top:12px"><button class="btn sm" id="sc-more">Show the rest (${d.recent.length - 40})</button></div>` : ''}`)}</div>
+          ${d.top_failed_ips.length ? `<div class="grid g2 mt">
+            ${card('Places with the most wrong passwords', `<div class="list">${d.top_failed_ips.map((x) => `<div class="li"><div class="grow small"><code>${esc(x.ip)}</code>${x.place ? ` <span class="muted">${esc(x.place)}</span>` : ''}</div><b>${x.count}</b>${x.blocked ? '<span class="tag bad">blocked</span>' : x.local ? '<span class="muted small">your own network</span>' : `<button class="btn sm danger" data-block="${esc(x.ip)}">Block</button>`}</div>`).join('')}</div>`)}
+            ${card('Accounts with the most wrong passwords', d.top_failed_users.length ? `<div class="list">${d.top_failed_users.map((x) => `<div class="li"><div class="grow small">@${esc(x.username)}</div><b>${x.count}</b></div>`).join('')}</div>` : '<p class="muted small">None — nobody is struggling to get in.</p>')}
+          </div>` : ''}`;
+        barChart('ch-sec', d.labels, 'day', [{ label: 'Signed in', data: d.ok_series, color: '#34d399' }, { label: 'Wrong password', data: d.failed_series, color: '#f87171' }], { stacked: true, legend: true });
+        if ($('sc-more')) $('sc-more').onclick = () => { $('sc-all').innerHTML = d.recent.map(secLine).join(''); $('sc-more').remove(); wireBlocks(pane); };
+        wireBlocks(pane);
+      },
+
+      /* ── who is using it right now ── */
+      async online() {
+        pane.innerHTML = '<div class="card skeleton" style="height:260px"></div>';
+        let d; try { d = await api('/api/vault/security/online'); } catch (e) { pane.innerHTML = card('Who\'s online', empty('Couldn\'t load this', e.message)); return; }
+        if (secTab !== 'online') return;
+        pane.innerHTML = card(`Using Zelpophai right now <span class="tag">${d.online.length}</span>`,
+          `<p class="muted small" style="margin-top:-6px">Anyone active in the last ${d.minutes} minutes. “Sign out” ends their session on every device they're using — they'll need to log in again. It doesn't ban them.</p>
+           ${d.online.length ? `<div class="list">${d.online.map((u) => `<div class="li sc-li"><span class="ev-ic">${SEC_ICON[u.kind] || '💻'}</span>
+              <div class="grow small"><div><a href="#/users/${u.id}">@${esc(u.username)}</a> ${u.role === 'owner' ? '<span class="tag">Owner</span>' : u.role === 'admin' ? '<span class="tag pro">Admin</span>' : `<span class="tag ${u.plan === 'ultimate' ? 'ultimate' : u.plan === 'pro' ? 'pro' : ''}">${u.plan === 'ultimate' ? 'Ultimate' : u.plan === 'pro' ? 'Pro' : 'Free'}</span>`}</div>
+              <div class="muted">${esc(u.device)}${u.place ? ' · ' + esc(u.place) : ''}${u.ip ? ' · ' + esc(u.ip) : ''}</div></div>
+              ${u.role === 'owner' ? '' : `<button class="btn sm" data-out="${u.id}" data-name="${esc(u.username)}">Sign out</button>`}
+              <span class="t">${fmt.ago(u.last_seen)}</span></div>`).join('')}</div>`
+            : empty('Nobody is online', 'When someone is using Zelpophai they appear here.')}
+           <div style="margin-top:12px"><button class="btn sm" id="sc-refresh">Refresh</button></div>`);
+        $('sc-refresh').onclick = () => draw();
+        pane.querySelectorAll('[data-out]').forEach((b) => b.onclick = async () => {
+          if (!(await confirmBox(`Sign @${b.dataset.name} out?`, 'Their session ends on every device and they\'ll have to log in again. Nothing else about their account changes.', 'Sign them out'))) return;
+          try { await api('/api/vault/security/signout/' + b.dataset.out, { method: 'POST' }); toast(`@${b.dataset.name} signed out`); draw(); } catch (e) { toast(e.message, true); }
+        });
+      },
+
+      /* ── the block list ── */
+      async blocks() {
+        pane.innerHTML = '<div class="card skeleton" style="height:260px"></div>';
+        let d; try { d = await api('/api/vault/security/blocks'); } catch (e) { pane.innerHTML = card('Blocked places', empty('Couldn\'t load this', e.message)); return; }
+        if (secTab !== 'blocks') return;
+        const cfg = d.settings, live = d.blocks.filter((b) => !b.expired);
+        pane.innerHTML = card('Block a place by hand', `<p class="muted small" style="margin-top:-6px">Every device on the internet has an address. Blocking one stops anyone signing in from it. You'll find the addresses worth blocking on the Sign-ins tab.</p>
+            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap"><input class="input grow" id="bk-ip" placeholder="102.89.1.4" autocomplete="off" spellcheck="false" aria-label="Address to block" style="min-width:170px">
+              <input class="input grow" id="bk-why" placeholder="Why? (optional)" aria-label="Reason" style="min-width:170px">
+              <select class="select" id="bk-for" style="width:auto"><option value="">For good</option><option value="1">1 hour</option><option value="24">A day</option><option value="168">A week</option></select>
+              <button class="btn pri" id="bk-go">Block</button></div>
+            <p class="muted small" id="bk-msg" role="alert" style="margin-top:10px"></p>`)
+          + `<div class="mt">${card(`Blocked right now <span class="tag">${live.length}</span>`, live.length ? `<div class="list">${live.map((b) => `<div class="li sc-li">
+              <div class="grow small"><div><code>${esc(b.ip)}</code>${b.place ? ` <span class="muted">${esc(b.place)}</span>` : ''} ${b.auto ? '<span class="tag warn">blocked automatically</span>' : ''}</div>
+              <div class="muted">${esc(b.reason || 'No reason given')} · ${b.until ? 'until ' + new Date(b.until).toLocaleString() : 'for good'}${b.by ? ' · by ' + esc(b.by) : ''}</div></div>
+              <button class="btn sm" data-un="${esc(b.ip)}">Unblock</button><span class="t">${fmt.ago(b.at)}</span></div>`).join('')}</div>`
+            : empty('Nothing is blocked', 'Nobody has been shut out. That\'s the normal state of things.'))}</div>`
+          + `<div class="mt">${card('Block troublemakers automatically', row('Switch it on', cfg.on ? 'A place that gets too many passwords wrong is blocked by itself.' : 'Nobody is stopped, however many times they guess wrong.', `<button class="switch${cfg.on ? ' on' : ''}" id="bk-auto" role="switch" aria-checked="${cfg.on}" aria-label="Block automatically"></button>`)
+            + row('How many wrong passwords', 'From the same place, in one day, before it\'s blocked.', `<input class="input" type="number" min="3" max="1000" id="bk-tries" value="${cfg.tries}" style="width:100px" aria-label="Wrong passwords allowed">`)
+            + row('How long the block lasts', 'In hours. After that they can try again.', `<input class="input" type="number" min="1" max="8760" id="bk-hours" value="${cfg.hours}" style="width:100px" aria-label="Hours blocked">`)
+            + `<div class="vs-foot"><span class="muted small">You're never blocked from the place you're signed in from.</span><button class="btn pri" id="bk-save">Save</button></div>`)}</div>`;
+        const msg = $('bk-msg');
+        $('bk-go').onclick = async () => {
+          const ip = $('bk-ip').value.trim(); if (!ip) { msg.textContent = 'Type an address first.'; return; }
+          $('bk-go').disabled = true; msg.textContent = '';
+          try { await api('/api/vault/security/blocks', { method: 'POST', body: { ip, reason: $('bk-why').value.trim(), hours: +$('bk-for').value || null } }); toast('Blocked ' + ip); draw(); }
+          catch (e) { msg.textContent = e.message; $('bk-go').disabled = false; }
+        };
+        pane.querySelectorAll('[data-un]').forEach((b) => b.onclick = async () => {
+          try { await api('/api/vault/security/blocks/' + encodeURIComponent(b.dataset.un), { method: 'DELETE' }); toast('Unblocked'); draw(); } catch (e) { toast(e.message, true); }
+        });
+        $('bk-auto').onclick = async () => { try { await api('/api/vault/security/autoblock', { method: 'POST', body: { on: !cfg.on } }); toast(cfg.on ? 'Automatic blocking off' : 'Automatic blocking on'); draw(); } catch (e) { toast(e.message, true); } };
+        $('bk-save').onclick = async () => {
+          try { await api('/api/vault/security/autoblock', { method: 'POST', body: { tries: +$('bk-tries').value, hours: +$('bk-hours').value } }); toast('Saved'); draw(); } catch (e) { toast(e.message, true); }
+        };
+      },
+
+      /* ── the dangerous buttons, kept apart ── */
+      async danger() {
+        pane.innerHTML = '<div class="card skeleton" style="height:300px"></div>';
+        let d; try { d = await api('/api/vault/security'); } catch (e) { pane.innerHTML = card('Emergency', empty('Couldn\'t load this', e.message)); return; }
+        if (secTab !== 'danger') return;
+        const sv = d.server;
+        pane.innerHTML = `<div class="vs-status">
+            <div><span class="muted small">Accounts</span><b>${d.locked === 'on' ? 'Locked' : 'Open'}</b><span class="tag ${d.locked === 'on' ? 'bad' : 'good'}">${d.locked === 'on' ? 'Shut' : 'Normal'}</span></div>
+            <div><span class="muted small">Maintenance screen</span><b>${d.maintenance === 'on' ? 'Showing' : 'Off'}</b><span class="tag ${d.maintenance === 'on' ? 'warn' : 'good'}">${d.maintenance === 'on' ? 'On' : 'Off'}</span></div>
+            <div><span class="muted small">Server</span><b>${sv ? upFor(sv.uptime_s) : '—'}</b><span class="tag">since the last update</span></div></div>
+          ${sv ? `<div class="mt">${card('How hard the server is working', meter('Thinking power (CPU)', sv.cpu) + meter('Memory', sv.ram, `${sv.ram_used_gb} of ${sv.ram_total_gb} GB · Zelpophai uses ${sv.app_ram_mb} MB`) + meter('Storage', sv.disk, `${sv.disk_free_gb} GB free`))}</div>` : ''}
+          <div class="mt">${card('Everyday fixes', row('Download a backup now', 'A copy of everything, saved to your computer. Safe to do any time.', '<button class="btn" id="em-backup">Download</button>')
+            + row('Maintenance screen', d.maintenance === 'on' ? 'On — everyone but staff sees a “we\'ll be back” screen. They can\'t use Zelpophai.' : 'Shows everyone but staff a “we\'ll be back” screen. Useful while you fix something.', `<button class="btn ${d.maintenance === 'on' ? 'pri' : ''}" id="em-maint">${d.maintenance === 'on' ? 'Turn off' : 'Turn on'}</button>`))}</div>
+          <div class="mt sc-danger"><div class="sc-danger-h"><b>⚠️ Danger zone</b><span>These shut people out or change your own password. Each one asks you to type a word first.</span></div>
+            ${row(d.locked === 'on' ? 'Unlock every account' : 'Lock every account', d.locked === 'on' ? 'Everyone is locked out right now. This lets them back in.' : 'Instantly signs out and shuts out everyone except you and your chosen helpers.', `<button class="btn ${d.locked === 'on' ? 'pri' : 'danger solid'}" id="em-lock">${d.locked === 'on' ? 'Unlock everyone' : 'Lock everyone out'}</button>`)}
+            ${row('Sign everyone out', 'Ends every session on the site, including your own. People just log in again — nothing is lost.', '<button class="btn danger" id="em-out">Sign everyone out</button>')}
+            ${row('My password has leaked', 'Replaces your password with a new random one, shown once, and signs out every other session.', '<button class="btn danger" id="em-pw">New password</button>')}
+          </div>`;
+
+        // The three worst buttons make you type a word, so a stray click can't do them.
+        const typed = (title, body, word, label) => new Promise((done) => {
+          modal(`<h3>${esc(title)}</h3><p>${esc(body)}</p><p class="muted small">Type <b>${esc(word)}</b> below to confirm.</p>
+            <input class="input" id="tc-in" autocomplete="off" spellcheck="false" placeholder="${esc(word)}" aria-label="Type ${esc(word)}">
+            <div class="modal-actions"><button class="btn" data-close>Cancel</button><button class="btn danger solid" id="tc-go" disabled>${esc(label)}</button></div>`,
+            (close) => {
+              const inp = $('tc-in'), go = $('tc-go');
+              setTimeout(() => inp.focus(), 40);
+              inp.oninput = () => { go.disabled = inp.value.trim().toUpperCase() !== word; };
+              inp.onkeydown = (e) => { if (e.key === 'Enter' && !go.disabled) go.click(); };
+              go.onclick = () => { close(); done(true); };
+              $('modal').addEventListener('click', (e) => { if (e.target === $('modal') || e.target.closest('[data-close]')) done(false); }, { once: true });
+            });
+        });
+
+        $('em-backup').onclick = async () => {
+          $('em-backup').disabled = true;
+          try {
+            const r = await api('/api/admin/system/backup', { method: 'POST' });
+            const blob = await r.blob();
+            const name = (r.headers.get('Content-Disposition') || '').match(/filename="?([^"]+)"?/)?.[1] || `zelpophai-emergency-${Date.now()}.db`;
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+            toast('Backup downloaded');
+          } catch (e) { toast(e.message, true); }
+          $('em-backup').disabled = false;
+        };
+        $('em-maint').onclick = async () => {
+          const on = d.maintenance !== 'on';
+          if (on && !(await confirmBox('Turn on the maintenance screen?', 'Everyone except staff sees a “we\'ll be back” screen and can\'t use Zelpophai. You can still sign in.', 'Turn it on', true))) return;
+          try { await api('/api/admin/system/maintenance', { method: 'POST', body: { value: on ? 'on' : 'off' } }); toast(on ? 'Maintenance screen on' : 'Maintenance screen off'); draw(); } catch (e) { toast(e.message, true); }
+        };
+        $('em-lock').onclick = async () => {
+          const lockIt = d.locked !== 'on';
+          if (lockIt) { if (!(await typed('Lock every account?', 'Everyone except you and your chosen helpers is signed out at once and can\'t get back in until you unlock. Use this only if something is badly wrong.', 'LOCK', 'Lock everyone out'))) return; }
+          else if (!(await confirmBox('Let everyone back in?', 'Accounts can sign in normally again.', 'Unlock everyone'))) return;
+          try { const r = await api('/api/admin/system/' + (lockIt ? 'lock-all' : 'unlock-all'), { method: 'POST' }); toast(lockIt ? `Locked ${r.locked} accounts` : `Unlocked ${r.unlocked} accounts`); draw(); } catch (e) { toast(e.message, true); }
+        };
+        $('em-out').onclick = async () => {
+          if (!(await typed('Sign everyone out?', 'Every session on the site ends, including yours — you\'ll have to log in again. Nobody loses anything.', 'SIGN OUT', 'Sign everyone out'))) return;
+          try { await api('/api/admin/system/force-logout', { method: 'POST' }); toast('Everyone signed out'); } catch (e) { toast(e.message, true); }
+        };
+        $('em-pw').onclick = async () => {
+          if (!(await typed('Get a new password?', 'Your password changes to a new random one and every other session is signed out. It is shown once and never again, so make sure nobody can see your screen.', 'NEW', 'Change my password'))) return;
+          try {
+            const r = await api('/api/auth/emergency-password', { method: 'POST' });
+            modal(`<h3>Your new password</h3><p>Save it somewhere safe — it's shown only this once.</p><div class="secret"><code id="np">${esc(r.new_password)}</code></div>
+              <div class="modal-actions"><button class="btn" id="np-copy">Copy</button><button class="btn pri" data-close>I saved it</button></div>`, () => {
+              $('np-copy').onclick = () => navigator.clipboard.writeText(r.new_password).then(() => toast('Copied')).catch(() => toast('Copy failed', true));
+            });
+          } catch (e) { toast(e.message, true); }
+        };
+      },
     };
-    $('em-out').onclick = async () => { if (!(await confirmBox('Sign everyone out?', 'All sessions end, including yours.', 'Sign out all', true))) return; try { await api('/api/admin/system/force-logout', { method: 'POST' }); toast('Everyone signed out'); } catch (e) { toast(e.message, true); } };
+    async function draw() { try { await TAB[secTab](); } catch (e) { pane.innerHTML = card('Something went wrong', empty('Couldn\'t load this', e.message)); } }
+    await draw();
   }
 
   /* ─────────────────────────────── staff & permissions ─────────────────────────────── */

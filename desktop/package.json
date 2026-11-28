@@ -1,7 +1,7 @@
 {
   "name": "zelpophai-desktop",
   "productName": "Zelpophai AI",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "description": "Zelpophai AI for Windows",
   "author": "Wanzu Ibrahim",
   "homepage": "https://zelpophai.com",
@@ -77,6 +77,9 @@
         "url": "https://zelpophai.com/downloads/win",
         "channel": "latest"
       }
+    ],
+    "extraResources": [
+      { "from": "build/app-update.yml", "to": "app-update.yml" }
     ],
     "asarUnpack": [
       "node_modules/@nut-tree-fork/**"

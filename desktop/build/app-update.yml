@@ -1,0 +1,4 @@
+provider: generic
+url: https://zelpophai.com/downloads/win
+channel: latest
+updaterCacheDirName: zelpophai-desktop-updater

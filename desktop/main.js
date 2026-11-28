@@ -168,12 +168,24 @@ function buildTray() {
 /* ─────────────────────────── updates ── */
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = true;
+// 1.6.1: say where updates live here, instead of relying on resources/app-update.yml
+// (which our build didn't include, so updates failed with "ENOENT … app-update.yml").
+autoUpdater.setFeedURL({ provider: 'generic', url: 'https://zelpophai.com/downloads/win', channel: 'latest' });
+const SETUP_URL = 'https://zelpophai.com/downloads/win/Zelpophai-Setup.exe';
+async function updateFailed(e) {
+    const r = await dialog.showMessageBox(win, {
+        type: 'warning', title: 'Update problem', buttons: ['Download it myself', 'OK'], defaultId: 0, cancelId: 1,
+        message: 'The update couldn\'t be installed automatically.',
+        detail: 'You can download the newest Zelpophai AI and install it over this one — your sign-in and settings are kept.\n\n(' + String(e && e.message || e).slice(0, 300) + ')',
+    });
+    if (r.response === 0) shell.openExternal(SETUP_URL);
+}
 let manualCheck = false;
 
 function checkUpdates(manual) {
     manualCheck = !!manual;
     autoUpdater.checkForUpdates().catch((e) => {
-        if (manualCheck) dialog.showMessageBox(win, { type: 'warning', title: 'Update check failed', message: 'Couldn\'t check for updates right now.', detail: String(e && e.message || e) });
+        if (manualCheck) updateFailed(e);
     });
 }
 function installNow() { quitting = true; autoUpdater.quitAndInstall(false, true); }
@@ -204,7 +216,7 @@ autoUpdater.on('update-downloaded', async (info) => {
     if (r.response === 0) installNow();
 });
 autoUpdater.on('error', (e) => {
-    if (manualCheck) dialog.showMessageBox(win, { type: 'warning', title: 'Update problem', message: 'The update couldn\'t be downloaded.', detail: String(e && e.message || e) });
+    if (manualCheck) updateFailed(e);
     manualCheck = false;
 });
 

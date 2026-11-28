@@ -26,6 +26,7 @@ const VA = {
 
         $('va-avatar').textContent = ((me.username || 'Z')[0] || 'Z').toUpperCase();
         $('va-name').textContent = me.username;
+        if (window.VAFX) VAFX.greet(me.username);
         const roleEl = $('va-role');
         roleEl.textContent = isOwner ? 'OWNER' : 'ADMIN';
         roleEl.classList.remove('role-owner', 'role-admin');
@@ -70,6 +71,7 @@ const VA = {
         if (!wrap) return;
         wrap.innerHTML = '<div class="vault-pin-dot"></div>'.repeat(4);
         this._pin.forEach((_, i) => { if (wrap.children[i]) wrap.children[i].classList.add('filled'); });
+        if (this._pin.length < 4 && wrap.children[this._pin.length]) wrap.children[this._pin.length].classList.add('next');
     },
 
     _onKey(e) {
@@ -84,6 +86,7 @@ const VA = {
         $('va-err').textContent = '';
         this._pin.push(k);
         this._render();
+        if (window.VAFX) VAFX.burst();
         if (this._pin.length === 4) setTimeout(() => this._submit(), 130);
     },
 
@@ -102,9 +105,13 @@ const VA = {
             try {
                 const r = await api('/api/auth/admin/pin-verify', { method: 'POST', body: JSON.stringify({ pin }) });
                 this._setToken(r.token);
-                window.location.href = '/vault';
+                this._unlocked();
             } catch (e) {
                 $('va-err').textContent = e.message || 'Wrong PIN — try again';
+                const d = $('va-dots'); if (d) { d.classList.remove('bad'); void d.offsetWidth; d.classList.add('bad'); }
+                if (window.VAFX) VAFX.burst('239,68,68');
+                await new Promise(res => setTimeout(res, 450));
+                if (d) d.classList.remove('bad');
                 this._pin = [];
                 this._render();
             } finally {
@@ -149,6 +156,15 @@ const VA = {
             $('va-err').textContent = e.message || 'Could not enable PIN';
             this._busy = false;
         }
+    },
+
+    // right PIN: the dots flash green, a burst of light, and the card fades through to the Vault
+    _unlocked() {
+        const d = $('va-dots'); if (d) d.classList.add('ok');
+        $('va-sub').textContent = 'Unlocked — opening the Vault…';
+        if (window.VAFX) VAFX.burst('34,197,94');
+        document.body.classList.add('va-unlocking');
+        setTimeout(() => { window.location.href = '/vault'; }, 750);
     },
 
     _setToken(tok) {

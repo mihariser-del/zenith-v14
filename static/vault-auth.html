@@ -11,6 +11,7 @@
     <link rel="apple-touch-icon" href="/static/icons/apple-touch-icon-v2.png">
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="stylesheet" href="/static/css/vault.css">
+    <link rel="stylesheet" href="/static/css/vault-auth-fx.css">
     <style>
         html, body { height: 100%; }
         body.va-page {
@@ -54,8 +55,22 @@
     </style>
 </head>
 <body class="va-page">
+    <div class="va-bg" aria-hidden="true">
+        <div class="va-aur a1"></div><div class="va-aur a2"></div><div class="va-aur a3"></div><div class="va-aur a4"></div>
+        <div class="va-grid"></div><div class="va-scan"></div>
+        <canvas id="va-stars"></canvas>
+    </div>
+    <div class="va-top">
+        <div><div class="va-clock" id="va-clock">--:--</div><div class="va-date" id="va-date"></div></div>
+        <div class="va-chips">
+            <span class="va-chip"><span class="va-live"></span>Secure connection</span>
+            <span class="va-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Encrypted</span>
+            <span class="va-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>15-minute session</span>
+        </div>
+    </div>
     <div class="vault-welcome-card">
-        <div class="vault-welcome-logo" id="va-avatar">Z</div>
+        <div class="va-greet" id="va-greet">&nbsp;</div>
+        <div class="va-logo-wrap"><div class="va-orbit"><i></i></div><div class="vault-welcome-logo" id="va-avatar">Z</div></div>
         <div class="vault-welcome-brand">ZELPOPHAI AI</div>
         <div id="va-title" class="vault-welcome-title">WELCOME TO THE VAULT</div>
         <div class="vault-welcome-line"></div>
@@ -83,10 +98,13 @@
         </div>
     </div>
 
+    <div class="va-foot">Zelpophai AI &middot; Owner &amp; admin area &middot; locks itself again after 15 minutes</div>
+
     <input id="va-capture" type="text" inputmode="numeric" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-hidden="true">
 
     <script src="/static/js/zpop.js"></script>
     <script src="/static/js/api.js"></script>
+    <script src="/static/js/vault-fx.js"></script>
     <script src="/static/js/vault-auth.js"></script>
 </body>
 </html>

@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.8 — Snow fixes, living Vault sign-in
+
+- Bottom snow melts and can be knocked away; drift ends taper before rounded corners.
+- Vault PIN screen: animated background, glass card, clock, greeting, PIN dot states.
+
 ## 26.6.7 — Realistic snow
 
 - Falling snow mixes soft specks with real ice-crystal sprites (rotate, tumble, glint); lying snow uses a real snow texture, blue shading and twinkling glints.

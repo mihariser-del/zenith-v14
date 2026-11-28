@@ -181,7 +181,7 @@
         document.body.appendChild(cv);
         var ctx = cv.getContext('2d');
         var dpr = Math.min(2, window.devicePixelRatio || 1);
-        var W = 0, H = 0, COL = 4;
+        var W = 0, H = 0, COL = 4, GMAX = 9;
         var sprites = [];
         for (var i = 0; i < 12; i++) sprites.push(sprite(0.8 + i * 0.42, i > 8 ? (i - 8) * 0.9 : 0));
         var flakes = [], ground = [], surfaces = [], chunks = [], mouse = { x: -999, y: -999, t: 0, vx: 0, vy: 0 };
@@ -241,11 +241,13 @@
                 if (!el || !el.offsetParent) return;
                 var r = el.getBoundingClientRect();
                 if (r.width < 40 || r.top < 30 || r.top > H - 10) return;
+                // 26.6.8: keep the snow off the rounded corners, so it never hangs off them
+                var rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, ins = Math.max(6, Math.min(rad * 0.75, r.width / 6));
                 var prev = SN && SN.surf && SN.surf[sel];
-                var n = Math.ceil((r.width - 12) / COL) + 1;
+                var n = Math.ceil((r.width - ins * 2) / COL) + 1;
                 var same = prev && prev.h.length === n;
                 var tgt = same ? prev.tgt : profile(n, LEDGES[sel]);
-                var s = { sel: sel, el: el, left: r.left + 6, right: r.right - 6, top: r.top, h: same ? prev.h : tgt.slice(), tgt: tgt,
+                var s = { sel: sel, el: el, ins: ins, left: r.left + ins, right: r.right - ins, top: r.top, h: same ? prev.h : tgt.slice(), tgt: tgt,
                           ice: same ? prev.ice : icicles(n), max: LEDGES[sel] };
                 surfaces.push(s);
                 SN.surf[sel] = s;
@@ -268,6 +270,20 @@
             }
             if (chunks.length > 400) chunks.splice(0, chunks.length - 400);
         }
+        // 26.6.8: the snow along the bottom of the screen can be swiped or tapped away too
+        function knockGround(x, radius, strength, vx) {
+            var c = Math.round(x / COL), R = Math.ceil(radius / COL), lost = 0;
+            for (var k = -R; k <= R; k++) {
+                var j = c + k; if (j < 0 || j >= ground.length) continue;
+                var take = ground[j] * Math.min(1, strength * (1 - Math.abs(k) / (R + 1)) * 1.3);
+                ground[j] -= take; lost += take;
+            }
+            var n = Math.min(24, Math.round(lost / 1.5));
+            for (var q = 0; q < n; q++) chunks.push({ x: x + (Math.random() - 0.5) * radius * 1.4, y: H - Math.random() * 6, vx: vx * 0.4 + (Math.random() - 0.5) * 160,
+                                                     vy: -120 - Math.random() * 220, r: 1 + Math.random() * 2.4, a: 1, gone: true });
+            if (chunks.length > 400) chunks.splice(0, chunks.length - 400);
+        }
+        function onGround(x, y) { var g = ground[Math.round(x / COL)] || 0; return g > 0.8 && y > H - g - 26; }
         function ledgeAt(x, y) {
             for (var i = 0; i < surfaces.length; i++) {
                 var S = surfaces[i];
@@ -307,7 +323,7 @@
             var px = x0, py = baseY;
             for (var k = 0; k < arr.length; k++) {
                 var h = arr[k];
-                if (ends) { var e = Math.min(k, arr.length - 1 - k); if (e < 5) h *= Math.sin(e / 5 * Math.PI / 2); }   // round off the ends
+                if (ends) { var e = Math.min(k, arr.length - 1 - k), E = Math.min(9, arr.length / 4); if (e < E) { var u = e / E; h *= u * u * (3 - 2 * u); } }   // ease the ends down to nothing
                 var nx = x0 + k * COL, ny = baseY - h;
                 ctx.quadraticCurveTo(px, py, (px + nx) / 2, (py + ny) / 2);     // soft, rounded drifts
                 px = nx; py = ny;
@@ -383,8 +399,9 @@
                 var Sf = surfaces[sI];
                 if (!Sf.el || !Sf.el.isConnected) { Sf.hidden = true; continue; }
                 var rr = Sf.el.getBoundingClientRect();
-                if (Math.abs((rr.right - rr.left - 12) - (Sf.right - Sf.left)) > 3) { surfT = 0; }
-                Sf.left = rr.left + 6; Sf.right = rr.right - 6; Sf.top = rr.top;
+                var ins2 = Sf.ins || 6;
+                if (Math.abs((rr.right - rr.left - ins2 * 2) - (Sf.right - Sf.left)) > 3) { surfT = 0; }
+                Sf.left = rr.left + ins2; Sf.right = rr.right - ins2; Sf.top = rr.top;
                 var inChat = ccr && cc.contains(Sf.el);
                 Sf.hidden = rr.width < 40 || rr.top < 50 || rr.top > H - 10 || (inChat && (rr.top < ccr.top + 4 || rr.top > ccr.bottom - 4));
             }
@@ -415,7 +432,7 @@
                 }
                 if (!landed) {
                     var gi = Math.round(f.x / COL), gh = ground[gi] || 0;
-                    if (f.y >= H - gh) { if (f.d > 0.1) land(ground, 0, f.x, 0.7 + f.r * 0.25, 12); landed = true; }
+                    if (f.y >= H - gh) { if (f.d > 0.1) land(ground, 0, f.x, 0.5 + f.r * 0.18, GMAX); landed = true; }
                 }
                 if (landed || f.x < -120 || f.x > W + 120) { flakes[i] = make(true); continue; }
                 if (f.cr) {
@@ -432,7 +449,7 @@
                 ctx.drawImage(f.sp, f.x - f.sp.width / 2, f.y - f.sp.height / 2);
             }
             ctx.globalAlpha = 1;
-            settle(ground, 12, 0.006, dt);
+            settle(ground, GMAX, 0.22, dt);    // 26.6.8: the snow along the bottom melts away steadily
             drawPile(ground, 0, H, false);
             for (var q = 0; q < surfaces.length; q++) {
                 var SS = surfaces[q];
@@ -448,7 +465,8 @@
                 var C = chunks[cI];
                 C.vy += 900 * dt; C.vx *= Math.pow(0.4, dt); C.x += C.vx * dt; C.y += C.vy * dt;
                 var gI = Math.round(C.x / COL);
-                if (C.y >= H - (ground[gI] || 0)) { land(ground, 0, C.x, C.ice ? 0.4 : 0.6 + C.r * 0.35, 12); chunks.splice(cI, 1); continue; }
+                if (C.gone ? C.y > H + 10 : C.y >= H - (ground[gI] || 0)) { if (!C.gone) land(ground, 0, C.x, C.ice ? 0.2 : 0.3 + C.r * 0.2, GMAX); chunks.splice(cI, 1); continue; }
+                if (C.gone) C.a = Math.max(0, C.a - dt * 0.9);
                 if (C.x < -20 || C.x > W + 20) { chunks.splice(cI, 1); continue; }
                 ctx.globalAlpha = C.a;
                 if (C.ice) { ctx.fillStyle = 'rgba(210,235,255,.85)'; ctx.fillRect(C.x - C.r / 2, C.y, C.r, C.ice); }
@@ -463,11 +481,13 @@
             if (nowT - mouse.t > 200) { vx = 0; vy = 0; }
             mouse.vx = vx; mouse.vy = vy; mouse.x = p.clientX; mouse.y = p.clientY; mouse.t = nowT;
             var sp = Math.sqrt(vx * vx + vy * vy);
-            if (sp > 420) { var S = ledgeAt(p.clientX, p.clientY); if (S) knock(S, p.clientX, p.clientY, 12 + Math.min(30, sp / 60), Math.min(0.9, sp / 2600), vx); }
+            if (sp > 420) { var S = ledgeAt(p.clientX, p.clientY); if (S) knock(S, p.clientX, p.clientY, 12 + Math.min(30, sp / 60), Math.min(0.9, sp / 2600), vx);
+                else if (onGround(p.clientX, p.clientY)) knockGround(p.clientX, 20 + Math.min(40, sp / 50), Math.min(1, sp / 1800), vx); }
         }
         function onDown(e) {
             var S = ledgeAt(e.clientX, e.clientY);
             if (S) knock(S, e.clientX, e.clientY, 26, 0.85, (Math.random() - 0.5) * 160);
+            else if (onGround(e.clientX, e.clientY)) knockGround(e.clientX, 40, 1, (Math.random() - 0.5) * 160);
         }
         function onResize() { size(); findSurfaces(); }
         SN = { cv: cv, surf: {}, stop: function () {

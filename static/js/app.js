@@ -497,6 +497,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const ab = $('attention-btn'); if (ab) ab.style.display = 'none';
     }
 
+    // Other scripts (Tools, Projects, Study…) close the phone menu after a tap.
+    window.closeSidebar = () => closeSidebar();
     function closeSidebar() {
         $('sidebar').classList.remove('open');
         $('sidebar-overlay').classList.remove('active');

@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## 26.4.3 — Full system check
+
+- `chat.js`: chat rows show only Pin, Share and a `⋯` button on hover; Move to project/folder, Rename and Delete/Leave moved into a `.chat-more` dropdown (opens upward near the bottom of the list). The six hover buttons covered over half the row, so clicks on a title often hit a button.
+- `chat.js`: picking a chat closes the sidebar at ≤ 900 px. Removed a second, older `exportChat()` that overrode the server export (TXT saved Markdown); the async export now defaults to the open chat and `md`.
+- `app.js`: `window.closeSidebar` exposed so Tools / Projects / Assistants / Study close the phone menu.
+- `vault2.js`: restored `pickUser()` (missing since 22.4) — Staff → Add an admin / Add helper did nothing.
+- Checks run: API sweep (1,072 calls, 348 routes, 4 roles; only expected mock 502), cross-account access tests on all new endpoints (all 404), calcengine escape tests, Playwright runs of every feature script on desktop and phone with no page errors.
+
 ## 26.4.2 — Sidebar fix
 
 - `layout.css`: `.sb-tools` is a two-column grid (full sidebar and phone drawer) and a two-icon grid in the 901–1100 px icon rail; labels ellipsise; `.chat-list` keeps at least 160 px. `.btn[hidden]` inside the tools is forced hidden — the sidebar button rule set `display` and overrode `hidden`, so the Android-only Phone assistant button showed on desktop.

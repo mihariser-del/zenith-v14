@@ -229,14 +229,33 @@ const Chat = {
                 <div class="actions">
                     <button data-action="pin" data-id="${chat.id}" title="${chat.pinned ? 'Unpin' : 'Pin chat'}">${chat.pinned ? '📌' : '📍'}</button>
                     <button data-action="share" data-id="${chat.id}" title="Share or export this chat">🔗</button>
-                    ${chat.mine === false ? '' : `<button data-action="project" data-id="${chat.id}" title="Move to a project">📁</button>`}
-                    <button data-action="folder" data-id="${chat.id}" title="Move to folder">🗂️</button>
-                    <button data-action="rename" data-id="${chat.id}" title="Rename">✏️</button>
-                    <button data-action="delete" data-id="${chat.id}" title="Delete">🗑️</button>
+                    <button data-action="more" data-id="${chat.id}" title="More options">⋯</button>
+                </div>
+                <div class="chat-more" role="menu">
+                    ${chat.mine === false ? '' : `<button data-action="project" data-id="${chat.id}">📁 Move to a project</button>`}
+                    <button data-action="folder" data-id="${chat.id}">🗂️ Move to a folder</button>
+                    <button data-action="rename" data-id="${chat.id}">✏️ Rename</button>
+                    <button data-action="delete" data-id="${chat.id}" class="danger">🗑️ ${chat.mine === false ? 'Leave chat' : 'Delete'}</button>
                 </div>`;
+                // (26.4.3) Six buttons used to appear on hover and covered half the row,
+                //  so clicking a chat's name often pressed Pin or Share instead of opening it.
+                div.querySelector('[data-action="more"]').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const was = div.classList.contains('menu-open');
+                    document.querySelectorAll('.chat-item.menu-open').forEach(x => x.classList.remove('menu-open'));
+                    if (!was) {
+                        const lr = (div.closest('.chat-list') || document.body).getBoundingClientRect();
+                        div.classList.toggle('menu-up', div.getBoundingClientRect().bottom + 180 > lr.bottom);
+                        div.classList.add('menu-open');
+                        const shut = (ev) => { if (!div.contains(ev.target) || ev.target.closest('.chat-more button')) { div.classList.remove('menu-open'); document.removeEventListener('click', shut, true); } };
+                        setTimeout(() => document.addEventListener('click', shut, true), 0);
+                    }
+                });
                 div.addEventListener('click', (e) => {
-                    if (e.target.closest('[data-action]')) return;
+                    if (e.target.closest('[data-action]') || e.target.closest('.chat-more')) return;
                     this.switchTo(chat.id);
+                    // On phones the menu covers the chat — close it once a chat is picked.
+                    if (window.innerWidth <= 900 && window.closeSidebar) window.closeSidebar();
                 });
                 div.querySelector('[data-action="pin"]').addEventListener('click', async (e) => {
                     e.stopPropagation();
@@ -537,6 +556,10 @@ const Chat = {
     },
 
     async exportChat(chat, format) {
+        // (A second, older exportChat() further down used to replace this one, so the
+        //  Text button saved Markdown made from the screen. Removed in 26.4.3.)
+        chat = chat || this.chats[this.activeId]; format = format || 'md';
+        if (!chat) return;
         try {
             const res = await fetch(`/api/chats/${chat.id}/export?format=${format}`, { credentials: 'same-origin' });
             if (!res.ok) {
@@ -2614,23 +2637,7 @@ const Chat = {
         });
     },
 
-    exportChat() {
-        if (!this.activeId) return;
-        const chat = this.chats[this.activeId];
-        const container = $('chat-container');
-        const msgs = container.querySelectorAll('.msg-wrapper');
-        let md = `# ${chat.title}\n\n`;
-        msgs.forEach(m => {
-            const role = m.classList.contains('user') ? '**You**' : '**Zelpophai AI**';
-            const text = m.querySelector('.msg-bubble').textContent;
-            md += `${role}:\n${text}\n\n`;
-        });
-        const blob = new Blob([md], { type: 'text/markdown' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = `${chat.title.replace(/[^a-z0-9]/gi, '_')}.md`;
-        a.click();
-    },
+
 
     escapeHtml(str) {
         const div = document.createElement('div');

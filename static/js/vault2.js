@@ -1395,6 +1395,23 @@
     if (p.until) bits.push('until ' + new Date(p.until).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }));
     return bits.join(' · ');
   }
+  // Search for a person and pick them (used by Staff → Add an admin / Add helper).
+  // It went missing in 22.4, which made both buttons do nothing.
+  function pickUser(title, note, onPick) {
+    modal(`<h3>${esc(title)}</h3><p>${esc(note)}</p><input class="input" id="pk-q" placeholder="Type a name or email…" autocomplete="off"><div class="list" id="pk-list" style="margin-top:8px;max-height:300px;overflow:auto"></div>
+      <div class="modal-actions"><button class="btn" data-close>Cancel</button></div>`, (close) => {
+      let t;
+      setTimeout(() => { const i = $('pk-q'); if (i) i.focus(); }, 30);
+      $('pk-q').oninput = () => { clearTimeout(t); t = setTimeout(async () => {
+        const q = $('pk-q').value.trim(); if (q.length < 2) { $('pk-list').innerHTML = ''; return; }
+        try {
+          const d = await api('/api/vault/search?q=' + encodeURIComponent(q));
+          $('pk-list').innerHTML = (d.users || []).filter((x) => !x.guest).map((x) => `<div class="li click" data-id="${x.id}">${person(x)}<span style="margin-left:auto">${planTag(x)}</span></div>`).join('') || '<div class="muted small">No one found.</div>';
+        } catch (e) { $('pk-list').innerHTML = `<div class="muted small">${esc(e.message)}</div>`; }
+      }, 220); };
+      $('pk-list').onclick = (e) => { const r = e.target.closest('[data-id]'); if (r) { close(); const b = r.querySelector('b'); onPick(+r.dataset.id, b ? b.textContent : 'them'); } };
+    });
+  }
   async function pageStaff() {
     const d = await api('/api/vault/staff');
     $('view').innerHTML = `<div class="grid g21">

@@ -26,6 +26,11 @@ public class MainActivity extends BridgeActivity {
         WebView web = getBridge().getWebView();
         web.addJavascriptInterface(new AppBridge(), "ZPApp");
         openPath(getIntent());
+        // "Hey Zelpophai" was on: Android doesn't let it restart by itself after the
+        // phone restarts, so it comes back whenever the app is opened.
+        if (ZpWake.wanted(this) && ZpWake.instance == null) {
+            try { ZpWake.setWanted(this, true); } catch (Exception ignored) { }
+        }
         web.setDownloadListener((url, userAgent, contentDisposition, mimeType, contentLength) -> {
             try {
                 String name = URLUtil.guessFileName(url, contentDisposition, mimeType);
@@ -91,6 +96,29 @@ public class MainActivity extends BridgeActivity {
                 try { startActivity(new Intent(Settings.ACTION_VOICE_INPUT_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
                 catch (Exception e2) { startActivity(new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
             }
+        }
+        @JavascriptInterface
+        public String wakeStatus() { return ZpWake.statusJson(MainActivity.this); }
+        @JavascriptInterface
+        public String wake(final boolean on) {
+            if (!on) { ZpWake.setWanted(MainActivity.this, false); return "off"; }
+            java.util.List<String> need = new java.util.ArrayList<>();
+            if (android.os.Build.VERSION.SDK_INT >= 23 && checkSelfPermission(android.Manifest.permission.RECORD_AUDIO) != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                need.add(android.Manifest.permission.RECORD_AUDIO);
+            if (android.os.Build.VERSION.SDK_INT >= 33 && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != android.content.pm.PackageManager.PERMISSION_GRANTED)
+                need.add("android.permission.POST_NOTIFICATIONS");
+            if (!need.isEmpty()) {
+                runOnUiThread(() -> requestPermissions(need.toArray(new String[0]), 51));
+                return "permission";
+            }
+            if (android.os.Build.VERSION.SDK_INT >= 23 && !android.provider.Settings.canDrawOverlays(MainActivity.this)) {
+                // Lets Zelpophai pop up when it hears its name while you're in another app.
+                ZpWake.setWanted(MainActivity.this, true);
+                runOnUiThread(() -> ZpWake.openOverlaySettings(MainActivity.this));
+                return "overlay";
+            }
+            runOnUiThread(() -> ZpWake.setWanted(MainActivity.this, true));
+            return "on";
         }
         @JavascriptInterface
         public void openAccessibilitySettings() {

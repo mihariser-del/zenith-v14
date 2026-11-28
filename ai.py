@@ -213,7 +213,7 @@ def _wants_page(text: str) -> bool:
     return bool(_PAGE_RE.search(t) and _MAKE_RE.search(t))
 
 
-async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False, factcheck: bool = False) -> str:
+async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = "", research: bool = False, factcheck: bool = False, shared: bool = False) -> str:
     async with async_session() as db:
         from sqlalchemy import select
 
@@ -263,7 +263,7 @@ async def build_system_prompt(user_id: int, think: bool, last_user_msg: str = ""
         else:
             # Only when memory is switched on, and only the memories that matter for this message.
             memories = []
-            if user_settings is None or getattr(user_settings, "memory_enabled", True):
+            if not shared and (user_settings is None or getattr(user_settings, "memory_enabled", True)):
                 try:
                     import memories as _mem
                     memories = await _mem.for_prompt(db, user_id, last_user_msg or "")
@@ -750,7 +750,7 @@ def _place_images(text: str, imgs: list) -> str:
     return head + "\n".join(out)
 
 
-async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False, continuation: str = ""):
+async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False, continuation: str = "", actor_id: int = None):
     user_id = None
     messages = []
     user_model = "openai/gpt-6-luna"
@@ -769,15 +769,28 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                 yield f"data: {json.dumps({'error': 'Chat not found'})}\n\n"
             return StreamingResponse(error_gen(), media_type="text/event-stream")
 
-        user_id = chat.user_id
+        # Who is asking: in a shared chat that's whoever sent the message, so
+        # their own settings and allowance apply (see groupchats.py).
+        user_id = actor_id or chat.user_id
+        _group = bool(getattr(chat, "is_group", False))
+        _who = {}
+        if _group:
+            import groupchats as _gc
+            _who = await _gc.names(db, chat)
         for msg in chat.messages:
-            messages.append({"role": msg.role, "content": msg.content})
+            if msg.role == "system":
+                continue          # "Bob joined the chat" notes are for people, not the AI
+            c = msg.content
+            if _group and msg.role == "user" and getattr(msg, "author_id", None):
+                c = f"[{_who.get(msg.author_id, 'Someone')}]: {c}"
+            messages.append({"role": msg.role, "content": c})
 
         settings_result = await db.execute(
             select(UserSettings).where(UserSettings.user_id == user_id)
         )
         user_settings_obj = settings_result.scalar_one_or_none()
-        _is_owner_chat = getattr(chat.user, "role", "") == "owner"
+        _actor = chat.user if user_id == chat.user_id else await db.get(__import__("database").User, user_id)
+        _is_owner_chat = getattr(_actor, "role", "") == "owner"
         pinned_model = ""
         if user_settings_obj:
             user_max_tokens = user_settings_obj.max_tokens
@@ -844,11 +857,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         use_web = False
     if _calc:
         user_max_tokens = max(user_max_tokens or 0, 4096)
-    # Most maths is worked out on the server's calculation engine (calcengine.py)
-    # before the answer is written. Charts and attached spreadsheets still go to
-    # Python on the person's device, which has matplotlib and pandas.
+    # Maths — and charts of it — is worked out on the server's calculation engine
+    # (calcengine.py) before the answer is written. Attached spreadsheets still go
+    # to Python on the person's device, which has pandas.
     _engine = (_calc and not continuation and not has_images and not _wants_file
-               and not _CHART_RE.search(_user_ask)
                and not re.search(r"\[File content: [^\]]+\.(csv|xlsx?|xlsm|tsv|json)\]", last_user_msg, re.I))
     # Think mode shows the real stages of the answer as they happen.
     _early_steps = []
@@ -867,7 +879,13 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_max_tokens = 4096
         user_temperature = 0.3
 
-    system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck)
+    system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck, shared=_group)
+    if _group:
+        _people = ", ".join(sorted(set(_who.values())))
+        system_prompt += (f"\n\nSHARED CHAT: several people are talking to you together in this chat ({_people}). Each "
+                          "message starts with [Name] to show who wrote it. Address people by name when it helps, keep "
+                          "track of what each person wants, and be fair to everyone. Never bring up private things you "
+                          "may know about one person — nothing from anyone's memories is used here.")
     if voice and not (research or factcheck):
         # Voice conversation: the reply is read aloud, so it must sound like talking.
         system_prompt += ("\n\nVOICE CONVERSATION: The person is talking to you out loud and your reply will be spoken by a text-to-speech voice. "

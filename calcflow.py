@@ -77,8 +77,9 @@ async def work_out(messages: list, model: str = "") -> dict | None:
         res = await calcengine.run(code)
         total_ms += res.get("ms", 0)
         last = {"ok": bool(res.get("ok")), "code": code, "title": _title_from(code), "output": res.get("output", ""),
+                "charts": res.get("charts") or [],
                 "error": res.get("error", ""), "line": res.get("line"), "tries": attempt, "ms": total_ms}
-        if res.get("ok") and (res.get("output") or "").strip():
+        if res.get("ok") and ((res.get("output") or "").strip() or res.get("charts")):
             return last
         why = res.get("error") or "it printed nothing — print every result"
         where = f" (line {res['line']})" if res.get("line") else ""
@@ -95,9 +96,12 @@ def card(result: dict) -> str:
     The output is HTML-escaped so nothing printed can turn into a tag."""
     code = result["code"].replace("</zrun>", "<\\/zrun>")
     title = html.escape(result.get("title") or "Worked out exactly", quote=True)
+    import json as _json
+    charts = "".join(f'<zchart>{html.escape(_json.dumps(c, separators=(",", ":")), quote=False)}</zchart>'
+                     for c in (result.get("charts") or [])[:4])
     return (f'<zrun title="{title}" engine="1">\n{code}\n</zrun>'
             f'<zout ok="{"true" if result.get("ok") else "false"}" engine="1">'
-            f'{html.escape(result.get("output") or result.get("error") or "")}</zout>\n\n')
+            f'{html.escape(result.get("output") or result.get("error") or "")}</zout>{charts}\n\n')
 
 
 def brief(result: dict) -> str:
@@ -111,4 +115,7 @@ def brief(result: dict) -> str:
         "words; present results in a table when there are several; if the output shows the question was ambiguous, say "
         "which reading was used. The app already shows the program and its output in a card above your answer, so do "
         "NOT write a <zrun> block and do NOT paste the whole raw output again."
+        + (f" The card also shows {len(result.get('charts') or [])} chart(s) drawn from these numbers — refer to them "
+           "(\"the chart above\") instead of describing every point, and don't draw another chart."
+           if result.get("charts") else "")
     )

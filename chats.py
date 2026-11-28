@@ -24,6 +24,9 @@ class ChatResponse(BaseModel):
     model: str = ""
     created_at: datetime
     updated_at: datetime
+    is_group: bool | None = False
+    mine: bool = True            # False: someone else's shared chat you were invited into
+    owner_name: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -35,6 +38,8 @@ class MessageResponse(BaseModel):
     reactions: str = "{}"
     viewer_reactions: str = "{}"
     created_at: datetime
+    author_id: int | None = None
+    author: str = ""
 
     model_config = {"from_attributes": True}
 
@@ -70,11 +75,23 @@ async def greeting(request: Request, db: AsyncSession = Depends(get_db)):
 @router.get("")
 async def list_chats(request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    result = await db.execute(
-        select(Chat).where(Chat.user_id == user.id).order_by(Chat.updated_at.desc())
-    )
-    chats = result.scalars().all()
-    return {"chats": [ChatResponse.model_validate(c) for c in chats]}
+    import groupchats
+    from database import User as _U
+    shared_ids = await groupchats.member_chat_ids(db, user.id)
+    cond = (Chat.user_id == user.id) | (Chat.id.in_(shared_ids)) if shared_ids else (Chat.user_id == user.id)
+    chats = (await db.execute(select(Chat).where(cond).order_by(Chat.updated_at.desc()))).scalars().all()
+    owners = {}
+    if shared_ids:
+        oids = {c.user_id for c in chats if c.user_id != user.id}
+        owners = {u.id: groupchats.name_of(u) for u in (await db.execute(select(_U).where(_U.id.in_(oids)))).scalars().all()}
+    out = []
+    for c in chats:
+        r = ChatResponse.model_validate(c)
+        if c.user_id != user.id:
+            r.mine = False
+            r.owner_name = owners.get(c.user_id, "")
+        out.append(r)
+    return {"chats": out}
 
 
 @router.post("")
@@ -107,7 +124,14 @@ async def get_chat_by_link(link_id: str, request: Request, db: AsyncSession = De
     if not chat:
         raise HTTPException(status_code=404, detail="This chat does not exist or was deleted")
     if chat.user_id != user.id:
-        raise HTTPException(status_code=403, detail="You do not have access to this chat. It belongs to another account.")
+        import groupchats
+        try:
+            await groupchats.access(db, user, chat.id)
+        except HTTPException:
+            raise HTTPException(status_code=403, detail="You do not have access to this chat. It belongs to another account.")
+        r = ChatResponse.model_validate(chat)
+        r.mine = False
+        return {"chat": r}
     return {"chat": ChatResponse.model_validate(chat)}
 
 
@@ -245,7 +269,7 @@ async def react_message(chat_id: int, message_id: int, req: ReactRequest, reques
     import json
     user = await get_current_user_from_cookie(request, db)
     result = await db.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
+        select(Chat).where(Chat.id == (await __import__("groupchats").access(db, user, chat_id))[0].id)
     )
     chat = result.scalar_one_or_none()
     if not chat:
@@ -295,12 +319,12 @@ async def rename_chat(chat_id: int, req: RenameRequest, request: Request, db: As
 @router.delete("/{chat_id}")
 async def delete_chat(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     user = await get_current_user_from_cookie(request, db)
-    result = await db.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
-    )
-    chat = result.scalar_one_or_none()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    import groupchats
+    chat, owner = await groupchats.access(db, user, chat_id)
+    if not owner:
+        # Deleting someone else's shared chat from your list = leaving it.
+        await groupchats.remove(chat_id, user.id, request, db)
+        return {"message": "Left"}
     await db.delete(chat)
     await db.commit()
     return {"message": "Deleted"}
@@ -316,7 +340,7 @@ async def tick_todo(chat_id: int, message_id: int, req: TodoTick, request: Reque
     """Tick or untick one item on a checklist Zelpophai wrote, so it stays ticked."""
     import re as _re
     user = await get_current_user_from_cookie(request, db)
-    chat = (await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))).scalar_one_or_none()
+    chat = (await __import__("groupchats").access(db, user, chat_id))[0]
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     msg = (await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id,
@@ -371,7 +395,7 @@ async def code_ran(chat_id: int, message_id: int, req: RunResults, request: Requ
     from html import escape as _esc
     from ai import stream_chat
     user = await get_current_user_from_cookie(request, db)
-    chat = (await db.execute(select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id))).scalar_one_or_none()
+    chat = (await __import__("groupchats").access(db, user, chat_id))[0]
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
     msg = (await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id,
@@ -427,7 +451,7 @@ async def code_ran(chat_id: int, message_id: int, req: RunResults, request: Requ
                  "or repeat the code, and don't mention running code unless it helps." +
                  (" A run failed: if you can see the mistake, you may write ONE corrected <zrun> and stop; otherwise "
                   "explain what you can without it." if failed else " Don't write another <zrun>."))
-    return await stream_chat(chat_id, think=False, client_tz=req.tz, continuation="\n".join(lines))
+    return await stream_chat(chat_id, think=False, client_tz=req.tz, continuation="\n".join(lines), actor_id=user.id)
 
 
 @router.patch("/{chat_id}/messages/{message_id}")
@@ -443,6 +467,8 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
     chat = result.scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
+    if getattr(chat, "is_group", False):
+        raise HTTPException(status_code=400, detail="Messages can't be edited in a shared chat.")
     result = await db.execute(select(Message).where(Message.id == message_id, Message.chat_id == chat_id))
     msg = result.scalar_one_or_none()
     if not msg:
@@ -467,7 +493,7 @@ async def edit_message(chat_id: int, message_id: int, request: Request, db: Asyn
         async def _silent_gen():
             yield "data: [DONE]\n\n"
         return StreamingResponse(_silent_gen(), media_type="text/event-stream")
-    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None, voice=bool(body.get("voice")))
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None, voice=bool(body.get("voice")), actor_id=user.id)
 
 
 async def _auto_extract_worker(user_id: int):
@@ -484,13 +510,20 @@ async def _auto_extract_worker(user_id: int):
 async def get_messages(chat_id: int, request: Request, db: AsyncSession = Depends(get_db)):
     from sqlalchemy.orm import selectinload
     user = await get_current_user_from_cookie(request, db)
-    result = await db.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id).options(selectinload(Chat.messages))
-    )
+    import groupchats
+    await groupchats.access(db, user, chat_id)
+    result = await db.execute(select(Chat).where(Chat.id == chat_id).options(selectinload(Chat.messages)))
     chat = result.scalar_one_or_none()
     if not chat:
         raise HTTPException(status_code=404, detail="Chat not found")
-    return {"messages": [MessageResponse.model_validate(m) for m in chat.messages]}
+    who = await groupchats.names(db, chat) if chat.is_group else {}
+    out = []
+    for m in chat.messages:
+        r = MessageResponse.model_validate(m)
+        if m.author_id:
+            r.author = who.get(m.author_id, "")
+        out.append(r)
+    return {"messages": out}
 
 
 @router.post("/{chat_id}/messages")
@@ -521,12 +554,8 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
     if not content and not images:
         raise HTTPException(status_code=400, detail="Message content required")
 
-    result = await db.execute(
-        select(Chat).where(Chat.id == chat_id, Chat.user_id == user.id)
-    )
-    chat = result.scalar_one_or_none()
-    if not chat:
-        raise HTTPException(status_code=404, detail="Chat not found")
+    import groupchats
+    chat, _owner = await groupchats.access(db, user, chat_id)
 
     if content:
         display_content = content
@@ -534,7 +563,7 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
         display_content = f"[Image x{len(images)}]"
     else:
         display_content = "(image)"
-    user_msg = Message(chat_id=chat.id, role="user", content=display_content)
+    user_msg = Message(chat_id=chat.id, role="user", content=display_content, author_id=user.id)
     db.add(user_msg)
 
     if (chat.title or "").startswith("New Chat"):
@@ -544,6 +573,8 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
 
     chat.updated_at = datetime.now(timezone.utc)
     await db.commit()
+    if chat.is_group:
+        groupchats.mark_busy(chat.id, groupchats.name_of(user), user_msg.id)
     try:
         from vault_events import check_message
         check_message(user.id, chat.id, user_msg.id, content or "")
@@ -583,4 +614,4 @@ async def send_message(chat_id: int, request: Request, db: AsyncSession = Depend
         _aio.ensure_future(_auto_extract_worker(user.id))
     except Exception:
         pass
-    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None, voice=bool(body.get("voice")))
+    return await stream_chat(chat.id, think, images=images, web_search=web_search, research=research, factcheck=factcheck, client_tz=str(body.get("tz") or "")[:64] or None, voice=bool(body.get("voice")), actor_id=user.id)

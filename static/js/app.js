@@ -758,6 +758,16 @@ document.addEventListener('DOMContentLoaded', async () => {
         const A = window.ZPApp;
         if (!A || !$('assist-btn')) return;
         const status = () => { try { return JSON.parse(A.status()); } catch (e) { return {}; } };
+        const wst = () => { try { return JSON.parse(A.wakeStatus()); } catch (e) { return {}; } };
+        function wakeRow() {
+            const w = wst();
+            const line = !w.on ? 'Off. Say it any time the screen is on and Zelpophai pops up — heard only on your phone, nothing is sent until it hears its name.'
+                : !w.mic ? 'Needs the microphone — tap the switch again and allow it.'
+                : !w.overlay ? 'Allow “Display over other apps” for Zelpophai so it can pop up over other apps.'
+                : 'On · ' + (w.status === 'listening' ? 'listening while the screen is on' : (w.status || 'starting'));
+            return `<div class="zp-asst-step ${w.on && w.running ? 'ok' : ''}"><b>3</b><span>Say “Hey Zelpophai” <em>(optional)</em><small>${line}</small></span>
+                <button type="button" data-a="wake">${w.on ? 'Turn off' : 'Turn on'}</button></div>`;
+        }
         function sheet() {
             const st = status();
             document.querySelectorAll('.zp-asst').forEach(e => e.remove());
@@ -771,6 +781,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     <button type="button" data-a="assist">${st.assistant ? 'Done ✓' : 'Open settings'}</button></div>
                 <div class="zp-asst-step ${st.access ? 'ok' : ''}"><b>2</b><span>Let it see the screen and tap for you <em>(optional)</em><small>Accessibility → Zelpophai assistant → On${st.screen ? '' : ' · seeing the screen needs Android 11+'}</small></span>
                     <button type="button" data-a="access">${st.access ? 'Done ✓' : 'Open settings'}</button></div>
+                ${A.wakeStatus ? wakeRow() : ''}
                 <p class="zp-asst-tip">Also: long-press the Zelpophai icon → <b>Talk</b>, or add the <b>Zelpophai</b> tile to Quick Settings.</p>
                 <div class="zp-asst-row"><button type="button" data-a="try" class="pri">Try it now</button><button type="button" data-a="close">Close</button></div>
             </div>`;
@@ -780,11 +791,25 @@ document.addEventListener('DOMContentLoaded', async () => {
                 const a = b.dataset.a;
                 if (a === 'assist') A.openAssistantSettings();
                 if (a === 'access') A.openAccessibilitySettings();
+                if (a === 'wake') {
+                    const on = !wst().on;
+                    const r = A.wake(on);
+                    if (r === 'permission') showToast('Allow the microphone, then tap “Turn on” again', 'info');
+                    else if (r === 'overlay') showToast('Now allow “Display over other apps” for Zelpophai', 'info');
+                    else if (on) showToast('Getting the speech model ready (about 40 MB, once)…', 'success');
+                    setTimeout(sheet, 600);
+                }
                 if (a === 'try') { w.remove(); A.openAssistant(); }
                 if (a === 'close') w.remove();
             });
             document.body.appendChild(w);
         }
+        let lastWake = '';
+        setInterval(() => {
+            if (!document.querySelector('.zp-asst') || !A.wakeStatus) return;
+            const now = A.wakeStatus();
+            if (now !== lastWake) { lastWake = now; sheet(); document.querySelector('.zp-asst-card').style.animation = 'none'; }
+        }, 3000);
         $('assist-btn').hidden = false;
         $('assist-btn').addEventListener('click', sheet);
         // When they come back from Settings, refresh the ticks.

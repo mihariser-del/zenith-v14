@@ -92,6 +92,10 @@ const Chat = {
         this.chats = {};
         chats.forEach(c => this.chats[c.id] = c);
 
+        if (/^\/app\/join\//.test(window.location.pathname) || (() => { try { return !!localStorage.getItem('zp_join'); } catch (e) { return false; } })()) {
+            if (await this.handleJoin()) return;
+        }
+
         // ChatGPT-style deep link: /app/c/<link_id> or ?chat=<link_id>
         const pathMatch = window.location.pathname.match(/\/app\/c\/([0-9a-f]+)/i);
         const queryMatch = new URLSearchParams(window.location.search).get('chat');
@@ -215,9 +219,9 @@ const Chat = {
             items.forEach(chat => {
                 const div = document.createElement('div');
                 div.className = `chat-item ${chat.id === this.activeId ? 'active' : ''}`;
-                div.title = chat.title;
+                div.title = chat.title + (chat.mine === false && chat.owner_name ? ' — shared by ' + chat.owner_name : '');
                 div.innerHTML = `
-                <span class="title">${this.escapeHtml(chat.title)}</span>
+                <span class="title">${chat.is_group ? '<i class="grp" title="Shared chat">👥</i>' : ''}${this.escapeHtml(chat.title)}</span>
                 <div class="actions">
                     <button data-action="pin" data-id="${chat.id}" title="${chat.pinned ? 'Unpin' : 'Pin chat'}">${chat.pinned ? '📌' : '📍'}</button>
                     <button data-action="share" data-id="${chat.id}" title="Share or export this chat">🔗</button>
@@ -263,9 +267,12 @@ const Chat = {
                     if (newTitle && newTitle.trim()) this.rename(chat.id, newTitle.trim());
                 });
                 div.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-                    const ok = await showConfirm('Delete chat?', 'This will permanently delete this conversation.', true);
+                    const ok = chat.mine === false
+                        ? await showConfirm('Leave this chat?', `You'll stop seeing this shared chat. ${chat.owner_name || 'The person who started it'} can invite you again.`, true)
+                        : await showConfirm('Delete chat?', chat.is_group ? 'This permanently deletes this shared conversation for everyone in it.' : 'This will permanently delete this conversation.', true);
                     if (ok) this.remove(chat.id);
                 });
+                if (chat.mine === false) div.querySelectorAll('[data-action="share"],[data-action="rename"]').forEach(b => b.remove());
                 groupEl.appendChild(div);
             });
         };
@@ -335,7 +342,9 @@ const Chat = {
             pinBtn.style.background = chat.pinned ? 'rgba(76,201,240,.18)' : 'transparent';
         }
         const shareBtn = $('chat-share-btn');
-        if (shareBtn) shareBtn.textContent = chat.share_id ? '🔗 Shared' : 'Share';
+        if (shareBtn) { shareBtn.textContent = chat.share_id ? '🔗 Shared' : 'Share'; shareBtn.style.display = chat.mine === false ? 'none' : ''; }
+        const ppl = $('chat-people-btn');
+        if (ppl) ppl.textContent = chat.is_group ? '👥 People' : '👥 Invite';
     },
 
     _wireHeader() {
@@ -356,6 +365,10 @@ const Chat = {
                 this.renderList();
                 this.renderHeader();
             } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        });
+        if ($('chat-people-btn')) $('chat-people-btn').addEventListener('click', () => {
+            if (window.user && window.user.username && window.user.username.startsWith('guest_')) { showToast('Create a free account to share chats with people', 'error'); return; }
+            this.showPeople();
         });
         $('chat-share-btn').addEventListener('click', () => {
             const id = createTarget();
@@ -723,17 +736,148 @@ const Chat = {
             return;
         }
 
-        messages.forEach(msg => {
-            let reactions = null;
-            try { reactions = JSON.parse(msg.reactions || '{}'); } catch (e) {}
-            let viewer = null;
-            try { viewer = JSON.parse(msg.viewer_reactions || '{}'); } catch (e2) {}
-            this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer, msg.created_at);
-        });
+        messages.forEach(msg => this._appendStored(msg));
+        this._groupLast = messages.length ? messages[messages.length - 1].id : 0;
         this._settleQuestions();
         this._settleRuns();
         container.scrollTop = container.scrollHeight;
         this.resumeVideos(this.activeId);
+        this._groupPoll();
+    },
+
+    /* ── shared chats (26.1) ───────────────────────────────────────────── */
+    _appendStored(msg) {
+        if (msg.role === 'system') {
+            const n = document.createElement('div');
+            n.className = 'grp-note'; n.dataset.mid = msg.id;
+            n.textContent = msg.content;
+            $('chat-container').appendChild(n);
+            return n;
+        }
+        let reactions = null;
+        try { reactions = JSON.parse(msg.reactions || '{}'); } catch (e) {}
+        let viewer = null;
+        try { viewer = JSON.parse(msg.viewer_reactions || '{}'); } catch (e2) {}
+        const b = this.appendMessage(msg.role, msg.content, false, [], [], msg.id, reactions, viewer, msg.created_at);
+        const chat = this.chats[this.activeId];
+        const me = window.user && window.user.id;
+        if (chat && chat.is_group && msg.role === 'user' && msg.author_id && b && b.parentElement) {
+            const w = b.parentElement;
+            const other = msg.author_id !== me;
+            w.classList.toggle('grp-other', other);
+            const tag = document.createElement('div');
+            tag.className = 'grp-who';
+            tag.textContent = other ? (msg.author || 'Someone') : 'You';
+            w.insertBefore(tag, w.firstChild);
+            // Editing an old message would cut off what everyone said after it, so shared chats have no Edit.
+            setTimeout(() => w.querySelectorAll('[data-action="edit"]').forEach(x => x.remove()), 0);
+        }
+        return b;
+    },
+    // While a shared chat is open, check for other people's messages every few seconds.
+    _groupPoll() {
+        clearTimeout(this._gpT);
+        const chat = this.chats[this.activeId];
+        if (!chat || !chat.is_group) { this._setGroupBusy(null); return; }
+        const id = this.activeId;
+        const tick = async () => {
+            if (this.activeId !== id) return;
+            if (!document.querySelector('#chat-container .streaming-cursor') && !this._sending && !document.hidden) {
+                try {
+                    const d = await api(`/api/chats/${id}/updates?after=${this._groupLast || 0}`);
+                    if (this.activeId !== id) return;
+                    const shown = new Set([...document.querySelectorAll('#chat-container [data-mid]')].map(e => String(e.dataset.mid)));
+                    const me = window.user && window.user.id;
+                    let added = false;
+                    (d.messages || []).forEach(m => {
+                        this._groupLast = Math.max(this._groupLast || 0, m.id);
+                        if (shown.has(String(m.id))) return;
+                        if (m.role === 'user' && m.author_id === me) return;     // my own — already on screen
+                        if (m.role === 'assistant' && this._myAnswers && this._myAnswers.has(m.id)) return;
+                        this._appendStored(m); added = true;
+                    });
+                    if (added) {
+                        const c = $('chat-container');
+                        if (this._stickBottom !== false) c.scrollTop = c.scrollHeight;
+                        if (typeof Settings !== 'undefined') { try { const st = Settings.getLocal(); if (st.sound) this._ding && this._ding(); } catch (e) {} }
+                    }
+                    this._setGroupBusy(d.busy && !(window.user && d.busy === (window.user.display_name || window.user.username)) ? d.busy : null);
+                    if (d.title && this.chats[id] && d.title !== this.chats[id].title) { this.chats[id].title = d.title; this.renderList(); this.renderHeader(); }
+                } catch (e) {
+                    if (/not found/i.test(e.message || '')) { showToast('You are no longer in this shared chat', 'error'); delete this.chats[id]; this.activeId = null; this.renderList(); this.renderMessages(); return; }
+                }
+            }
+            this._gpT = setTimeout(tick, document.hidden ? 8000 : 3000);
+        };
+        this._gpT = setTimeout(tick, 2500);
+    },
+    _setGroupBusy(name) {
+        let el = document.getElementById('grp-busy');
+        if (!name) { if (el) el.remove(); return; }
+        if (!el) { el = document.createElement('div'); el.id = 'grp-busy'; el.className = 'grp-busy'; $('chat-container').appendChild(el); }
+        el.innerHTML = '<span class="typing-dots"><i></i><i></i><i></i></span> Zelpophai is answering ' + this.escapeHtml(name) + '…';
+    },
+    async showPeople() {
+        const id = this.activeId; if (!id) return;
+        let d;
+        try { d = await api(`/api/chats/${id}/people`); } catch (e) { showToast(e.message || 'Failed', 'error'); return; }
+        document.querySelectorAll('.grp-modal').forEach(e => e.remove());
+        const w = document.createElement('div'); w.className = 'grp-modal';
+        const esc = (t) => this.escapeHtml(t);
+        const list = d.people.map(p => `<li><span class="av">${esc((p.name || '?')[0].toUpperCase())}</span><span class="nm">${esc(p.name)}${p.me ? ' <small>(you)</small>' : ''}${p.owner ? ' <small class="own">started it</small>' : ''}</span>` +
+            ((d.is_owner && !p.owner) ? `<button data-rm="${p.id}">Remove</button>` : (!d.is_owner && p.me) ? `<button data-rm="${p.id}">Leave</button>` : '') + '</li>').join('');
+        w.innerHTML = `<div class="grp-card" role="dialog" aria-label="People in this chat">
+            <h3>👥 Talk to Zelpophai together</h3>
+            <p class="sub">${d.group ? 'Everyone here sees the whole chat and can write in it. Zelpophai answers everyone and knows who said what.' : 'Invite people to this chat: they\'ll see everything in it and can write too. Zelpophai answers everyone and knows who said what.'}</p>
+            ${d.is_owner ? (d.invite ? `<div class="inv"><input readonly value="${esc(d.invite)}"><button data-a="copy" class="pri">Copy link</button></div><p class="tiny">Anyone with a Zelpophai account who opens this link joins (up to ${d.max} people). <a href="#" data-a="off">Turn the link off</a></p>`
+                                         : `<button data-a="make" class="pri big">Create an invite link</button>`) : ''}
+            <ul class="ppl">${list}</ul>
+            <p class="tiny">Each person's messages count against their own daily allowance. Nobody's private memories are used in a shared chat.</p>
+            <div class="row"><button data-a="close">Close</button></div></div>`;
+        w.addEventListener('click', async (e) => {
+            if (e.target === w) { w.remove(); return; }
+            const b = e.target.closest('[data-a],[data-rm]'); if (!b) return;
+            e.preventDefault();
+            try {
+                if (b.dataset.a === 'close') { w.remove(); return; }
+                if (b.dataset.a === 'copy') { const inp = w.querySelector('.inv input'); try { await navigator.clipboard.writeText(inp.value); } catch (x) { inp.select(); document.execCommand('copy'); } b.textContent = 'Copied ✓'; return; }
+                if (b.dataset.a === 'make') { await api(`/api/chats/${id}/invite`, { method: 'POST' }); this.chats[id].is_group = true; this.renderList(); this.renderHeader(); this._groupPoll(); return this.showPeople(); }
+                if (b.dataset.a === 'off') { await api(`/api/chats/${id}/invite`, { method: 'DELETE' }); showToast('Invite link turned off — people already here stay', 'success'); return this.showPeople(); }
+                if (b.dataset.rm) {
+                    const leaving = !d.is_owner;
+                    if (!(await showConfirm(leaving ? 'Leave this chat?' : 'Remove them?', leaving ? 'You will stop seeing this shared chat.' : 'They will stop seeing this chat.', true))) return;
+                    await api(`/api/chats/${id}/people/${b.dataset.rm}`, { method: 'DELETE' });
+                    if (leaving) { w.remove(); delete this.chats[id]; this.activeId = null; this.renderList(); this.renderMessages(); this.syncUrl(); showToast('You left the chat', 'success'); return; }
+                    return this.showPeople();
+                }
+            } catch (err) { showToast(err.message || 'Failed', 'error'); }
+        });
+        document.body.appendChild(w);
+    },
+    // An invite link (/app/join/<code>), or one saved while logging in.
+    async handleJoin() {
+        let code = null;
+        const m = window.location.pathname.match(/^\/app\/join\/([A-Za-z0-9]{6,32})/);
+        if (m) code = m[1];
+        else { try { code = localStorage.getItem('zp_join'); } catch (e) {} }
+        if (!code) return false;
+        try { localStorage.removeItem('zp_join'); } catch (e) {}
+        let info;
+        try { info = await api(`/api/chats/join/${code}`); }
+        catch (e) { showToast(e.message || 'That invite link doesn\'t work', 'error'); try { history.replaceState({}, '', '/app'); } catch (x) {} return false; }
+        const go = async (link) => {
+            const { chats } = await api('/api/chats');
+            chats.forEach(c => this.chats[c.id] = c);
+            const c = Object.values(this.chats).find(x => x.link_id === link);
+            if (c) this.switchTo(c.id);
+        };
+        if (info.already) { await go(info.link_id); return true; }
+        if (info.guest) { showToast('Create a free account or log in to join this chat', 'error'); return false; }
+        if (info.full) { showToast('That chat is full', 'error'); return false; }
+        const ok = await showConfirm(`Join “${info.title}”?`, `${info.owner} invited you to talk to Zelpophai together. You'll see the whole chat and can write in it (${info.people} ${info.people === 1 ? 'person' : 'people'} in it now).`, false);
+        if (!ok) { try { history.replaceState({}, '', '/app'); } catch (x) {} return false; }
+        try { const r = await api(`/api/chats/join/${code}`, { method: 'POST' }); await go(r.link_id); showToast('You joined the chat 👋', 'success'); return true; }
+        catch (e) { showToast(e.message || 'Couldn\'t join', 'error'); return false; }
     },
 
     appendMessage(role, content, streaming = false, images = [], files = [], messageId = null, reactions = null, viewerReactions = null, at = null) {
@@ -1615,6 +1759,7 @@ const Chat = {
 
     _handleStreamMeta(parsed, bubble, state) {
         if (parsed.message_id && bubble && bubble.parentElement) bubble.parentElement.dataset.mid = parsed.message_id;
+        if (parsed.message_id) { (this._myAnswers = this._myAnswers || new Set()).add(parsed.message_id); this._groupLast = Math.max(this._groupLast || 0, parsed.message_id); }
         (parsed.video_jobs || []).forEach(job => {
             if (!job || !job.id || this._videoTimers[job.id]) return;
             const vb = this.appendMessage('assistant', '', true);

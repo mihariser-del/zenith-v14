@@ -326,3 +326,15 @@ html.halloween body { --zr-accent: #ff7a1a; --zr-accent2: #a855f7; --zr-chip: rg
   font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace; white-space: pre-wrap; word-break: break-word; max-height: 300px; overflow: auto; }
 .zrn-result.bad { color: #fca5a5; }
 .zrn-img { display: block; max-width: 100%; height: auto; border-radius: 10px; background: #fff; }
+
+/* 26.1 — charts from the calculation engine */
+.zc-card { margin: 12px 0; padding: 12px 14px 10px; border: 1px solid rgba(148,163,184,.22); border-radius: 14px; background: rgba(99,102,241,.05); }
+.zc-card figcaption { font-weight: 700; font-size: 14px; margin-bottom: 8px; }
+.zc-canvas { position: relative; height: 280px; }
+.zc-canvas.round { height: 260px; max-width: 420px; margin: 0 auto; }
+.zc-tools { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.zc-tools button { border: 1px solid rgba(148,163,184,.3); background: transparent; color: inherit; border-radius: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; opacity: .8; }
+.zc-tools button:hover { opacity: 1; }
+.zc-wait { font-size: 13px; opacity: .7; }
+.zc-fail { font-size: 13px; opacity: .75; }
+@media (max-width: 520px) { .zc-canvas { height: 220px; } }

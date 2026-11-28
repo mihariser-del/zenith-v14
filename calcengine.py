@@ -287,6 +287,52 @@ def table(rows, headers=None, places=2):
         _PRINT[0](fmt(r))
 
 
+_CHARTS = [[]]
+CHART_KINDS = ("line", "bar", "area", "pie", "doughnut", "scatter", "stacked")
+
+
+def chart(kind, labels, series, title="", x="", y="", money_axis=False):
+    """Draw a chart under the answer. kind: line, bar, area, stacked (stacked bars), pie,
+    doughnut or scatter. labels: the x values (years, names…). series: a list of numbers,
+    or a dict {"Series name": [numbers…]} for several lines/bars. For scatter, series is
+    a list of (x, y) pairs or {"name": [(x, y), …]}."""
+    if len(_CHARTS[0]) >= 4:
+        raise CalcError("at most 4 charts per answer")
+    kind = str(kind).lower()
+    if kind not in CHART_KINDS:
+        raise CalcError("chart kind must be one of: " + ", ".join(CHART_KINDS))
+    labels = [l if isinstance(l, (int, float)) and not isinstance(l, bool) else str(l)[:40] for l in list(labels or [])][:1000]
+    if not isinstance(series, dict):
+        series = {"": series}
+    if len(series) > 12:
+        raise CalcError("at most 12 series in one chart")
+
+    def val(v):
+        if v is None:
+            return None
+        f = _num(v, "chart value")
+        return None if f != f or f in (float("inf"), float("-inf")) else round(f, 6)
+    out, total = [], 0
+    for name, vals in series.items():
+        vals = list(vals)[:2000]
+        total += len(vals)
+        if kind == "scatter":
+            pts = []
+            for p in vals:
+                try:
+                    pts.append([val(p[0]), val(p[1])])
+                except (TypeError, IndexError):
+                    raise CalcError("scatter points must be (x, y) pairs")
+            out.append({"name": str(name)[:40], "points": pts})
+        else:
+            out.append({"name": str(name)[:40], "values": [val(v) for v in vals]})
+    if total > 6000:
+        raise CalcError("that chart has too many points (6,000 max)")
+    _CHARTS[0].append({"kind": kind, "labels": labels, "series": out, "title": str(title)[:100],
+                       "x": str(x)[:60], "y": str(y)[:60], "money": bool(money_axis)})
+    return None
+
+
 def set_precision(digits):
     """How many significant digits Decimal maths keeps (default 50)."""
     d = int(digits)
@@ -369,7 +415,7 @@ _DATETIME = {"date": _dt.date, "datetime": _dt.datetime, "timedelta": _dt.timede
 _FIN = {"pmt": pmt, "fv": fv, "pv": pv, "nper": nper, "npv": npv, "irr": irr, "rate": rate, "mirr": mirr,
         "xnpv": xnpv, "xirr": xirr, "cagr": cagr, "effective_rate": effective_rate, "amortization": amortization}
 _HELPERS = {"round_money": round_money, "money": money, "pct": pct, "solve": solve, "integrate": integrate,
-            "table": table, "set_precision": set_precision, "today": today}
+            "table": table, "set_precision": set_precision, "today": today, "chart": chart}
 
 MODULES = {
     "math": _MATH, "statistics": _STATS, "decimal": _DECIMAL, "fractions": _FRACTIONS, "datetime": _DATETIME,
@@ -565,6 +611,7 @@ class Interp:
         self.globals = _Scope({})
         self.line = None
         _PRINT[0] = self.print
+        _CHARTS[0] = []
 
     # ── output ────────────────────────────────────────────────────────────
     def print(self, *args, sep=" ", end="\n", **_ignored):
@@ -1031,7 +1078,8 @@ def evaluate(code: str) -> dict:
     it = Interp()
     try:
         it.run(code)
-        return {"ok": True, "output": _tidy("".join(it.out)), "error": "", "line": None, "steps": it.steps}
+        return {"ok": True, "output": _tidy("".join(it.out)), "error": "", "line": None, "steps": it.steps,
+                "charts": _CHARTS[0]}
     except SyntaxError as e:
         return {"ok": False, "output": _tidy("".join(it.out)), "error": f"SyntaxError: {e.msg}", "line": e.lineno}
     except CalcError as e:
@@ -1101,7 +1149,11 @@ It runs on Zelpophai's server in a safe sandbox. What works:
 - Other helpers: money(x, places=2) → '1,234.57' (bank rounding, no '-0.00'); pct(0.0725) → '7.25%';
   round_money(x, 2) (halves round up); solve(f, lo, hi) → root; integrate(f, a, b);
   table(rows, headers) prints a neat table; set_precision(digits) for Decimal (default 50 digits).
-NOT available: numpy, pandas, scipy, sympy, files, internet, classes, charts. Use lists and loops instead.
+- Charts: chart(kind, labels, series, title="", x="", y="", money_axis=False) draws a chart under the answer.
+  kind: "line", "bar", "area", "stacked", "pie", "doughnut" or "scatter". labels = x values; series = a list of
+  numbers, or {"Name": [numbers], …} for several lines/bars (same length as labels). Up to 4 charts. Use one
+  whenever the user asks for a chart/graph/plot, and for schedules or growth over time where a picture helps.
+NOT available: numpy, pandas, scipy, sympy, matplotlib, files, internet, classes. Use lists and loops instead.
 Rules: keep full precision while working and round only when printing; print every result the user asked for,
 clearly labelled, one per line (e.g. print("Monthly payment:", money(p))); for a year-by-year schedule print a table.
 Put the inputs at the top as named variables with a comment saying where each number came from."""

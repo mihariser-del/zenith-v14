@@ -67,18 +67,38 @@ QUERIES = '''    <queries>
 </manifest>'''
 
 
+# 1.2: "Hey Zelpophai" — on-phone wake word (Vosk) in a microphone foreground service.
+WAKE = '''
+        <service
+            android:name=".ZpWake"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />'''
+
+
+def add_wake_gradle():
+    g = "android/app/build.gradle"
+    t = open(g).read()
+    if "vosk-android" not in t:
+        t = t.replace("dependencies {", "dependencies {\n    implementation 'com.alphacephei:vosk-android:0.3.47@aar'\n    implementation 'net.java.dev.jna:jna:5.13.0@aar'", 1)
+        open(g, "w").write(t)
+
+
 def add_assistant(s):
     java = "android/app/src/main/java/com/zelpophai/app"
-    for f in ("MainActivity.java", "ZpAssistActivity.java", "ZpAccess.java", "ZpTile.java"):
+    for f in ("MainActivity.java", "ZpAssistActivity.java", "ZpAccess.java", "ZpTile.java", "ZpWake.java"):
         shutil.copy(os.path.join(SRC, f), os.path.join(java, f))
     res = "android/app/src/main/res"
     for sub in ("xml", "values"):
         os.makedirs(os.path.join(res, sub), exist_ok=True)
         for f in os.listdir(os.path.join(SRC, "res", sub)):
             shutil.copy(os.path.join(SRC, "res", sub, f), os.path.join(res, sub, f))
+    add_wake_gradle()
+    if "ZpWake" not in s and "ZpAssistActivity" in s:
+        s = s.replace("    </application>", WAKE + "\n    </application>", 1)
     if "ZpAssistActivity" in s:
         return s
     s = s.replace("    </application>", ASSIST, 1)
+    s = s.replace("    </application>", WAKE + "\n    </application>", 1)
     # long-press the app icon → "Talk to Zelpophai"
     s = s.replace(LAUNCHER, LAUNCHER + '\n            <meta-data android:name="android.app.shortcuts" android:resource="@xml/zp_shortcuts" />', 1)
     # Android 11+ only lets an app see the apps it asks about (needed to open apps by name).
@@ -99,7 +119,9 @@ perms = ["android.permission.RECORD_AUDIO", "android.permission.MODIFY_AUDIO_SET
 for p in perms:
     if p not in s:
         s = s.replace("</manifest>", f'    <uses-permission android:name="{p}" />\n</manifest>')
-perms += ["com.android.alarm.permission.SET_ALARM", "android.permission.READ_CONTACTS"]
+perms += ["com.android.alarm.permission.SET_ALARM", "android.permission.READ_CONTACTS",
+          "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+          "android.permission.SYSTEM_ALERT_WINDOW"]
 for p in perms:
     if p not in s:
         s = s.replace("</manifest>", f'    <uses-permission android:name="{p}" />\n</manifest>')

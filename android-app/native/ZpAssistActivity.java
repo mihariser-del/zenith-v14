@@ -84,10 +84,13 @@ public class ZpAssistActivity extends Activity {
     private boolean running = false;       // a Do task is going
     private boolean inFront = true;
     private List<String[]> appsCache = null;   // [label, package]
+    static volatile int open = 0;              // how many assistant sheets exist (for the wake word)
 
     @Override
     protected void onCreate(Bundle saved) {
         super.onCreate(saved);
+        open++;
+        ZpWake.assistantOpen(true);            // the wake word lets go of the microphone
         // Look at the screen underneath before our sheet is drawn over it.
         grabOpeningScreen();
 
@@ -164,6 +167,8 @@ public class ZpAssistActivity extends Activity {
     @Override protected void onPause() { super.onPause(); inFront = false; }
 
     @Override protected void onDestroy() {
+        open = Math.max(0, open - 1);
+        if (open == 0) ZpWake.assistantOpen(false);
         if (sr != null) { try { sr.destroy(); } catch (Exception ignored) { } }
         if (tts != null) { try { tts.stop(); tts.shutdown(); } catch (Exception ignored) { } }
         if (ZpAccess.instance != null) ZpAccess.instance.pill(false, null);

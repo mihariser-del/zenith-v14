@@ -1,4 +1,4 @@
-from contextlib import asynccontextmanager
+﻿from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Depends, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, PlainTextResponse, Response
@@ -47,10 +47,13 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.0"
+VERSION = "26.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.1 Talk to Zelpophai together: press 👥 Invite at the top of any chat to get a link. Anyone with a Zelpophai account who opens it joins the chat — it shows up in their sidebar with 👥, they see everything said so far and can write too. Zelpophai answers everyone and knows who said what. New messages from the others appear by themselves within a few seconds, with \"Zelpophai is answering Bob…\" while it replies to someone. Up to 8 people; each person's messages count against their own allowance, and nobody's private memories are used in a shared chat. The person who started the chat can remove people or turn the link off; anyone can leave",
+    "26.1 Charts from the calculation engine: ask for a chart, graph or plot of something you want worked out — savings growth, a loan paying down, a budget split — and Zelpophai draws it from the exact numbers, right under the working. Line, bar, area, stacked, pie, doughnut and scatter charts; hover to see each value; Download picture or Download data (CSV) under each one. They look right in light and dark mode and stay there after a reload",
+    "26.1 Android app 1.2: say \"Hey Zelpophai\" while your screen is on and the assistant pops up, listening — no button needed. Switch it on in the menu → Phone assistant → step 3. The listening happens only on your phone with a small offline speech model (downloaded once, about 40 MB): nothing is recorded or sent anywhere until it hears its name. It pauses when the screen is off and during calls, and a notification shows while it's on, with a Stop button",
     "26.0 Paste or drop files straight into the typing box: press Ctrl+V to add a screenshot or a picture you copied, or drag pictures, videos and documents anywhere onto the chat. Videos show a little preview, can now be up to 100 MB (screen recordings included), and Zelpophai looks at more moments from them — up to 8 frames from start to finish instead of 3",
     "26.0 A real calculation engine: whenever a question needs maths — loans, interest, investments, percentages, dates, statistics — Zelpophai now works it out on its own calculation engine first, in a fraction of a second, and writes the answer from those exact numbers. You'll see \"Calculating it exactly…\" and then a card with the working. If the first try has a mistake it fixes itself. It also has proper money rounding, so a paid-off balance shows 0.00, not -0.00. Charts and spreadsheets you attach still run in Python on your device",
     "26.0 Zelpophai Mini (Ctrl+Shift+Z on Windows) is much better at doing things for you: it now makes a plan first and ticks it off as it goes, checks after every step that it actually worked (and tries another way if a click missed), and zooms in on small buttons before clicking so it lands in the right place. A task now counts once against your daily Mini allowance, not once per step",
@@ -181,6 +184,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.1 Owner: shared chats are a new chat_members table plus chats.invite_code / is_group and messages.author_id. Every chat endpoint now checks access through groupchats.access() — owner or member — and the things only the owner should do (rename, public share, invite, remove people, delete) stay owner-only; a member \"deleting\" a shared chat just leaves it. Editing old messages is switched off in shared chats because it would cut off what others said. The AI sees each message as \"[Name]: …\" and runs with the sender's settings but no memories",
     "26.0 Owner: the calculation engine (calcengine.py) never hands the AI's code to Python's exec or eval — it reads the program as a syntax tree and walks it itself, allowing only plain maths, a fixed list of safe functions, and short allow-lists of methods. Every run is also in a separate, throw-away process with CPU, memory and time limits, and a step counter. Tested against the usual escapes (__class__, imports, open, getattr, format-string tricks, giant numbers, endless loops) — all refused. Server-side running of arbitrary code is still yours alone",
     "26.0 Owner: on Android the assistant only lets zelpophai.com use the phone bridge, never types into password boxes, asks before risky steps, and the Accessibility part does nothing unless a task the person started is running. Calls and texts open ready to send — the person presses the button",
     "25.2.1 Owner: web questions used to be answered entirely by the search model, which can't run code. When a question also needs arithmetic (ai._needs_calc), the search model now only gathers the facts, which are handed to the main model with a numbered source list; it writes <zrun>, and its [n] citations are linked at the end. Maths questions also always get the stronger model and more room, and finishing an answer after code has run can no longer be routed back to the search model",
@@ -330,6 +334,8 @@ app = FastAPI(title="Zelpophai AI", version=VERSION, lifespan=lifespan,
               openapi_url="/openapi.json" if _API_DOCS else None)
 
 app.include_router(auth_router)
+from groupchats import router as groupchats_router
+app.include_router(groupchats_router)        # before chats_router: /api/chats/join/… must win
 app.include_router(chats_router)
 app.include_router(memories_router)
 app.include_router(settings_router)
@@ -1152,6 +1158,23 @@ async def chat_app_link(link_id: str, request: Request, db=Depends(get_db)):
             url=f"/denied.html?reason=login&link={link_id}",
             status_code=302,
         )
+    return _shell("app.html")
+
+
+@app.get("/app/join/{code}", response_class=HTMLResponse)
+async def chat_join_link(code: str, request: Request, db=Depends(get_db)):
+    """An invite into someone's shared chat. Logged-out visitors are sent to log
+    in first; the code waits in their browser and the app picks it up after."""
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9]{6,32}", code or ""):
+        return RedirectResponse(url="/app", status_code=302)
+    try:
+        await get_current_user_from_cookie(request, db)
+    except HTTPException:
+        import json
+        return HTMLResponse('<!doctype html><meta charset="utf-8"><title>Join a chat on Zelpophai</title>'
+                            '<script>try{localStorage.setItem("zp_join",' + json.dumps(code) + ')}catch(e){}'
+                            'location.replace("/")</script>')
     return _shell("app.html")
 
 

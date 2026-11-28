@@ -270,6 +270,9 @@ class Chat(Base):
     share_upto = Column(Integer, nullable=True)
     # Hide the owner's name on the shared page.
     share_anon = Column(Boolean, default=False)
+    # Shared chats (26.1): an invite code others use to join and talk in it together.
+    invite_code = Column(String(32), unique=True, index=True, nullable=True)
+    is_group = Column(Boolean, default=False)
     pinned = Column(Boolean, default=False)
     folder = Column(String(50), default="")
     model = Column(String(100), default="")
@@ -281,6 +284,16 @@ class Chat(Base):
     files = relationship("UploadedFile", back_populates="chat")
 
 
+class ChatMember(Base):
+    """Someone the chat's owner invited into a shared chat (26.1)."""
+    __tablename__ = "chat_members"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    last_seen_id = Column(Integer, default=0)
+
+
 class Message(Base):
     __tablename__ = "messages"
 
@@ -290,6 +303,7 @@ class Message(Base):
     content = Column(Text, nullable=False)
     reactions = Column(Text, default="{}")
     viewer_reactions = Column(Text, default="{}")
+    author_id = Column(Integer, nullable=True)     # who wrote a user message (shared chats)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     chat = relationship("Chat", back_populates="messages")
@@ -857,11 +871,23 @@ async def init_db():
             ("model", "VARCHAR(100) DEFAULT ''"),
             ("share_upto", "INTEGER"),
             ("share_anon", "BOOLEAN DEFAULT 0"),
+            ("invite_code", "VARCHAR(32)"),
+            ("is_group", "BOOLEAN DEFAULT 0"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE chats ADD COLUMN {_col} {_ddl}")
             except Exception as e:
                 print(f"migration chats.{_col}: {e}")
+        try:
+            await conn.exec_driver_sql("CREATE UNIQUE INDEX IF NOT EXISTS ix_chats_invite_code ON chats (invite_code)")
+        except Exception as e:
+            print(f"migration chats.invite_code index: {e}")
+        try:
+            cols = [r[1] for r in (await conn.exec_driver_sql("PRAGMA table_info(messages)")).fetchall()]
+            if "author_id" not in cols:
+                await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN author_id INTEGER")
+        except Exception as e:
+            print(f"migration messages.author_id: {e}")
         try:
             await conn.exec_driver_sql("ALTER TABLE messages ADD COLUMN reactions TEXT DEFAULT '{}'")
         except Exception as e:

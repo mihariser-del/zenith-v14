@@ -132,6 +132,15 @@
                             closed: !!close, out: obody === undefined ? null : { attrs: attrs(oa || ''), text: obody } });
                 return '\n\n<div class="zr-slot" data-i="' + (runs.length - 1) + '"></div>\n\n';
             });
+        // Charts the calculation engine drew from its exact numbers.
+        var charts = [];
+        out = out.replace(/<zchart>([\s\S]*?)(<\/zchart>|$)/gi, function (_, body, close) {
+            if (!close) return '';
+            var c = null; try { c = JSON.parse(unesc(body)); } catch (e) {}
+            if (!c) return '';
+            charts.push(c);
+            return '\n\n<div class="zc-slot" data-i="' + (charts.length - 1) + '"></div>\n\n';
+        });
         // Live pages: a working page the AI built. Kept whole so it can be opened.
         var pages = [];
         out = out.replace(/<zpage\b([^>]*)>([\s\S]*?)(<\/zpage>|$)/gi, function (_, a, body, close) {
@@ -165,7 +174,7 @@
         out = out.replace(/<(zimage|zvideo|zremind|zjob)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs };
+        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs, charts: charts };
     }
 
     // A photo on the left and the section it belongs to on the right, like a search result.
@@ -759,6 +768,93 @@
         });
     }
 
+    /* ── charts from the calculation engine ───────────────────────────── */
+    var chartLib = null;
+    function loadChartLib() {
+        if (window.Chart) return Promise.resolve(window.Chart);
+        if (chartLib) return chartLib;
+        chartLib = new Promise(function (res, rej) {
+            var sc = document.createElement('script');
+            sc.src = '/static/vendor/chart-4.4.1.umd.min.js';
+            sc.onload = function () { res(window.Chart); };
+            sc.onerror = function () { chartLib = null; rej(new Error('chart library')); };
+            document.head.appendChild(sc);
+        });
+        return chartLib;
+    }
+    var PALETTE = ['#6366f1', '#ec4899', '#22c55e', '#f59e0b', '#06b6d4', '#a855f7', '#ef4444', '#84cc16', '#14b8a6', '#f97316', '#3b82f6', '#eab308'];
+    function fmtNum(v, money) {
+        if (v == null || isNaN(v)) return '';
+        var a = Math.abs(v);
+        if (money || a >= 1000) {
+            if (a >= 1e9) return (v / 1e9).toFixed(a >= 1e10 ? 0 : 1) + 'B';
+            if (a >= 1e6) return (v / 1e6).toFixed(a >= 1e7 ? 0 : 1) + 'M';
+            if (a >= 1e4) return (v / 1e3).toFixed(0) + 'k';
+            return v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        }
+        return v.toLocaleString(undefined, { maximumFractionDigits: 4 });
+    }
+    function buildChart(c) {
+        var box = document.createElement('figure');
+        box.className = 'zc-card';
+        var h = document.createElement('figcaption');
+        h.textContent = c.title || 'Chart';
+        box.appendChild(h);
+        var wrap = document.createElement('div');
+        wrap.className = 'zc-canvas' + (c.kind === 'pie' || c.kind === 'doughnut' ? ' round' : '');
+        var cv = document.createElement('canvas');
+        cv.setAttribute('role', 'img');
+        cv.setAttribute('aria-label', (c.title || 'Chart') + ' (' + c.kind + ')');
+        wrap.appendChild(cv); box.appendChild(wrap);
+        var tools = document.createElement('div'); tools.className = 'zc-tools';
+        tools.innerHTML = '<button type="button" data-z="png">Download picture</button><button type="button" data-z="csv">Download data</button>';
+        box.appendChild(tools);
+        tools.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-z]'); if (!b) return;
+            var name = (c.title || 'chart').replace(/[^\w\- ]+/g, '').trim() || 'chart';
+            var a = document.createElement('a');
+            if (b.getAttribute('data-z') === 'png') { a.href = cv.toDataURL('image/png'); a.download = name + '.png'; }
+            else {
+                var rows = [['label'].concat(c.series.map(function (s) { return s.name || 'value'; }))];
+                if (c.kind === 'scatter') { rows = [['series', 'x', 'y']]; c.series.forEach(function (s) { (s.points || []).forEach(function (p) { rows.push([s.name, p[0], p[1]]); }); }); }
+                else (c.labels || []).forEach(function (l, i) { rows.push([l].concat(c.series.map(function (s) { return (s.values || [])[i]; }))); });
+                var csv = rows.map(function (r) { return r.map(function (v) { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }).join(','); }).join('\n');
+                a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' })); a.download = name + '.csv';
+            }
+            document.body.appendChild(a); a.click(); a.remove();
+        });
+        loadChartLib().then(function (Chart) {
+            var dark = !document.body.classList.contains('light-theme');
+            var ink = dark ? '#cbd5f5' : '#334155', grid = dark ? 'rgba(148,163,184,.15)' : 'rgba(15,23,42,.08)';
+            var round = c.kind === 'pie' || c.kind === 'doughnut';
+            var type = c.kind === 'area' ? 'line' : c.kind === 'stacked' ? 'bar' : c.kind;
+            var data;
+            if (c.kind === 'scatter') {
+                data = { datasets: c.series.map(function (s, i) { return { label: s.name || 'Points', data: (s.points || []).map(function (p) { return { x: p[0], y: p[1] }; }), backgroundColor: PALETTE[i % PALETTE.length] }; }) };
+            } else if (round) {
+                var s0 = c.series[0] || { values: [] };
+                data = { labels: c.labels, datasets: [{ label: s0.name || c.title || '', data: s0.values, backgroundColor: c.labels.map(function (_, i) { return PALETTE[i % PALETTE.length]; }), borderColor: dark ? '#0b1020' : '#fff', borderWidth: 2 }] };
+            } else {
+                data = { labels: c.labels, datasets: c.series.map(function (s, i) {
+                    var col = PALETTE[i % PALETTE.length];
+                    return { label: s.name || c.title || 'Value', data: s.values, borderColor: col, backgroundColor: type === 'line' ? col + (c.kind === 'area' ? '33' : '') : col + 'cc',
+                             fill: c.kind === 'area', tension: 0.25, pointRadius: (s.values || []).length > 40 ? 0 : 3, borderWidth: 2 };
+                }) };
+            }
+            var many = !round && c.series.length > 1;
+            new Chart(cv, { type: type, data: data, options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 400 },
+                interaction: round ? undefined : { mode: 'index', intersect: false },
+                plugins: { legend: { display: round || many, labels: { color: ink, boxWidth: 12 } },
+                           tooltip: { callbacks: { label: function (ctx) { var v = ctx.parsed && typeof ctx.parsed === 'object' ? (ctx.parsed.y != null ? ctx.parsed.y : ctx.parsed) : ctx.parsed; return (ctx.dataset.label ? ctx.dataset.label + ': ' : '') + fmtNum(typeof v === 'number' ? v : ctx.raw, false); } } } },
+                scales: round ? {} : {
+                    x: { stacked: c.kind === 'stacked', title: { display: !!c.x, text: c.x, color: ink }, ticks: { color: ink, maxRotation: 0, autoSkip: true }, grid: { color: grid } },
+                    y: { stacked: c.kind === 'stacked', title: { display: !!c.y, text: c.y, color: ink }, ticks: { color: ink, callback: function (v) { return fmtNum(v, c.money); } }, grid: { color: grid } } }
+            } });
+        }).catch(function () { wrap.innerHTML = '<p class="zc-fail">The chart couldn\u2019t load — the numbers are in the card above.</p>'; });
+        return box;
+    }
+
     /* ── main entry ───────────────────────────────────────────────────── */
     var ZRender = {
         icons: I,
@@ -796,6 +892,12 @@
             el.querySelectorAll('.zr-slot').forEach(function (slot) {
                 var i = Number(slot.getAttribute('data-i')), r = parsed.runs[i];
                 if (r && r.code) slot.replaceWith(buildRun(r, i, streaming));
+                else slot.remove();
+            });
+            el.querySelectorAll('.zc-slot').forEach(function (slot) {
+                var c = parsed.charts[Number(slot.getAttribute('data-i'))];
+                if (c && !streaming) slot.replaceWith(buildChart(c));
+                else if (c) { var ph = document.createElement('div'); ph.className = 'zc-card zc-wait'; ph.textContent = 'Drawing the chart\u2026'; slot.replaceWith(ph); }
                 else slot.remove();
             });
             el.querySelectorAll('.zpg-slot').forEach(function (slot) {
@@ -838,6 +940,7 @@
                 .replace(/<ztodo\b([^>]*)>([\s\S]*?)(?:<\/ztodo>|$)/gi, function (_, a, b) { return (attrs(a).title || '') + '\n' + b.trim(); })
                 .replace(/<zdone\b[^>]*\/?>(?:<\/zdone>)?/gi, '')
                 .replace(/<zrun\b[^>]*>[\s\S]*?(?:<\/zrun>|$)/gi, '')
+                .replace(/<zchart>[\s\S]*?(?:<\/zchart>|$)/gi, '')
                 .replace(/<zout\b[^>]*>([\s\S]*?)<\/zout>/gi, function (_, b) { return b.trim(); })
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind|zjob)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')

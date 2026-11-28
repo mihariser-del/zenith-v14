@@ -292,6 +292,17 @@
                 d.querySelector('.cx-tool-h').onclick = () => { pre.hidden = !pre.hidden; d.querySelector('.cx-tool-h').setAttribute('aria-expanded', !pre.hidden); };
                 if (it.open) pre.hidden = false;
             }
+            if (it.made && it.made.length) {
+                const box = document.createElement('div'); box.className = 'cx-made';
+                it.made.forEach(f => {
+                    const live = (S.made || []).find(x => x.url === f.url);
+                    const kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB';
+                    const row = document.createElement('div'); row.className = 'cx-made-r';
+                    row.innerHTML = `<span>📦</span><b>${esc(f.path)}</b><small>${kb}</small>` + (live ? `<a class="cx-btn pri" href="${live.url}" download="${esc(f.path.split('/').pop())}">${I.dl}Download</a>` : `<small class="cx-made-old">Run it again to download</small>`);
+                    box.appendChild(row);
+                });
+                d.appendChild(box);
+            }
             if (it.path && (it.name === 'write_file' || it.name === 'edit_file') && it.status !== 'denied' && it.status !== 'err') {
                 const dl = document.createElement('button'); dl.className = 'cx-ib sm cx-tool-dl'; dl.title = 'Download ' + it.path.split('/').pop(); dl.innerHTML = I.dl;
                 dl.onclick = (e) => { e.stopPropagation(); downloadFile(it.path); };
@@ -330,7 +341,7 @@
         X.saveT = setTimeout(saveChat, 1200);
     }
     async function saveChat() {
-        const items = X.items.map(it => { const c = { ...it }; if (c.detail && c.detail.length > 6000) c.detail = c.detail.slice(0, 6000) + '\n…'; delete c.open; return c; });
+        const items = X.items.map(it => { const c = { ...it }; if (c.made) c.made = c.made.map(f => ({ path: f.path, size: f.size })); if (c.detail && c.detail.length > 6000) c.detail = c.detail.slice(0, 6000) + '\n…'; delete c.open; return c; });
         if (CA.isGuest()) { try { localStorage.setItem('cx_guest_chat', JSON.stringify(items.slice(-120))); } catch (e) {} return; }
         if (!S.project.id) { await CA.save(false); if (!S.project.id) return; history.replaceState(null, '', '/code?project=' + S.project.id); }
         try { await api('/api/code/projects/' + S.project.id + '/chat', { method: 'PUT', body: JSON.stringify({ chat: items }) }); } catch (e) {}
@@ -460,11 +471,15 @@
             if (local && !(await approve({ name, ask: 'Run ' + (p || 'the project') + ' on this computer' }, ''))) { push({ t: 'tool', name, label, status: 'denied' }); return 'The user did not allow running it on their computer.'; }
             working(true, 'Running ' + (p || 'the project'));
             if (kind === 'web') { panel('preview'); $('cx-pempty').hidden = true; }
+            const seen = new Set((S.made || []).map(x => x.url));
             const r = await CA.runCapture(p || null, { frame: $('cx-frame'), local });
             const out = String(r.output || '').slice(-8000);
             $('cx-out').textContent = out;
-            push({ t: 'tool', name, label, status: r.ok ? '' : 'err', detail: out, open: !r.ok });
-            return (r.ok ? 'It ran.' : 'It ran with errors.') + '\nOutput:\n' + out;
+            const made = (S.made || []).filter(x => !seen.has(x.url)).map(x => ({ path: x.path, size: x.size, url: x.url }));
+            push({ t: 'tool', name, label, status: r.ok ? '' : 'err', detail: out, open: !r.ok, made: made.length ? made : undefined });
+            paintMade();
+            return (r.ok ? 'It ran.' : 'It ran with errors.') + '\nOutput:\n' + out +
+                (made.length ? '\n\nFiles the program created (shown to the user with Download buttons under this step — tell them to click Download; do NOT build a separate download page): ' + made.map(x => x.path).join(', ') : '');
         }
         push({ t: 'tool', name, label: '', status: 'err' });
         return 'Error: unknown tool ' + name;
@@ -600,6 +615,15 @@
         openMenu(anchor, opts, (v) => (v === 'zip' ? CA.downloadZip() : downloadOne(h[0])));
     }
 
+    function paintMade() {
+        const pv = document.querySelector('#cx-panel [data-pv=output]'); if (!pv) return;
+        let box = $('cx-made-list');
+        if (!box) { box = document.createElement('div'); box.id = 'cx-made-list'; pv.insertBefore(box, pv.firstChild); }
+        const list = S.made || [];
+        box.innerHTML = list.length ? `<div class="cx-made">${list.map(f => `<div class="cx-made-r"><span>📦</span><b>${esc(f.path)}</b><a class="cx-btn pri" href="${f.url}" download="${esc(f.path.split('/').pop())}">${I.dl}Download</a></div>`).join('')}</div>` : '';
+    }
+    document.addEventListener('ca:made', paintMade);
+
     /* ───────────── side bits ───────────── */
     function paintFiles() {
         const ul = $('cx-files'); if (!ul || !S.project) return;
@@ -711,7 +735,7 @@
             const k = CA.kindFor(null);
             if (k === 'web') { panel('preview'); $('cx-pempty').hidden = true; }
             const r = await CA.runCapture(null, { frame: $('cx-frame'), local: P.env === 'computer' && IS_APP });
-            $('cx-out').textContent = r.output; if (k !== 'web') panel('output');
+            $('cx-out').textContent = r.output; paintMade(); if (k !== 'web') panel('output');
         };
         $('cx-share').onclick = () => { showChat(false); CA.share(); };
         $('cx-zip').onclick = (e) => downloadMenu(e.currentTarget);

@@ -5,12 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Coding AGT. — write, run and share code with AI</title>
     <meta name="description" content="Coding AGT. by Zelpophai: an online code editor with an AI agent. Build websites, Python scripts and SQL, run them in your browser and share them.">
-    <meta name="theme-color" content="#0b0f14">
+    <meta name="theme-color" content="#1a1a1a">
     <link rel="icon" type="image/svg+xml" href="/static/icons/code-app.svg">
     <link rel="icon" type="image/png" sizes="32x32" href="/static/icons/code-app-32.png">
     <link rel="apple-touch-icon" href="/static/icons/code-app-192.png">
     <link rel="manifest" href="/static/manifest-code.json">
-    <script>try { var t = JSON.parse(localStorage.getItem('ca_prefs') || '{}').theme || 'dark'; if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; document.documentElement.dataset.caTheme = t; } catch (e) {}</script>
+    <script>/* 26.5.2: Coding AGT. follows the Zelpophai light/dark setting unless you pick its own */ try { var cp = JSON.parse(localStorage.getItem('ca_prefs') || '{}'); var t = cp.themeV === 2 ? (cp.theme || 'app') : 'app'; if (t === 'app') t = JSON.parse(localStorage.getItem('zenith_settings') || '{}').theme || 'auto'; if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'; document.documentElement.dataset.caTheme = t; } catch (e) {}</script>
     <link rel="stylesheet" href="/static/vendor/codemirror/codemirror.css">
     <link rel="stylesheet" href="/static/vendor/hljs-atom-one-dark.min.css">
     <link rel="stylesheet" href="/static/css/render.css">

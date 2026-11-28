@@ -1,8 +1,8 @@
 /* Coding AGT. — its own app: neutral, quiet, built for long sessions.
    Themes: html[data-ca-theme="dark" | "light"]. Sizes the person can drag live in --side / --out / --ai. */
 :root {
-    --bg: #0b0f14; --bg2: #0f141b; --panel: #11161d; --panel2: #161c25; --line: #1e2631; --line2: #2a3442;
-    --ink: #e6edf3; --ink2: #b3bfcc; --dim: #7d8a99; --acc: #34d399; --acc2: #0ea5e9; --accbg: rgba(52, 211, 153, .12); --on-acc: #04130d;
+    --bg: #1a1a1a; --bg2: #141414; --panel: #171717; --panel2: #242424; --line: #2e2e2e; --line2: #3a3a3a;
+    --ink: #ececec; --ink2: #c4c4c4; --dim: #9b9b9b; --acc: #34d399; --acc2: #0ea5e9; --accbg: rgba(52, 211, 153, .12); --on-acc: #04130d;
     --bad: #f87171; --warn: #fbbf24; --good: #34d399; --sel: rgba(56, 139, 253, .28); --shadow: 0 24px 70px rgba(0, 0, 0, .55);
     --k: #ff7b72; --s: #a5d6ff; --n: #79c0ff; --c: #8b949e; --f: #d2a8ff; --t: #7ee787; --v: #ffa657; --p: #c9d1d9;
     --side: 240px; --out: 420px; --ai: 360px; --fs: 14px;
@@ -10,8 +10,8 @@
     color-scheme: dark;
 }
 html[data-ca-theme="light"] {
-    --bg: #f6f8fa; --bg2: #ffffff; --panel: #ffffff; --panel2: #f3f5f8; --line: #e1e6ec; --line2: #cfd7e0;
-    --ink: #1b2330; --ink2: #3d4a5c; --dim: #6b7787; --acc: #059669; --acc2: #0284c7; --accbg: rgba(5, 150, 105, .1); --on-acc: #ffffff;
+    --bg: #faf9f7; --bg2: #f1efeb; --panel: #ffffff; --panel2: #f4f2ee; --line: #e4e1db; --line2: #d6d2ca;
+    --ink: #1f1e1c; --ink2: #3d3a35; --dim: #6b6862; --acc: #059669; --acc2: #0284c7; --accbg: rgba(5, 150, 105, .1); --on-acc: #ffffff;
     --bad: #dc2626; --warn: #b45309; --good: #059669; --sel: rgba(2, 132, 199, .2); --shadow: 0 24px 60px rgba(27, 35, 48, .18);
     --k: #cf222e; --s: #0a3069; --n: #0550ae; --c: #6e7781; --f: #8250df; --t: #116329; --v: #953800; --p: #24292f;
     color-scheme: light;
@@ -31,7 +31,7 @@ kbd { font: 600 11px var(--mono); padding: 1px 6px; border-radius: 6px; border: 
 .ca-top { flex: none; height: 48px; display: flex; align-items: center; gap: 10px; padding: 0 10px 0 8px; background: var(--bg2); border-bottom: 1px solid var(--line); }
 .ca-brand { all: unset; cursor: pointer; display: flex; align-items: center; gap: 9px; padding: 5px 8px 5px 4px; border-radius: 9px; }
 .ca-brand:hover { background: var(--panel2); }
-.ca-logo { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: #0b0f14; border: 1px solid #1f2937; color: #34d399; }
+.ca-logo { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; background: var(--acc); color: var(--on-acc); }
 .ca-logo .ca-mark { width: 17px; height: 17px; }
 .ca-brand-t { font-size: 14px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; } .ca-brand-t b { color: var(--acc); font-weight: 700; }
 .ca-sep { color: var(--line2); font-size: 18px; }

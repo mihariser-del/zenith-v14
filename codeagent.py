@@ -410,6 +410,8 @@ ENV_BROWSER = """Environment: BROWSER. run works for:
   No server or npm; load libraries from cdnjs.cloudflare.com or cdn.jsdelivr.net.
 - Python (Pyodide 3.12 in the browser): standard library + numpy, pandas, matplotlib, scipy.
   No input(), no network, no threads, no native pip packages. main.py is the usual entry point.
+  Files the program writes (zips, .mcaddon, images, CSV…) are shown to the user with a Download
+  button under the run step — just tell them to click it. Never build a separate download page.
 - SQL (SQLite) .sql files.
 Other languages (Java, C#, C++, Go, Rust…) can be written but NOT run here — say they can run them
 with "This computer" in the Zelpophai Windows app, or download the project."""

@@ -1,6 +1,6 @@
 /* Coding AGT. — chat-first agent view (26.5). Uses the editor's theme colours (coding-agent.css). */
-:root { --cx-bg: #1a1a1a; --cx-side: #141414; --cx-card: #242424; --cx-card2: #2c2c2c; --cx-line: #2e2e2e; --cx-line2: #3a3a3a; --cx-ink: #ececec; --cx-dim: #9b9b9b; --cx-dim2: #6f6f6f; }
-html[data-ca-theme="light"] { --cx-bg: #faf9f7; --cx-side: #f1efeb; --cx-card: #ffffff; --cx-card2: #f4f2ee; --cx-line: #e4e1db; --cx-line2: #d6d2ca; --cx-ink: #1f1e1c; --cx-dim: #6b6862; --cx-dim2: #9a968e; }
+:root, html[data-ca-theme] { --cx-bg: var(--bg); --cx-side: var(--bg2); --cx-card: var(--panel2); --cx-card2: color-mix(in srgb, var(--panel2) 70%, var(--line2)); --cx-line: var(--line); --cx-line2: var(--line2); --cx-ink: var(--ink); --cx-dim: var(--dim); --cx-dim2: color-mix(in srgb, var(--dim) 70%, var(--bg)); }
+html[data-ca-theme="light"] { --cx-card: var(--panel); --cx-card2: var(--panel2); }
 
 body.cx-on .ca-app, body.cx-on #ca-home, body.cx-on .ca-palette-wrap { display: none !important; }
 body:not(.cx-on) .cx { display: none !important; }
@@ -215,3 +215,12 @@ html[data-ca-theme="light"] .cx-err { color: #b91c1c; }
 .cx-files li.cx-files-top:hover { background: none; }
 .cx-files-top .cx-btn { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
 .cx-files-top .cx-btn svg { width: 15px; height: 15px; }
+
+/* 26.5.2: files a program made while running */
+.cx-made { margin: 6px 0 4px 32px; display: flex; flex-direction: column; gap: 6px; }
+#cx-made-list .cx-made { margin: 12px; }
+.cx-made-r { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 12px; border: 1px solid color-mix(in srgb, var(--acc) 40%, var(--cx-line)); background: color-mix(in srgb, var(--acc) 8%, var(--cx-card)); font-size: 13.5px; }
+.cx-made-r b { flex: 1; min-width: 0; font-family: var(--mono); font-size: 12.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-made-r small { color: var(--cx-dim); }
+.cx-made-r .cx-btn { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; padding: 6px 12px; }
+.cx-made-r .cx-btn svg { width: 15px; height: 15px; }

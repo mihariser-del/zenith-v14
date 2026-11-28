@@ -20,13 +20,17 @@
     const LANG = { html: 'HTML', htm: 'HTML', css: 'CSS', js: 'JavaScript', mjs: 'JavaScript', ts: 'TypeScript', py: 'Python', json: 'JSON', md: 'Markdown', sql: 'SQL', txt: 'Plain text', csv: 'CSV', java: 'Java', c: 'C', cpp: 'C++', go: 'Go', rb: 'Ruby', php: 'PHP' };
 
     /* ───────────── preferences ───────────── */
-    const DEF = { theme: 'dark', fontSize: 14, tabSize: 2, wrap: false, lineNumbers: true, autoSave: true, autoRun: false, side: 240, out: 420, ai: 360, showSide: true, showOut: true, showAi: true };
+    const DEF = { theme: 'app', themeV: 2, fontSize: 14, tabSize: 2, wrap: false, lineNumbers: true, autoSave: true, autoRun: false, side: 240, out: 420, ai: 360, showSide: true, showOut: true, showAi: true };
     let P = { ...DEF }; try { P = { ...DEF, ...JSON.parse(localStorage.getItem('ca_prefs') || '{}') }; } catch (e) {}
+    // 26.5.2: everyone starts out matching Zelpophai's own light/dark setting once.
+    if (P.themeV !== 2) { P.theme = 'app'; P.themeV = 2; }
+    const zpTheme = () => { try { return JSON.parse(localStorage.getItem('zenith_settings') || '{}').theme || 'auto'; } catch (e) { return 'auto'; } };
     const savePrefs = () => { try { localStorage.setItem('ca_prefs', JSON.stringify(P)); } catch (e) {} };
     function applyPrefs() {
-        const t = P.theme === 'auto' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : P.theme;
+        let t = P.theme === 'app' ? zpTheme() : P.theme;
+        if (t === 'auto') t = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
         document.documentElement.dataset.caTheme = t;
-        const mc = document.querySelector('meta[name="theme-color"]'); if (mc) mc.content = t === 'light' ? '#ffffff' : '#0b0f14';
+        const mc = document.querySelector('meta[name="theme-color"]'); if (mc) mc.content = t === 'light' ? '#faf9f7' : '#1a1a1a';
         const r = document.documentElement.style;
         r.setProperty('--fs', P.fontSize + 'px'); r.setProperty('--side', P.side + 'px'); r.setProperty('--out', P.out + 'px'); r.setProperty('--ai', P.ai + 'px');
         const app = $('ca-app');
@@ -40,7 +44,9 @@
         }
         $('ca-st-indent').textContent = 'Spaces: ' + P.tabSize;
     }
-    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (P.theme === 'auto') applyPrefs(); });
+    matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (P.theme === 'auto' || P.theme === 'app') applyPrefs(); });
+    // Changing the theme in Zelpophai (another tab) changes it here too.
+    addEventListener('storage', (e) => { if (e.key === 'zenith_settings' && P.theme === 'app') applyPrefs(); });
 
     /* ───────────── status bar + breadcrumb ───────────── */
     function paintFile() {
@@ -121,7 +127,7 @@
         const sw = (k) => `<button class="ca-switch${P[k] ? ' on' : ''}" data-sw="${k}" role="switch" aria-checked="${!!P[k]}"></button>`;
         const row = (t, d, c) => `<div class="ca-set-row"><div><b>${t}</b><small>${d}</small></div>${c}</div>`;
         CA.modal('Editor settings', `<div class="ca-set">
-            ${row('Theme', 'How Coding AGT. looks.', seg('theme', [['dark', 'Dark'], ['light', 'Light'], ['auto', 'Match device']]))}
+            ${row('Theme', 'How Coding AGT. looks.', seg('theme', [['app', 'Same as Zelpophai'], ['dark', 'Dark'], ['light', 'Light'], ['auto', 'Match device']]))}
             ${row('Text size', 'Size of the code in the editor.', seg('fontSize', [[12, 'Small'], [14, 'Normal'], [16, 'Large'], [18, 'Huge']]))}
             ${row('Indent', 'Spaces added when you press Tab.', seg('tabSize', [[2, '2 spaces'], [4, '4 spaces']]))}
             ${row('Wrap long lines', 'Keep long lines on screen instead of scrolling sideways.', sw('wrap'))}

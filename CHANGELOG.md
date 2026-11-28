@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.5.2 — One theme for Coding AGT., files made by your code
+
+- `coding-agent.css`: neutral palette (dark #1a1a1a / light #faf9f7) shared with the agent view (`--cx-*` now derive from the editor variables); logo and empty-state colours follow the theme.
+- `coding-agent-shell.js` / `coding-agent.html`: theme "Same as Zelpophai" (default) follows `zenith_settings.theme`, including live changes from another tab.
+- `coding-agent.js`: the Python worker reports files the program created (`files` message) → `S.made` with blob download links in the console; `coding-agent-chat.js` shows them under the run step and in Output and tells the agent they're downloadable (no more home-made download pages).
+
 ## 26.5.1 — Downloads and linked files
 
 - `render.js`: `bundleHtml()` (exported as `ZRender.bundleHtml`), `filesBar()` (Download all .zip via JSZip, keeps `path`), `openPreviewDoc()` (sandboxed srcdoc preview). HTML file cards that use other files from the same answer show "uses …", preview with them, gain a One file button, and warn about missing links.

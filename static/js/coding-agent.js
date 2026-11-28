@@ -196,7 +196,7 @@
                 <span class="nm">${esc(p)}</span><span class="dot"></span>
                 ${S.shared ? '' : `<span class="act"><button data-a="ren" title="Rename" aria-label="Rename ${esc(p)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></button><button data-a="del" title="Delete" aria-label="Delete ${esc(p)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></span>`}
             </li>`;
-        }).join('') || '<li style="color:#5d688c;cursor:default">No files yet</li>';
+        }).join('') || '<li style="color:var(--dim);cursor:default">No files yet</li>';
     }
 
     function renderTabs() {
@@ -518,6 +518,11 @@ onmessage = async (ev) => {
       if (dir) py.FS.mkdirTree('/home/pyodide/' + dir);
       py.FS.writeFile('/home/pyodide/' + p, c);
     }
+    const snap = (dir) => { let out = []; let names = []; try { names = py.FS.readdir(dir); } catch (e) { return out; }
+      for (const n of names) { if (n === '.' || n === '..' || n === '__pycache__') continue; const p = dir + '/' + n; let st; try { st = py.FS.stat(p); } catch (e) { continue; }
+        if (py.FS.isDir(st.mode)) out = out.concat(snap(p)); else out.push([p, +st.mtime, st.size]); } return out; };
+    self._before = new Map(snap('/home/pyodide').map(x => [x[0], x[1]]));
+    self._snap = snap;
     py.runPython("import os, sys; os.chdir('/home/pyodide'); sys.path.insert(0, '/home/pyodide')\\nfor m in list(sys.modules):\\n    f = getattr(sys.modules[m], '__file__', '') or ''\\n    if f.startswith('/home/pyodide/'): del sys.modules[m]");
     const code = files[entry] || '';
     postMessage({ t: 'info', s: 'Loading packages…' });
@@ -529,12 +534,28 @@ onmessage = async (ev) => {
       const imgs = py.runPython("import io, base64\\nimport matplotlib.pyplot as plt\\n_o = []\\nfor _n in plt.get_fignums():\\n    _b = io.BytesIO(); plt.figure(_n).savefig(_b, format='png', dpi=110, bbox_inches='tight'); _o.append(base64.b64encode(_b.getvalue()).decode())\\nplt.close('all')\\n_o").toJs();
       for (const b of imgs) postMessage({ t: 'img', s: b });
     }
+    sendMade(files);
     postMessage({ t: 'done' });
   } catch (e) {
     postMessage({ t: 'err', s: String(e.message || e).replace(/^PythonError: /, '') });
+    try { sendMade(files); } catch (e2) {}
     postMessage({ t: 'done', failed: true });
   }
-};`;
+};
+// 26.5.2: files the program made (e.g. a .zip or .mcaddon) — sent back so they can be downloaded.
+function sendMade(files) {
+  if (!self._snap) return;
+  const made = []; let total = 0;
+  for (const [p, mt, size] of self._snap('/home/pyodide')) {
+    const rel = p.slice('/home/pyodide/'.length);
+    if (self._before.get(p) === mt) continue;
+    if (rel in files && self._before.has(p) && !size) continue;
+    if (made.length >= 12 || total + size > 40e6) break;
+    total += size;
+    made.push({ path: rel, size, data: py.FS.readFile(p) });
+  }
+  if (made.length) postMessage({ t: 'files', files: made });
+}`;
 
     // Drop Pyodide's own frames from tracebacks so only the person's code shows.
     function cleanTb(t) {
@@ -544,6 +565,19 @@ onmessage = async (ev) => {
             out.push(L[i]);
         }
         return out.join('\n');
+    }
+    // Files a program created while running (it can't save into your PC from the browser).
+    S.made = [];
+    function madeFiles(list) {
+        (list || []).forEach(f => {
+            if (ext(f.path) && f.path in S.project.files && new TextDecoder().decode(f.data) === S.project.files[f.path]) return;
+            const blob = new Blob([f.data], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+            S.made = S.made.filter(x => x.path !== f.path).concat([{ path: f.path, size: f.size, url }]);
+            const kb = f.size > 1048576 ? (f.size / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(f.size / 1024)) + ' KB';
+            log('ok', `📦 Your program made ${f.path} (${kb}) — download it from the link.`, `📦 Your program made <b>${esc(f.path)}</b> (${kb}) — <a href="${url}" download="${esc(f.path.split('/').pop())}">Download it</a>`);
+        });
+        document.dispatchEvent(new CustomEvent('ca:made'));
     }
     function runPython(want) {
         const entry = (want && want in S.project.files) ? want : ext(S.active || '') === 'py' ? S.active : ('main.py' in S.project.files ? 'main.py' : Object.keys(S.project.files).find(p => p.endsWith('.py')));
@@ -561,6 +595,7 @@ onmessage = async (ev) => {
                 else if (m.t === 'warn') log('warn', m.s);
                 else if (m.t === 'info') log('info', m.s);
                 else if (m.t === 'img') log('', '', `<img alt="Chart from your code" src="data:image/png;base64,${m.s}">`);
+                else if (m.t === 'files') madeFiles(m.files);
                 else if (m.t === 'fatal') { log('err', 'Python could not start: ' + m.s); stop(); if (S.onRunDone) S.onRunDone(); }
                 else if (m.t === 'done') { log(m.failed ? 'warn' : 'ok', `■ Finished in ${((performance.now() - S.runStart) / 1000).toFixed(2)}s`); setRunning(false); if (S.onRunDone) S.onRunDone(); }
             };

@@ -338,3 +338,10 @@ html.halloween body { --zr-accent: #ff7a1a; --zr-accent2: #a855f7; --zr-chip: rg
 .zc-wait { font-size: 13px; opacity: .7; }
 .zc-fail { font-size: 13px; opacity: .75; }
 @media (max-width: 520px) { .zc-canvas { height: 220px; } }
+
+/* 26.5.1: several files in one answer */
+.zf-actions { flex-wrap: wrap; }
+.zf-all { display: flex; align-items: center; gap: 10px; justify-content: space-between; margin: 6px 0 10px; padding: 9px 12px; border-radius: 12px; border: 1px dashed rgba(148, 163, 184, .35); font-size: 13px; color: var(--text-muted, #9aa3b8); max-width: 640px; }
+.zf-all > span { display: inline-flex; align-items: center; gap: 7px; }
+.zf-all svg { width: 15px; height: 15px; }
+.zf-card.many .zf-actions { grid-column: 1 / -1; justify-content: flex-start; }

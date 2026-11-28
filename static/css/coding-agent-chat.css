@@ -199,3 +199,19 @@ html[data-ca-theme="light"] .cx-err { color: #b91c1c; }
 
 /* The editor's old side agent is replaced by the chat-first agent (the Agent button, top left). */
 .ca-app .ca-ai, .ca-app #ca-rz-ai, #ca-tog-ai, #ca-rail-ai, #ca-mob [data-view="ai"] { display: none !important; }
+
+/* 26.5.1: downloads */
+.cx-ib.sm { width: 28px; height: 28px; border-radius: 7px; }
+.cx-ib.sm svg { width: 15px; height: 15px; }
+.cx-tool-h .cx-tool-dl { margin-left: auto; opacity: 0; }
+.cx-tool-h .cx-tool-dl + .cx-tool-dl { margin-left: 0; }
+.cx-tool-h:hover .cx-tool-dl, .cx-tool-dl:focus-visible { opacity: 1; }
+.cx-tool-h .cx-tool-dl ~ svg:last-child { margin-left: 4px; }
+@media (hover: none) { .cx-tool-h .cx-tool-dl { opacity: 1; } }
+.cx-files li span { display: flex; flex-direction: column; min-width: 0; }
+.cx-files li em { font-style: normal; font-family: Inter, system-ui, sans-serif; font-size: 11.5px; color: var(--cx-dim2); }
+.cx-files li em.bad { color: var(--warn); }
+.cx-files li.cx-files-top { cursor: default; gap: 8px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid var(--cx-line); margin-bottom: 6px; }
+.cx-files li.cx-files-top:hover { background: none; }
+.cx-files-top .cx-btn { display: inline-flex; align-items: center; gap: 7px; font-weight: 500; }
+.cx-files-top .cx-btn svg { width: 15px; height: 15px; }

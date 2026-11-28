@@ -426,8 +426,97 @@
         return parts.join(' · ');
     }
 
+    /* ── 26.5.1: an HTML page plus the CSS / JS files it links to ───────── */
+    // files: { "path": "content" }. Returns the page with linked stylesheets and
+    // scripts written into it, which of the files it used, and links it couldn't find.
+    function bundleHtml(htmlPath, files) {
+        var html = String(files[htmlPath] || ''), used = [], missing = [];
+        var base = htmlPath.indexOf('/') >= 0 ? htmlPath.replace(/[^/]+$/, '') : '';
+        var local = function (href) { return href && !/^(https?:|\/\/|data:|blob:|mailto:|#|javascript:)/i.test(href); };
+        var resolve = function (href) {
+            var clean = String(href).replace(/^\.\//, '').split(/[?#]/)[0];
+            var parts = (base + clean).split('/'), out = [];
+            parts.forEach(function (x) { if (x === '..') out.pop(); else if (x && x !== '.') out.push(x); });
+            var full = out.join('/');
+            if (files[full] != null) return full;
+            if (files[clean] != null) return clean;
+            var tail = clean.split('/').pop();      // the AI often drops folders
+            var k = Object.keys(files).filter(function (p) { return p.split('/').pop() === tail; });
+            return k.length === 1 ? k[0] : null;
+        };
+        html = html.replace(/<link\b[^>]*>/gi, function (m) {
+            if (!/rel=["']?stylesheet/i.test(m)) return m;
+            var hm = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/i.exec(m) || [];
+            var href = hm[1] || hm[2] || hm[3];
+            if (!local(href)) return m;
+            var p = resolve(href);
+            if (!p) { missing.push(href); return m; }
+            used.push(p);
+            return '<style data-file="' + esc(p) + '">\n' + files[p] + '\n</style>';
+        });
+        html = html.replace(/<script\b([^>]*?)\ssrc\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))([^>]*)>\s*<\/script>/gi, function (m, a, s1, s2, s3, b) {
+            var src = s1 || s2 || s3;
+            if (!local(src)) return m;
+            var p = resolve(src);
+            if (!p) { missing.push(src); return m; }
+            used.push(p);
+            var type = /type=["']module["']/i.test(a + b) ? ' type="module"' : '';
+            return '<script' + type + ' data-file="' + esc(p) + '">\n' + String(files[p]).replace(/<\/script/gi, '<\\/script') + '\n<\/script>';
+        });
+        return { html: html, used: used, missing: missing };
+    }
+    function saveBlob(blob, name) {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+    }
+    function loadJsZip() {
+        if (window.JSZip) return Promise.resolve();
+        return new Promise(function (res, rej) { var sc = document.createElement('script'); sc.src = '/static/vendor/jszip-3.10.1.min.js'; sc.onload = res; sc.onerror = rej; document.head.appendChild(sc); });
+    }
+    // Several files in one answer: one button to get them all, folders kept.
+    function filesBar(group) {
+        var withId = group.filter(function (f) { return f.attrs && f.attrs.id; });
+        var bar = document.createElement('div');
+        bar.className = 'zf-all';
+        bar.innerHTML = '<span>' + I.dl + withId.length + ' files</span><button type="button" class="zf-btn primary">' + I.dl + '<span>Download all (.zip)</span></button>';
+        bar.querySelector('button').addEventListener('click', function () {
+            var btn = this, lab = btn.querySelector('span');
+            lab.textContent = 'Zipping…'; btn.disabled = true;
+            loadJsZip().then(function () {
+                var zip = new JSZip();
+                return Promise.all(withId.map(function (f) {
+                    return fetch('/api/files/' + encodeURIComponent(f.attrs.id) + '/download', { credentials: 'same-origin' })
+                        .then(function (r) { if (!r.ok) throw new Error(); return r.blob(); })
+                        .then(function (b) { zip.file((f.attrs.path || f.attrs.name || ('file-' + f.attrs.id)).replace(/^\/+/, ''), b); });
+                })).then(function () { return zip.generateAsync({ type: 'blob' }); });
+            }).then(function (blob) { saveBlob(blob, 'zelpophai-files.zip'); lab.textContent = 'Download all (.zip)'; btn.disabled = false; })
+              .catch(function () { lab.textContent = 'Couldn\u2019t zip — download them one by one'; btn.disabled = false; });
+        });
+        return bar;
+    }
+    function openPreviewDoc(name, html, onDownload) {
+        var old = document.getElementById('zf-preview'); if (old) old.remove();
+        var ov = document.createElement('div'); ov.id = 'zf-preview'; ov.className = 'zf-preview';
+        ov.innerHTML = '<div class="zf-pv-card" role="dialog" aria-modal="true" aria-label="Page preview">' +
+            '<div class="zf-pv-head">' + fileIcon('html') + '<div class="zf-pv-name"></div>' +
+            '<button type="button" class="zf-btn primary" data-a="dl">' + I.dl + '<span>Download</span></button>' +
+            '<button type="button" class="zf-btn icon zf-pv-x" aria-label="Close preview">' + I.x + '</button></div>' +
+            '<div class="zf-pv-frame"><iframe title="Preview" sandbox="allow-scripts allow-forms allow-modals allow-popups" referrerpolicy="no-referrer"></iframe></div>' +
+            '<p class="zf-pv-note">Running with its CSS and JavaScript files.</p></div>';
+        ov.querySelector('.zf-pv-name').textContent = name;
+        document.body.appendChild(ov);
+        ov.querySelector('iframe').srcdoc = html;
+        var close = function () { ov.remove(); document.removeEventListener('keydown', onKey); };
+        var onKey = function (e) { if (e.key === 'Escape') close(); };
+        document.addEventListener('keydown', onKey);
+        ov.addEventListener('click', function (e) { if (e.target === ov) close(); });
+        ov.querySelector('.zf-pv-x').addEventListener('click', close);
+        ov.querySelector('[data-a=dl]').addEventListener('click', onDownload);
+    }
+
     var PUBLIC = false; // shared pages: no owner-only download/preview links
-    function buildFileCard(f, streaming) {
+    function buildFileCard(f, streaming, group) {
         var a = f.attrs || {};
         var name = a.name || 'document.md';
         var fmt = extOf(name);
@@ -463,6 +552,33 @@
             '</div><div class="zf-content" hidden></div>';
         card.querySelector('.zf-name').textContent = name;
         card.querySelector('.zf-sub').textContent = statLine(fmt, a, f.body || '');
+        // An HTML page with its CSS / JS in other files of this answer: preview them
+        // together and offer the page as one file that works on its own.
+        var bundle = null;
+        if (!PUBLIC && /^html?$/.test(fmt) && group && group.length > 1) {
+            var map = {}, me = (a.path || name).replace(/^\/+/, '');
+            group.forEach(function (g) { var ga = g.attrs || {}; var p = (ga.path || ga.name || '').replace(/^\/+/, ''); if (p) map[p] = g.body || ''; });
+            map[me] = f.body || '';
+            var b = bundleHtml(me, map);
+            if (b.used.length || b.missing.length) bundle = b;
+        }
+        if (bundle) {
+            var sub = card.querySelector('.zf-sub');
+            if (bundle.used.length) sub.textContent += ' · uses ' + bundle.used.map(function (p) { return p.split('/').pop(); }).join(', ');
+            if (bundle.missing.length) {
+                var mw = document.createElement('div'); mw.className = 'zf-warn';
+                mw.textContent = 'Links to ' + bundle.missing.join(', ') + ' — that file isn\u2019t in this answer. Ask me to write it.';
+                card.querySelector('.zf-body').appendChild(mw);
+            }
+            if (bundle.used.length) {
+                var one = document.createElement('button'); one.type = 'button'; one.className = 'zf-btn'; one.setAttribute('data-a', 'one');
+                one.title = 'One .html file with the CSS and JavaScript built in — works anywhere';
+                one.innerHTML = I.dl + '<span>One file</span>';
+                var acts = card.querySelector('.zf-actions'); acts.insertBefore(one, acts.querySelector('[data-a=text]'));
+                card.classList.add('many');
+            }
+        }
+        var dlOne = function () { saveBlob(new Blob([bundle.html], { type: 'text/html' }), name.replace(/\.html?$/i, '') + '.html'); };
         if (!PUBLIC && (f.truncated || f.closed === false)) {
             var warn = document.createElement('div');
             warn.className = 'zf-warn';
@@ -472,7 +588,8 @@
         card.addEventListener('click', function (e) {
             var b = e.target.closest('[data-a]'); if (!b) return;
             var act = b.getAttribute('data-a');
-            if (act === 'preview') { e.preventDefault(); openPreview(name, prev, url); }
+            if (act === 'preview') { e.preventDefault(); if (bundle && bundle.used.length) openPreviewDoc(name, bundle.html, dlOne); else openPreview(name, prev, url); }
+            else if (act === 'one') { e.preventDefault(); dlOne(); }
             else if (act === 'text') {
                 var box = card.querySelector('.zf-content');
                 var show = box.hidden;
@@ -907,11 +1024,14 @@
                 card.innerHTML = '<span class="zt-ic" aria-hidden="true">' + icon + '</span><span class="zt-t">' + label + '\u2026</span><span class="zf-spin" aria-hidden="true"></span>';
                 slot.replaceWith(card);
             });
+            var lastCard = null;
             el.querySelectorAll('.zf-slot').forEach(function (slot) {
                 var f = parsed.files[Number(slot.getAttribute('data-i'))];
-                if (f) slot.replaceWith(buildFileCard(f, streaming && !f.closed));
+                if (f) { var c = buildFileCard(f, streaming && !f.closed, streaming ? null : parsed.files); slot.replaceWith(c); lastCard = c; }
                 else slot.remove();
             });
+            if (!streaming && !PUBLIC && lastCard && parsed.files.filter(function (f) { return f.attrs && f.attrs.id; }).length > 1)
+                lastCard.parentNode.insertBefore(filesBar(parsed.files), lastCard.nextSibling);
             el.querySelectorAll('.zr-slot').forEach(function (slot) {
                 var i = Number(slot.getAttribute('data-i')), r = parsed.runs[i];
                 if (r && r.code) slot.replaceWith(buildRun(r, i, streaming));
@@ -969,6 +1089,7 @@
         },
 
         fileCard: buildFileCard,
+        bundleHtml: bundleHtml,
         fillRunOutput: fillRunOutput,
         hasFiles: function (text) { return /<zfile\b/i.test(text || ''); },
 

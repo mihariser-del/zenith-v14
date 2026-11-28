@@ -292,6 +292,16 @@
                 d.querySelector('.cx-tool-h').onclick = () => { pre.hidden = !pre.hidden; d.querySelector('.cx-tool-h').setAttribute('aria-expanded', !pre.hidden); };
                 if (it.open) pre.hidden = false;
             }
+            if (it.path && (it.name === 'write_file' || it.name === 'edit_file') && it.status !== 'denied' && it.status !== 'err') {
+                const dl = document.createElement('button'); dl.className = 'cx-ib sm cx-tool-dl'; dl.title = 'Download ' + it.path.split('/').pop(); dl.innerHTML = I.dl;
+                dl.onclick = (e) => { e.stopPropagation(); downloadFile(it.path); };
+                d.querySelector('.cx-tool-h').insertBefore(dl, d.querySelector('.cx-tool-h > svg:last-child') || null);
+                if (/\.html?$/i.test(it.path)) {
+                    const one = document.createElement('button'); one.className = 'cx-ib sm cx-tool-dl'; one.title = 'Download as one file with its CSS & JavaScript built in'; one.innerHTML = I.globe;
+                    one.onclick = (e) => { e.stopPropagation(); downloadOne(it.path); };
+                    dl.parentNode.insertBefore(one, dl);
+                }
+            }
             if (it.path && (it.name === 'write_file' || it.name === 'edit_file' || it.name === 'read_file')) {
                 const p = d.querySelector('.cx-tool-p'); p.classList.add('link'); p.title = 'Open in the code editor';
                 p.onclick = (e) => { e.stopPropagation(); if (it.path in S.project.files) { showChat(false); CA.openFile(it.path); } };
@@ -557,11 +567,52 @@
         CA.stop();
     }
 
+    /* ───────────── downloads (26.5.1) ───────────── */
+    function saveBlob(blob, name) {
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }
+    const MIME = { html: 'text/html', htm: 'text/html', css: 'text/css', js: 'text/javascript', json: 'application/json', svg: 'image/svg+xml', md: 'text/markdown' };
+    function downloadFile(p) {
+        if (!(p in files())) { toast('That file isn\'t in the project any more', 'error'); return; }
+        saveBlob(new Blob([files()[p]], { type: (MIME[CA.ext(p)] || 'text/plain') + ';charset=utf-8' }), p.split('/').pop());
+    }
+    const htmlFiles = () => Object.keys(files()).filter(p => /\.html?$/i.test(p)).sort((a, b) => (/(^|\/)index\.html?$/i.test(b) ? 1 : 0) - (/(^|\/)index\.html?$/i.test(a) ? 1 : 0));
+    // A page with its CSS and JavaScript written into it, so the single file works anywhere.
+    function downloadOne(p) {
+        p = p || htmlFiles()[0];
+        if (!p || !window.ZRender || !ZRender.bundleHtml) return;
+        const b = ZRender.bundleHtml(p, files());
+        saveBlob(new Blob([b.html], { type: 'text/html;charset=utf-8' }), p.split('/').pop());
+        toast(b.used.length ? `Saved ${p.split('/').pop()} with ${b.used.map(x => x.split('/').pop()).join(', ')} built in` : 'Saved ' + p.split('/').pop());
+        if (b.missing.length) toast('It links to ' + b.missing.join(', ') + ', which isn\'t in the project', 'error');
+    }
+    function linksOf(p) {
+        if (!window.ZRender || !ZRender.bundleHtml) return null;
+        const b = ZRender.bundleHtml(p, files());
+        return b.used.length || b.missing.length ? b : null;
+    }
+    function downloadMenu(anchor) {
+        const h = htmlFiles();
+        const opts = [{ v: 'zip', t: 'Whole project (.zip)', d: Object.keys(files()).length + ' files, folders kept', icon: I.dl }];
+        if (h.length) opts.push({ v: 'one', t: 'Website as one file (.html)', d: 'CSS and JavaScript built into ' + h[0].split('/').pop() + ' — open it anywhere', icon: I.globe });
+        if (!Object.keys(files()).length) { toast('No files yet', 'error'); return; }
+        openMenu(anchor, opts, (v) => (v === 'zip' ? CA.downloadZip() : downloadOne(h[0])));
+    }
+
     /* ───────────── side bits ───────────── */
     function paintFiles() {
         const ul = $('cx-files'); if (!ul || !S.project) return;
         const list = Object.keys(S.project.files).sort();
-        ul.innerHTML = list.map(p => `<li data-p="${esc(p)}">${I.file}<span>${esc(p)}</span><small>${S.project.files[p].split('\n').length} lines</small></li>`).join('') || '<li class="cx-muted">No files yet — they appear here as the agent writes them.</li>';
+        const head = list.length ? `<li class="cx-files-top"><button class="cx-btn" data-all="zip">${I.dl}Download all (.zip)</button>${htmlFiles().length ? `<button class="cx-btn" data-all="one">${I.globe}Website as one file</button>` : ''}</li>` : '';
+        ul.innerHTML = head + list.map(p => {
+            const l = /\.html?$/i.test(p) ? linksOf(p) : null;
+            const linked = l && l.used.length ? `<em>uses ${esc(l.used.map(x => x.split('/').pop()).join(', '))}</em>` : '';
+            const miss = l && l.missing.length ? `<em class="bad">missing ${esc(l.missing.join(', '))}</em>` : '';
+            return `<li data-p="${esc(p)}">${I.file}<span>${esc(p)}${linked}${miss}</span><small>${S.project.files[p].split('\n').length} lines</small>
+                ${l && l.used.length ? `<button class="cx-ib sm" data-one="${esc(p)}" title="Download as one file (CSS & JS built in)">${I.globe}</button>` : ''}
+                <button class="cx-ib sm" data-dl="${esc(p)}" title="Download ${esc(p.split('/').pop())}">${I.dl}</button></li>`;
+        }).join('') || '<li class="cx-muted">No files yet — they appear here as the agent writes them.</li>';
     }
     function paintTitle() {
         if (!S.project) return;
@@ -650,7 +701,12 @@
         $('cx-panel-b').onclick = () => ($('cx-panel').hidden ? panel('preview') : panel(false));
         $('cx-panel-x').onclick = () => panel(false);
         $('cx-panel').querySelector('.cx-ptabs').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) panel(b.dataset.p); };
-        $('cx-files').onclick = (e) => { const li = e.target.closest('[data-p]'); if (li) { showChat(false); CA.openFile(li.dataset.p); } };
+        $('cx-files').onclick = (e) => {
+            const d = e.target.closest('[data-dl]'); if (d) { downloadFile(d.dataset.dl); return; }
+            const o = e.target.closest('[data-one]'); if (o) { downloadOne(o.dataset.one); return; }
+            const al = e.target.closest('[data-all]'); if (al) { if (al.dataset.all === 'zip') CA.downloadZip(); else downloadOne(); return; }
+            const li = e.target.closest('[data-p]'); if (li) { showChat(false); CA.openFile(li.dataset.p); }
+        };
         $('cx-run').onclick = async () => {
             const k = CA.kindFor(null);
             if (k === 'web') { panel('preview'); $('cx-pempty').hidden = true; }
@@ -658,7 +714,7 @@
             $('cx-out').textContent = r.output; if (k !== 'web') panel('output');
         };
         $('cx-share').onclick = () => { showChat(false); CA.share(); };
-        $('cx-zip').onclick = () => CA.downloadZip();
+        $('cx-zip').onclick = (e) => downloadMenu(e.currentTarget);
         // the editor gets a way back
         const top = document.querySelector('.ca-top');
         if (top) {

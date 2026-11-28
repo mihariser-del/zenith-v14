@@ -445,6 +445,12 @@
         const files = S.project.files;
         const htmlPath = entry && /\.html?$/i.test(entry) ? entry : (files['index.html'] != null ? 'index.html' : Object.keys(files).find(p => /\.html?$/i.test(p)));
         let html = htmlPath ? files[htmlPath] : '<!DOCTYPE html><html><body></body></html>';
+        // 26.5.1: the same linking as downloads (handles href=style.css without quotes, ../ paths, folders).
+        if (htmlPath && window.ZRender && ZRender.bundleHtml) {
+            html = ZRender.bundleHtml(htmlPath, files).html;
+            const hook0 = `<script>(function(){var t='${RUN_TOKEN}';function s(k,a){try{parent.postMessage({__ca:t,k:k,a:[].slice.call(a).map(function(x){try{return typeof x==='string'?x:(x instanceof Error?x.stack||x.message:JSON.stringify(x,null,1))}catch(e){return String(x)}})},'*')}catch(e){}}['log','info','warn','error'].forEach(function(k){var o=console[k];console[k]=function(){s(k,arguments);o.apply(console,arguments)}});addEventListener('error',function(e){s('error',[e.message+(e.lineno?' (line '+e.lineno+')':'')])});addEventListener('unhandledrejection',function(e){s('error',['Unhandled promise: '+(e.reason&&e.reason.message||e.reason)])});})();<\/script>`;
+            return /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, m => m + hook0) : hook0 + html;
+        }
         const base = htmlPath && htmlPath.includes('/') ? htmlPath.replace(/[^/]+$/, '') : '';
         const resolve = href => {
             const clean = href.replace(/^\.\//, '').split(/[?#]/)[0];

@@ -908,6 +908,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         system_prompt += ("\n\nBUILD REQUEST: the user wants software made (a mod, app, game, program, bot, plugin, extension, script or .exe). "
                           "Build it now in this reply: every file it needs as complete <zfile name=\"path/name.ext\">…</zfile> blocks (use folders in the "
                           "name for structure, e.g. src/main.py or behavior_pack/manifest.json), with real working code — no placeholders. "
+                          "For websites, link CSS and JS with relative paths that exactly match the file names you write (e.g. <link rel=\"stylesheet\" href=\"css/style.css\">) — the chat can then preview them together and save them as one file. "
                           "Then give short numbered steps to use or install it. For an .exe you can't hand over a compiled file, so write the "
                           "program plus a build script (e.g. build.bat using PyInstaller) that turns it into an .exe on their PC. "
                           "For a game mod, follow that game's real format (e.g. Minecraft Bedrock add-ons: manifest.json with UUIDs, "

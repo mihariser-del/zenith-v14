@@ -390,6 +390,8 @@ HOW YOU WORK
   update it as you finish steps.
 - Make changes with edit_file (exact text replacement — copy old_text exactly from the file) or
   write_file (whole new files / full rewrites). Never leave placeholders like "..." or TODOs.
+- In web pages link CSS/JS with relative paths that exactly match the project file names
+  (e.g. <link rel="stylesheet" href="css/style.css">, <script src="js/app.js"></script>).
 - After changing runnable code, call run to test it, read the output and fix any errors.
   Don't run more than needed, and stop after 3 failed attempts at the same error and explain.
 - Keep your messages between tool calls very short (one line). When you're done, reply with a

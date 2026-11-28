@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 26.5.1 — Downloads and linked files
+
+- `render.js`: `bundleHtml()` (exported as `ZRender.bundleHtml`), `filesBar()` (Download all .zip via JSZip, keeps `path`), `openPreviewDoc()` (sandboxed srcdoc preview). HTML file cards that use other files from the same answer show "uses …", preview with them, gain a One file button, and warn about missing links.
+- `coding-agent-chat.js`: download (and one-file for HTML) buttons on Wrote/Edited rows; Files panel with Download all / Website as one file and per-file buttons; header Download opens a menu.
+- `coding-agent.js`: `buildPage()` uses `bundleHtml` — unquoted `href=` / `src=` now load in the preview.
+- Prompts: link CSS/JS with paths that match the file names.
+
 ## 26.5 — Coding AGT., chat-first agent
 
 - `codeagent.py`: `POST /api/code/agent/step` — one model call per step with OpenAI-style tools (`list_files`, `read_file`, `search_files`, `write_file`, `edit_file`, `delete_file`, `run`, `update_plan`); `AGENT_SYSTEM` + Browser / This computer environment notes + file listing; task tickets (`_AGENT_TASKS`) so a whole task is one usage log entry, max `CODE_AGENT_MAX_STEPS`; `_clean_msgs` trims history to ~260k chars without orphaning tool results. `PUT /projects/{pid}/chat`; project list includes the first request for Recents; status reports `smart` / `max_steps`.

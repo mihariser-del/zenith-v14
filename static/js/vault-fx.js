@@ -48,7 +48,7 @@
         (function frame(now) {
             requestAnimationFrame(frame);
             var dt = Math.min(.05, (now - last) / 1000); last = now;
-            if (document.hidden) return;
+            if (document.hidden || cv.closest('[hidden]')) return;   // the /vault lock screen is hidden while you're in
             ctx.clearRect(0, 0, W, H);
             for (var i = 0; i < pts.length; i++) {
                 var p = pts[i];

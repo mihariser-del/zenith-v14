@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.9 — Vault unlock cutscene
+
+- New `vault-cutscene.js` plays after a correct PIN on both the sign-in page and the /vault lock screen.
+- /vault lock screen restyled with the animated Vault background.
+
 ## 26.6.8 — Snow fixes, living Vault sign-in
 
 - Bottom snow melts and can be knocked away; drift ends taper before rounded corners.

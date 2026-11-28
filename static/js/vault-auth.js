@@ -164,7 +164,10 @@ const VA = {
         $('va-sub').textContent = 'Unlocked — opening the Vault…';
         if (window.VAFX) VAFX.burst('34,197,94');
         document.body.classList.add('va-unlocking');
-        setTimeout(() => { window.location.href = '/vault'; }, 750);
+        const go = () => { window.location.href = '/vault'; };
+        const u = this._user || {};
+        if (window.VaultCutscene) setTimeout(() => VaultCutscene.play({ name: u.username, role: u.role === 'owner' ? 'OWNER' : 'ADMIN' }).then(go), 350);
+        else setTimeout(go, 750);
     },
 
     _setToken(tok) {

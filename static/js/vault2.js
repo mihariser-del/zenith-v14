@@ -41,8 +41,19 @@
           const r = await fetch('/api/auth/admin/pin-verify', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
           const d = await r.json().catch(() => ({}));
           if (!r.ok) throw new Error(d.detail || 'Wrong PIN');
-          setToken(d.token); $('lockscreen').hidden = true; unlockWait = null; resolve();
-        } catch (e) { $('pin-err').textContent = e.message; $('pin').select(); }
+          setToken(d.token);
+          // 26.6.9: the unlock cutscene plays over the lock screen, which quietly goes away underneath it
+          const box = document.querySelector('#lockscreen .lock-box'); if (box) box.classList.add('ok');
+          if (window.VaultCutscene) {
+            const me = S.me || {};
+            const cs = VaultCutscene.play({ name: me.username || '', role: me.role === 'owner' || S.owner ? 'OWNER' : 'ADMIN' });
+            setTimeout(() => { $('lockscreen').hidden = true; if (box) box.classList.remove('ok'); unlockWait = null; resolve(); }, 600);
+            await cs;
+          } else { $('lockscreen').hidden = true; unlockWait = null; resolve(); }
+        } catch (e) {
+          $('pin-err').textContent = e.message; $('pin').select();
+          const box = document.querySelector('#lockscreen .lock-box'); if (box) { box.classList.remove('bad'); void box.offsetWidth; box.classList.add('bad'); }
+        }
         finally { $('pin-go').disabled = false; }
       };
       $('pin-go').onclick = go;

@@ -80,3 +80,30 @@ body.va-page.va-unlocking .vault-welcome-card { animation: vaOut .6s .25s ease-i
 @media (prefers-reduced-motion: reduce) {
     .va-aur, .va-grid, .va-scan, .va-orbit, .va-logo-wrap::before, .va-logo-wrap::after, body.va-page .vault-welcome-card::before { animation: none !important; }
 }
+
+/* 26.6.9: the same living look for the lock screen inside the Vault (/vault) */
+.lockscreen { background: radial-gradient(1100px 600px at 50% -8%, #1a2140 0%, #0c0f16 58%, #0a0c10 100%) !important; color: #dde4ee; overflow: hidden; }
+.lockscreen .va-bg, .lockscreen .va-top { position: absolute; }
+.lockscreen .va-top { z-index: 2; }
+.lockscreen .lock-box { position: relative; z-index: 2; width: min(420px, 100%); padding: 36px 32px 26px; border-radius: 26px; text-align: center;
+    background: linear-gradient(160deg, rgba(26, 32, 60, .62), rgba(12, 15, 28, .55)); border: 1px solid rgba(130, 150, 255, .18);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, .55), inset 0 1px 0 rgba(255, 255, 255, .06);
+    backdrop-filter: blur(18px) saturate(1.3); -webkit-backdrop-filter: blur(18px) saturate(1.3); animation: vaCardIn .7s cubic-bezier(.2, .9, .25, 1.15) both; }
+.lockscreen .lock-box::before { content: ''; position: absolute; inset: -1px; border-radius: 27px; padding: 1px; pointer-events: none;
+    background: conic-gradient(from var(--va-a, 0deg), transparent 0 70%, rgba(96, 165, 250, .9) 80%, rgba(217, 70, 239, .9) 88%, transparent 96%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; animation: vaSpin 6s linear infinite; }
+.lockscreen .va-logo-wrap .logo.big { position: relative; z-index: 1; width: 76px; height: 76px; border-radius: 22px; font-size: 36px; display: grid; place-items: center;
+    background: linear-gradient(135deg, #60a5fa, #8b5cf6 60%, #d946ef); color: #fff; box-shadow: 0 0 34px rgba(139, 92, 246, .45); }
+.lockscreen .lock-kicker { font-size: 11px; font-weight: 800; letter-spacing: 4px; color: #8b949e; margin-bottom: 8px; }
+.lockscreen .lock-box h2 { font-size: 26px; font-weight: 900; letter-spacing: .5px; color: #fff; text-shadow: 0 0 18px rgba(96, 165, 250, .4); }
+.lockscreen .lock-box p { color: #9fb0d6; }
+.lockscreen .lock-box input { background: rgba(8, 12, 26, .7) !important; border: 1px solid rgba(120, 150, 255, .3) !important; color: #fff !important; letter-spacing: .6em;
+    box-shadow: inset 0 0 18px rgba(96, 165, 250, .08); transition: border-color .2s, box-shadow .2s; }
+.lockscreen .lock-box input:focus { border-color: #60a5fa !important; box-shadow: 0 0 0 4px rgba(96, 165, 250, .18), inset 0 0 18px rgba(96, 165, 250, .15); }
+.lockscreen .lock-box .btn.pri { background: linear-gradient(135deg, #3b82f6, #8b5cf6) !important; border: 0; box-shadow: 0 8px 24px rgba(99, 102, 241, .4); }
+.lockscreen .lock-box .btn.pri:hover { filter: brightness(1.12); }
+.lockscreen .lock-box .muted-link { display: inline-block; margin-top: 14px; color: #8b97b3; }
+.lockscreen .lock-box.bad { animation: vaShake .45s; }
+.lockscreen .lock-box.bad input { border-color: #ef4444 !important; box-shadow: 0 0 0 4px rgba(239, 68, 68, .2); }
+.lockscreen .lock-box.ok input { border-color: #22c55e !important; box-shadow: 0 0 0 4px rgba(34, 197, 94, .25); }
+@media (max-width: 600px) { .lockscreen .lock-box { padding: 28px 20px 22px; margin-top: 40px; } }

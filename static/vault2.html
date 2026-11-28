@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/css/vault2.css">
+<link rel="stylesheet" href="/static/css/vault-auth-fx.css">
 <script>
   // Theme before paint (no flash)
   try { const t = localStorage.getItem('zv_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
@@ -69,8 +70,22 @@
 
 <!-- lock -->
 <div class="lockscreen" id="lockscreen" hidden>
+  <div class="va-bg" aria-hidden="true">
+    <div class="va-aur a1"></div><div class="va-aur a2"></div><div class="va-aur a3"></div><div class="va-aur a4"></div>
+    <div class="va-grid"></div><div class="va-scan"></div>
+    <canvas id="va-stars"></canvas>
+  </div>
+  <div class="va-top">
+    <div><div class="va-clock" id="va-clock">--:--</div><div class="va-date" id="va-date"></div></div>
+    <div class="va-chips">
+      <span class="va-chip"><span class="va-live"></span>Secure connection</span>
+      <span class="va-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Encrypted</span>
+      <span class="va-chip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>Locks after 15 minutes away</span>
+    </div>
+  </div>
   <div class="lock-box">
-    <span class="logo big">Z</span>
+    <div class="va-logo-wrap"><div class="va-orbit"><i></i></div><span class="logo big">Z</span></div>
+    <div class="lock-kicker">ZELPOPHAI AI · VAULT</div>
     <h2>Vault locked</h2>
     <p>Enter your Vault PIN to continue.</p>
     <input id="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="••••">
@@ -80,6 +95,8 @@
   </div>
 </div>
 <div class="toast" id="toast" role="status"></div>
+<script src="/static/js/vault-fx.js"></script>
+<script src="/static/js/vault-cutscene.js"></script>
 <script src="/static/js/vault2.js"></script>
 </body>
 </html>

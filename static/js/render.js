@@ -149,6 +149,12 @@
             decks.push({ attrs: attrs(a), cards: cards, closed: !!close });
             return '\n\n<div class="zdk-slot" data-i="' + (decks.length - 1) + '"></div>\n\n';
         });
+        // Polls in shared chats (tools.js).
+        var polls = [];
+        out = out.replace(/<zpoll\b([^>]*)>([\s\S]*?)(<\/zpoll>|$)/gi, function (_, a, q) {
+            polls.push({ attrs: attrs(a), q: q });
+            return '\n\n<div class="zpl-slot" data-i="' + (polls.length - 1) + '"></div>\n\n';
+        });
         // Charts the calculation engine drew from its exact numbers.
         var charts = [];
         out = out.replace(/<zchart>([\s\S]*?)(<\/zchart>|$)/gi, function (_, body, close) {
@@ -191,7 +197,7 @@
         out = out.replace(/<(zimage|zvideo|zremind|zjob)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs, charts: charts, canvases: canvases, decks: decks };
+        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs, charts: charts, canvases: canvases, decks: decks, polls: polls };
     }
 
     // A photo on the left and the section it belongs to on the right, like a search result.
@@ -911,6 +917,11 @@
                 if (r && r.code) slot.replaceWith(buildRun(r, i, streaming));
                 else slot.remove();
             });
+            el.querySelectorAll('.zpl-slot').forEach(function (slot) {
+                var pl = parsed.polls[Number(slot.getAttribute('data-i'))];
+                if (pl && window.ZTools && pl.attrs.id) slot.replaceWith(window.ZTools.pollCard(+pl.attrs.id, pl.q));
+                else { var d = document.createElement('p'); d.textContent = '📊 ' + (pl ? pl.q : 'Poll'); slot.replaceWith(d); }
+            });
             el.querySelectorAll('.zcv-slot').forEach(function (slot) {
                 var c = parsed.canvases[Number(slot.getAttribute('data-i'))];
                 if (!c) { slot.remove(); return; }
@@ -972,6 +983,7 @@
                 .replace(/<zchart>[\s\S]*?(?:<\/zchart>|$)/gi, '')
                 .replace(/<zcanvas\b[^>]*>([\s\S]*?)(?:<\/zcanvas>|$)/gi, function (_, b) { return b; })
                 .replace(/<zdeck\b[^>]*>([\s\S]*?)(?:<\/zdeck>|$)/gi, function (_, b) { return b.replace(/\s*::\s*/g, ' — '); })
+                .replace(/<zpoll\b[^>]*>([\s\S]*?)(?:<\/zpoll>|$)/gi, function (_, b) { return 'Poll: ' + b; })
                 .replace(/<zout\b[^>]*>([\s\S]*?)<\/zout>/gi, function (_, b) { return b.trim(); })
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind|zjob)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')

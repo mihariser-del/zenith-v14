@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 26.3 — A better Christmas, Tools, explain levels, translate, polls and games
+
+- **Christmas** (`christmas.js/.css`): countdown pill (Christmas → Boxing Day → New Year), Advent calendar (24 doors + a warm-up door; opens by date, remembered per browser; each door → a prompt in a new chat), Santa's sleigh every 3–6 min (tap: +3 baubles), snow caps on the composer and New Chat button, Christmas ideas on the welcome screen (MutationObserver), card maker, snow amount off/light/lots (`zp_xmas_snow`). All respect reduced motion / animations off.
+- **`tools.py`** (new) + `static/js/tools.js`: `user_data` table (JSON per key: budget, spending, prefs; size-capped) with `GET/PUT /api/tools/data/{key}`; `POST /api/tools/replies` (3 replies), `POST /api/tools/translate`, `POST /api/tools/receipt` (vision → merchant/date/total/category/items, appended to spending), `GET /api/tools/briefing` (web weather/news for the saved town + reminders, jobs, due cards, projects, budget; cached 3 h per day) with a one-tap daily scheduled job. Each AI call counts as a message. Tools window, Your day, Reply writer, Budget & spending (doughnut + per-category bars, receipt photos via the camera on phones), Translate, Homework helper (new built-in assistant example).
+- Every answer gets **Level** (child / simpler / adult / expert → sends a follow-up) and **Translate** (inline, remembers the language). System prompt: reply in the user's language.
+- **Polls** (`polls` table, `POST /api/chats/{id}/polls`, `GET /api/polls/{id}`, `/vote`, `/close`; `<zpoll id>` message rendered as a live card, refreshed every 6 s) and **games** (five host prompts) in shared chats via Poll/Game buttons in the composer. Polls are shown to the AI as "(started a poll…)".
+
 ## 26.2 — Projects, custom assistants, Canvas and Study mode
 
 - **`workspace.py`** (new). *Projects*: `projects` table, `chats.project_id`, files/notes in `work_items` (≤ 40, 200k chars each, text read via the normal file reader). `GET/POST /api/projects`, `GET/PATCH/DELETE /api/projects/{id}` (delete keeps chats unless `chats=delete`), `POST/DELETE …/items`, `POST /api/chats/{id}/project`; `POST /api/chats` accepts `project_id`. In a project chat the AI gets the instructions, the relevant parts of the files (whole files under 9k chars, otherwise keyword-scored 1.4k chunks) and a recap of the last reply in up to 6 other project chats.

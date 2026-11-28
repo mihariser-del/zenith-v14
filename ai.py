@@ -781,6 +781,8 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             if msg.role == "system":
                 continue          # "Bob joined the chat" notes are for people, not the AI
             c = msg.content
+            if "<zpoll" in c:
+                c = re.sub(r"<zpoll\b[^>]*>([\s\S]*?)</zpoll>", r"(started a poll for the group: \1)", c)
             if _group and msg.role == "user" and getattr(msg, "author_id", None):
                 c = f"[{_who.get(msg.author_id, 'Someone')}]: {c}"
             messages.append({"role": msg.role, "content": c})
@@ -880,6 +882,10 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_temperature = 0.3
 
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck, shared=_group)
+    # 26.3: answer in the language the person writes in (unless they ask for another).
+    system_prompt += ("\n\nLANGUAGE: always reply in the same language as the user's latest message (Luganda, Swahili, "
+                      "French, Arabic… whatever they wrote in), unless they ask for a different language or a translation. "
+                      "If they mix languages, use the main one. Code, names and quoted text stay as they are.")
     # Project instructions & files, a custom assistant's role, and the open canvas (workspace.py).
     try:
         import workspace as _ws

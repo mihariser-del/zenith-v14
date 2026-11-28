@@ -253,3 +253,56 @@ html.christmas body .start-btn {
 /* Same when Animations are switched off in Settings. */
 html.zst-no-anim #xm-snow, html.zst-no-anim #xm-play { display: none; }
 html.zst-no-anim #xm-lights i { animation: none !important; }
+
+/* ── 26.3: countdown, advent calendar, sleigh, snow on the edges, ideas ── */
+.xm-count { position: fixed; top: 34px; left: 50%; transform: translateX(-50%); z-index: 8000; border: 1px solid rgba(255,215,130,.45); background: linear-gradient(90deg, rgba(127,29,29,.85), rgba(20,83,45,.85)); color: #fff4d6; font: 700 12.5px Inter, system-ui, sans-serif; padding: 5px 14px; border-radius: 999px; cursor: pointer; box-shadow: 0 4px 18px rgba(0,0,0,.35), 0 0 14px rgba(255,209,102,.25); backdrop-filter: blur(6px); white-space: nowrap; }
+.xm-count:hover { filter: brightness(1.12); }
+@media (max-width: 700px) { .xm-count { top: auto; bottom: 150px; left: auto; right: 10px; transform: none; font-size: 11.5px; padding: 4px 10px; } }
+
+/* snow settled on the typing box and the New Chat button */
+html.christmas .composer-box { position: relative; }
+html.christmas .composer-box::before, html.christmas #new-chat-btn::before { content: ""; position: absolute; left: 10px; right: 10px; top: -7px; height: 12px; pointer-events: none; z-index: 2;
+  background: radial-gradient(circle at 6px 9px, #fff 6px, transparent 6.5px) 0 0 / 18px 12px repeat-x, linear-gradient(#fff, #fff) 0 7px / 100% 5px no-repeat;
+  border-radius: 6px 6px 3px 3px; filter: drop-shadow(0 1px 1px rgba(0,0,0,.25)); opacity: .95; }
+html.christmas #new-chat-btn { position: relative; overflow: visible !important; }
+html.christmas #new-chat-btn::before { top: -6px; left: 6px; right: 6px; height: 10px; }
+
+/* advent calendar */
+.xm-doors { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 8px; }
+.xm-door { position: relative; aspect-ratio: 1; border-radius: 14px; border: 2px dashed rgba(255,215,130,.55); cursor: pointer; font: 800 20px 'Playfair Display', Georgia, serif; color: #fff4d6;
+  background: linear-gradient(145deg, #7f1d1d, #991b1b 55%, #14532d); box-shadow: inset 0 0 0 4px rgba(0,0,0,.12); display: flex; align-items: center; justify-content: center; transition: transform .15s ease; }
+.xm-door:nth-child(3n) { background: linear-gradient(145deg, #14532d, #166534 55%, #7f1d1d); }
+.xm-door:nth-child(4n) { background: linear-gradient(145deg, #1e3a8a, #1d4ed8 60%, #7f1d1d); }
+.xm-door:hover:not(.locked) { transform: translateY(-2px) rotate(-1deg); }
+.xm-door.locked { filter: saturate(.5) brightness(.75); cursor: not-allowed; }
+.xm-door.warm { border-style: solid; border-color: #ffd166; }
+.xm-door.open { border-style: solid; background: radial-gradient(circle, #2a1810, #120a06); }
+.xm-door.open .xm-dn { position: absolute; top: 6px; left: 8px; font-size: 12px; opacity: .7; }
+.xm-de { font-size: 30px; animation: xmPop .35s ease; }
+.xm-door.shake { animation: xmShake .4s ease; }
+@keyframes xmPop { from { transform: scale(.2); opacity: 0; } }
+@keyframes xmShake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+.xm-reveal { display: flex; gap: 14px; align-items: center; margin-top: 14px; padding: 14px; border-radius: 16px; border: 1px solid rgba(255,215,130,.35); background: rgba(255,209,102,.07); }
+.xm-reveal p { margin: 4px 0 10px; font-size: 14px; line-height: 1.5; }
+.xm-rv-e { font-size: 44px; }
+.xm-snowset { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12.5px; flex-wrap: wrap; }
+.xm-snowset button { border: 1px solid var(--line, rgba(255,255,255,.15)); background: transparent; color: inherit; border-radius: 999px; padding: 4px 10px; font: 600 12px inherit; cursor: pointer; }
+.xm-snowset button.on { background: rgba(255,255,255,.14); border-color: #fff; }
+.xm-caught { margin-left: auto; opacity: .75; }
+
+/* Santa's sleigh */
+.xm-sleigh { position: fixed; left: -220px; z-index: 8500; border: 0; background: none; padding: 0; cursor: pointer; display: flex; align-items: flex-end; gap: 2px; font-size: 26px; animation: xmFly 14s linear forwards; filter: drop-shadow(0 0 6px rgba(255,255,255,.35)); }
+.xm-sleigh span { display: inline-block; animation: xmBob 1s ease-in-out infinite; }
+.xm-sleigh span:nth-child(2) { animation-delay: .15s; }
+.xm-sleigh .xm-s { margin-left: 6px; } .xm-sleigh .xm-santa { margin-left: -22px; transform: translateY(-8px); }
+@keyframes xmFly { 0% { transform: translate(0, 0); } 50% { transform: translate(calc(50vw + 110px), -30px); } 100% { transform: translate(calc(100vw + 440px), 10px); } }
+@keyframes xmBob { 50% { transform: translateY(-4px); } }
+
+/* festive ideas on the new-chat screen */
+.xm-ideas { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 18px auto 0; max-width: 720px; }
+.xm-ideas-t { width: 100%; text-align: center; font: 700 13px 'Playfair Display', Georgia, serif; color: #ffd166; letter-spacing: .03em; }
+.xm-ideas button { border: 1px solid rgba(255,215,130,.4); background: rgba(127,29,29,.35); color: #fff4d6; border-radius: 999px; padding: 8px 14px; font: 600 13px inherit; cursor: pointer; }
+.xm-ideas button:hover { background: rgba(127,29,29,.6); }
+@media (prefers-reduced-motion: reduce) { .xm-sleigh { display: none; } }
+html.zst-no-anim .xm-sleigh { display: none; }
+.xm-team { display: inline-flex; align-items: flex-end; gap: 2px; transform: scaleX(-1); }

@@ -361,6 +361,7 @@ const Chat = {
         const shareBtn = $('chat-share-btn');
         if (shareBtn) { shareBtn.textContent = chat.share_id ? '🔗 Shared' : 'Share'; shareBtn.style.display = chat.mine === false ? 'none' : ''; }
         if (window.Workspace) Workspace.decorateHeader(chat);
+        if (window.ZTools) ZTools.groupTools(chat);
         const ppl = $('chat-people-btn');
         if (ppl) ppl.textContent = chat.is_group ? '👥 People' : '👥 Invite';
     },
@@ -1013,6 +1014,7 @@ const Chat = {
                     '<button type="button" role="menuitem" data-fmt="html">Web page (.html)</button>' +
                     '<button type="button" role="menuitem" data-fmt="txt">Plain text (.txt)</button>' +
                 '</div></div>';
+            if (window.ZTools) { try { ZTools.decorateActions(actions, content, wrapper); } catch (e) {} }
             const plainText = () => ZRender.plain(content);
             const baseName = () => {
                 const h = /^#\s+(.+)$/m.exec(content.replace(/<zfile[\s\S]*?(<\/zfile>|$)/gi, ''));

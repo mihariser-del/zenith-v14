@@ -47,10 +47,14 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.2"
+VERSION = "26.3"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.3 Christmas, better: a countdown to Christmas at the top (tap it), an Advent calendar with a new door every day from 1 December — each with a little fact and something fun to do, like a Christmas card picture, a letter from Santa, a dinner plan or a story to read aloud — plus a warm-up door you can open now. Santa's sleigh flies across the sky now and then (tap it for three baubles), snow has settled on the typing box and the New Chat button, Christmas ideas sit on the new-chat screen, there's a Christmas card maker in Tools, and you can choose how much snow falls: off, light or lots",
+    "26.3 Tools (in the menu): Your day — a short morning briefing with your weather, local news, reminders, study cards and budget, which can arrive every morning by itself; Reply writer — paste a message you got and pick from three ready-to-send replies; Budget & spending — plan your month, see what's left and how long until a savings goal, and add spending by snapping a photo of a receipt; Translate; and a Homework helper that gives hints first so you learn it yourself",
+    "26.3 Under every answer: 🎚 Level — have it explained again like you're 8, more simply, for an everyday adult, or in expert depth — and 🌍 Translate, which shows the answer in your language right under it. Zelpophai also now always replies in the language you write in",
+    "26.3 Shared chats get Poll and Game buttons: ask everyone a question and watch the votes come in, or let Zelpophai host a trivia quiz, Would You Rather, a word chain, 20 questions or a story you write together — it keeps score by name",
     "26.2 Projects: keep everything for one big job together — a business, a course, a trip, a book. Give a project instructions (\"the bakery is in Kampala, prices in UGX\") and add files and notes once; every chat in it knows them, uses the parts that matter for each question, and remembers what was worked out in the project's other chats. Open Projects in the menu, start a new chat inside one, or move any chat in with its 📁 button. Project chats are grouped in the sidebar",
     "26.2 Custom assistants: make your own Zelpophai helpers — a Maths Tutor, a Business Coach, a Language Partner — each with its own instructions, conversation starters and knowledge files. Describe one in a sentence and Zelpophai fills in the form, or start from one of six ready-made examples. Share one by link: friends can add it and chat with it, but can't see or change how it works, and their chats stay private. Open Assistants in the menu",
     "26.2 Canvas: long writing — essays, letters, CVs, stories, reports — and longer programs now open in a side panel instead of a wall of text in the chat. Edit it yourself, or select any part and tap Shorter, Clearer, Fix grammar or type how you want it changed, and only that part is rewritten. Quick buttons change the whole thing (Polish, Shorter, More formal…). Ask in the chat (\"make the ending stronger\") and Zelpophai edits the canvas you're looking at, including your own changes. Every change is kept — go back to any earlier version with 🕘 — and Download gives you Word, PDF or Markdown",
@@ -188,6 +192,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.3 Owner: the Tools keep small personal stores in a new user_data table (budget, spending, preferences) and polls in a polls table. Each AI use in Tools — a briefing, replies, a receipt, a translation — counts as one message",
     "26.2 Owner: projects, assistants, canvases and study decks are new tables (projects, assistants, assistant_saves, work_items, canvases, study_decks, study_cards, study_days) plus chats.project_id and chats.assistant_id. Shared assistants never send their instructions or files to people who added them — only the name, description and starters. A custom assistant's instructions sit beside Zelpophai's own rules and can't override safety. Canvas \"change this part\" and making flashcards each count as one message",
     "26.1 Owner: shared chats are a new chat_members table plus chats.invite_code / is_group and messages.author_id. Every chat endpoint now checks access through groupchats.access() — owner or member — and the things only the owner should do (rename, public share, invite, remove people, delete) stay owner-only; a member \"deleting\" a shared chat just leaves it. Editing old messages is switched off in shared chats because it would cut off what others said. The AI sees each message as \"[Name]: …\" and runs with the sender's settings but no memories",
     "26.0 Owner: the calculation engine (calcengine.py) never hands the AI's code to Python's exec or eval — it reads the program as a syntax tree and walks it itself, allowing only plain maths, a fixed list of safe functions, and short allow-lists of methods. Every run is also in a separate, throw-away process with CPU, memory and time limits, and a step counter. Tested against the usual escapes (__class__, imports, open, getattr, format-string tricks, giant numbers, endless loops) — all refused. Server-side running of arbitrary code is still yours alone",
@@ -342,6 +347,8 @@ app.include_router(auth_router)
 from groupchats import router as groupchats_router
 from workspace import router as workspace_router
 from study import router as study_router
+from tools import router as tools_router
+app.include_router(tools_router)
 app.include_router(workspace_router)
 app.include_router(study_router)
 app.include_router(groupchats_router)        # before chats_router: /api/chats/join/… must win

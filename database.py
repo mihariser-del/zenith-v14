@@ -385,6 +385,30 @@ class StudyDay(Base):
     correct = Column(Integer, default=0)
 
 
+class UserData(Base):
+    """Small per-person stores for the Tools (budget, spending, preferences…) — JSON by key (26.3)."""
+    __tablename__ = "user_data"
+    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_user_data"),)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    key = Column(String(40), nullable=False)
+    value = Column(Text, default="{}")
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Poll(Base):
+    """A vote in a shared chat (26.3)."""
+    __tablename__ = "polls"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, nullable=False)
+    question = Column(String(300), nullable=False)
+    options = Column(Text, default="[]")
+    votes = Column(Text, default="{}")          # {user_id: option index}
+    closed = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class ChatMember(Base):
     """Someone the chat's owner invited into a shared chat (26.1)."""
     __tablename__ = "chat_members"

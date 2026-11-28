@@ -273,6 +273,8 @@ class Chat(Base):
     # Shared chats (26.1): an invite code others use to join and talk in it together.
     invite_code = Column(String(32), unique=True, index=True, nullable=True)
     is_group = Column(Boolean, default=False)
+    project_id = Column(Integer, nullable=True, index=True)      # 26.2
+    assistant_id = Column(Integer, nullable=True, index=True)    # 26.2
     pinned = Column(Boolean, default=False)
     folder = Column(String(50), default="")
     model = Column(String(100), default="")
@@ -282,6 +284,105 @@ class Chat(Base):
     user = relationship("User", back_populates="chats")
     messages = relationship("Message", back_populates="chat", cascade="all, delete-orphan", order_by="Message.id")
     files = relationship("UploadedFile", back_populates="chat")
+
+
+class Project(Base):
+    """A project: chats, files and standing instructions kept together (26.2)."""
+    __tablename__ = "projects"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(80), nullable=False)
+    emoji = Column(String(16), default="📁")
+    color = Column(String(16), default="#6366f1")
+    instructions = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Assistant(Base):
+    """A custom assistant someone made: its own instructions, knowledge and starters (26.2)."""
+    __tablename__ = "assistants"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name = Column(String(60), nullable=False)
+    emoji = Column(String(16), default="🤖")
+    color = Column(String(16), default="#ec4899")
+    description = Column(String(300), default="")
+    instructions = Column(Text, default="")
+    starters = Column(Text, default="[]")          # JSON list of up to 4 example prompts
+    share_code = Column(String(32), unique=True, index=True, nullable=True)
+    uses = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AssistantSave(Base):
+    """Someone else's shared assistant that a person added to their list."""
+    __tablename__ = "assistant_saves"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    assistant_id = Column(Integer, ForeignKey("assistants.id", ondelete="CASCADE"), nullable=False, index=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class WorkItem(Base):
+    """A file or note inside a project or an assistant's knowledge."""
+    __tablename__ = "work_items"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    owner_kind = Column(String(16), nullable=False)          # project | assistant
+    owner_id = Column(Integer, nullable=False, index=True)
+    name = Column(String(200), default="")
+    content = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Canvas(Base):
+    """A piece of writing or code being worked on in the Canvas panel (26.2)."""
+    __tablename__ = "canvases"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    chat_id = Column(Integer, ForeignKey("chats.id", ondelete="CASCADE"), nullable=True, index=True)
+    message_id = Column(Integer, nullable=True)
+    slot = Column(Integer, default=0)
+    title = Column(String(150), default="Untitled")
+    kind = Column(String(10), default="doc")                 # doc | code
+    lang = Column(String(30), default="")
+    content = Column(Text, default="")
+    versions = Column(Text, default="[]")                    # [{t, note, content}] newest last, up to 30
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class StudyDeck(Base):
+    __tablename__ = "study_decks"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    title = Column(String(120), nullable=False)
+    source = Column(String(200), default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class StudyCard(Base):
+    __tablename__ = "study_cards"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    deck_id = Column(Integer, ForeignKey("study_decks.id", ondelete="CASCADE"), nullable=False, index=True)
+    front = Column(Text, nullable=False)
+    back = Column(Text, nullable=False)
+    ease = Column(Float, default=2.5)
+    interval = Column(Float, default=0)        # days
+    reps = Column(Integer, default=0)
+    lapses = Column(Integer, default=0)
+    due_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class StudyDay(Base):
+    """How many cards someone reviewed on a day (for the streak)."""
+    __tablename__ = "study_days"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    day = Column(String(10), nullable=False)    # YYYY-MM-DD in the person's time zone
+    reviewed = Column(Integer, default=0)
+    correct = Column(Integer, default=0)
 
 
 class ChatMember(Base):
@@ -873,6 +974,8 @@ async def init_db():
             ("share_anon", "BOOLEAN DEFAULT 0"),
             ("invite_code", "VARCHAR(32)"),
             ("is_group", "BOOLEAN DEFAULT 0"),
+            ("project_id", "INTEGER"),
+            ("assistant_id", "INTEGER"),
         ]:
             try:
                 await conn.exec_driver_sql(f"ALTER TABLE chats ADD COLUMN {_col} {_ddl}")

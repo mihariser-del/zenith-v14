@@ -132,6 +132,23 @@
                             closed: !!close, out: obody === undefined ? null : { attrs: attrs(oa || ''), text: obody } });
                 return '\n\n<div class="zr-slot" data-i="' + (runs.length - 1) + '"></div>\n\n';
             });
+        // Canvas: long writing / code to keep editing in the side panel (workspace.js).
+        var canvases = [];
+        out = out.replace(/<zcanvas\b([^>]*)>([\s\S]*?)(<\/zcanvas>|$)/gi, function (_, a, body, close) {
+            canvases.push({ attrs: attrs(a), text: body.replace(/^\n+|\s+$/g, ''), closed: !!close, slot: canvases.length });
+            return '\n\n<div class="zcv-slot" data-i="' + (canvases.length - 1) + '"></div>\n\n';
+        });
+        // Flashcards to save into Study mode (workspace.js).
+        var decks = [];
+        out = out.replace(/<zdeck\b([^>]*)>([\s\S]*?)(<\/zdeck>|$)/gi, function (_, a, body, close) {
+            var cards = [];
+            body.split('\n').forEach(function (l) {
+                var m = /^\s*(?:[-*\d.)]+\s+)?(.+?)\s*(?:::|\|)\s*(.+?)\s*$/.exec(l);
+                if (m && m[1] && m[2]) cards.push({ front: m[1], back: m[2] });
+            });
+            decks.push({ attrs: attrs(a), cards: cards, closed: !!close });
+            return '\n\n<div class="zdk-slot" data-i="' + (decks.length - 1) + '"></div>\n\n';
+        });
         // Charts the calculation engine drew from its exact numbers.
         var charts = [];
         out = out.replace(/<zchart>([\s\S]*?)(<\/zchart>|$)/gi, function (_, body, close) {
@@ -174,7 +191,7 @@
         out = out.replace(/<(zimage|zvideo|zremind|zjob)\b([^>]*?)(?:\/>|>([\s\S]*?)(?:<\/\1>|$))/gi, function (_, kind) {
             return '\n\n<div class="zt-slot" data-kind="' + kind.toLowerCase() + '"></div>\n\n';
         });
-        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs, charts: charts };
+        return { md: out, files: files, shots: shots, pages: pages, asks: asks, todos: todos, done: done, runs: runs, charts: charts, canvases: canvases, decks: decks };
     }
 
     // A photo on the left and the section it belongs to on the right, like a search result.
@@ -894,6 +911,18 @@
                 if (r && r.code) slot.replaceWith(buildRun(r, i, streaming));
                 else slot.remove();
             });
+            el.querySelectorAll('.zcv-slot').forEach(function (slot) {
+                var c = parsed.canvases[Number(slot.getAttribute('data-i'))];
+                if (!c) { slot.remove(); return; }
+                if (window.ZCanvas) slot.replaceWith(window.ZCanvas.card(c, streaming && !c.closed, PUBLIC));
+                else { var pre = document.createElement('pre'); pre.textContent = c.text; slot.replaceWith(pre); }
+            });
+            el.querySelectorAll('.zdk-slot').forEach(function (slot) {
+                var d = parsed.decks[Number(slot.getAttribute('data-i'))];
+                if (!d) { slot.remove(); return; }
+                if (window.ZStudy) slot.replaceWith(window.ZStudy.card(d, streaming && !d.closed, PUBLIC));
+                else slot.remove();
+            });
             el.querySelectorAll('.zc-slot').forEach(function (slot) {
                 var c = parsed.charts[Number(slot.getAttribute('data-i'))];
                 if (c && !streaming) slot.replaceWith(buildChart(c));
@@ -941,6 +970,8 @@
                 .replace(/<zdone\b[^>]*\/?>(?:<\/zdone>)?/gi, '')
                 .replace(/<zrun\b[^>]*>[\s\S]*?(?:<\/zrun>|$)/gi, '')
                 .replace(/<zchart>[\s\S]*?(?:<\/zchart>|$)/gi, '')
+                .replace(/<zcanvas\b[^>]*>([\s\S]*?)(?:<\/zcanvas>|$)/gi, function (_, b) { return b; })
+                .replace(/<zdeck\b[^>]*>([\s\S]*?)(?:<\/zdeck>|$)/gi, function (_, b) { return b.replace(/\s*::\s*/g, ' — '); })
                 .replace(/<zout\b[^>]*>([\s\S]*?)<\/zout>/gi, function (_, b) { return b.trim(); })
                 .replace(FILE_RE, function (_, a) { var n = attrs(a).name || 'file'; return '[File: ' + n + ']'; })
                 .replace(/<(zimage|zvideo|zremind|zjob)\b[\s\S]*?(?:<\/\1>|\/>|$)/gi, '')

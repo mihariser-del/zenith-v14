@@ -583,7 +583,7 @@ async def _after_reply(chat_id, user_id, user_text, tz_name=None):
         files, file_error = [], None
 
         blocks = docgen.extract_files(text)
-        if not blocks and "<zfile" not in text.lower() and "<zpage" not in text.lower() and len(text) >= 250 \
+        if not blocks and "<zfile" not in text.lower() and "<zpage" not in text.lower() and "<zcanvas" not in text.lower() and "<zdeck" not in text.lower() and len(text) >= 250 \
                 and looks_like_file_request(user_text) and not _TOOL_RE.search(text):
             intro, body, name, fmt, outro = docgen.wrap_untagged(text, user_text)
             if len(body) >= 200:
@@ -880,6 +880,15 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
         user_temperature = 0.3
 
     system_prompt = await build_system_prompt(user_id, think, last_user_msg, research, factcheck, shared=_group)
+    # Project instructions & files, a custom assistant's role, and the open canvas (workspace.py).
+    try:
+        import workspace as _ws
+        async with async_session() as _wdb:
+            _wchat = await _wdb.get(Chat, chat_id)
+            if _wchat:
+                system_prompt += await _ws.prompt_for_chat(_wdb, _wchat, last_user_msg)
+    except Exception as _we:
+        print(f"[workspace] {type(_we).__name__}: {_we}")
     if _group:
         _people = ", ".join(sorted(set(_who.values())))
         system_prompt += (f"\n\nSHARED CHAT: several people are talking to you together in this chat ({_people}). Each "

@@ -25,6 +25,8 @@ class ChatResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_group: bool | None = False
+    project_id: int | None = None
+    assistant_id: int | None = None
     mine: bool = True            # False: someone else's shared chat you were invited into
     owner_name: str = ""
 
@@ -101,6 +103,22 @@ async def create_chat(request: Request, db: AsyncSession = Depends(get_db)):
     count = len(result.scalars().all())
     title = "New Chat" if count == 0 else f"New Chat {count + 1}"
     chat = Chat(user_id=user.id, title=title, link_id=_new_link_id())
+    # 26.2: a new chat can start inside a project and/or with a custom assistant.
+    try:
+        body = await request.json()
+    except Exception:
+        body = {}
+    if isinstance(body, dict):
+        import workspace
+        if body.get("project_id"):
+            await workspace._project(db, user, int(body["project_id"]))
+            chat.project_id = int(body["project_id"])
+        if body.get("assistant_id"):
+            a = await workspace.can_use_assistant(db, user, int(body["assistant_id"]))
+            if not a:
+                raise HTTPException(status_code=404, detail="Assistant not found")
+            chat.assistant_id = a.id
+            a.uses = (a.uses or 0) + 1
     db.add(chat)
     await db.commit()
     await db.refresh(chat)

@@ -47,10 +47,14 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.1"
+VERSION = "26.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.2 Projects: keep everything for one big job together — a business, a course, a trip, a book. Give a project instructions (\"the bakery is in Kampala, prices in UGX\") and add files and notes once; every chat in it knows them, uses the parts that matter for each question, and remembers what was worked out in the project's other chats. Open Projects in the menu, start a new chat inside one, or move any chat in with its 📁 button. Project chats are grouped in the sidebar",
+    "26.2 Custom assistants: make your own Zelpophai helpers — a Maths Tutor, a Business Coach, a Language Partner — each with its own instructions, conversation starters and knowledge files. Describe one in a sentence and Zelpophai fills in the form, or start from one of six ready-made examples. Share one by link: friends can add it and chat with it, but can't see or change how it works, and their chats stay private. Open Assistants in the menu",
+    "26.2 Canvas: long writing — essays, letters, CVs, stories, reports — and longer programs now open in a side panel instead of a wall of text in the chat. Edit it yourself, or select any part and tap Shorter, Clearer, Fix grammar or type how you want it changed, and only that part is rewritten. Quick buttons change the whole thing (Polish, Shorter, More formal…). Ask in the chat (\"make the ending stronger\") and Zelpophai edits the canvas you're looking at, including your own changes. Every change is kept — go back to any earlier version with 🕘 — and Download gives you Word, PDF or Markdown",
+    "26.2 Study mode: turn any topic, your notes or a file into flashcards in seconds, then review them with buttons for Again, Hard, Good and Easy — the cards you find hard come back sooner, the easy ones later, so you remember more with less time. Take quick multiple-choice quizzes from any deck, keep a daily streak, and edit cards yourself. In any chat, ask \"make me flashcards on…\" and save them to Study with one tap. Open Study in the menu",
     "26.1 Talk to Zelpophai together: press 👥 Invite at the top of any chat to get a link. Anyone with a Zelpophai account who opens it joins the chat — it shows up in their sidebar with 👥, they see everything said so far and can write too. Zelpophai answers everyone and knows who said what. New messages from the others appear by themselves within a few seconds, with \"Zelpophai is answering Bob…\" while it replies to someone. Up to 8 people; each person's messages count against their own allowance, and nobody's private memories are used in a shared chat. The person who started the chat can remove people or turn the link off; anyone can leave",
     "26.1 Charts from the calculation engine: ask for a chart, graph or plot of something you want worked out — savings growth, a loan paying down, a budget split — and Zelpophai draws it from the exact numbers, right under the working. Line, bar, area, stacked, pie, doughnut and scatter charts; hover to see each value; Download picture or Download data (CSV) under each one. They look right in light and dark mode and stay there after a reload",
     "26.1 Android app 1.2: say \"Hey Zelpophai\" while your screen is on and the assistant pops up, listening — no button needed. Switch it on in the menu → Phone assistant → step 3. The listening happens only on your phone with a small offline speech model (downloaded once, about 40 MB): nothing is recorded or sent anywhere until it hears its name. It pauses when the screen is off and during calls, and a notification shows while it's on, with a Stop button",
@@ -184,6 +188,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.2 Owner: projects, assistants, canvases and study decks are new tables (projects, assistants, assistant_saves, work_items, canvases, study_decks, study_cards, study_days) plus chats.project_id and chats.assistant_id. Shared assistants never send their instructions or files to people who added them — only the name, description and starters. A custom assistant's instructions sit beside Zelpophai's own rules and can't override safety. Canvas \"change this part\" and making flashcards each count as one message",
     "26.1 Owner: shared chats are a new chat_members table plus chats.invite_code / is_group and messages.author_id. Every chat endpoint now checks access through groupchats.access() — owner or member — and the things only the owner should do (rename, public share, invite, remove people, delete) stay owner-only; a member \"deleting\" a shared chat just leaves it. Editing old messages is switched off in shared chats because it would cut off what others said. The AI sees each message as \"[Name]: …\" and runs with the sender's settings but no memories",
     "26.0 Owner: the calculation engine (calcengine.py) never hands the AI's code to Python's exec or eval — it reads the program as a syntax tree and walks it itself, allowing only plain maths, a fixed list of safe functions, and short allow-lists of methods. Every run is also in a separate, throw-away process with CPU, memory and time limits, and a step counter. Tested against the usual escapes (__class__, imports, open, getattr, format-string tricks, giant numbers, endless loops) — all refused. Server-side running of arbitrary code is still yours alone",
     "26.0 Owner: on Android the assistant only lets zelpophai.com use the phone bridge, never types into password boxes, asks before risky steps, and the Accessibility part does nothing unless a task the person started is running. Calls and texts open ready to send — the person presses the button",
@@ -335,6 +340,10 @@ app = FastAPI(title="Zelpophai AI", version=VERSION, lifespan=lifespan,
 
 app.include_router(auth_router)
 from groupchats import router as groupchats_router
+from workspace import router as workspace_router
+from study import router as study_router
+app.include_router(workspace_router)
+app.include_router(study_router)
 app.include_router(groupchats_router)        # before chats_router: /api/chats/join/… must win
 app.include_router(chats_router)
 app.include_router(memories_router)
@@ -1174,6 +1183,22 @@ async def chat_join_link(code: str, request: Request, db=Depends(get_db)):
         import json
         return HTMLResponse('<!doctype html><meta charset="utf-8"><title>Join a chat on Zelpophai</title>'
                             '<script>try{localStorage.setItem("zp_join",' + json.dumps(code) + ')}catch(e){}'
+                            'location.replace("/")</script>')
+    return _shell("app.html")
+
+
+@app.get("/app/a/{code}", response_class=HTMLResponse)
+async def assistant_link(code: str, request: Request, db=Depends(get_db)):
+    """A shared custom assistant. Logged-out visitors log in first; the code waits."""
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9]{6,32}", code or ""):
+        return RedirectResponse(url="/app", status_code=302)
+    try:
+        await get_current_user_from_cookie(request, db)
+    except HTTPException:
+        import json
+        return HTMLResponse('<!doctype html><meta charset="utf-8"><title>A Zelpophai assistant</title>'
+                            '<script>try{localStorage.setItem("zp_asst",' + json.dumps(code) + ')}catch(e){}'
                             'location.replace("/")</script>')
     return _shell("app.html")
 

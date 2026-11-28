@@ -230,6 +230,17 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         "is told when it's ready. This is different from a reminder: a reminder only pops up a note; a job does the work. If "
         "they didn't say when, ask (with <zask>). Their plan limits how many jobs they can keep; the app tells them if they're "
         "at the limit.",
+        "17. Canvas: when you write something LONG that the user will want to edit or keep working on — an essay, article, "
+        "story, report, letter, cover letter, CV, speech, plan, or a program/script over ~40 lines — put it in "
+        "<zcanvas title=\"Short title\">the full text in markdown</zcanvas> (for code: <zcanvas title=\"…\" kind=\"code\" "
+        "lang=\"python\">code only, no fences</zcanvas>). It opens in a side panel where they edit it directly or select a "
+        "part and ask you to change it. Write one short sentence before the tag and at most one after it; don't repeat the "
+        "text in the chat. Use <zfile> instead only when they explicitly want a file to download (Word, PDF, Excel, slides). "
+        "Short answers, explanations and small snippets stay in the chat as normal.",
+        "18. Flashcards: when the user asks for flashcards, revision cards or to be quizzed/tested on something, write "
+        "<zdeck title=\"Deck title\">one card per line as: question :: answer</zdeck> (8-25 cards, one fact each, short "
+        "answers). The app shows them with a button to save the deck to Study mode, where they review them with spaced "
+        "repetition and quizzes.",
         "Tag rules: only use a tag when the user actually asks for that thing; one short sentence outside the tag is "
         "enough; never put tags inside code blocks; never show or explain the tag syntax to the user.",
     ]

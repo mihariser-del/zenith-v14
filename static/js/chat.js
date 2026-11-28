@@ -210,7 +210,11 @@ const Chat = {
         const pinned = all.filter(c => c.pinned);
         const folders = {};
         const unfiled = [];
+        const projects = {};
+        const W = window.Workspace;
         all.filter(c => !c.pinned).forEach(c => {
+            const pj = c.project_id && W ? W.Projects.byId(c.project_id) : null;
+            if (pj) { (projects[pj.id] = projects[pj.id] || { p: pj, items: [] }).items.push(c); return; }
             const f = (c.folder || '').trim();
             if (f) (folders[f] = folders[f] || []).push(c);
             else unfiled.push(c);
@@ -225,6 +229,7 @@ const Chat = {
                 <div class="actions">
                     <button data-action="pin" data-id="${chat.id}" title="${chat.pinned ? 'Unpin' : 'Pin chat'}">${chat.pinned ? '📌' : '📍'}</button>
                     <button data-action="share" data-id="${chat.id}" title="Share or export this chat">🔗</button>
+                    ${chat.mine === false ? '' : `<button data-action="project" data-id="${chat.id}" title="Move to a project">📁</button>`}
                     <button data-action="folder" data-id="${chat.id}" title="Move to folder">🗂️</button>
                     <button data-action="rename" data-id="${chat.id}" title="Rename">✏️</button>
                     <button data-action="delete" data-id="${chat.id}" title="Delete">🗑️</button>
@@ -258,6 +263,8 @@ const Chat = {
                         this.renderList();
                     } catch (err) { showToast(err.message || 'Failed', 'error'); }
                 });
+                const pjb = div.querySelector('[data-action="project"]');
+                if (pjb) pjb.addEventListener('click', (e) => { e.stopPropagation(); if (window.Workspace) Workspace.Projects.moveChat(chat); });
                 div.querySelector('[data-action="share"]').addEventListener('click', async (e) => {
                     e.stopPropagation();
                     this.showShareExport(chat);
@@ -285,6 +292,16 @@ const Chat = {
             sec.appendChild(inner);
             list.appendChild(sec);
         }
+        Object.values(projects).sort((a, b) => a.p.name.localeCompare(b.p.name)).forEach(({ p, items }) => {
+            const sec = document.createElement('div');
+            sec.className = 'chat-group';
+            sec.innerHTML = `<button class="chat-group-tag proj" title="Open this project">${this.escapeHtml(p.emoji)} ${this.escapeHtml(p.name)}</button>`;
+            sec.querySelector('button').addEventListener('click', () => Workspace.Projects.open(p.id));
+            const inner = document.createElement('div');
+            renderGroup(inner, items);
+            sec.appendChild(inner);
+            list.appendChild(sec);
+        });
         Object.keys(folders).sort().forEach(f => {
             const sec = document.createElement('div');
             sec.className = 'chat-group';
@@ -343,6 +360,7 @@ const Chat = {
         }
         const shareBtn = $('chat-share-btn');
         if (shareBtn) { shareBtn.textContent = chat.share_id ? '🔗 Shared' : 'Share'; shareBtn.style.display = chat.mine === false ? 'none' : ''; }
+        if (window.Workspace) Workspace.decorateHeader(chat);
         const ppl = $('chat-people-btn');
         if (ppl) ppl.textContent = chat.is_group ? '👥 People' : '👥 Invite';
     },
@@ -733,6 +751,7 @@ const Chat = {
             container.innerHTML = this.renderWelcome();
             this.initTemplates();
             this.loadGreeting();
+            if (window.Workspace) Workspace.decorateWelcome(this.chats[this.activeId]);
             return;
         }
 
@@ -2166,6 +2185,7 @@ const Chat = {
             if (fullResponse) {
                 this.finalizeBubble(bubble, fullResponse);
                 if (/<zrun\b/i.test(fullResponse)) setTimeout(() => this._maybeRunCode(bubble, fullResponse), 0);
+                if (/<zcanvas\b/i.test(fullResponse) && window.ZCanvas) setTimeout(() => ZCanvas.afterReply(bubble, fullResponse), 50);
                 // Voice-to-voice auto speak if enabled
                 if (window.ZPVoice && window.ZPVoice.active) window.ZPVoice.feed(fullResponse, true);
                 else if (Voice.voiceToVoice || Settings.getLocal().autoRead) {

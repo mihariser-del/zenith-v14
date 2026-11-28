@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.6.4
+
+- `christmas.js`: snow ledges keep a reference to their element and re-read its position every frame; ledges inside `#chat-container` that are scrolled out of view (or under the header) are hidden and don't catch flakes.
+
 ## 26.6.3 — Christmas sidebar, header room, interactive snow
 
 - `christmas.css`: `.main` padded under the garland (46 px, 34 px on phones) so `#chat-header` shows; baubles hang over the sidebar only; countdown sits on the garland; glass sidebar (blur, red glow panels for chat list and bottom bar, holly); picture snow strips removed; snow canvas above the sidebar (z-index 105).

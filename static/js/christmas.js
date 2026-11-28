@@ -198,7 +198,7 @@
                 var n = Math.ceil((r.width - 12) / COL) + 1;
                 var same = prev && prev.h.length === n;
                 var tgt = same ? prev.tgt : profile(n, LEDGES[sel]);
-                var s = { sel: sel, left: r.left + 6, right: r.right - 6, top: r.top, h: same ? prev.h : tgt.slice(), tgt: tgt,
+                var s = { sel: sel, el: el, left: r.left + 6, right: r.right - 6, top: r.top, h: same ? prev.h : tgt.slice(), tgt: tgt,
                           ice: same ? prev.ice : icicles(n), max: LEDGES[sel] };
                 surfaces.push(s);
                 SN.surf[sel] = s;
@@ -224,7 +224,7 @@
         function ledgeAt(x, y) {
             for (var i = 0; i < surfaces.length; i++) {
                 var S = surfaces[i];
-                if (x < S.left - 4 || x > S.right + 4) continue;
+                if (S.hidden || x < S.left - 4 || x > S.right + 4) continue;
                 var c = Math.max(0, Math.min(S.h.length - 1, Math.round((x - S.left) / COL)));
                 if (y > S.top - (S.h[c] || 0) - 16 && y < S.top + 14) return S;
             }
@@ -297,6 +297,18 @@
             gust *= Math.pow(0.35, dt);
             wind += (windTo - wind) * Math.min(1, dt * 0.6);
             surfT -= dt; if (surfT <= 0) { surfT = 1.5; findSurfaces(); }
+            // 26.6.4: follow each item every frame (scrolling, cards growing), and hide snow
+            // on things that are scrolled out of sight or tucked under the header.
+            var cc = document.getElementById('chat-container'), ccr = cc ? cc.getBoundingClientRect() : null;
+            for (var sI = 0; sI < surfaces.length; sI++) {
+                var Sf = surfaces[sI];
+                if (!Sf.el || !Sf.el.isConnected) { Sf.hidden = true; continue; }
+                var rr = Sf.el.getBoundingClientRect();
+                if (Math.abs((rr.right - rr.left - 12) - (Sf.right - Sf.left)) > 3) { surfT = 0; }
+                Sf.left = rr.left + 6; Sf.right = rr.right - 6; Sf.top = rr.top;
+                var inChat = ccr && cc.contains(Sf.el);
+                Sf.hidden = rr.width < 40 || rr.top < 50 || rr.top > H - 10 || (inChat && (rr.top < ccr.top + 4 || rr.top > ccr.bottom - 4));
+            }
             ctx.clearRect(0, 0, W, H);
             var want = count();
             while (flakes.length < want) flakes.push(make(flakes.length > want * 0.4));
@@ -317,7 +329,7 @@
                 var landed = false;
                 if (f.d > 0.15) for (var s = 0; s < surfaces.length; s++) {
                     var S = surfaces[s];
-                    if (f.x > S.left && f.x < S.right) {
+                    if (!S.hidden && f.x > S.left && f.x < S.right) {
                         var idx = Math.round((f.x - S.left) / COL), top = S.top - (S.h[idx] || 0);
                         if (f.y >= top && f.y - f.vy * dt < top + 2) { land(S.h, S.left, f.x, 0.9 + f.r * 0.3, S.max); landed = true; break; }
                     }
@@ -338,6 +350,7 @@
                 // snow slowly builds back up to its natural, uneven shape; icicles regrow
                 for (var u = 0; u < SS.h.length; u++) { if (SS.h[u] < SS.tgt[u]) SS.h[u] += (SS.tgt[u] - SS.h[u]) * Math.min(1, dt * 0.05) + dt * 0.08; if (SS.h[u] > SS.tgt[u] + 2) SS.h[u] -= dt * 0.5; }
                 SS.ice.forEach(function (ic) { if (ic.cur < ic.len && (SS.h[ic.i] || 0) > SS.max * 0.3) ic.cur = Math.min(ic.len, ic.cur + dt * 0.25); });
+                if (SS.hidden) continue;
                 drawIcicles(SS);
                 drawPile(SS.h, SS.left, SS.top, true);
             }

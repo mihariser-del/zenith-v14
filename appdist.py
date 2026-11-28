@@ -25,7 +25,9 @@ router = APIRouter(tags=["app-downloads"])
 
 _TOKEN_HASHES = {h.strip().lower() for h in (
     os.getenv("APP_UPLOAD_TOKEN_SHA256", "") + ","
-    "9dc86df132581d75fdf488743626169e4d56d07b199e16d4f8a006feab2ab8e5"
+    "9dc86df132581d75fdf488743626169e4d56d07b199e16d4f8a006feab2ab8e5,"
+    # 28 Nov 2026: new release token (the first one was lost with a reset workspace).
+    "bc78544a52e8273d487740c031a84bafa87133af562fa862d4c19887f73505d9"
 ).split(",") if h.strip()}
 
 ALLOWED = {

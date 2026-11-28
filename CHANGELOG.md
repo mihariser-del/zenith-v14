@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.5.4 — App Google sign-in page fix
+
+- `google_auth.py`: `APP_PAGE` script had `\'` inside a normal Python string, which became a bare apostrophe and a JavaScript syntax error, so Google's button never rendered. Uses typographic apostrophes now.
+
 ## 26.5.3 — Google sign-in in the apps
 
 - `google_auth.py`: verification and find-or-create moved into `_google_user()`; new `/api/auth/google/app/start`, `/app/complete`, `/app/poll` and the browser page `/auth/google/app` (in-memory, single-use, 10-minute codes with a 4-character match code shown in both places).

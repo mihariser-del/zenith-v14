@@ -215,7 +215,7 @@ h1{font-size:22px;margin:0 0 6px}p{color:#a5abc3;margin:6px 0}.code{display:inli
 </div></main>
 <script>
 var CODE = "{{CODE}}", SHORT = document.getElementById('short').textContent;
-function done(name){document.getElementById('h').textContent='You\'re signed in!';document.getElementById('body').innerHTML='<p class="ok">Go back to the Zelpophai app — it\'s signing you in'+(name?' as '+name.replace(/[<>&]/g,''):'')+' now.</p><p class="small">You can close this tab.</p>';}
+function done(name){document.getElementById('h').textContent='You’re signed in!';document.getElementById('body').innerHTML='<p class="ok">Go back to the Zelpophai app — it’s signing you in'+(name?' as '+name.replace(/[<>&]/g,''):'')+' now.</p><p class="small">You can close this tab.</p>';}
 function fail(t){var m=document.getElementById('msg');m.className='small bad';m.textContent=t;}
 if(!SHORT){document.getElementById('h').textContent='This link has expired';document.getElementById('body').innerHTML='<p>Go back to the Zelpophai app and press <b>Continue with Google</b> again.</p>';}
 else{
@@ -226,7 +226,7 @@ else{
   var s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;
   s.onload=function(){google.accounts.id.initialize({client_id:'{{CLIENT}}',callback:window.onGoogle,ux_mode:'popup',auto_select:false});
     google.accounts.id.renderButton(document.getElementById('g'),{type:'standard',shape:'pill',theme:'filled_black',text:'continue_with',size:'large',logo_alignment:'left',width:300});};
-  s.onerror=function(){fail('Couldn\'t load Google sign-in. Check your internet and refresh.');};
+  s.onerror=function(){fail('Couldn’t load Google sign-in. Check your internet and refresh.');};
   document.head.appendChild(s);
 }
 </script></body></html>"""

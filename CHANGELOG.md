@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.6.11 — Vault cutscene: full spinning door, glitches, hyperspace, new sound
+
+- New background-removed door image that spins; pixel glitch overlay; denser additive hyperspace; rebuilt WebAudio score.
+
 ## 26.6.10 — Image-based 7-second Vault cutscene
 
 - Real door, locking wheel and vault corridor pictures in `/static/img/vault/`; cutscene lengthened to ~7 s.

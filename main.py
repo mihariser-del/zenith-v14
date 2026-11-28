@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.6.10"
+VERSION = "26.6.11"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6.11 Vault cutscene upgrade: a new vault door picture that's fully in view (nothing cut off) and actually spins to unlock, with a glowing light racing round its rim; colourful pixel-block glitches that tear across the screen at the big moments; a much denser, brighter hyperspace rush with a blazing white core; and a new glitchy, digital soundtrack — chattering data, a rising build, stutters on ACCESS GRANTED, ratchets as the door spins, a sudden silence, then an impact and a shimmering rush",
     "26.6.10 The Vault unlock cutscene now uses real pictures and lasts about 7 seconds: a huge steel vault door with glowing lights floats in while a laser scans it and the security console runs its checks, ACCESS GRANTED slams in, the big locking wheel turns with heavy clunks, the door splits open onto a glowing high-tech vault corridor, and you fly down it into the Vault. Click or press Enter to skip",
     "26.6.9 The Vault's own lock screen now has the same living look as the sign-in screen (moving aurora, starfield, glass card, clock). And unlocking the Vault now plays a sci-fi cutscene: a security console runs its checks, ACCESS GRANTED slams in with a glitch, the bolts on a giant round vault door pull back, the door splits open in a blast of light and you shoot through hyperspace into the Vault — with sound. Click or press Enter to skip it",
     "26.6.8 Christmas snow: the snow along the bottom of the screen now melts away instead of building up for good, and you can swipe or tap it away too. Snow on the typing box and buttons now thins out smoothly before the rounded corners instead of ending in a cut-off edge. And the Vault sign-in screen has come alive: a moving aurora, a starfield that links up around your pointer, a glass card with a glowing border, a spinning ring around your initial, a live clock and greeting, and PIN dots that light up as you type, shake red on a wrong PIN and flash green as the Vault opens",
@@ -220,6 +221,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6.11 Owner: vault-cutscene.js — door.webp replaced (background-removed, centred square), wheel layer dropped (.spin rotates the whole door, .sweep arc during the turn), halves overlap 0.6% to hide the seam, glitch canvas (pixel blocks + RGB jitter) at 0.06/1.25/2.25/2.93/4.85/6.3 s, 1400-star additive warp, radial core; sound rebuilt (E minor, 156 BPM, high-passed, bit-crushed ticks, risers, stutters, ratchets, 100 ms cut at 4.9 s, impact + arpeggio)",
     "26.6.10 Owner: vault-cutscene.js rebuilt around /static/img/vault/door.webp, wheel.webp (rotating layer over the door hub) and inside.jpg; preloaded on script load; timeline 0.06 door in, 0.9 scan, 3.0 granted, 3.7 wheel turns, 5.0 door opens, 5.5 fly-in, 6.45 white-out, 7.0 done",
     "26.6.9 Owner: static/js/vault-cutscene.js (VaultCutscene.play({name, role}) → Promise, ~3.4 s, WebAudio sound, skip on click/Enter/Space/Esc, short fade for reduced motion). Used by vault-auth.js _unlocked() before redirecting and by vault2.js lock() (lock screen hidden 600 ms in). vault2.html lock screen gets the vault-auth-fx background, clock and chips; vault-fx.js pauses its canvas while inside a [hidden] parent",
     "26.6.8 Owner: christmas.js ground pile max 9 (GMAX), melts at 0.22/s, knockGround() on fast swipe/tap near the bottom (chunks marked gone fade out instead of re-landing); ledges inset by 75% of the element corner radius with a smoothstep taper over up to 9 columns. Vault PIN page: vault-auth-fx.css + vault-fx.js (aurora, grid, star network canvas, clock, bursts), vault-auth.js adds next/bad/ok dot states and _unlocked() fade before /vault",

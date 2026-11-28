@@ -390,3 +390,59 @@ html.christmas body .zp-greetcard::after {
 
 /* let the picture show through the sidebar a little */
 html.christmas body .sidebar { background: linear-gradient(180deg, rgba(14, 10, 18, .86), rgba(10, 14, 26, .88)) !important; backdrop-filter: blur(10px); border-right: 1px solid rgba(255, 110, 100, .22); }
+
+/* =====================================================================
+   26.6.3 — the garland no longer hides the chat's top buttons, a see-through
+   themed sidebar, and natural snow ledges drawn by christmas.js (irregular,
+   with icicles, and you can knock them off).
+   ===================================================================== */
+/* make room under the garland so the chat header (model, Invite, Share) shows */
+html.christmas body .main { padding-top: 46px; }
+@media (max-width: 760px) { html.christmas body .main { padding-top: 34px; } }
+#xm-lights, #xm-lights .xm-garland { height: 46px; background-size: auto 46px; }
+@media (max-width: 760px) { #xm-lights, #xm-lights .xm-garland { height: 34px; background-size: auto 34px; } }
+/* baubles hang from the garland over the sidebar, never over your messages */
+#xm-lights .xm-hang { top: 18px; width: 30px; }
+#xm-lights .xm-hang.h1 { left: 120px; }
+#xm-lights .xm-hang.h2 { left: 228px; right: auto; top: 22px; width: 26px; }
+@media (max-width: 900px) { #xm-lights .xm-hang { display: none; } }
+/* the countdown sits on the garland instead of over the conversation */
+.xm-count { top: 9px; }
+@media (max-width: 700px) { .xm-count { top: 40px; } }
+
+/* the old picture snow strips are replaced by drawn, irregular snow */
+html.christmas body #new-chat-btn::before, html.christmas body .composer-box::before, html.christmas body .zp-greetcard::before { content: none !important; }
+
+/* ---------- a see-through, wintry sidebar ---------- */
+html.christmas body .sidebar {
+    background: linear-gradient(180deg, rgba(40, 8, 12, .42), rgba(8, 14, 30, .48) 45%, rgba(6, 12, 26, .55)) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.3); backdrop-filter: blur(16px) saturate(1.3);
+    border-right: 1px solid rgba(255, 120, 110, .28) !important;
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, .04), 8px 0 30px rgba(0, 0, 0, .25);
+}
+html.christmas body .sidebar .brand, html.christmas body .sidebar .sb-tools, html.christmas body .sidebar .chat-list { background: transparent !important; }
+/* the chat list and the bottom bar become frosted panels with a red glow, like baubles in the snow */
+html.christmas body .sidebar .chat-list {
+    margin: 6px 10px; padding: 8px 6px !important; border-radius: 16px;
+    background: rgba(12, 18, 34, .38) !important; border: 1px solid rgba(255, 110, 100, .25);
+    box-shadow: 0 0 18px rgba(217, 59, 59, .12), inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+html.christmas body .sidebar .bottom-bar {
+    margin: 4px 10px 8px; border-radius: 16px;
+    background: rgba(60, 10, 14, .38) !important; border: 1px solid rgba(255, 110, 100, .38);
+    box-shadow: 0 0 20px rgba(217, 59, 59, .22), inset 0 1px 0 rgba(255, 255, 255, .06);
+}
+html.christmas body .sidebar .user-profile-bar { background: rgba(8, 12, 26, .35) !important; border-top: 1px solid rgba(255, 110, 100, .22) !important; }
+html.christmas body .sidebar .sb-tools .btn, html.christmas body .sidebar .sb-tools button { background: transparent; }
+html.christmas body .sidebar .sb-tools .btn:hover, html.christmas body .sidebar .sb-tools button:hover { background: rgba(255, 255, 255, .07) !important; }
+html.christmas body .sidebar .chat-item { background: transparent; }
+html.christmas body .sidebar .chat-item.active { background: linear-gradient(90deg, rgba(217, 59, 59, .32), rgba(217, 59, 59, .12)) !important; border: 1px solid rgba(255, 110, 100, .35); border-left: 3px solid #e2443f !important; }
+html.christmas body .sidebar .chat-group-tag { color: #ffd98f; }
+html.christmas body .sidebar .chat-list::before {
+    content: ''; display: block; width: 46px; height: 32px; margin: -22px 0 -6px auto; pointer-events: none;
+    background: url('/static/img/xmas/holly.webp') center / contain no-repeat; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .45));
+}
+/* phones: the sidebar slides over the page, so it needs to be a little more solid */
+@media (max-width: 768px) { html.christmas body .sidebar { background: linear-gradient(180deg, rgba(40, 8, 12, .78), rgba(8, 14, 30, .86)) !important; } }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { html.christmas body .sidebar { background: rgba(10, 14, 28, .92) !important; } }
+html.christmas #xm-snowcv { z-index: 105; }   /* the sidebar is z-index 100: snow lies on it too */

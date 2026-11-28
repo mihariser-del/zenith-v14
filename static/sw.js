@@ -1,4 +1,4 @@
-﻿const CACHE = 'zenith-v92';
+﻿const CACHE = 'zenith-v93';
 const URLS = [
   '/',
   '/app',

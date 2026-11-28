@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.3 — Christmas sidebar, header room, interactive snow
+
+- `christmas.css`: `.main` padded under the garland (46 px, 34 px on phones) so `#chat-header` shows; baubles hang over the sidebar only; countdown sits on the garland; glass sidebar (blur, red glow panels for chat list and bottom bar, holly); picture snow strips removed; snow canvas above the sidebar (z-index 105).
+- `christmas.js`: ledges on composer / New Chat / greeting card / chat list / bottom bar with irregular `profile()` targets and `icicles()`; `knock()` turns snow into falling clumps (fast swipe or tap), `SN_knock()` used by typing (small) and sending / New Chat (big); ledges regrow to their shape.
+
 ## 26.6.2 — Glass replies, versioned download names
 
 - `layout.css`: assistant replies get a frosted-glass panel (`backdrop-filter: blur(16px)`, translucent per theme: dark, light, Christmas, Halloween; solid fallback without backdrop-filter).

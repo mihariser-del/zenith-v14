@@ -120,7 +120,7 @@
        gusts now and then, swaying as they fall, pushed aside by your mouse or
        finger — and settling: snow builds up along the bottom of the screen and on
        top of the typing box and the New Chat button, then slowly melts. */
-    var SN = null;
+    var SN = null, SN_knock = function () {};
     function sprite(r, blur) {
         var s = Math.ceil(r * 2 + blur * 4 + 2), c = document.createElement('canvas');
         c.width = c.height = s;
@@ -145,7 +145,7 @@
         var W = 0, H = 0, COL = 4;
         var sprites = [];
         for (var i = 0; i < 12; i++) sprites.push(sprite(0.8 + i * 0.42, i > 8 ? (i - 8) * 0.9 : 0));
-        var flakes = [], ground = [], surfaces = [], mouse = { x: -999, y: -999, t: 0 };
+        var flakes = [], ground = [], surfaces = [], chunks = [], mouse = { x: -999, y: -999, t: 0, vx: 0, vy: 0 };
         var wind = 0, windTo = 0, gust = 0, t = 0, last = performance.now(), raf = 0, surfT = 0;
         function size() {
             W = window.innerWidth; H = window.innerHeight;
@@ -167,21 +167,74 @@
                      d: d, sp: sprites[si], r: 0.8 + si * 0.42, vy: 18 + d * 70 + Math.random() * 14,
                      ph: Math.random() * 6.28, sw: 8 + Math.random() * 22, a: 0.35 + d * 0.6, vx: 0 };
         }
+        // 26.6.3: snow that already lies on things — lumpy and uneven, with icicles.
+        var LEDGES = { '.composer-box': 22, '#new-chat-btn': 15, '.zp-greetcard': 16, '.sidebar .chat-list': 13, '.sidebar .bottom-bar': 12, '.xm-count': 7 };
+        function profile(n, maxH) {
+            var a = new Array(n).fill(maxH * 0.32);
+            var lumps = Math.max(3, Math.round(n / 9));
+            for (var k = 0; k < lumps; k++) {
+                var c = Math.random() * n, w = 3 + Math.random() * 12, amp = maxH * (0.25 + Math.random() * 0.75);
+                for (var i = 0; i < n; i++) { var z = (i - c) / w; a[i] += amp * Math.exp(-z * z); }
+            }
+            for (var j = 0; j < n; j++) a[j] = Math.max(maxH * 0.18, Math.min(maxH, a[j] * 0.62 + Math.random() * 1.2));
+            return a;
+        }
+        function icicles(n) {
+            var out = [];
+            for (var i = 3; i < n - 3; i += 2 + Math.floor(Math.random() * 7)) {
+                if (Math.random() < 0.55) out.push({ i: i, len: 3 + Math.pow(Math.random(), 1.8) * 16, cur: 0, w: 1.6 + Math.random() * 2.2 });
+            }
+            out.forEach(function (c) { c.cur = c.len; });
+            return out;
+        }
         function findSurfaces() {
             surfaces = [];
-            ['.composer-box', '#new-chat-btn'].forEach(function (sel) {
+            Object.keys(LEDGES).forEach(function (sel) {
                 var el = document.querySelector(sel);
                 if (!el || !el.offsetParent) return;
                 var r = el.getBoundingClientRect();
-                if (r.width < 40 || r.top < 0 || r.top > H) return;
+                if (r.width < 40 || r.top < 30 || r.top > H - 10) return;
                 var prev = SN && SN.surf && SN.surf[sel];
                 var n = Math.ceil((r.width - 12) / COL) + 1;
-                var h = prev && prev.h.length === n && Math.abs(prev.left - (r.left + 6)) < 2 ? prev.h : new Array(n).fill(0);
-                var s = { sel: sel, left: r.left + 6, right: r.right - 6, top: r.top, h: h, max: sel === '#new-chat-btn' ? 7 : 11, rad: 10 };
+                var same = prev && prev.h.length === n;
+                var tgt = same ? prev.tgt : profile(n, LEDGES[sel]);
+                var s = { sel: sel, left: r.left + 6, right: r.right - 6, top: r.top, h: same ? prev.h : tgt.slice(), tgt: tgt,
+                          ice: same ? prev.ice : icicles(n), max: LEDGES[sel] };
                 surfaces.push(s);
                 SN.surf[sel] = s;
             });
         }
+        // knock snow off a ledge: it breaks into clumps that tumble down
+        function knock(S, x, y, radius, strength, vx) {
+            var c = Math.round((x - S.left) / COL), R = Math.ceil(radius / COL), lost = 0;
+            for (var k = -R; k <= R; k++) {
+                var j = c + k; if (j < 0 || j >= S.h.length) continue;
+                var f = strength * (1 - Math.abs(k) / (R + 1)) * (0.6 + Math.random() * 0.4);
+                var take = S.h[j] * Math.min(0.95, f);
+                S.h[j] -= take; lost += take;
+            }
+            S.ice.forEach(function (ic) { if (Math.abs(ic.i - c) <= R && ic.cur > 1 && Math.random() < strength + 0.2) { chunks.push({ x: S.left + ic.i * COL, y: S.top + 2, vx: vx * 0.2 + (Math.random() - 0.5) * 30, vy: 20, r: ic.w, ice: ic.cur, a: 1 }); ic.cur = 0; } });
+            var n = Math.min(26, Math.round(lost / 2.2));
+            for (var q = 0; q < n; q++) {
+                chunks.push({ x: x + (Math.random() - 0.5) * radius * 1.6, y: S.top - Math.random() * S.max, vx: vx * 0.35 + (Math.random() - 0.5) * 90,
+                              vy: -40 - Math.random() * 140, r: 1.2 + Math.random() * 2.8, a: 1 });
+            }
+            if (chunks.length > 400) chunks.splice(0, chunks.length - 400);
+        }
+        function ledgeAt(x, y) {
+            for (var i = 0; i < surfaces.length; i++) {
+                var S = surfaces[i];
+                if (x < S.left - 4 || x > S.right + 4) continue;
+                var c = Math.max(0, Math.min(S.h.length - 1, Math.round((x - S.left) / COL)));
+                if (y > S.top - (S.h[c] || 0) - 16 && y < S.top + 14) return S;
+            }
+            return null;
+        }
+        SN_knock = function (sel, amount) {
+            var S = SN && SN.surf && SN.surf[sel]; if (!S) return;
+            var spots = Math.max(1, Math.round(amount * 6));
+            for (var i = 0; i < spots; i++) knock(S, S.left + Math.random() * (S.right - S.left), S.top, 10 + amount * 30, 0.25 + amount * 0.6, (Math.random() - 0.5) * 200);
+        };
         function land(arr, x0, x, amount, max) {
             var i = Math.round((x - x0) / COL);
             if (i < 0 || i >= arr.length) return;
@@ -221,6 +274,18 @@
             ctx.shadowColor = 'rgba(180,205,255,.55)'; ctx.shadowBlur = 6;
             ctx.fill();
             ctx.shadowBlur = 0;
+            if (ends) { ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1; ctx.stroke(); }
+        }
+        function drawIcicles(S) {
+            for (var i = 0; i < S.ice.length; i++) {
+                var ic = S.ice[i]; if (ic.cur < 0.8 || (S.h[ic.i] || 0) < 1.5) continue;
+                var x = S.left + ic.i * COL, y = S.top - 1, L = ic.cur;
+                var g = ctx.createLinearGradient(0, y, 0, y + L);
+                g.addColorStop(0, 'rgba(235,246,255,.95)'); g.addColorStop(1, 'rgba(190,225,255,.35)');
+                ctx.fillStyle = g;
+                ctx.beginPath(); ctx.moveTo(x - ic.w, y); ctx.quadraticCurveTo(x - ic.w * 0.3, y + L * 0.6, x, y + L); ctx.quadraticCurveTo(x + ic.w * 0.3, y + L * 0.6, x + ic.w, y); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillRect(x - ic.w * 0.35, y + 1, 0.8, L * 0.5);
+            }
         }
         function frame(now) {
             raf = requestAnimationFrame(frame);
@@ -268,13 +333,44 @@
             ctx.globalAlpha = 1;
             settle(ground, 12, 0.006, dt);
             drawPile(ground, 0, H, false);
-            for (var q = 0; q < surfaces.length; q++) { settle(surfaces[q].h, surfaces[q].max, 0.004, dt); drawPile(surfaces[q].h, surfaces[q].left, surfaces[q].top, true); }
+            for (var q = 0; q < surfaces.length; q++) {
+                var SS = surfaces[q];
+                // snow slowly builds back up to its natural, uneven shape; icicles regrow
+                for (var u = 0; u < SS.h.length; u++) { if (SS.h[u] < SS.tgt[u]) SS.h[u] += (SS.tgt[u] - SS.h[u]) * Math.min(1, dt * 0.05) + dt * 0.08; if (SS.h[u] > SS.tgt[u] + 2) SS.h[u] -= dt * 0.5; }
+                SS.ice.forEach(function (ic) { if (ic.cur < ic.len && (SS.h[ic.i] || 0) > SS.max * 0.3) ic.cur = Math.min(ic.len, ic.cur + dt * 0.25); });
+                drawIcicles(SS);
+                drawPile(SS.h, SS.left, SS.top, true);
+            }
+            // clumps and icicles that were knocked off
+            for (var cI = chunks.length - 1; cI >= 0; cI--) {
+                var C = chunks[cI];
+                C.vy += 900 * dt; C.vx *= Math.pow(0.4, dt); C.x += C.vx * dt; C.y += C.vy * dt;
+                var gI = Math.round(C.x / COL);
+                if (C.y >= H - (ground[gI] || 0)) { land(ground, 0, C.x, C.ice ? 0.4 : 0.6 + C.r * 0.35, 12); chunks.splice(cI, 1); continue; }
+                if (C.x < -20 || C.x > W + 20) { chunks.splice(cI, 1); continue; }
+                ctx.globalAlpha = C.a;
+                if (C.ice) { ctx.fillStyle = 'rgba(210,235,255,.85)'; ctx.fillRect(C.x - C.r / 2, C.y, C.r, C.ice); }
+                else { ctx.beginPath(); ctx.fillStyle = '#f7fbff'; ctx.shadowColor = 'rgba(170,200,255,.6)'; ctx.shadowBlur = 4; ctx.arc(C.x, C.y, C.r, 0, 6.283); ctx.fill(); ctx.shadowBlur = 0; }
+            }
+            ctx.globalAlpha = 1;
         }
-        function onMove(e) { var p = e.touches ? e.touches[0] : e; if (!p) return; mouse.x = p.clientX; mouse.y = p.clientY; mouse.t = performance.now(); }
+        function onMove(e) {
+            var p = e.touches ? e.touches[0] : e; if (!p) return;
+            var nowT = performance.now(), dtm = Math.max(8, nowT - mouse.t);
+            var vx = (p.clientX - mouse.x) / dtm * 1000, vy = (p.clientY - mouse.y) / dtm * 1000;
+            if (nowT - mouse.t > 200) { vx = 0; vy = 0; }
+            mouse.vx = vx; mouse.vy = vy; mouse.x = p.clientX; mouse.y = p.clientY; mouse.t = nowT;
+            var sp = Math.sqrt(vx * vx + vy * vy);
+            if (sp > 420) { var S = ledgeAt(p.clientX, p.clientY); if (S) knock(S, p.clientX, p.clientY, 12 + Math.min(30, sp / 60), Math.min(0.9, sp / 2600), vx); }
+        }
+        function onDown(e) {
+            var S = ledgeAt(e.clientX, e.clientY);
+            if (S) knock(S, e.clientX, e.clientY, 26, 0.85, (Math.random() - 0.5) * 160);
+        }
         function onResize() { size(); findSurfaces(); }
         SN = { cv: cv, surf: {}, stop: function () {
             cancelAnimationFrame(raf);
-            window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove); window.removeEventListener('pointerdown', onDown);
             window.removeEventListener('resize', onResize);
             if (cv.parentNode) cv.remove();
         } };
@@ -282,6 +378,7 @@
         for (var n = count(), k2 = 0; k2 < n; k2++) flakes.push(make(false));
         window.addEventListener('mousemove', onMove, { passive: true });
         window.addEventListener('touchmove', onMove, { passive: true });
+        window.addEventListener('pointerdown', onDown, { passive: true });
         window.addEventListener('resize', onResize);
         raf = requestAnimationFrame(frame);
     }
@@ -599,7 +696,22 @@
         dim();
         patchIdeas();
     }
-    function extrasOn() { buildCountdown(); scheduleSleigh(true); watchWelcome(); }
+    // typing shakes a little snow off the typing box; sending knocks a big puff off
+    var shakeWired = false, keyN = 0;
+    function wireShake() {
+        if (shakeWired) return; shakeWired = true;
+        document.addEventListener('keydown', function (e) {
+            if (!isOn() || !e.target || e.target.id !== 'user-input') return;
+            if (e.key === 'Enter' && !e.shiftKey && e.target.value.trim()) { SN_knock('.composer-box', 0.75); return; }
+            if (++keyN % 5 === 0) SN_knock('.composer-box', 0.06);
+        }, true);
+        document.addEventListener('click', function (e) {
+            if (!isOn()) return;
+            if (e.target.closest && e.target.closest('#send-btn')) SN_knock('.composer-box', 0.75);
+            else if (e.target.closest && e.target.closest('#new-chat-btn')) SN_knock('#new-chat-btn', 0.8);
+        }, true);
+    }
+    function extrasOn() { buildCountdown(); scheduleSleigh(true); watchWelcome(); wireShake(); }
     function extrasOff() {
         clearTimeout(sleighTimer);
         ['xm-count'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });

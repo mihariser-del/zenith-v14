@@ -85,6 +85,21 @@ def _project_out(p: CodeProject, full=True) -> dict:
             d["files"] = json.loads(p.files or "{}")
         except Exception:
             d["files"] = {}
+        try:
+            d["chat"] = json.loads(p.chat or "[]")
+        except Exception:
+            d["chat"] = []
+    else:
+        # A short preview line for Recents: the first thing the person asked.
+        first = ""
+        try:
+            for it in json.loads(p.chat or "[]"):
+                if isinstance(it, dict) and it.get("t") == "user":
+                    first = str(it.get("text") or "")[:90]
+                    break
+        except Exception:
+            pass
+        d["first"] = first
     return d
 
 
@@ -97,7 +112,8 @@ async def agent_status(request: Request, db: AsyncSession = Depends(get_db)):
     used = await _used_today(db, user.id)
     return {"tier": tier, "limit": limit, "used": used, "left": None if limit is None else max(0, limit - used),
             "guest": tier == "guest", "free": tier in ("guest", "free"),
-            "model": MODEL_FREE if tier in ("guest", "free") else MODEL}
+            "model": MODEL_FREE if tier in ("guest", "free") else MODEL,
+            "smart": tier not in ("guest", "free"), "max_steps": MAX_AGENT_STEPS}
 
 
 # ─────────────────────────────────────────────────── projects ──
@@ -155,6 +171,28 @@ async def save_project(pid: int, req: ProjectIn, request: Request, db: AsyncSess
     p.updated_at = datetime.now(timezone.utc)
     await db.commit()
     return {"ok": True, "updated_at": p.updated_at.isoformat()}
+
+
+class ChatIn(BaseModel):
+    chat: list = []
+
+
+@router.put("/projects/{pid}/chat")
+async def save_chat(pid: int, req: ChatIn, request: Request, db: AsyncSession = Depends(get_db)):
+    """26.5: keep the agent conversation with the project (newest 300 items, ~400 KB)."""
+    user = await get_current_user_from_cookie(request, db)
+    p = await _own(db, user, pid)
+    items = [it for it in (req.chat or []) if isinstance(it, dict)][-300:]
+    data = json.dumps(items)
+    while len(data) > 400_000 and len(items) > 10:
+        items = items[len(items) // 4:]
+        data = json.dumps(items)
+    if len(data) > 400_000:
+        raise HTTPException(status_code=400, detail="This conversation is too long to save")
+    p.chat = data
+    p.updated_at = datetime.now(timezone.utc)
+    await db.commit()
+    return {"ok": True}
 
 
 @router.delete("/projects/{pid}")
@@ -331,3 +369,216 @@ async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_d
                 return
 
     return StreamingResponse(gen(), media_type="text/event-stream", headers={"Cache-Control": "no-cache"})
+
+
+# ═══════════════════════════════════════════════ 26.5: the step-by-step agent ══
+# The agent works like a real coding assistant: it looks at the files, makes a
+# plan, edits files, runs the code, reads the output and fixes what's wrong —
+# one model call per step. The tools themselves run in the person's browser (or
+# on their computer in the Windows app); this endpoint only talks to the model.
+# One task (everything that happens after you press Send) counts as ONE coding
+# request against the daily allowance.
+
+AGENT_SYSTEM = """You are Coding AGT., the coding agent inside Zelpophai AI (made by Wanzu Ibrahim).
+You work on the user's project the way a senior engineer pair-programs: look before you change,
+make focused edits, run the code, read the output and fix problems until it works.
+
+HOW YOU WORK
+- Use the tools. Start by looking at the relevant files (list_files / read_file / search_files)
+  unless the project is empty or you already have them.
+- For anything bigger than a one-line change, call update_plan first with 2-7 short steps, and
+  update it as you finish steps.
+- Make changes with edit_file (exact text replacement — copy old_text exactly from the file) or
+  write_file (whole new files / full rewrites). Never leave placeholders like "..." or TODOs.
+- After changing runnable code, call run to test it, read the output and fix any errors.
+  Don't run more than needed, and stop after 3 failed attempts at the same error and explain.
+- Keep your messages between tool calls very short (one line). When you're done, reply with a
+  short summary: what you did, which files changed, and how to use it. Use the user's language.
+- If the request is unclear or risky (deleting lots of files, rewriting everything), ask first.
+- Questions that need no changes: just answer.
+
+WHERE CODE RUNS
+{env}
+
+The project is called "{name}". Files right now:
+{files}"""
+
+ENV_BROWSER = """Environment: BROWSER. run works for:
+- Websites: index.html + CSS + JS (shown in the Preview; console output and errors come back to you).
+  No server or npm; load libraries from cdnjs.cloudflare.com or cdn.jsdelivr.net.
+- Python (Pyodide 3.12 in the browser): standard library + numpy, pandas, matplotlib, scipy.
+  No input(), no network, no threads, no native pip packages. main.py is the usual entry point.
+- SQL (SQLite) .sql files.
+Other languages (Java, C#, C++, Go, Rust…) can be written but NOT run here — say they can run them
+with "This computer" in the Zelpophai Windows app, or download the project."""
+
+ENV_COMPUTER = """Environment: THIS COMPUTER (the Zelpophai Windows app). run executes the entry file on the
+user's own PC with the languages they have installed (Python, Node, Java, C/C++, Go, Ruby, PHP…).
+Websites still show in the Preview. Programs can't read keyboard input while running. Be careful:
+this is a real computer — never write code that deletes or changes files outside the project."""
+
+AGENT_TOOLS = [
+    {"type": "function", "function": {"name": "list_files", "description": "List every file in the project with its size in lines.",
+                                      "parameters": {"type": "object", "properties": {}}}},
+    {"type": "function", "function": {"name": "read_file", "description": "Read a file (with line numbers). Optionally only some lines.",
+                                      "parameters": {"type": "object", "properties": {
+                                          "path": {"type": "string"},
+                                          "start_line": {"type": "integer"}, "end_line": {"type": "integer"}},
+                                          "required": ["path"]}}},
+    {"type": "function", "function": {"name": "search_files", "description": "Find text in all files (case-insensitive). Returns matching lines.",
+                                      "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
+    {"type": "function", "function": {"name": "write_file", "description": "Create a file or replace its whole content.",
+                                      "parameters": {"type": "object", "properties": {
+                                          "path": {"type": "string", "description": "e.g. index.html or src/game.js"},
+                                          "content": {"type": "string", "description": "the COMPLETE file"}},
+                                          "required": ["path", "content"]}}},
+    {"type": "function", "function": {"name": "edit_file", "description": "Replace exact text in a file. old_text must match the file exactly (including spaces) and be unique unless replace_all is true.",
+                                      "parameters": {"type": "object", "properties": {
+                                          "path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"},
+                                          "replace_all": {"type": "boolean"}},
+                                          "required": ["path", "old_text", "new_text"]}}},
+    {"type": "function", "function": {"name": "delete_file", "description": "Delete a file from the project.",
+                                      "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
+    {"type": "function", "function": {"name": "run", "description": "Run the project (or one entry file) and get the console output and errors back.",
+                                      "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "entry file, e.g. main.py or index.html (optional)"}}}}},
+    {"type": "function", "function": {"name": "update_plan", "description": "Show or update your step-by-step plan for this task.",
+                                      "parameters": {"type": "object", "properties": {"steps": {"type": "array", "items": {"type": "object", "properties": {
+                                          "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]}},
+                                          "required": ["text", "status"]}}}, "required": ["steps"]}}},
+]
+
+_AGENT_TASKS: dict = {}          # task id -> {"user": id, "steps": n, "t": time}
+MAX_AGENT_STEPS = int(os.getenv("CODE_AGENT_MAX_STEPS", "40"))
+
+
+class StepIn(BaseModel):
+    task: str = ""
+    messages: list = []
+    files: dict = {}            # path -> number of lines (contents travel through read_file)
+    name: str = ""
+    env: str = "browser"        # browser | computer
+    model: str = "smart"        # smart | fast
+
+
+def _clean_msgs(msgs: list) -> list:
+    """Only the fields the model needs, sized so a long task still fits."""
+    out = []
+    for m in msgs or []:
+        if not isinstance(m, dict):
+            continue
+        role = m.get("role")
+        if role == "user":
+            out.append({"role": "user", "content": str(m.get("content") or "")[:20000]})
+        elif role == "assistant":
+            d = {"role": "assistant", "content": str(m.get("content") or "")[:20000]}
+            calls = []
+            for c in (m.get("tool_calls") or [])[:12]:
+                try:
+                    f = c.get("function") or {}
+                    calls.append({"id": str(c.get("id"))[:80], "type": "function",
+                                  "function": {"name": str(f.get("name"))[:40], "arguments": str(f.get("arguments") or "{}")[:200000]}})
+                except Exception:
+                    continue
+            if calls:
+                d["tool_calls"] = calls
+            out.append(d)
+        elif role == "tool":
+            out.append({"role": "tool", "tool_call_id": str(m.get("tool_call_id"))[:80], "content": str(m.get("content") or "")[:24000]})
+    # Keep the first request and as much of the recent work as fits (~260k characters).
+    def size(x):
+        return len(json.dumps(x))
+    while len(out) > 6 and sum(size(x) for x in out) > 260_000:
+        # drop the oldest step after the first message, never splitting a call from its results
+        i = 1
+        del out[i]
+        while i < len(out) and out[i]["role"] == "tool":
+            del out[i]
+    # The model must never see tool results without the call that asked for them.
+    while len(out) > 1 and out[1]["role"] == "tool":
+        del out[1]
+    return out
+
+
+@router.post("/agent/step")
+async def agent_step(req: StepIn, request: Request, db: AsyncSession = Depends(get_db)):
+    import time as _t
+    user = await get_current_user_from_cookie(request, db)
+    tier = _tier(user)
+    now = _t.time()
+    for k in [k for k, v in _AGENT_TASKS.items() if now - v["t"] > 3600]:
+        _AGENT_TASKS.pop(k, None)
+    left = None
+    limit = await _code_limit(db, user)
+    task = _AGENT_TASKS.get(req.task) if req.task else None
+    if req.task and (not task or task["user"] != user.id):
+        raise HTTPException(status_code=409, detail="This task has ended — send your message again to start a new one.")
+    if not task:
+        used = await _used_today(db, user.id)
+        if limit == 0:
+            raise HTTPException(status_code=403, detail="The AI coding agent isn't included in your plan.")
+        if limit is not None and used >= limit:
+            raise HTTPException(status_code=429, detail=(f"You've used all {limit} AI coding tasks for today. "
+                                + ("Log in for more." if tier == "guest" else "They come back at midnight (UTC). Upgrade for more.")))
+        db.add(UsageLog(user_id=user.id, action="code_agent"))
+        await db.commit()
+        left = None if limit is None else max(0, limit - used - 1)
+        tid = secrets.token_urlsafe(16)
+        task = _AGENT_TASKS[tid] = {"user": user.id, "steps": 0, "t": now, "id": tid}
+    if task["steps"] >= MAX_AGENT_STEPS:
+        raise HTTPException(status_code=429, detail=f"That task used all {MAX_AGENT_STEPS} steps. Send a new message to keep going.")
+    task["steps"] += 1
+    task["t"] = now
+
+    msgs = _clean_msgs(req.messages)
+    if not msgs or msgs[0]["role"] != "user":
+        raise HTTPException(status_code=400, detail="Tell the agent what you want")
+    listing = "\n".join(f"- {str(p)[:120]} ({int(n) if str(n).isdigit() else n} lines)" for p, n in list((req.files or {}).items())[:80]) or "(no files yet — the project is empty)"
+    system = AGENT_SYSTEM.format(env=ENV_COMPUTER if req.env == "computer" else ENV_BROWSER,
+                                 name=(req.name or "Untitled project")[:80], files=listing)
+    model = MODEL_FREE if (tier in ("guest", "free") or req.model == "fast") else MODEL
+    payload = {"model": model, "messages": [{"role": "system", "content": system}] + msgs,
+               "tools": AGENT_TOOLS, "tool_choice": "auto", "max_tokens": 16000, "temperature": 0.2}
+
+    from ai import _get_openrouter_keys
+    keys = _get_openrouter_keys()
+    if not keys:
+        raise HTTPException(status_code=503, detail="The AI is not configured yet.")
+    data, err = None, ""
+    for i, key in enumerate(keys):
+        try:
+            async with httpx.AsyncClient(timeout=240) as client:
+                r = await client.post(f"{OR_BASE}/chat/completions", json=payload,
+                                      headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"})
+            if r.status_code == 200:
+                data = r.json()
+                break
+            err = f"{r.status_code}: {r.text[:200]}"
+            if r.status_code in (401, 402, 429) and i < len(keys) - 1:
+                continue
+            break
+        except httpx.TimeoutException:
+            err = "timeout"
+        except Exception as e:
+            err = type(e).__name__
+    if not data:
+        task["steps"] -= 1
+        busy = err.startswith(("402", "429")) or err == "timeout"
+        raise HTTPException(status_code=502, detail="The AI is busy right now — press Retry in a few seconds." if busy else f"The AI had a problem ({err[:80]}). Press Retry.")
+    try:
+        choice = (data.get("choices") or [{}])[0]
+        m = choice.get("message") or {}
+    except Exception:
+        m, choice = {}, {}
+    calls = []
+    for c in (m.get("tool_calls") or [])[:12]:
+        f = (c or {}).get("function") or {}
+        calls.append({"id": c.get("id") or ("call_" + secrets.token_hex(6)), "type": "function",
+                      "function": {"name": f.get("name") or "", "arguments": f.get("arguments") or "{}"}})
+    try:
+        import ai_meter
+        ai_meter.record("code", model, user.id, payload["messages"], (m.get("content") or "") + json.dumps(calls)[:4000])
+    except Exception:
+        pass
+    return {"task": task["id"], "left": left, "steps_left": MAX_AGENT_STEPS - task["steps"],
+            "finish": choice.get("finish_reason") or "", "model": "fast" if model == MODEL_FREE else "smart",
+            "message": {"role": "assistant", "content": m.get("content") or "", "tool_calls": calls}}

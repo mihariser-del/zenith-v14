@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 26.5 — Coding AGT., chat-first agent
+
+- `codeagent.py`: `POST /api/code/agent/step` — one model call per step with OpenAI-style tools (`list_files`, `read_file`, `search_files`, `write_file`, `edit_file`, `delete_file`, `run`, `update_plan`); `AGENT_SYSTEM` + Browser / This computer environment notes + file listing; task tickets (`_AGENT_TASKS`) so a whole task is one usage log entry, max `CODE_AGENT_MAX_STEPS`; `_clean_msgs` trims history to ~260k chars without orphaning tool results. `PUT /projects/{pid}/chat`; project list includes the first request for Recents; status reports `smart` / `max_steps`.
+- `database.py`: `code_projects.chat` (migration).
+- New `coding-agent-chat.js` / `coding-agent-chat.css`: sidebar (New task, Search, Code editor, Recents, account), "What should we build?" start, composer with environment / approval mode / model chips and mic, step rows with diffs, plan checklist, approval cards (Allow / Allow all / Don't allow), Stop, Retry, Preview / Files / Output panel, phone layout. Falls back to `<zfile>` blocks if a model answers without tools.
+- `coding-agent.js`: `writeFile`, `removeFile`, `runCapture` (waits for Python / SQL / web console / local runs), `kindFor`; saves are serialised (no duplicate projects); Pyodide frames removed from tracebacks. "Fix with AI" and the start page now use the new agent; the editor's old side agent is hidden.
+
 ## 26.4.6 — Build it in chat, continue in Coding AGT.
 
 - `ai.py`: `_BUILD_RE` / `_build_ask()` detect requests to make software; such replies get the BUILD REQUEST system rule (complete files as `<zfile>` with folder paths, install steps, .exe via a build script, honest limits, closing tip pointing to Coding AGT.) and the file-sized token budget.

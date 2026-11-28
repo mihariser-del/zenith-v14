@@ -222,7 +222,13 @@
         setSave('Unsaved changes');
         S.saveTimer = setTimeout(() => save(false), 1500);
     }
+    // One save at a time: two saves of a brand-new project would create it twice.
     async function save(manual) {
+        if (S.saving) { try { await S.saving; } catch (e) {} }
+        S.saving = saveNow(manual);
+        try { return await S.saving; } finally { S.saving = null; }
+    }
+    async function saveNow(manual) {
         clearTimeout(S.saveTimer);
         if (S.shared) return;
         S.project.name = $('ca-name').value.trim() || 'Untitled project';
@@ -417,9 +423,9 @@
 
     // Desktop app: run the project on the user's own computer (asks first).
     let offOutput = null;
-    async function runLocal() {
+    async function runLocal(want) {
         const d = window.zelpophaiDesktop;
-        const entry = S.active || Object.keys(S.project.files)[0];
+        const entry = (want && want in S.project.files) ? want : S.active || Object.keys(S.project.files)[0];
         if (!entry) return;
         showOut('console'); mobileView('output');
         setRunning(true);
@@ -524,9 +530,18 @@ onmessage = async (ev) => {
   }
 };`;
 
-    function runPython() {
-        const entry = ext(S.active || '') === 'py' ? S.active : ('main.py' in S.project.files ? 'main.py' : Object.keys(S.project.files).find(p => p.endsWith('.py')));
-        if (!entry) { log('err', 'No Python file to run.'); return; }
+    // Drop Pyodide's own frames from tracebacks so only the person's code shows.
+    function cleanTb(t) {
+        const L = String(t || '').split('\n'), out = [];
+        for (let i = 0; i < L.length; i++) {
+            if (/^\s*File "\/lib\/python/.test(L[i])) { while (i + 1 < L.length && /^\s{4,}/.test(L[i + 1]) && !/^\s*File "/.test(L[i + 1])) i++; continue; }
+            out.push(L[i]);
+        }
+        return out.join('\n');
+    }
+    function runPython(want) {
+        const entry = (want && want in S.project.files) ? want : ext(S.active || '') === 'py' ? S.active : ('main.py' in S.project.files ? 'main.py' : Object.keys(S.project.files).find(p => p.endsWith('.py')));
+        if (!entry) { log('err', 'No Python file to run.'); if (S.onRunDone) S.onRunDone(); return; }
         showOut('console'); mobileView('output');
         setRunning(true);
         const t0 = performance.now();
@@ -536,12 +551,12 @@ onmessage = async (ev) => {
             S.worker.onmessage = e => {
                 const m = e.data;
                 if (m.t === 'out') log('', m.s);
-                else if (m.t === 'err') log('err', m.s);
+                else if (m.t === 'err') log('err', cleanTb(m.s));
                 else if (m.t === 'warn') log('warn', m.s);
                 else if (m.t === 'info') log('info', m.s);
                 else if (m.t === 'img') log('', '', `<img alt="Chart from your code" src="data:image/png;base64,${m.s}">`);
-                else if (m.t === 'fatal') { log('err', 'Python could not start: ' + m.s); stop(); }
-                else if (m.t === 'done') { log(m.failed ? 'warn' : 'ok', `■ Finished in ${((performance.now() - S.runStart) / 1000).toFixed(2)}s`); setRunning(false); }
+                else if (m.t === 'fatal') { log('err', 'Python could not start: ' + m.s); stop(); if (S.onRunDone) S.onRunDone(); }
+                else if (m.t === 'done') { log(m.failed ? 'warn' : 'ok', `■ Finished in ${((performance.now() - S.runStart) / 1000).toFixed(2)}s`); setRunning(false); if (S.onRunDone) S.onRunDone(); }
             };
         } else log('info', `▶ Running ${entry}`);
         S.runStart = t0;
@@ -549,8 +564,8 @@ onmessage = async (ev) => {
     }
 
     let SQL = null;
-    async function runSql() {
-        const entry = ext(S.active || '') === 'sql' ? S.active : Object.keys(S.project.files).find(p => p.endsWith('.sql'));
+    async function runSql(want) {
+        const entry = (want && want in S.project.files) ? want : ext(S.active || '') === 'sql' ? S.active : Object.keys(S.project.files).find(p => p.endsWith('.sql'));
         showOut('console'); mobileView('output');
         try {
             if (!SQL) {
@@ -795,7 +810,9 @@ onmessage = async (ev) => {
         input.onkeydown = e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('ca-ask').requestSubmit(); } };
         input.oninput = () => { input.style.height = 'auto'; input.style.height = Math.min(160, input.scrollHeight) + 'px'; };
         document.querySelector('.ca-sugg').onclick = e => { const b = e.target.closest('button'); if (b) askAgent(b.textContent); };
-        $('ca-fix-btn').onclick = () => askAgent('My code has an error. Please find the cause and fix it.', { console: consoleText() });
+        // 26.5: errors go to the chat-first agent, which can run the code again to check its fix.
+        $('ca-fix-btn').onclick = () => (window.CX ? (CX.showChat(true), CX.send('My code has an error. Find the cause, fix it and run it again to check.\n\nConsole:\n' + consoleText().slice(-3000)))
+            : askAgent('My code has an error. Please find the cause and fix it.', { console: consoleText() }));
         document.querySelectorAll('#ca-mob button').forEach(b => b.onclick = () => mobileView(b.dataset.view));
         $('ca-copy-shared').onclick = async () => {
             if (isGuest()) { location.href = '/'; return; }
@@ -808,7 +825,69 @@ onmessage = async (ev) => {
     }
 
     // What the app shell (coding-agent-shell.js) needs: start page, palette, settings, status bar.
+    /* ─────────────── 26.5: what the chat-first agent (coding-agent-chat.js) uses ── */
+    function writeFile(path, content) {
+        const existed = path in S.project.files;
+        const old = existed ? S.project.files[path] : null;
+        S.project.files[path] = content;
+        if (S.docs[path] && S.docs[path].getValue() !== content) S.docs[path].setValue(content);
+        if (!S.active) openFile(path);
+        S.dirty.add(path); renderTree(); renderTabs(); runtimeNote(); scheduleSave();
+        return { existed, old };
+    }
+    function removeFile(path) {
+        if (!(path in S.project.files)) return false;
+        delete S.project.files[path]; delete S.docs[path]; closeTab(path);
+        S.dirty.add(path); renderTree(); renderTabs(); runtimeNote(); scheduleSave();
+        return true;
+    }
+    function kindFor(entry) {
+        const e = entry ? ext(entry) : '';
+        if (e === 'py') return 'python';
+        if (e === 'sql') return 'sql';
+        if (['html', 'htm', 'css', 'js'].includes(e)) return Object.keys(S.project.files).some(p => /\.html?$/i.test(p)) ? 'web' : (e === 'js' ? 'none' : 'web');
+        if (entry) return 'none';
+        return runKind();
+    }
+    // Run and wait for the result. opts.frame: an extra iframe to show a website in;
+    // opts.local: run on this computer (Windows app). Resolves {kind, output, ok}.
+    function runCapture(entry, opts) {
+        opts = opts || {};
+        return new Promise((resolve) => {
+            if (S.running) stop();
+            clearConsole();
+            const k = kindFor(entry);
+            const finish = (extra) => {
+                S.onRunDone = null; clearTimeout(S.runTimer);
+                const out = consoleText();
+                resolve({ kind: k, ok: !S.console.some(l => l.type === 'err'), output: (out || '(no output)') + (extra ? '\n' + extra : '') });
+            };
+            if (opts.local && window.zelpophaiDesktop && window.zelpophaiDesktop.run && k !== 'web') {
+                runLocal(entry).then(() => finish(), () => finish());
+                return;
+            }
+            if (k === 'web') {
+                const html = buildPage(entry && /\.html?$/i.test(entry) ? entry : null);
+                // one live copy only, or its console messages arrive twice
+                if (opts.frame) { opts.frame.srcdoc = html; $('ca-preview').srcdoc = ''; $('ca-preview-empty').hidden = false; }
+                else { $('ca-preview-empty').hidden = true; $('ca-preview').srcdoc = html; }
+                log('ok', '▶ Page loaded');
+                S.runTimer = setTimeout(() => finish('(page loaded; this is what its console showed in the first 3 seconds)'), 3000);
+                return;
+            }
+            if (k === 'python') {
+                S.onRunDone = () => finish();
+                S.runTimer = setTimeout(() => { stop(); finish('Stopped: it was still running after 90 seconds (an endless loop, or waiting for input()?).'); }, 90000);
+                runPython(entry);
+                return;
+            }
+            if (k === 'sql') { runSql(entry).then(() => finish()); return; }
+            finish('This file type can\'t run in the browser. In the Zelpophai Windows app choose "This computer" to run it on the PC, or download the project.');
+        });
+    }
+
     window.CA = { S, TEMPLATES, clone, loadProject, openFile, closeTab, save, run, addFile, share, downloadZip, showOut, askAgent, isGuest, toast, esc, ext, modal, closeModal, clearConsole,
+        writeFile, removeFile, runCapture, buildPage, refreshStatus, consoleText, diffStats, kindFor, stop,
         resetChat() { S.history = []; $('ca-chat').querySelectorAll('.ca-msg').forEach(n => n.remove()); $('ca-hello').hidden = false; },
         ready: null };
     window.CA.ready = (document.readyState === 'loading') ? new Promise(r => document.addEventListener('DOMContentLoaded', () => boot().then(r, r))) : boot();

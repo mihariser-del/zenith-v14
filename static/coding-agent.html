@@ -15,8 +15,10 @@
     <link rel="stylesheet" href="/static/vendor/hljs-atom-one-dark.min.css">
     <link rel="stylesheet" href="/static/css/render.css">
     <link rel="stylesheet" href="/static/css/coding-agent.css">
+    <link rel="stylesheet" href="/static/css/coding-agent-chat.css">
 </head>
 <body>
+<script>if (!/^\/code\/[0-9a-f]{6,}/i.test(location.pathname)) document.body.classList.add('cx-on');</script>
 <div class="ca-app" id="ca-app">
     <header class="ca-top">
         <button class="ca-brand" id="ca-home-btn" title="Start page" aria-label="Start page">
@@ -204,6 +206,7 @@
 <script src="/static/js/render.js"></script>
 <script src="/static/js/coding-agent.js"></script>
 <script src="/static/js/coding-agent-shell.js"></script>
+<script src="/static/js/coding-agent-chat.js"></script>
 <script src="/static/js/freshness.js"></script>
 </body>
 </html>

@@ -221,6 +221,7 @@ class CodeProject(Base):
     name = Column(String(80), default="Untitled project")
     kind = Column(String(20), default="web")      # web | python | sql | blank
     files = Column(Text, default="{}")            # JSON {"path": "content"}
+    chat = Column(Text, default="")              # 26.5: the agent conversation (JSON list), shown in Recents
     share_id = Column(String(64), unique=True, index=True, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -1093,6 +1094,10 @@ async def init_db():
         try:
             await conn.exec_driver_sql("ALTER TABLE announcements ADD COLUMN recipient TEXT DEFAULT '*'")
         except Exception as e:
+            pass  # column already exists
+        try:
+            await conn.exec_driver_sql("ALTER TABLE code_projects ADD COLUMN chat TEXT DEFAULT ''")
+        except Exception:
             pass  # column already exists
     async with async_session() as session:
         from sqlalchemy import select

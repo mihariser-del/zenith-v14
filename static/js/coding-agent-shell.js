@@ -165,7 +165,7 @@
             const kind = $('ca-h-kind').value, t = CA.clone(CA.TEMPLATES[kind === 'python' ? 'python' : kind === 'sql' ? 'sql' : 'blank']);
             t.kind = kind; t.name = q.replace(/^(a|an|the)\s+/i, '').slice(0, 48).replace(/^./, (c) => c.toUpperCase());
             if (kind === 'web') t.files = { 'index.html': '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>' + t.name.replace(/</g, '') + '</title>\n</head>\n<body>\n\n</body>\n</html>\n' };
-            await startProject(t); CA.askAgent(q);
+            await startProject(t); if (window.CX) { CX.showChat(true); CX.send(q); } else CA.askAgent(q);
         };
         $('ca-h-tpl').onclick = async (e) => { const b = e.target.closest('[data-t]'); if (b) await startProject(CA.clone(CA.TEMPLATES[b.dataset.t])); };
         $('ca-h-keys').onclick = shortcuts; $('ca-h-set').onclick = settings;
@@ -253,5 +253,6 @@
         if (S.project) document.dispatchEvent(new CustomEvent('ca:kind', { detail: S.project.kind === 'blank' ? 'none' : S.project.kind }));
         $('ca-st-save').textContent = $('ca-save').textContent;
     }
+    CA.hideHome = () => { try { hideHome(); } catch (e) {} };
     Promise.resolve(CA.ready).then(() => { if (S.cm) wire(); });
 })();

@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4.6"
+VERSION = "26.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.5 A brand-new Coding AGT. You now start with a chat: \"What should we build?\". Describe what you want and the agent works on it step by step while you watch — it makes a plan, looks at your files, writes and edits them, runs the code, reads the result and fixes errors until it works. Choose where code runs (Browser, or This computer in the Windows app), whether it asks before each change (Ask for approval) or just gets on with it (Auto), and Smart or Fast. Every change shows exactly what was added and removed, and a whole task counts as one request. Your past tasks are listed under Recents, the Preview, Files and Output open beside the chat, and the full code editor is one click away",
     "26.4.6 Ask Zelpophai to make a mod, a game, an app, a bot or an .exe and it now builds it right in the chat — every file, complete, with steps to install or run it (for an .exe it writes the program plus a one-click build script). Under the answer you'll see \"Keep building this in Coding AGT.\": one tap opens all those files as a Coding AGT. project, folders and all, where you can run them, fix errors with the coding agent and download everything",
     "26.4.5 Fixed: long files (like a 170-line script) could stop half way and come out broken — Zelpophai now gives code and file requests far more room, and if a file still runs out of space it keeps writing until it's finished. It also now just makes the fix instead of saying \"I can replace that…\" and stopping. Also fixed: \"Open\" on a picture you attached showed a blank \"blocked\" page — it now opens the picture in a new tab",
     "26.4.4 Inside the Windows and Android apps, the \"Get the app\" buttons and links are gone — you already have it (if you open the download page in the app, it tells you the app updates itself). Under the typing box there's now a small reminder: Zelpophai can make mistakes — it's an AI, so check important info. And Zelpophai now carries its copyright notice (© Zelpophai AI, all rights reserved) on every page, in About and in Settings",
@@ -204,6 +205,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.5 Owner: Coding AGT. agent is now a tool-calling loop — POST /api/code/agent/step (tools: list_files, read_file, search_files, write_file, edit_file, delete_file, run, update_plan) with the tools executed in the browser / desktop app. One task ticket = one daily coding request, up to CODE_AGENT_MAX_STEPS (40) steps. Conversations are saved per project (code_projects.chat). The editor's old side agent is replaced by the new view",
     "26.4.6 Owner: _build_ask() in ai.py spots software requests (verb + mod/app/game/exe/bot/plugin… within one sentence, ignoring posters/stories/recipes; websites keep the live-page flow) and adds a BUILD REQUEST rule plus the 8000-token budget. zfile tags now keep a path=\"folder/file\" attribute. The chat card hands files to /code?import=1 through localStorage (code files only, 40 max, 10-minute expiry)",
     "26.4.5 Owner: replies about code/files (or following a reply with a file) get at least 8000 tokens; if the model stops with finish_reason=length inside an unclosed zfile, up to two continuation requests finish it. New FOLLOW THROUGH rule in the system prompt",
     "26.4.4 Owner: new appmode.py adds a tiny script and style to every page's head that marks pages opened in the apps (by their user agent) and hides links to /download there; the Terms now include a section saying the Zelpophai name, logo, design, apps and code are yours, all rights reserved",

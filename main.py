@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.6.6"
+VERSION = "26.6.7"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6.7 Christmas theme: the snow looks real now. Among the soft falling specks there are real six-armed ice-crystal snowflakes that turn and tumble and catch the light as they fall (the closest ones slightly out of focus, like a camera), and the snow lying on the typing box, buttons and sidebar has real powder-snow grain, soft blue shadows and tiny sparkles that glint as the light catches them",
     "26.6.6 The \"Welcome back\" card is gone from the new-chat screen — instead, just say hi and Zelpophai greets you for the time of day and offers to pick up what you were last doing (\"Good evening! What's on tonight — your Python script, Blox Fruits, or something new?\"). The Christmas welcome screen now always fits on your screen with no scrolling, the Christmas countdown sits in the middle of the chat area, and the sidebar's bottom buttons no longer overlap your name on shorter windows",
     "26.6.5 Christmas theme: the new-chat screen is now a Christmas card — a glowing red Z in a Santa hat, \"Merry Christmas, <your name>!\" in gold, a pine garland with a red bow and golden bells, and glowing red, green and gold Christmas idea buttons. Your welcome-back card sits just below. Also fixed: the snow on the sidebar's bottom buttons overlapped the chat list above it",
     "26.6.4 Fixed: after scrolling, the snow on the greeting card could stay behind and sit across the middle of the card. Snow now follows everything it lies on as you scroll, and hides when that part is scrolled out of view",
@@ -216,6 +217,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6.7 Owner: christmas.js loadSnowArt() loads xmas/crystal1-3.webp (pre-rendered at 14/22/34 px, the largest blurred) and snowtex.jpg (tileable, used as a multiply pattern clipped to each drift) and builds a glint sprite; ~40% of flakes with depth > 0.35 are crystals with rotation and tumble; drifts get a top-light/blue-shade gradient and twinkling glints",
     "26.6.6 Owner: chat.js loadGreeting() hides the greeting card for signed-in users (guests keep theirs); tools_prompt GREETINGS rule now asks for a time-of-day, vibe-matching greeting offering the 1-2 latest RECENT CHATS topics. christmas.js fitWelcome() zooms .welcome-message to fit #chat-container; placeCount() centres #xm-count over .main (ResizeObserver); christmas chat-list min-height 70px, flex-basis 0",
     "26.6.5 Owner: christmas.js patchHero() adds .xm-hero (brand, rule, h2.xm-merry with the name from window.user, swag.webp) after .welcome-z-logo; h2/.welcome-sub hidden via :has(.xm-hero); ideas now inserted before .zp-greetcard; new images xmas/swag.webp and flake.webp; Dancing Script added to the font link; bottom-bar ledge 9 and margin-top 20px",
     "26.6.2 Owner: installers are still stored as Zelpophai-Setup.exe / Zelpophai.apk (the updaters and the Vault uploader rely on it); /downloads/win/Zelpophai-Setup-V<ver>.exe and /downloads/android/Zelpophai-V<ver>.apk serve the current build, the plain names download with the versioned file name, and /api/app/latest links the versioned names",

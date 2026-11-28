@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.6.7 — Realistic snow
+
+- Falling snow mixes soft specks with real ice-crystal sprites (rotate, tumble, glint); lying snow uses a real snow texture, blue shading and twinkling glints.
+
 ## 26.6.6 — Greeting in the first reply, fit-to-screen welcome
 
 - Signed-in users no longer get the greeting card; the AI's first reply to a hello greets by time of day and offers the latest recent chats.

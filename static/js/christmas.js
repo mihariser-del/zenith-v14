@@ -132,11 +132,50 @@
         g.fillStyle = gr; g.beginPath(); g.arc(m, m, r + blur * 2, 0, Math.PI * 2); g.fill();
         return c;
     }
+    /* 26.6.7: realistic snow — real ice-crystal snowflakes among the soft specks, lying snow
+       with a real glittering snow texture, cool shadows and sparkles that catch the light. */
+    var CRYSTALS = [], SNOWTEX = null, SPARK = null;
+    function loadSnowArt(done) {
+        if (SNOWTEX) return done && done();
+        var want = 0, got = 0, fin = function () { if (++got === want && done) done(); };
+        var names = ['crystal1', 'crystal2', 'crystal3'];
+        want = names.length + 1;
+        names.forEach(function (n) {
+            var im = new Image(); im.decoding = 'async';
+            im.onload = function () {
+                // three pre-drawn sizes; the biggest (closest to you) slightly out of focus, like a camera
+                var vs = [14, 22, 34].map(function (px, k) {
+                    var c = document.createElement('canvas'), pad = 4; c.width = c.height = px + pad * 2;
+                    var g = c.getContext('2d');
+                    if (k === 2 && 'filter' in g) g.filter = 'blur(0.8px)';
+                    var r = Math.min(px / im.width, px / im.height);
+                    g.drawImage(im, pad + (px - im.width * r) / 2, pad + (px - im.height * r) / 2, im.width * r, im.height * r);
+                    return c;
+                });
+                CRYSTALS.push(vs); fin();
+            };
+            im.onerror = fin; im.src = IMG + n + '.webp';
+        });
+        var t = new Image();
+        t.onload = function () {
+            var c = document.createElement('canvas'); c.width = c.height = 160;
+            c.getContext('2d').drawImage(t, 0, 0, 160, 160); SNOWTEX = c; fin();
+        };
+        t.onerror = fin; t.src = IMG + 'snowtex.jpg';
+        // a tiny four-pointed glint
+        var sp = document.createElement('canvas'); sp.width = sp.height = 16;
+        var g = sp.getContext('2d'), gr = g.createRadialGradient(8, 8, 0, 8, 8, 8);
+        gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.25, 'rgba(235,245,255,.7)'); gr.addColorStop(1, 'rgba(200,225,255,0)');
+        g.fillStyle = gr; g.fillRect(0, 0, 16, 16);
+        g.fillStyle = 'rgba(255,255,255,.9)'; g.fillRect(7.5, 0, 1, 16); g.fillRect(0, 7.5, 16, 1);
+        SPARK = sp;
+    }
     function startSnow() {
         stopSnow();
         var old = document.getElementById('xm-snow'); if (old) old.remove();
         var lvl = snowLevel();
         if (quiet() || lvl === 'off' || !document.body) return;
+        loadSnowArt();
         var cv = document.createElement('canvas');
         cv.id = 'xm-snowcv'; cv.setAttribute('aria-hidden', 'true');
         document.body.appendChild(cv);
@@ -163,9 +202,17 @@
             var d = Math.random();                 // depth: 0 far … 1 near
             d = d * d;                              // most flakes far away
             var si = Math.min(11, Math.floor(d * 12));
-            return { x: Math.random() * (W + 200) - 100, y: top ? -10 - Math.random() * 40 : Math.random() * H,
+            var f = { x: Math.random() * (W + 200) - 100, y: top ? -10 - Math.random() * 40 : Math.random() * H,
                      d: d, sp: sprites[si], r: 0.8 + si * 0.42, vy: 18 + d * 70 + Math.random() * 14,
                      ph: Math.random() * 6.28, sw: 8 + Math.random() * 22, a: 0.35 + d * 0.6, vx: 0 };
+            // nearer flakes are often real six-armed crystals that turn and tumble as they fall
+            if (CRYSTALS.length && d > 0.35 && Math.random() < 0.4) {
+                f.cr = CRYSTALS[Math.floor(Math.random() * CRYSTALS.length)][d > 0.85 ? 2 : d > 0.55 ? 1 : 0];
+                f.sz = 6 + d * 15 + Math.random() * 3;
+                f.rot = Math.random() * 6.28; f.vr = (Math.random() - 0.5) * 1.6; f.tb = Math.random() * 6.28;
+                f.vy *= 0.8; f.a = Math.min(1, f.a + 0.15);
+            }
+            return f;
         }
         // 26.6.3: snow that already lies on things — lumpy and uneven, with icicles.
         var LEDGES = { '.composer-box': 22, '#new-chat-btn': 15, '.zp-greetcard': 16, '.sidebar .chat-list': 13, '.sidebar .bottom-bar': 9, '.xm-count': 7 };
@@ -268,13 +315,45 @@
             ctx.lineTo(px, py);
             ctx.lineTo(x0 + (arr.length - 1) * COL, baseY);
             ctx.closePath();
-            var g = ctx.createLinearGradient(0, baseY - 16, 0, baseY);
-            g.addColorStop(0, 'rgba(255,255,255,.97)'); g.addColorStop(1, 'rgba(220,232,255,.92)');
+            var top = 0; for (var q = 0; q < arr.length; q++) if (arr[q] > top) top = arr[q];
+            var g = ctx.createLinearGradient(0, baseY - top, 0, baseY);
+            g.addColorStop(0, 'rgba(255,255,255,.98)'); g.addColorStop(0.55, 'rgba(236,243,255,.96)'); g.addColorStop(1, 'rgba(196,214,245,.95)');
             ctx.fillStyle = g;
-            ctx.shadowColor = 'rgba(180,205,255,.55)'; ctx.shadowBlur = 6;
+            ctx.shadowColor = 'rgba(150,185,255,.5)'; ctx.shadowBlur = 7;
             ctx.fill();
             ctx.shadowBlur = 0;
-            if (ends) { ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.lineWidth = 1; ctx.stroke(); }
+            ctx.save();
+            ctx.clip();
+            if (SNOWTEX) {
+                // real powder-snow grain on top
+                if (!drawPile.pat) drawPile.pat = ctx.createPattern(SNOWTEX, 'repeat');
+                ctx.globalAlpha = 0.85; ctx.globalCompositeOperation = 'multiply';
+                ctx.fillStyle = drawPile.pat; ctx.fillRect(x0, baseY - top - 2, arr.length * COL, top + 4);
+                ctx.globalCompositeOperation = 'source-over';
+            }
+            // cool blue shade low down, bright where the light hits the top
+            var sh = ctx.createLinearGradient(0, baseY - top, 0, baseY);
+            sh.addColorStop(0, 'rgba(255,255,255,.35)'); sh.addColorStop(0.35, 'rgba(255,255,255,0)'); sh.addColorStop(1, 'rgba(120,160,225,.32)');
+            ctx.globalAlpha = 1; ctx.fillStyle = sh; ctx.fillRect(x0, baseY - top - 2, arr.length * COL, top + 4);
+            ctx.restore();
+            if (ends) { ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 0.8; ctx.stroke(); }
+            // glints: tiny crystals on the surface flash as the light catches them
+            if (SPARK && arr.length > 4) {
+                var gl = arr.glints;
+                if (!gl || gl.n !== arr.length) {
+                    gl = arr.glints = []; gl.n = arr.length;
+                    for (var z = 0; z < arr.length / 3; z++) gl.push({ i: Math.floor(Math.random() * arr.length), o: Math.random(), ph: Math.random() * 6.28, sp: 0.6 + Math.random() * 1.8, s: 3 + Math.random() * 5 });
+                }
+                var tt = performance.now() / 1000;
+                for (var y = 0; y < gl.length; y++) {
+                    var G = gl[y], hh = arr[G.i]; if (hh < 2) continue;
+                    var k2 = Math.sin(tt * G.sp + G.ph); if (k2 < 0.6) continue;
+                    ctx.globalAlpha = Math.pow((k2 - 0.6) / 0.4, 2);
+                    var gx = x0 + G.i * COL, gy = baseY - hh * (0.25 + G.o * 0.7);
+                    ctx.drawImage(SPARK, gx - G.s / 2, gy - G.s / 2, G.s, G.s);
+                }
+                ctx.globalAlpha = 1;
+            }
         }
         function drawIcicles(S) {
             for (var i = 0; i < S.ice.length; i++) {
@@ -339,6 +418,16 @@
                     if (f.y >= H - gh) { if (f.d > 0.1) land(ground, 0, f.x, 0.7 + f.r * 0.25, 12); landed = true; }
                 }
                 if (landed || f.x < -120 || f.x > W + 120) { flakes[i] = make(true); continue; }
+                if (f.cr) {
+                    f.rot += f.vr * dt; f.tb += dt * (0.7 + f.d);
+                    var tilt = Math.cos(f.tb), sc = f.sz / (f.cr.width - 8);
+                    // catches the light as it turns
+                    ctx.globalAlpha = f.a * (0.72 + 0.28 * Math.abs(Math.sin(f.rot * 3 + f.tb)));
+                    ctx.save(); ctx.translate(f.x, f.y); ctx.rotate(f.rot); ctx.scale(sc, sc * (0.45 + 0.55 * Math.abs(tilt)));
+                    ctx.drawImage(f.cr, -f.cr.width / 2, -f.cr.height / 2);
+                    ctx.restore();
+                    continue;
+                }
                 ctx.globalAlpha = f.a;
                 ctx.drawImage(f.sp, f.x - f.sp.width / 2, f.y - f.sp.height / 2);
             }

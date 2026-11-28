@@ -81,8 +81,36 @@ async def upload(request: Request, platform: str, name: str):
             "sha256": hashlib.sha256((folder / name).read_bytes()).hexdigest() if size < 400 * 1024 * 1024 else None}
 
 
+# Downloads carry the version in their name, e.g. Zelpophai-Setup-V1.6.1.exe or
+# Zelpophai-V1.3.0.apk. The files are still stored under one fixed name (the
+# app updaters and the Vault uploader rely on it); only the name you get changes.
+_VERSIONED = {"win": (re.compile(r"^Zelpophai-Setup-V(\d+(?:\.\d+){1,3})\.exe$", re.I), "Zelpophai-Setup.exe"),
+              "android": (re.compile(r"^Zelpophai-V(\d+(?:\.\d+){1,3})\.apk$", re.I), "Zelpophai.apk")}
+
+
+def _current_version(platform: str):
+    try:
+        info = _win_info() if platform == "win" else _android_info()
+        return (info or {}).get("version")
+    except Exception:
+        return None
+
+
+def _nice_name(platform: str, stored: str):
+    v = _current_version(platform)
+    if not v:
+        return stored
+    return f"Zelpophai-Setup-V{v}.exe" if platform == "win" else f"Zelpophai-V{v}.apk"
+
+
 @router.get("/downloads/{platform}/{name}")
 async def download(platform: str, name: str):
+    pat = _VERSIONED.get(platform)
+    m = pat[0].match(name) if pat else None
+    if m:
+        if m.group(1) != _current_version(platform):
+            raise HTTPException(status_code=404, detail=f"That version isn't available any more. The newest is {_current_version(platform) or 'coming soon'}.")
+        name = pat[1]
     if platform not in ALLOWED or name not in ALLOWED[platform]:
         raise HTTPException(status_code=404, detail="Not found")
     p = _dir() / platform / name
@@ -93,7 +121,7 @@ async def download(platform: str, name: str):
                                  media_type="application/json" if name.endswith(".json") else "text/yaml")
     media = {"exe": "application/vnd.microsoft.portable-executable", "apk": "application/vnd.android.package-archive"}.get(
         name.rsplit(".", 1)[-1], "application/octet-stream")
-    return FileResponse(p, media_type=media, filename=name if not name.endswith(".blockmap") else None,
+    return FileResponse(p, media_type=media, filename=None if name.endswith(".blockmap") else _nice_name(platform, name) if name in ("Zelpophai-Setup.exe", "Zelpophai.apk") else name,
                         headers={"Cache-Control": "public, max-age=300"})
 
 
@@ -105,7 +133,8 @@ def _win_info():
     txt = p.read_text(encoding="utf-8")
     ver = (re.search(r"^version:\s*['\"]?([\w.\-]+)", txt, re.M) or [None, None])[1]
     date = (re.search(r"^releaseDate:\s*['\"]?([^'\"\n]+)", txt, re.M) or [None, None])[1]
-    return {"version": ver, "url": "/downloads/win/Zelpophai-Setup.exe", "size": exe.stat().st_size, "released": date}
+    return {"version": ver, "url": f"/downloads/win/Zelpophai-Setup-V{ver}.exe" if ver else "/downloads/win/Zelpophai-Setup.exe",
+            "size": exe.stat().st_size, "released": date}
 
 
 def _android_info():
@@ -117,7 +146,8 @@ def _android_info():
         meta = json.loads(p.read_text(encoding="utf-8"))
     except Exception:
         return None
-    meta.update({"url": "/downloads/android/Zelpophai.apk", "size": apk.stat().st_size})
+    v = meta.get("version")
+    meta.update({"url": f"/downloads/android/Zelpophai-V{v}.apk" if v else "/downloads/android/Zelpophai.apk", "size": apk.stat().st_size})
     return meta
 
 

@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.6.1"
+VERSION = "26.6.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6.2 Zelpophai's replies now sit on frosted glass — see-through, with the background (like the Christmas scene) softly blurred behind them, so they look lovely and stay easy to read. And the app downloads now have the version in their name, e.g. Zelpophai-Setup-V1.6.1.exe and Zelpophai-V1.3.0.apk",
     "26.6.1 The Christmas theme now uses real pictures instead of drawn shapes and emojis: a snowy night with a glowing log cabin, a decorated Christmas tree with presents, mountains and the northern lights behind your chat; a real pine garland with fairy lights along the top and glass baubles hanging from it; a Santa hat on the Z; fresh snow with little icicles on the New Chat button, the typing box and the greeting card; a holly sprig; and real pictures on the Christmas ideas (a present, a card, a roast dinner, a storybook, a wooden advent calendar). Even Santa's sleigh is a real picture now. The scene dims while you're chatting so messages stay easy to read",
     "26.6 Coding AGT. got much smarter and can now work on your PC. It thinks before it acts, reads your files before changing them, follows your project's style, looks things up on the web instead of guessing (you'll see \"Searched the web\"), makes several edits at once, checks its work by running it and keeps going for longer tasks. And in the Windows app (version 1.6.0) press Open a folder: Coding AGT. can then read, create and change the real files in that folder and run things itself — .py, .bat, .ps1, .js and commands like pip install — showing the output as it goes. It only ever works inside the folder you chose, deleted files go to the Recycle Bin, and it asks before running anything (and warns you about anything that looks risky)",
     "26.5.5 Fixed: the browser page for signing in to the app with Google showed the code but no working Continue with Google button",
@@ -211,6 +212,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6.2 Owner: installers are still stored as Zelpophai-Setup.exe / Zelpophai.apk (the updaters and the Vault uploader rely on it); /downloads/win/Zelpophai-Setup-V<ver>.exe and /downloads/android/Zelpophai-V<ver>.apk serve the current build, the plain names download with the versioned file name, and /api/app/latest links the versioned names",
     "26.6.1 Owner: Christmas artwork is in /static/img/xmas/ (scene.jpg 1920 wide and scene-small.jpg for phones, the rest webp cut-outs, about 640 KB in all); christmas.css 26.6.1 section replaces the SVG hills, trees, bulbs, holly and bauble, and christmas.js uses ic() images instead of emojis",
     "26.6 Owner: agent prompt rewritten (understand → explore → plan → change → verify → look up → finish); new tools multi_edit, web_search (POST /api/code/agent/search, max 12 per task, same task allowance), run_command (folder mode only); smart model gets reasoning effort medium (CODE_AGENT_EFFORT); 60 steps per task. Desktop 1.6.0 adds localfs.js: folder ids from a Windows folder picker, every path resolved inside the folder (no .., absolute paths or links out), Recycle Bin deletes, cmd.exe commands with time limits, a native prompt before the first command per folder and before anything that looks destructive",
     "26.5.3 Owner: app Google sign-in is a device hand-off — POST /api/auth/google/app/start (one-time code + 4-letter match code, 10 minutes), the browser page /auth/google/app runs Google's button and calls /app/complete, and the app polls /app/poll, which sets its cookie once. Windows opens the page via http:// so the existing app sends it to the browser; Android needs ZPApp.openBrowser (in the source, for the next Android build)",

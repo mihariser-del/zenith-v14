@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.2 — Glass replies, versioned download names
+
+- `layout.css`: assistant replies get a frosted-glass panel (`backdrop-filter: blur(16px)`, translucent per theme: dark, light, Christmas, Halloween; solid fallback without backdrop-filter).
+- `appdist.py`: versioned download names (`_VERSIONED`, `_nice_name`); older versions answer 404 with the newest version number. `download.html` step text updated.
+
 ## 26.6.1 — Christmas theme with real pictures
 
 - New `static/img/xmas/`: scene.jpg / scene-small.jpg, garland, bauble, hat, holly, snowcap, tree, gift, card, dinner, book, advent and sleigh (webp cut-outs).

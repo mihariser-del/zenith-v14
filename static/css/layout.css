@@ -517,3 +517,34 @@ body.light-theme .zg-chip.pri { color: #fff; }
 }
 /* the chats always keep some room */
 .sidebar .chat-list { min-height: 160px; }
+
+/* 26.6.2: Zelpophai's replies sit on frosted glass — see-through, with whatever is
+   behind them (the theme's background, the Christmas scene…) softly blurred. */
+html body #chat-container .msg-wrapper.assistant .msg-bubble {
+    background: rgba(18, 22, 38, .42) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(1.25) !important;
+    backdrop-filter: blur(16px) saturate(1.25) !important;
+    border: 1px solid rgba(255, 255, 255, .09) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 10px 34px rgba(0, 0, 0, .28), inset 0 1px 0 rgba(255, 255, 255, .06) !important;
+    padding: 16px 20px !important;
+}
+html.light-theme body.light-theme #chat-container .msg-wrapper.assistant .msg-bubble {
+    background: rgba(255, 255, 255, .58) !important;
+    border-color: rgba(15, 23, 42, .08) !important;
+    box-shadow: 0 10px 30px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .7) !important;
+}
+html.christmas body #chat-container .msg-wrapper.assistant .msg-bubble {
+    background: rgba(8, 16, 30, .44) !important;
+    border-color: rgba(242, 199, 92, .22) !important;
+}
+html.halloween body #chat-container .msg-wrapper.assistant .msg-bubble {
+    background: rgba(22, 12, 24, .46) !important;
+    border-color: rgba(255, 122, 26, .18) !important;
+}
+/* nothing behind to blur on a plain background? keep it looking like glass anyway */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    html body #chat-container .msg-wrapper.assistant .msg-bubble { background: rgba(18, 22, 38, .82) !important; }
+    html.light-theme body.light-theme #chat-container .msg-wrapper.assistant .msg-bubble { background: rgba(255, 255, 255, .92) !important; }
+}
+@media (max-width: 600px) { html body #chat-container .msg-wrapper.assistant .msg-bubble { padding: 12px 14px !important; } }

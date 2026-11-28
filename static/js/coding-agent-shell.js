@@ -236,7 +236,19 @@
         }, true);
         // Opening straight onto a project (a link with ?project=, or a shared one) skips the start page.
         const direct = new URLSearchParams(location.search).get('project') || S.shared;
-        if (!direct) showHome(); else paintFile();
+        // 26.4.6: "Open in Coding AGT." under a chat reply hands its files over here.
+        let imp = null;
+        if (new URLSearchParams(location.search).get('import')) {
+            try { imp = JSON.parse(localStorage.getItem('ca_import') || 'null'); localStorage.removeItem('ca_import'); } catch (e) { imp = null; }
+            if (imp && (!imp.files || Date.now() - (imp.at || 0) > 10 * 60 * 1000)) imp = null;
+            try { history.replaceState(null, '', '/code'); } catch (e) {}
+        }
+        if (imp) {
+            const names = Object.keys(imp.files);
+            startProject({ id: null, name: String(imp.name || 'From my chat').slice(0, 48), kind: ['web', 'python', 'sql', 'blank'].includes(imp.kind) ? imp.kind : 'blank', files: imp.files })
+                .then(() => { try { CA.openFile(names.find(n => /(^|\/)(index\.html?|main\.\w+)$/i.test(n)) || names[0]); } catch (e) {}
+                    CA.toast('Your ' + (names.length === 1 ? 'file' : names.length + ' files') + ' from the chat are here — press Run, or ask the agent to change anything.', 'success'); });
+        } else if (!direct) showHome(); else paintFile();
         document.dispatchEvent(new CustomEvent('ca:status'));
         if (S.project) document.dispatchEvent(new CustomEvent('ca:kind', { detail: S.project.kind === 'blank' ? 'none' : S.project.kind }));
         $('ca-st-save').textContent = $('ca-save').textContent;

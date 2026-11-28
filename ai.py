@@ -605,7 +605,8 @@ async def _after_reply(chat_id, user_id, user_text, tz_name=None):
                 print(f"[files] render failed for {b['name']}: {type(e).__name__}: {e}")
                 files.insert(0, {"name": b["name"], "error": "Couldn't build this file. Ask me to try again."})
                 continue
-            tag = docgen.build_tag(row.id, b["name"], size, b["body"], b["attrs"].get("title", ""))
+            tag = docgen.build_tag(row.id, b["name"], size, b["body"], b["attrs"].get("title", ""),
+                                   docgen.folder_path(b["attrs"].get("name") or b["attrs"].get("filename") or "", b["name"]))
             text = text[:b["span"][0]] + tag + text[b["span"][1]:]
             files.insert(0, {
                 "id": row.id, "name": b["name"], "format": b["fmt"], "size": size, "stats": info,
@@ -750,6 +751,18 @@ def _place_images(text: str, imgs: list) -> str:
     return head + "\n".join(out)
 
 
+_BUILD_RE = re.compile(
+    r"\b(make|create|build|code|write|develop|program|generate|craft|design|give me|cook up)\b"
+    r"(?:(?!\b(?:poster|picture|image|photo|logo|video|song|essay|story|recipe|card|flyer|invite|list|plan|explain|about)\b)[^.?!\n]){0,45}?"
+    r"\b(mods?|add-?ons?|plugins?|extensions?|exe|executables?|apps?|applications?|games?|bots?|programs?|software|"
+    r"scripts?|launchers?|data ?packs?|behaviou?r packs?|resource packs?|shaders?)\b", re.I)
+
+
+def _build_ask(text: str) -> bool:
+    """Someone asking Zelpophai to make software (26.4.6)."""
+    return bool(text) and bool(_BUILD_RE.search(text[:500]))
+
+
 async def stream_chat(chat_id: int, think: bool, images: list = None, web_search: bool = False, research: bool = False, factcheck: bool = False, client_tz: str = None, voice: bool = False, continuation: str = "", actor_id: int = None):
     user_id = None
     messages = []
@@ -829,7 +842,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     # (26.4.5) Code and file work, and "continue / fix the file" follow-ups, also
     # need room — a 2048-token cap cut a 170-line Python script off half way.
     _prev_file = any("<zfile" in (m.get("content") or "") for m in messages[-4:] if m.get("role") == "assistant" and isinstance(m.get("content"), str))
-    _codeish = bool(re.search(r"\b(script|code|python|program|plugin|mod|addon|add-on|resource pack|shader|html|css|javascript|\.py|\.js|continue|finish (it|the)|rewrite|fix (it|the|that))\b", _user_ask, re.I))
+    _codeish = bool(re.search(r"\b(script|code|python|program|plugin|mod|addon|add-on|resource pack|shader|html|css|javascript|\.py|\.js|continue|finish (it|the)|rewrite|fix (it|the|that))\b", _user_ask, re.I)) or _build_ask(_user_ask)
     if _wants_file or _wants_page(_user_ask) or _codeish or _prev_file:
         # Whole documents and working pages need room: the default 2048 tokens
         # cuts CVs, decks and calculators off half way.
@@ -890,6 +903,17 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     system_prompt += ("\n\nLANGUAGE: always reply in the same language as the user's latest message (Luganda, Swahili, "
                       "French, Arabic… whatever they wrote in), unless they ask for a different language or a translation. "
                       "If they mix languages, use the main one. Code, names and quoted text stay as they are.")
+    # 26.4.6: "make me a mod / an exe / a game / an app" — build it here, then point to Coding AGT.
+    if _build_ask(_user_ask):
+        system_prompt += ("\n\nBUILD REQUEST: the user wants software made (a mod, app, game, program, bot, plugin, extension, script or .exe). "
+                          "Build it now in this reply: every file it needs as complete <zfile name=\"path/name.ext\">…</zfile> blocks (use folders in the "
+                          "name for structure, e.g. src/main.py or behavior_pack/manifest.json), with real working code — no placeholders. "
+                          "Then give short numbered steps to use or install it. For an .exe you can't hand over a compiled file, so write the "
+                          "program plus a build script (e.g. build.bat using PyInstaller) that turns it into an .exe on their PC. "
+                          "For a game mod, follow that game's real format (e.g. Minecraft Bedrock add-ons: manifest.json with UUIDs, "
+                          "behavior/resource packs, zipped as .mcaddon/.mcpack). Be honest in one sentence about anything that can't be done. "
+                          "Finish with one line recommending Coding AGT. — e.g. \"Tip: press Open in Coding AGT. below to run it, fix errors with the "
+                          "coding agent and download the whole project.\"")
     # 26.4.5: do the work instead of offering to.
     system_prompt += ("\n\nFOLLOW THROUGH: if the user wants something made, fixed or improved (a file, script, pack, page), "
                       "make it in this reply — don't end with \"I can make/replace/fix that…\" and wait. Be honest about limits "

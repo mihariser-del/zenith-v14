@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4.5"
+VERSION = "26.4.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.4.6 Ask Zelpophai to make a mod, a game, an app, a bot or an .exe and it now builds it right in the chat — every file, complete, with steps to install or run it (for an .exe it writes the program plus a one-click build script). Under the answer you'll see \"Keep building this in Coding AGT.\": one tap opens all those files as a Coding AGT. project, folders and all, where you can run them, fix errors with the coding agent and download everything",
     "26.4.5 Fixed: long files (like a 170-line script) could stop half way and come out broken — Zelpophai now gives code and file requests far more room, and if a file still runs out of space it keeps writing until it's finished. It also now just makes the fix instead of saying \"I can replace that…\" and stopping. Also fixed: \"Open\" on a picture you attached showed a blank \"blocked\" page — it now opens the picture in a new tab",
     "26.4.4 Inside the Windows and Android apps, the \"Get the app\" buttons and links are gone — you already have it (if you open the download page in the app, it tells you the app updates itself). Under the typing box there's now a small reminder: Zelpophai can make mistakes — it's an AI, so check important info. And Zelpophai now carries its copyright notice (© Zelpophai AI, all rights reserved) on every page, in About and in Settings",
     "26.4.3 Full check-up and fixes: clicking a chat in the list sometimes pressed a hidden button (like Pin or Share) instead of opening it — the extra options now live under a small ⋯ menu so the whole row opens the chat. On phones, picking a chat (or Tools, Projects, Assistants or Study) now closes the menu so you can see it. \"Save as Text\" now really saves plain text instead of Markdown. In the Vault, \"Add an admin\" and \"Add helper\" work again",
@@ -203,6 +204,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.4.6 Owner: _build_ask() in ai.py spots software requests (verb + mod/app/game/exe/bot/plugin… within one sentence, ignoring posters/stories/recipes; websites keep the live-page flow) and adds a BUILD REQUEST rule plus the 8000-token budget. zfile tags now keep a path=\"folder/file\" attribute. The chat card hands files to /code?import=1 through localStorage (code files only, 40 max, 10-minute expiry)",
     "26.4.5 Owner: replies about code/files (or following a reply with a file) get at least 8000 tokens; if the model stops with finish_reason=length inside an unclosed zfile, up to two continuation requests finish it. New FOLLOW THROUGH rule in the system prompt",
     "26.4.4 Owner: new appmode.py adds a tiny script and style to every page's head that marks pages opened in the apps (by their user agent) and hides links to /download there; the Terms now include a section saying the Zelpophai name, logo, design, apps and code are yours, all rights reserved",
     "26.4.3 Owner: full system check — 1,072 API calls over 348 routes as owner, free user, guest and logged-out (no server errors), privacy tests confirming one person can't open or change another's projects, assistants, canvases, study decks, polls or chats, a safety test of the calculation engine (no file, module or hidden-attribute access; runaway loops and huge numbers stopped), and browser tests of every feature on desktop and phone. Restored the missing Vault user picker (gone since 22.4)",

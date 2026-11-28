@@ -304,9 +304,20 @@ def _strip_outer_fence_markers(text):
     return re.sub(r"```[\w-]*\s*\n(\s*<zfile\b.*?</zfile>)\s*\n```", r"\1", text, flags=re.S | re.I)
 
 
-def build_tag(file_id, name, size, body, title=""):
+def folder_path(raw_name, name):
+    """The folder part the AI gave (behavior_pack/manifest.json), kept for Coding AGT. (26.4.6)."""
+    raw = (raw_name or "").strip().replace("\\", "/").strip("/")
+    if "/" not in raw:
+        return ""
+    parts = [re.sub(r"[^\w\-. ()]", "_", p).strip(". ") for p in raw.split("/")[:-1]]
+    parts = [p for p in parts if p and p != ".."][:6]
+    return "/".join(parts + [name]) if parts else ""
+
+
+def build_tag(file_id, name, size, body, title="", path=""):
     t = f' title="{_html.escape(title, quote=True)}"' if title else ""
-    return f'<zfile id="{file_id}" name="{_html.escape(name, quote=True)}" size="{size}"{t}>\n{body}\n</zfile>'
+    pa = f' path="{_html.escape(path, quote=True)}"' if path else ""
+    return f'<zfile id="{file_id}" name="{_html.escape(name, quote=True)}"{pa} size="{size}"{t}>\n{body}\n</zfile>'
 
 
 _GEN_VERB = re.compile(r"\b(generate|create|make|write|produce|build|draft|compile|compose|prepare|design|turn|convert|export|give me|i need|can you (?:do|make))\b", re.I)

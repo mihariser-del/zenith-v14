@@ -228,3 +228,13 @@ body.zcv-on .main { margin-right: min(720px, 52vw); transition: margin .25s ease
 .zt-badge span { font-size: 28px; }
 .zt-badge b { font-size: 13px; }
 .zt-badge small { font-size: 11.5px; color: var(--dim); }
+
+/* 26.4.6: "Keep building this in Coding AGT." under replies with code files */
+.zt-ca-card { display: flex; align-items: center; gap: 12px; margin: 10px 0 4px; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(96, 165, 250, .35); background: linear-gradient(135deg, rgba(37, 99, 235, .14), rgba(124, 58, 237, .12)); max-width: 640px; }
+.zt-ca-card .zt-ca-i { font-size: 24px; flex: none; }
+.zt-ca-card .zt-ca-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.zt-ca-card .zt-ca-t b { font-size: 14px; color: var(--text); }
+.zt-ca-card .zt-ca-t span { font-size: 12.5px; color: var(--text-muted, #9aa3b8); line-height: 1.4; }
+.zt-ca-card .zt-ca-go { flex: none; white-space: nowrap; padding: 9px 16px; border-radius: 10px; border: 0; cursor: pointer; font-weight: 700; font-size: 13px; color: #fff; background: linear-gradient(135deg, #2563eb, #7c3aed); box-shadow: 0 6px 18px rgba(37, 99, 235, .3); }
+.zt-ca-card .zt-ca-go:hover { filter: brightness(1.12); }
+@media (max-width: 600px) { .zt-ca-card { flex-wrap: wrap; } .zt-ca-card .zt-ca-go { width: 100%; } }

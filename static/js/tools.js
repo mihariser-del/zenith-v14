@@ -296,7 +296,41 @@
     }
 
     /* ═════════════ on every answer: simpler / deeper, translate ═════════════ */
+    // 26.4.6: code Zelpophai wrote in the chat (a mod, a game, a program…) can be
+    // carried into Coding AGT., where it can be run, fixed and downloaded.
+    const CODE_EXT = /\.(py|pyw|js|mjs|ts|jsx|tsx|html?|css|java|kt|cs|cpp|cc|c|h|hpp|go|rs|rb|php|lua|json|mcmeta|mcfunction|bat|cmd|ps1|sh|sql|toml|ya?ml|xml|gradle|properties|ini|cfg|txt|md)$/i;
+    function codeFiles(content) {
+        const files = {}; let n = 0, code = 0;
+        String(content || '').replace(/<zfile\b([^>]*)>([\s\S]*?)<\/zfile>/gi, (_, attrs, body) => {
+            const nm = (/\bpath="([^"]+)"/i.exec(attrs) || [])[1] || (/\bname="([^"]+)"/i.exec(attrs) || [])[1];
+            if (!nm || !CODE_EXT.test(nm) || n >= 40) return '';
+            const name = nm.replace(/\\/g, '/').replace(/^\/+/, '').replace(/\.\.\//g, '').replace(/[^\w\-. ()\/]/g, '_').replace(/\/{2,}/g, '/').slice(0, 120);
+            files[name] = body.replace(/^\n/, ''); n++;
+            if (!/\.(txt|md)$/i.test(name)) code++;
+            return '';
+        });
+        return code ? files : null;
+    }
+    function codingCard(content, wrapper) {
+        const files = codeFiles(content);
+        if (!files || !wrapper || wrapper.querySelector('.zt-ca-card')) return;
+        const names = Object.keys(files);
+        const kind = names.some(f => /(^|\/)index\.html?$/i.test(f)) ? 'web' : names.every(f => /\.(py|pyw|txt|md|json)$/i.test(f)) ? 'python' : 'blank';
+        const card = document.createElement('div'); card.className = 'zt-ca-card';
+        card.innerHTML = `<span class="zt-ca-i">💻</span><div class="zt-ca-t"><b>Keep building this in Coding AGT.</b><span>Open ${names.length === 1 ? esc(names[0]) : names.length + ' files'} as a project — run it, fix errors with the agent and download it all.</span></div><button type="button" class="zt-ca-go">Open in Coding AGT.</button>`;
+        card.querySelector('button').onclick = () => {
+            const ch = C(); const chat = ch && ch.chats[ch.activeId];
+            const title = (chat && chat.title && !/^new chat$/i.test(chat.title) ? chat.title : names[0].replace(/\.[^.]+$/, '')).slice(0, 48);
+            try { localStorage.setItem('ca_import', JSON.stringify({ name: title, kind, files, at: Date.now() })); }
+            catch (e) { toast('Those files are too big to carry over — download them instead', 'error'); return; }
+            window.open('/code?import=1', '_blank');
+        };
+        const msg = wrapper.querySelector('.msg-actions') || null;
+        if (msg && msg.parentNode) msg.parentNode.insertBefore(card, msg); else wrapper.appendChild(card);
+    }
+
     function decorateActions(actions, content, wrapper) {
+        try { codingCard(content, wrapper); } catch (e) {}
         const more = actions.querySelector('.zr-menu-wrap');
         const lv = document.createElement('div'); lv.className = 'zr-menu-wrap';
         lv.innerHTML = '<button type="button" data-action="level" title="Explain it simpler or in more depth" aria-haspopup="menu">🎚<span>Level</span></button>' +

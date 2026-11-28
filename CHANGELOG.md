@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 26.4.6 — Build it in chat, continue in Coding AGT.
+
+- `ai.py`: `_BUILD_RE` / `_build_ask()` detect requests to make software; such replies get the BUILD REQUEST system rule (complete files as `<zfile>` with folder paths, install steps, .exe via a build script, honest limits, closing tip pointing to Coding AGT.) and the file-sized token budget.
+- `docgen.py`: `folder_path()`; `build_tag()` writes `path="dir/file.ext"` when the AI used folders.
+- `tools.js`: `codingCard()` adds "Keep building this in Coding AGT." under any reply with code files; it stores `{name, kind, files}` in `localStorage.ca_import` and opens `/code?import=1`.
+- `coding-agent-shell.js`: `?import=1` loads those files into a new (saved) project, opens the main file and explains what to do.
+
 ## 26.4.5 — Whole files, picture Open
 
 - `ai.py`: `_codeish` (script/code/python/pack/shader/continue/fix…) or a recent assistant `<zfile` raises `max_tokens` to `FILE_MAX_TOKENS` (8000). The stream records `finish_reason`; on `length` with more `<zfile` than `</zfile>`, up to two streamed continuation rounds append the rest. `_finish` initialised before both answer paths.

@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.6.1 — Christmas theme with real pictures
+
+- New `static/img/xmas/`: scene.jpg / scene-small.jpg, garland, bauble, hat, holly, snowcap, tree, gift, card, dinner, book, advent and sleigh (webp cut-outs).
+- `christmas.css`: photo scene + readability shade (darker while chatting), garland strip with twinkle and hanging baubles, Santa hat on `.z-logo` / `.welcome-z-logo`, snow ledges on New Chat / composer / greeting card, holly image, image baubles and icons; phone countdown moved to the top corner.
+- `christmas.js`: `ic()` helper; scene / lights / countdown / ideas / score / sparkles / sleigh use the pictures instead of emojis and SVG.
+
 ## 26.6 — Smarter Coding AGT., and your PC's folders (Windows app 1.6.0)
 
 - `codeagent.py`: new `AGENT_SYSTEM` working method; tools rebuilt with `_fn()`; added `multi_edit`, `web_search`, `run_command` (only with a local folder, `AGENT_TOOLS_LOCAL`); `ENV_LOCAL` rules for real-PC work; `reasoning.effort` for the smart model; `CODE_AGENT_MAX_STEPS` default 60; `POST /api/code/agent/search` uses `router_ai.web_answer`.

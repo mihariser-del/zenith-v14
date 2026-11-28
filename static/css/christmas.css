@@ -303,3 +303,90 @@ html.zst-no-anim #xm-snowcv { display: none; }
 @media (prefers-reduced-motion: reduce) { .xm-sleigh { display: none; } }
 html.zst-no-anim .xm-sleigh { display: none; }
 .xm-team { display: inline-flex; align-items: flex-end; gap: 2px; transform: scaleX(-1); }
+
+/* =====================================================================
+   26.6.1 — real pictures instead of drawn shapes and emojis.
+   Images live in /static/img/xmas/ (made for Zelpophai, webp / jpg).
+   ===================================================================== */
+/* the winter scene: a cabin, the tree, presents and the northern lights */
+#xm-fx .xm-photo {
+    position: absolute; inset: 0;
+    background: url('/static/img/xmas/scene.jpg') center 70% / cover no-repeat;
+}
+@media (max-width: 900px) { #xm-fx .xm-photo { background-image: url('/static/img/xmas/scene-small.jpg'); background-position: 62% 70%; } }
+/* keep words easy to read over the picture: darker behind the middle of the page */
+#xm-fx .xm-shade {
+    position: absolute; inset: 0;
+    background:
+        radial-gradient(48% 55% at 50% 44%, rgba(4, 9, 20, .62), rgba(4, 9, 20, .28) 70%, rgba(4, 9, 20, .08) 100%),
+        linear-gradient(180deg, rgba(4, 9, 20, .35) 0%, rgba(4, 9, 20, 0) 30%, rgba(4, 9, 20, 0) 70%, rgba(4, 9, 20, .35) 100%);
+}
+html.christmas body.has-chat #xm-fx .xm-shade, html.christmas body #xm-fx.dim .xm-shade { background: rgba(4, 9, 20, .62); }
+html.christmas body { background: #06101c; }
+
+/* a real pine garland with fairy lights along the top */
+#xm-lights { height: 56px; overflow: visible; z-index: 60; }
+#xm-lights .xm-garland {
+    position: absolute; inset: 0 0 auto 0; height: 56px;
+    background: url('/static/img/xmas/garland.webp') repeat-x left top / auto 56px;
+    filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .45));
+    animation: xmTwinkle 3.2s ease-in-out infinite;
+}
+@keyframes xmTwinkle { 0%, 100% { filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)) brightness(1); } 50% { filter: drop-shadow(0 6px 10px rgba(0,0,0,.45)) brightness(1.22) saturate(1.1); } }
+#xm-lights .xm-hang { position: absolute; top: 30px; width: 40px; height: auto; transform-origin: 50% 0; animation: xmHang 5s ease-in-out infinite; filter: drop-shadow(0 8px 12px rgba(0, 0, 0, .5)); }
+#xm-lights .xm-hang.h1 { left: 22%; }
+#xm-lights .xm-hang.h2 { right: 4px; top: 110px; width: 48px; animation-delay: -2s; }
+#xm-lights .xm-hang::before { content: none; }
+@keyframes xmHang { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }
+html.zst-no-anim #xm-lights .xm-garland, html.zst-no-anim #xm-lights .xm-hang { animation: none; }
+@media (prefers-reduced-motion: reduce) { #xm-lights .xm-garland, #xm-lights .xm-hang { animation: none; } }
+@media (max-width: 760px) { #xm-lights, #xm-lights .xm-garland { height: 38px; background-size: auto 38px; } #xm-lights .xm-hang { display: none; } }
+
+/* a Santa hat on the Z */
+html.christmas body .z-logo, html.christmas body .welcome-z-logo { position: relative; overflow: visible !important; }
+html.christmas body .z-logo::after, html.christmas body .welcome-z-logo::after {
+    content: ''; position: absolute; pointer-events: none;
+    width: 82%; aspect-ratio: 360 / 285; top: -42%; right: -34%;
+    background: url('/static/img/xmas/hat.webp') center / contain no-repeat;
+    transform: rotate(18deg); filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45));
+}
+html.christmas body .welcome-z-logo::after { width: 78%; top: -40%; right: -30%; }
+html.christmas body .sidebar .z-logo::after { width: 100%; top: -52%; right: -42%; }
+
+/* fresh snow (with little icicles) resting on the New Chat button, the typing box and the greeting card */
+html.christmas body #new-chat-btn, html.christmas body .composer-box, html.christmas body .zp-greetcard, html.christmas body .xm-ideas button { position: relative; }
+html.christmas body #new-chat-btn::before, html.christmas body .composer-box::before, html.christmas body .zp-greetcard::before {
+    content: ''; position: absolute; left: -3px; right: -3px; top: -13px; height: 26px; pointer-events: none; z-index: 2;
+    background: url('/static/img/xmas/snowcap.webp') repeat-x left top / auto 26px;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .25));
+    border-radius: 14px 14px 0 0;
+}
+html.christmas body .composer-box::before { top: -14px; height: 28px; background-size: auto 28px; }
+
+/* a real holly sprig on the greeting card */
+html.christmas body .zp-greetcard::after {
+    width: 64px; height: 46px; top: -16px; right: -12px; z-index: 3;
+    background: url('/static/img/xmas/holly.webp') center / contain no-repeat;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, .45));
+}
+
+/* baubles to catch are real glass now */
+.xm-bauble { width: 30px; height: 42px; background: url('/static/img/xmas/bauble.webp') center / contain no-repeat; }
+#xm-play img.xm-spark { width: 22px; height: auto; }
+
+/* small real pictures in place of emojis */
+.xm-ic { display: inline-block; height: 1.45em; width: auto; vertical-align: -0.38em; margin-right: 6px; filter: drop-shadow(0 2px 3px rgba(0, 0, 0, .4)); }
+.xm-count { top: 54px; display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px 6px 10px; }
+.xm-count .xm-ic { height: 22px; margin-right: 4px; vertical-align: middle; }
+.xm-count .xm-chev { opacity: .75; margin-left: 4px; }
+@media (max-width: 700px) { .xm-count { top: 44px; bottom: auto; right: 8px; left: auto; transform: none; font-size: 11px; padding: 4px 10px 4px 6px; } .xm-count .xm-ic { height: 18px; } }
+.xm-ideas-t { display: flex; align-items: center; justify-content: center; gap: 10px; font-size: 17px !important; font-style: italic; margin-bottom: 4px; }
+.xm-ideas-t .xm-ic { height: 30px; margin: 0; }
+.xm-ideas button { display: inline-flex; align-items: center; gap: 8px; padding: 6px 16px 6px 8px !important; background: rgba(60, 12, 14, .55) !important; border-color: rgba(255, 120, 110, .45) !important; backdrop-filter: blur(6px); }
+.xm-ideas button:nth-child(odd) { border-color: rgba(120, 220, 150, .45) !important; background: rgba(10, 45, 28, .55) !important; }
+.xm-ideas button .xm-ic { height: 30px; max-width: 44px; object-fit: contain; margin: 0; }
+.xm-sleigh img { width: 210px; height: auto; display: block; filter: drop-shadow(0 0 8px rgba(255, 255, 255, .35)); animation: xmBob 1.2s ease-in-out infinite; }
+.xm-caught .xm-ic, .xm-score .xm-ic { height: 18px; }
+
+/* let the picture show through the sidebar a little */
+html.christmas body .sidebar { background: linear-gradient(180deg, rgba(14, 10, 18, .86), rgba(10, 14, 26, .88)) !important; backdrop-filter: blur(10px); border-right: 1px solid rgba(255, 110, 100, .22); }

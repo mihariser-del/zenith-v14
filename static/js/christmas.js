@@ -54,6 +54,10 @@
         document.head.appendChild(l);
     }
 
+    /* 26.6.1: real pictures instead of drawn shapes and emojis (/static/img/xmas/) */
+    var IMG = '/static/img/xmas/';
+    function ic(name, alt) { return '<img class="xm-ic" src="' + IMG + name + '.webp" alt="' + (alt || '') + '" decoding="async">'; }
+
     /* ───────────────── the scene ───────────────── */
     function buildScene() {
         if (!document.body) return;
@@ -61,24 +65,14 @@
             var fx = document.createElement('div');
             fx.id = 'xm-fx';
             fx.setAttribute('aria-hidden', 'true');
-            fx.innerHTML = '<div class="xm-sky"></div><div class="xm-hills"></div><div class="xm-trees"></div><div class="xm-drift"></div>';
+            fx.innerHTML = '<div class="xm-photo"></div><div class="xm-shade"></div>';
             document.body.appendChild(fx);
         }
         if (!document.getElementById('xm-lights')) {
-            var COLOURS = ['#ff5b52', '#ffd166', '#5ec98a', '#6fb7ff', '#f07de0'];
             var lights = document.createElement('div');
             lights.id = 'xm-lights';
             lights.setAttribute('aria-hidden', 'true');
-            var html = '<div class="wire"></div>';
-            // One bulb every 50px, hanging from the dip in the wire.
-            var n = Math.ceil(window.innerWidth / 50) + 2;
-            for (var i = 0; i < n; i++) {
-                var c = COLOURS[i % COLOURS.length];
-                var dip = (i % 2) ? 20 : 8;      // alternate bulbs sit lower, following the wire
-                html += '<i style="left:' + (i * 50 + 12) + 'px;top:' + dip + 'px;background:' + c +
-                        ';box-shadow:0 0 10px ' + c + ',0 0 18px ' + c + '66;animation-delay:' +
-                        (i * 0.18).toFixed(2) + 's,' + (i * 0.3).toFixed(2) + 's"></i>';
-            }
+            var html = '<div class="xm-garland"></div><img class="xm-hang h1" src="' + IMG + 'bauble.webp" alt=""><img class="xm-hang h2" src="' + IMG + 'bauble.webp" alt="">';
             lights.innerHTML = html;
             document.body.appendChild(lights);
         }
@@ -301,11 +295,11 @@
     }
     function sparkle(x, y, n) {
         if (quiet()) return;
-        var layer = playLayer(), EM = ['✨', '❄', '🎄', '⭐', '🎁'];
+        var layer = playLayer(), EM = ['bauble', 'gift', 'holly', 'tree', 'bauble'];
         for (var i = 0; i < (n || 12); i++) {
-            var c = document.createElement('span');
-            c.className = 'xm-spark';
-            c.textContent = pick(EM);
+            var c = document.createElement('img');
+            c.className = 'xm-spark'; c.alt = '';
+            c.src = IMG + pick(EM) + '.webp';
             var ang = Math.random() * Math.PI * 2, dist = 45 + Math.random() * 85;
             c.style.left = x + 'px'; c.style.top = y + 'px';
             c.style.setProperty('--dx', (Math.cos(ang) * dist).toFixed(0) + 'px');
@@ -334,7 +328,7 @@
             el.setAttribute('role', 'status');
             document.body.appendChild(el);
         }
-        el.textContent = '🎄 ' + n + ' bauble' + (n === 1 ? '' : 's') + ' caught';
+        el.innerHTML = ic('bauble') + n + ' bauble' + (n === 1 ? '' : 's') + ' caught';
         clearTimeout(el._t);
         el._t = setTimeout(function () { if (el.parentNode) el.parentNode.removeChild(el); }, 4000);
     }
@@ -448,12 +442,18 @@
         var c = daysTo(11, 25);
         return '🎄 ' + c + ' day' + (c === 1 ? '' : 's') + ' to Christmas';
     }
+    // the countdown pill: a real picture (tree / present / bauble) instead of the emoji
+    function countdownHtml() {
+        var t = countdownText(), e = t.split(' ')[0], rest = t.slice(e.length + 1);
+        var pic = e === '🎁' ? 'gift' : e === '🎆' ? 'bauble' : 'tree';
+        return ic(pic) + '<span>' + rest + '</span><span class="xm-chev">›</span>';
+    }
     function buildCountdown() {
-        if (document.getElementById('xm-count')) { document.getElementById('xm-count').textContent = countdownText(); return; }
+        if (document.getElementById('xm-count')) { document.getElementById('xm-count').innerHTML = countdownHtml(); return; }
         var b = document.createElement('button');
         b.id = 'xm-count'; b.type = 'button'; b.className = 'xm-count';
         b.title = 'Open the advent calendar';
-        b.textContent = countdownText();
+        b.innerHTML = countdownHtml();
         b.addEventListener('click', function () { advent(); });
         document.body.appendChild(b);
     }
@@ -505,7 +505,7 @@
         });
         html += '</div><div class="xm-reveal" hidden></div>' +
             '<div class="xm-snowset"><span>Snow:</span>' + ['off', 'light', 'lots'].map(function (l) { return '<button type="button" data-snow="' + l + '" class="' + (snowLevel() === l ? 'on' : '') + '">' + { off: 'Off', light: 'Light', lots: 'Lots' }[l] + '</button>'; }).join('') +
-            '<span class="xm-caught">🎄 ' + (parseInt(store(SCORE_KEY) || '0', 10)) + ' baubles caught</span></div>';
+            '<span class="xm-caught">' + ic('bauble') + (parseInt(store(SCORE_KEY) || '0', 10)) + ' baubles caught</span></div>';
         m.body.innerHTML = html;
         m.body.addEventListener('click', function (e) {
             var sn = e.target.closest('[data-snow]');
@@ -549,7 +549,7 @@
         var s = document.createElement('button');
         s.type = 'button'; s.className = 'xm-sleigh'; s.setAttribute('aria-label', 'Santa\'s sleigh — tap it');
         // Emoji reindeer face left; the group is mirrored so they lead the way to the right.
-        s.innerHTML = '<span class="xm-team"><span>🦌</span><span>🦌</span><span class="xm-s">🛷</span><span class="xm-santa">🎅</span></span>';
+        s.innerHTML = '<img src="' + IMG + 'sleigh.webp" alt="Santa\'s sleigh">';
         s.style.top = (70 + Math.random() * Math.max(40, window.innerHeight * 0.25)) + 'px';
         s.addEventListener('click', function (e) {
             e.stopPropagation();
@@ -569,10 +569,10 @@
 
     // Festive ideas on the new-chat screen.
     var IDEAS = [
-        ['🎁', 'Gift ideas', 'Help me find Christmas gift ideas. Ask me who they\'re for and my budget first.'],
-        ['💌', 'Card messages', 'Help me write Christmas card messages for family, friends and colleagues.'],
-        ['🍗', 'Christmas dinner plan', 'Plan a Christmas dinner for my family on a budget, with a shopping list and cooking timeline.'],
-        ['📖', 'A story for tonight', 'Write a short, magical Christmas story I can read to the kids tonight.'],
+        ['gift', 'Gift ideas', 'Help me find Christmas gift ideas. Ask me who they\'re for and my budget first.'],
+        ['card', 'Card messages', 'Help me write Christmas card messages for family, friends and colleagues.'],
+        ['dinner', 'Christmas dinner plan', 'Plan a Christmas dinner for my family on a budget, with a shopping list and cooking timeline.'],
+        ['book', 'A story for tonight', 'Write a short, magical Christmas story I can read to the kids tonight.'],
     ];
     function patchIdeas() {
         if (!isOn()) return;
@@ -580,8 +580,8 @@
         if (!w || w.querySelector('.xm-ideas') || w.querySelector('.zw-hero')) return;
         var box = document.createElement('div');
         box.className = 'xm-ideas';
-        box.innerHTML = '<span class="xm-ideas-t">🎄 Christmas ideas</span>' + IDEAS.map(function (x, i) { return '<button type="button" data-i="' + i + '">' + x[0] + ' ' + x[1] + '</button>'; }).join('') +
-            '<button type="button" data-a="advent">🗓️ Advent calendar</button>';
+        box.innerHTML = '<span class="xm-ideas-t">' + ic('tree') + 'Christmas Ideas' + ic('tree') + '</span>' + IDEAS.map(function (x, i) { return '<button type="button" data-i="' + i + '">' + ic(x[0]) + x[1] + '</button>'; }).join('') +
+            '<button type="button" data-a="advent">' + ic('advent') + 'Advent calendar</button>';
         box.addEventListener('click', function (e) {
             var b = e.target.closest('button'); if (!b) return;
             if (b.dataset.a === 'advent') return advent();
@@ -594,7 +594,9 @@
         var c = document.getElementById('chat-container');
         if (!c || c._xmw) return;
         c._xmw = true;
-        new MutationObserver(function () { if (isOn()) { patchIdeas(); patchWelcome(); } }).observe(c, { childList: true });
+        var dim = function () { var fx = document.getElementById('xm-fx'); if (fx) fx.classList.toggle('dim', !c.querySelector('.welcome-message')); };
+        new MutationObserver(function () { if (isOn()) { patchIdeas(); patchWelcome(); dim(); } }).observe(c, { childList: true });
+        dim();
         patchIdeas();
     }
     function extrasOn() { buildCountdown(); scheduleSleigh(true); watchWelcome(); }

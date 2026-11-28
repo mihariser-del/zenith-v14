@@ -127,4 +127,7 @@ async def latest():
 
 @router.get("/download")
 async def download_page():
-    return FileResponse("static/download.html")
+    import appmode
+    from fastapi.responses import HTMLResponse
+    with open("static/download.html", encoding="utf-8-sig") as fh:
+        return HTMLResponse(appmode.inject(fh.read()), headers={"Cache-Control": "no-cache"})

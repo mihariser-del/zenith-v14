@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4.3"
+VERSION = "26.4.4"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.4.4 Inside the Windows and Android apps, the \"Get the app\" buttons and links are gone — you already have it (if you open the download page in the app, it tells you the app updates itself). Under the typing box there's now a small reminder: Zelpophai can make mistakes — it's an AI, so check important info. And Zelpophai now carries its copyright notice (© Zelpophai AI, all rights reserved) on every page, in About and in Settings",
     "26.4.3 Full check-up and fixes: clicking a chat in the list sometimes pressed a hidden button (like Pin or Share) instead of opening it — the extra options now live under a small ⋯ menu so the whole row opens the chat. On phones, picking a chat (or Tools, Projects, Assistants or Study) now closes the menu so you can see it. \"Save as Text\" now really saves plain text instead of Markdown. In the Vault, \"Add an admin\" and \"Add helper\" work again",
     "26.4.2 Fixed: the sidebar had grown a dozen tools in one long column, which pushed your chats almost off the bottom of the screen (on many laptops you could only see the word \"Chats\"). The tools now sit two to a row, so your chats get their space back. Also fixed: \"Phone assistant\" was showing on computers — it now only appears in the Android app, where it works",
     "26.4.1 Real snow: the Christmas snow is now soft, round flakes at different distances — close ones bigger, faster and slightly blurred, far ones tiny and slow — drifting on a wind that changes and gusts now and then. Move your mouse (or finger) through it and the flakes swirl away. And it settles: snow slowly builds up along the bottom of the screen and on top of the typing box and the New Chat button, in soft drifts, then melts away bit by bit. Choose Off, Light or Lots in the Advent calendar",
@@ -201,6 +202,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.4.4 Owner: new appmode.py adds a tiny script and style to every page's head that marks pages opened in the apps (by their user agent) and hides links to /download there; the Terms now include a section saying the Zelpophai name, logo, design, apps and code are yours, all rights reserved",
     "26.4.3 Owner: full system check — 1,072 API calls over 348 routes as owner, free user, guest and logged-out (no server errors), privacy tests confirming one person can't open or change another's projects, assistants, canvases, study decks, polls or chats, a safety test of the calculation engine (no file, module or hidden-attribute access; runaway loops and huge numbers stopped), and browser tests of every feature on desktop and phone. Restored the missing Vault user picker (gone since 22.4)",
     "26.4.1 Owner: the snow is one canvas drawn about 60 times a second with pre-made flake images, so it's light on phones too; it pauses when the tab is hidden and is off for anyone who has animations switched off",
     "26.4 Owner: music uses Google's Lyria 3 and read-aloud uses OpenAI's gpt-audio-mini, both through OpenRouter (Lyria costs about $0.04 a clip and $0.08 a song, which is why music has its own small daily allowance). Meeting notes split recordings into 10-minute pieces and transcribe each with the audio model, then the main model writes the notes. Invoices are built without AI, with exact decimal sums",
@@ -543,7 +545,7 @@ async def invite_page(token: str, request: Request):
 
 @app.get("/invite.html", response_class=HTMLResponse)
 async def serve_invite_page():
-    return FileResponse("static/invite.html")
+    return _static_page("invite.html")
 
 
 @app.get("/api/referral/validate")
@@ -686,7 +688,8 @@ async def shared_chat_page(share_id: str, request: Request):
     if 'name="robots"' in page:
         extra = extra.replace('    <meta name="robots" content="noindex">\n', "")
     page = page.replace("</head>", "    " + extra + "</head>", 1)
-    return HTMLResponse(page)
+    import appmode
+    return HTMLResponse(appmode.inject(page))
 
 
 _report_hits: dict = {}
@@ -999,7 +1002,7 @@ async def _reminder_loop():
 
 @app.get("/status", response_class=HTMLResponse)
 async def status_page():
-    return FileResponse("static/status.html")
+    return _static_page("status.html")
 
 
 @app.get("/api/status")
@@ -1102,7 +1105,7 @@ async def changelog_all():
 
 @app.get("/whats-new")
 async def whats_new_page():
-    return FileResponse("static/whats-new.html")
+    return _static_page("whats-new.html")
 
 
 @app.post("/api/changelog/seen")
@@ -1132,6 +1135,13 @@ async def changelog_seen(request: Request, db=Depends(get_db)):
 _SHELL_CACHE: dict[str, tuple[float, str]] = {}
 
 
+def _static_page(name: str) -> HTMLResponse:
+    """A plain page from static/, with the app-mode/copyright snippet added."""
+    import appmode
+    with open(os.path.join("static", name), encoding="utf-8-sig") as fh:
+        return HTMLResponse(appmode.inject(fh.read()), headers={"Cache-Control": "no-cache"})
+
+
 def _shell(name: str, extra_head: str = "") -> HTMLResponse:
     """Serve one of the app's HTML shells with the current build stamped in."""
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", name)
@@ -1146,6 +1156,8 @@ def _shell(name: str, extra_head: str = "") -> HTMLResponse:
         with open(path, "r", encoding="utf-8") as fh:
             html = fh.read()
         stamp = f'<meta name="zp-build" content="{VERSION}|{BUILD_ID}">'
+        import appmode
+        html = appmode.inject(html)
         html = html.replace("</head>", f"    {stamp}\n</head>", 1) if "</head>" in html else stamp + html
         _SHELL_CACHE[name] = (mt, html)
     if extra_head:
@@ -1224,7 +1236,7 @@ async def assistant_link(code: str, request: Request, db=Depends(get_db)):
 
 @app.get("/denied.html", response_class=HTMLResponse)
 async def denied_page():
-    return FileResponse("static/denied.html")
+    return _static_page("denied.html")
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -1264,7 +1276,8 @@ async def coding_agent_page(request: Request):
 def _legal_page(name: str) -> HTMLResponse:
     """Privacy / Terms with the contact line filled in from CONTACT_EMAIL."""
     import html as _h
-    page = open(os.path.join("static", "legal", name), encoding="utf-8").read()
+    import appmode
+    page = appmode.inject(open(os.path.join("static", "legal", name), encoding="utf-8").read())
     email = (os.getenv("CONTACT_EMAIL") or "mihariser@gmail.com").strip()
     if re.fullmatch(r"[^@\s<>\"']+@[^@\s<>\"']+\.[A-Za-z]{2,}", email):
         e = _h.escape(email)

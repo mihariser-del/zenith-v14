@@ -136,7 +136,10 @@
         { icon: '👋', title: 'Welcome to Zelpophai AI', text: 'Ask anything in the box at the bottom — in your own words, any language. Answers search the web when they need to.', target: 'user-input' },
         { icon: '🎨', title: 'Just ask for things', text: 'Say "make a picture of…", "make a video of…", "make me a PDF about…" or "remind me Friday at 9…" and it happens right in the chat.', target: 'user-input' },
         { icon: '🧰', title: 'Your tools', text: 'Files, Memory, Knowledge, Reminders and Coding AGT. live at the top of the sidebar. Your chats are saved underneath.', target: 'sidebar-tools' },
-        { icon: '📲', title: 'Take it with you', text: 'Get the Windows or Android app from the phone icon in the sidebar, and invite 5 friends to unlock free Pro.', target: 'get-app-btn' },
+        // Inside the Windows or Android app you already have it — point at Invite instead.
+        document.documentElement.classList.contains('zp-in-app')
+            ? { icon: '🎁', title: 'Bring your friends', text: 'Invite 5 friends to unlock free Pro — tap Invite in the sidebar.', target: 'invite-btn' }
+            : { icon: '📲', title: 'Take it with you', text: 'Get the Windows or Android app from the phone icon in the sidebar, and invite 5 friends to unlock free Pro.', target: 'get-app-btn' },
     ];
     function showTour(onDone) {
         document.querySelectorAll('.zp-tour').forEach(e => e.remove());

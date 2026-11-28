@@ -214,7 +214,9 @@ const Settings = {
                 return group('Zelpophai AI', row('Version', `<span id="zst-ver">…</span>`, '<button class="zu-btn sm" id="zst-new">What\'s new</button>')
                         + row('Feedback', 'Report a problem, share an idea or ask the team for something.', '<button class="zu-btn sm" id="zst-fb">Send feedback</button>')
                         + (guest ? '' : row('Invite friends', 'Every 5 friends who join gives you 3 days of Pro.', '<button class="zu-btn sm" id="zst-inv">Invite</button>'))
-                        + row('Get the app', 'Zelpophai for Windows and Android.', '<a class="zu-btn sm" href="/download" target="_blank" rel="noopener">Download</a>'))
+                        + (document.documentElement.classList.contains('zp-in-app') ? '' : row('Get the app', 'Zelpophai for Windows and Android.', '<a class="zu-btn sm" href="/download" target="_blank" rel="noopener">Download</a>'))
+                        + row('Copyright', `© ${new Date().getFullYear()} Zelpophai AI. All rights reserved. Made by Wanzu Ibrahim.`, '')
+                        + row('Please note', 'Zelpophai can make mistakes — it\'s an AI. Check important info.', ''))
                     + group('Legal', row('Terms of use', '', '<a class="zu-btn sm" href="/terms" target="_blank" rel="noopener">Read</a>') + row('Privacy policy', '', '<a class="zu-btn sm" href="/privacy" target="_blank" rel="noopener">Read</a>'))
                     + group('This device', row('Reset look and voice settings', 'Puts theme, colour, text size and voice back to how they started. Your account isn\'t touched.', '<button class="zu-btn sm" id="zst-reset">Reset</button>'));
             },

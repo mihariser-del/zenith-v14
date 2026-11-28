@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.4.4 — App mode, copyright and AI notice
+
+- New `appmode.py`: `inject()` puts a small script + style at the top of `<head>` on every served page (`_shell`, `_static_page`, legal pages, share page, `/download`). It adds `zp-in-app` plus `zp-in-desktop` / `zp-in-android` to `<html>` from the user agent (`ZelpophaiDesktop/…`, `ZelpophaiAndroid/…`), hides `#get-app-btn`, `.web-only` and links to `/download` in the apps, shows `.app-only`, and fills `.zp-year`.
+- Download page shows an "already using the app" note in the apps; Settings → About drops "Get the app" in the apps and gains Copyright and AI-mistakes rows; the welcome tour's last step points at Invite in the apps.
+- `.composer-note` under the typing box ("Zelpophai can make mistakes — it's an AI…" + copyright; copyright hidden under 600 px); the same notice is in the Mini, About, the landing page and share pages. Copyright lines on all footers; Terms §4 adds the copyright/ownership clause. Fixed "Zelpophai AI AI" on the denied page.
+
 ## 26.4.3 — Full system check
 
 - `chat.js`: chat rows show only Pin, Share and a `⋯` button on hover; Move to project/folder, Rename and Delete/Leave moved into a `.chat-more` dropdown (opens upward near the bottom of the list). The six hover buttons covered over half the row, so clicks on a title often hit a button.

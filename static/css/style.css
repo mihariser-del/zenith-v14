@@ -944,3 +944,8 @@ body.admin-owner .sidebar .btn.info { color: #dfe7f5 !important; border-color: r
 .grp-card .ppl button { padding: 6px 10px; font-size: 12px; }
 .grp-card .row { display: flex; justify-content: flex-end; margin-top: 10px; }
 body.light-theme #chat-people-btn { color: #6d28d9 !important; border-color: rgba(109,40,217,.35) !important; }
+
+/* 26.5: small notice under the typing box */
+.composer-note { text-align: center; font-size: 11.5px; line-height: 1.4; color: var(--text-muted, #8b93a7); opacity: .85; padding: 6px 8px 0; user-select: none; }
+.composer-note .cn-c { white-space: nowrap; margin-left: 4px; opacity: .8; }
+@media (max-width: 600px) { .composer-note { font-size: 10.5px; padding-top: 4px; } .composer-note .cn-c { display: none; } }

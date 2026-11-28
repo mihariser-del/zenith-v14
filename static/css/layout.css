@@ -494,3 +494,26 @@ body.light-theme .zg-chip.pri { color: #fff; }
     html body .sidebar .bottom-bar.sb-icons > *, html:not(.halloween):not(.christmas):not(.light-theme) body:not(.light-theme) .sidebar .sb-icons > .btn { width: 24px !important; min-width: 0 !important; max-width: 24px !important; height: 28px !important; padding: 0 !important; margin: 0 !important; border-radius: 8px !important; font-size: 0 !important; }
     html body .sidebar .bottom-bar.sb-icons > * svg { width: 15px !important; height: 15px !important; }
 }
+
+/* 26.4.2 — the sidebar's list of tools grew to a dozen and pushed the chats off
+   the bottom. Tools now sit two to a row so the chat list keeps its room, and
+   buttons meant for one device only (Phone assistant) stay hidden elsewhere. */
+.sidebar .sb-tools .btn[hidden], html body .sidebar .sb-tools .btn[hidden] { display: none !important; }
+@media (min-width: 1101px), (max-width: 900px) {
+    .sidebar .sb-tools { display: grid !important; grid-template-columns: 1fr 1fr; gap: 2px 4px !important; }
+    .sidebar .sb-tools .btn, html body .sidebar .sb-tools .btn {
+        min-width: 0; padding: 7px 8px !important; gap: 8px !important; font-size: 12.5px !important;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sidebar .sb-tools .btn svg { width: 15px !important; height: 15px !important; flex: none; }
+}
+@media (max-width: 768px) {
+    .sidebar .sb-tools .btn, html body .sidebar .sb-tools .btn { padding: 9px 8px !important; font-size: 13.5px !important; }
+}
+/* icon rail: two icons per row instead of one long column */
+@media (max-width: 1100px) and (min-width: 901px) {
+    .sidebar .sb-tools { display: grid !important; grid-template-columns: repeat(2, 40px); justify-content: center; gap: 2px !important; }
+    .sidebar .sb-tools .btn, html body .sidebar .sb-tools .btn { width: 40px; height: 34px; }
+}
+/* the chats always keep some room */
+.sidebar .chat-list { min-height: 160px; }

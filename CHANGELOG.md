@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.4.2 — Sidebar fix
+
+- `layout.css`: `.sb-tools` is a two-column grid (full sidebar and phone drawer) and a two-icon grid in the 901–1100 px icon rail; labels ellipsise; `.chat-list` keeps at least 160 px. `.btn[hidden]` inside the tools is forced hidden — the sidebar button rule set `display` and overrode `hidden`, so the Android-only Phone assistant button showed on desktop.
+
 ## 26.4.1 — Real snow
 
 - `christmas.js`: the emoji flakes are replaced by one canvas (`#xm-snowcv`, z-index 40, no pointer events): 12 pre-rendered radial-gradient sprites, depth-weighted sizes/speeds/opacity (near flakes blurred), smoothly changing wind with decaying gusts, per-flake sway, mouse/touch repulsion within 80 px, and accumulation height maps (4 px columns) for the bottom of the screen (≤ 12 px) and the tops of `.composer-box` and `#new-chat-btn` (re-measured every 1.5 s), smoothed so drifts slump softly, drawn with quadratic curves, melting slowly. Flake count scales with screen area and the Off/Light/Lots setting; paused while hidden; off with reduced motion or animations off. The CSS snow caps are removed.

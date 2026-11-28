@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4.1"
+VERSION = "26.4.2"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.4.2 Fixed: the sidebar had grown a dozen tools in one long column, which pushed your chats almost off the bottom of the screen (on many laptops you could only see the word \"Chats\"). The tools now sit two to a row, so your chats get their space back. Also fixed: \"Phone assistant\" was showing on computers — it now only appears in the Android app, where it works",
     "26.4.1 Real snow: the Christmas snow is now soft, round flakes at different distances — close ones bigger, faster and slightly blurred, far ones tiny and slow — drifting on a wind that changes and gusts now and then. Move your mouse (or finger) through it and the flakes swirl away. And it settles: snow slowly builds up along the bottom of the screen and on top of the typing box and the New Chat button, in soft drifts, then melts away bit by bit. Choose Off, Light or Lots in the Advent calendar",
     "26.4 Twelve more tools, all in Tools: Recipe from your fridge (snap a photo or list what you have), Exam revision planner (a day-by-day timetable plus flashcards for each subject), Language lessons (a 10-minute lesson a day with practice, corrections and a streak), Story mode (write a story together chapter by chapter with a picture for each, then download it as a book), Logo & poster maker, CV & job matcher (your match score, a tailored CV and a cover letter), Spreadsheet helper (ask about an Excel or CSV file and get answers and charts), Characters (chat with a pirate, a detective, a dragon or a figure from history), and Rewards (badges, levels and streaks)",
     "26.4 Make music: describe it — \"calm afrobeat for a cooking video\" — and get a 30-second clip or a full song, instrumental or with your own lyrics, to play and download. Free accounts can make 2 a day, Pro 10, Ultimate 30",

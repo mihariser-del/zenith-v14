@@ -12,6 +12,20 @@
 <link rel="stylesheet" href="/static/css/vault2.css">
 <link rel="stylesheet" href="/static/css/vault-auth-fx.css">
 <script>
+  // 26.7: arriving from the Vault PIN page — show the last frame of the film until the dashboard is ready
+  try { if (/[?&]arrive=1/.test(location.search)) document.documentElement.classList.add('zv-arrive'); } catch (e) {}
+</script>
+<style>
+  #zv-arrive{display:none}
+  html.zv-arrive #zv-arrive{display:block;position:fixed;inset:0;z-index:2147482000;background:#02030a url(/static/img/cosmic/command.jpg) center 46%/cover no-repeat;transition:opacity .85s ease;color:#e8ecf8;font-family:Inter,system-ui,sans-serif}
+  #zv-arrive.out{opacity:0;pointer-events:none}
+  #zv-arrive .w{position:absolute;left:50%;top:21%;transform:translateX(-50%);text-align:center;width:min(92vw,900px)}
+  #zv-arrive .k{font:300 clamp(13px,1.5vw,18px)/1 Inter,sans-serif;letter-spacing:.7em;text-indent:.7em;color:#cfd8f4}
+  #zv-arrive .rule{width:min(420px,60vw);height:1px;margin:22px auto;background:linear-gradient(90deg,transparent,rgba(190,205,255,.85),transparent)}
+  #zv-arrive .n{font:600 clamp(30px,5.4vw,68px)/1.05 Inter,sans-serif;letter-spacing:.08em;color:#fff;text-shadow:0 0 30px rgba(140,160,255,.35);word-break:break-word;min-height:1em}
+  #zv-arrive .r{display:inline-block;margin-top:18px;font:600 11px/1 Inter,sans-serif;letter-spacing:.5em;text-indent:.5em;color:#d7dcf0;padding:9px 16px;border:1px solid rgba(200,210,255,.35);border-radius:2px;background:rgba(10,14,30,.35)}
+</style>
+<script>
   // Theme before paint (no flash)
   try { const t = localStorage.getItem('zv_theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
 </script>
@@ -64,6 +78,17 @@
     <div class="cmdk-foot"><span>↑↓ to move · Enter to open · Esc to close</span></div>
   </div>
 </div>
+
+<!-- 26.7: the film's last frame, held while the dashboard loads (purely visual; the token is still checked) -->
+<div id="zv-arrive" aria-hidden="true"><div class="w"><div class="k">WELCOME TO THE VAULT</div><div class="rule"></div><div class="n" id="zv-arrive-name"></div><div class="r" id="zv-arrive-role">OWNER</div></div></div>
+<script>
+  try {
+    var zva = JSON.parse(sessionStorage.getItem('zv_arrive') || 'null'); sessionStorage.removeItem('zv_arrive');
+    if (zva) { document.getElementById('zv-arrive-name').textContent = String(zva.n || '').toUpperCase(); document.getElementById('zv-arrive-role').textContent = String(zva.r || ''); }
+    // safety net: never leave the frame up if the dashboard can't start
+    setTimeout(function () { var a = document.getElementById('zv-arrive'); if (a && !a.hidden) { a.classList.add('out'); setTimeout(function () { a.hidden = true; document.documentElement.classList.remove('zv-arrive'); }, 900); } }, 15000);
+  } catch (e) {}
+</script>
 
 <!-- modal -->
 <div class="modal" id="modal" hidden role="dialog" aria-modal="true"><div class="modal-box" id="modal-box"></div></div>

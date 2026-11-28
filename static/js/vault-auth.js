@@ -40,6 +40,7 @@ const VA = {
             catch (e) { try { sessionStorage.removeItem('zenith_vault_token'); } catch (e2) {} }
         }
 
+        if (window.VaultCutscene) VaultCutscene.preload();   // warm the 3D film while you type
         let enabled = false;
         try { enabled = !!(await api('/api/auth/admin/pin-state')).enabled; } catch (e) {}
         this._setMode(enabled ? 'enter' : 'setup');
@@ -75,6 +76,7 @@ const VA = {
     },
 
     _onKey(e) {
+        if (this._done) return;                     // unlocked: the cinematic owns the keys now
         if (this._mode === 'setup-confirm') return; // the password field owns the keys
         if (/^[0-9]$/.test(e.key)) { e.preventDefault(); this._push(e.key); }
         else if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); this._del(); }
@@ -97,7 +99,7 @@ const VA = {
     },
 
     async _submit() {
-        if (this._busy || this._pin.length < 4) return;
+        if (this._done || this._busy || this._pin.length < 4) return;
         const pin = this._pin.join('');
 
         if (this._mode === 'enter') {
@@ -144,6 +146,7 @@ const VA = {
     },
 
     async _submitPassword() {
+        if (this._done || this._busy) return;      // one request at a time
         const pwEl = $('va-pw');
         const pw = pwEl ? pwEl.value : '';
         if (!pw) { $('va-err').textContent = 'Enter your account password'; return; }
@@ -151,7 +154,7 @@ const VA = {
         try {
             const r = await api('/api/auth/admin/pin-set', { method: 'POST', body: JSON.stringify({ pin: this._first, password: pw }) });
             this._setToken(r.token);
-            window.location.href = '/vault';
+            this._unlocked();
         } catch (e) {
             $('va-err').textContent = e.message || 'Could not enable PIN';
             this._busy = false;
@@ -160,14 +163,22 @@ const VA = {
 
     // right PIN: the dots flash green, a burst of light, and the card fades through to the Vault
     _unlocked() {
+        if (this._done) return;
+        this._done = true;
         const d = $('va-dots'); if (d) d.classList.add('ok');
         $('va-sub').textContent = 'Unlocked — opening the Vault…';
         if (window.VAFX) VAFX.burst('34,197,94');
         document.body.classList.add('va-unlocking');
-        const go = () => { window.location.href = '/vault'; };
+        // 26.7: Cosmic Ascension. It only ever starts here, after the server accepted the PIN and
+        // handed back a token (stored above). It keeps its last frame (hold) while we move on to
+        // /vault, which shows the same frame and fades into the dashboard once the token checks out.
         const u = this._user || {};
-        if (window.VaultCutscene) setTimeout(() => VaultCutscene.play({ name: u.username, role: u.role === 'owner' ? 'OWNER' : 'ADMIN' }).then(go), 350);
-        else setTimeout(go, 750);
+        let went = false;
+        const go = () => { if (went) return; went = true; try { sessionStorage.setItem('zv_arrive', JSON.stringify({ n: u.username || '', r: u.role === 'owner' ? 'OWNER' : 'ADMIN' })); } catch (e) {} window.location.replace('/vault?arrive=1'); };
+        if (window.VaultCutscene) {
+            VaultCutscene.play({ name: u.username, role: u.role === 'owner' ? 'OWNER' : 'ADMIN', hold: true }).then(go, go);
+            setTimeout(go, 40000);          // never get stuck if something goes badly wrong
+        } else setTimeout(go, 750);
     },
 
     _setToken(tok) {

@@ -27,34 +27,51 @@
     const ct = r.headers.get('content-type') || '';
     return ct.includes('json') ? r.json() : r;
   }
+  // 26.7: the arrival frame from the PIN page (/vault?arrive=1) — it only lifts once the token checks out
+  function arrival(ok) {
+    const a = $('zv-arrive');
+    if (history.replaceState && /[?&]arrive=1/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+    if (!a || a.hidden) return;
+    if (!ok) { a.hidden = true; document.documentElement.classList.remove('zv-arrive'); return; }
+    a.classList.add('out');
+    setTimeout(() => { a.hidden = true; document.documentElement.classList.remove('zv-arrive'); }, 900);
+  }
   function lock() {
     if (unlockWait) return unlockWait;
+    arrival(false);
     setToken('');
-    $('lockscreen').hidden = false; $('pin').value = ''; $('pin-err').textContent = '';
+    $('lockscreen').hidden = false; $('pin').value = ''; $('pin').disabled = false; $('pin-err').textContent = '';
     setTimeout(() => $('pin').focus(), 50);
+    if (window.VaultCutscene) VaultCutscene.preload();     // warm the film while you type
+    let busy = false;
     unlockWait = new Promise((resolve) => {
       const go = async () => {
+        if (busy) return;                                  // one PIN check (and one film) at a time
         const pin = $('pin').value.trim();
         if (!/^\d{4,6}$/.test(pin)) { $('pin-err').textContent = 'Enter your 4–6 digit PIN'; return; }
-        $('pin-go').disabled = true;
+        busy = true; $('pin-go').disabled = true;
+        let ok = false;
         try {
           const r = await fetch('/api/auth/admin/pin-verify', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
           const d = await r.json().catch(() => ({}));
-          if (!r.ok) throw new Error(d.detail || 'Wrong PIN');
-          setToken(d.token);
-          // 26.6.9: the unlock cutscene plays over the lock screen, which quietly goes away underneath it
-          const box = document.querySelector('#lockscreen .lock-box'); if (box) box.classList.add('ok');
-          if (window.VaultCutscene) {
-            const me = S.me || {};
-            const cs = VaultCutscene.play({ name: me.username || '', role: me.role === 'owner' || S.owner ? 'OWNER' : 'ADMIN' });
-            setTimeout(() => { $('lockscreen').hidden = true; if (box) box.classList.remove('ok'); unlockWait = null; resolve(); }, 600);
-            await cs;
-          } else { $('lockscreen').hidden = true; unlockWait = null; resolve(); }
+          if (!r.ok || !d.token) throw new Error(d.detail || 'Wrong PIN');
+          setToken(d.token); ok = true;
         } catch (e) {
           $('pin-err').textContent = e.message; $('pin').select();
           const box = document.querySelector('#lockscreen .lock-box'); if (box) { box.classList.remove('bad'); void box.offsetWidth; box.classList.add('bad'); }
+          busy = false; $('pin-go').disabled = false;
+          return;
         }
-        finally { $('pin-go').disabled = false; }
+        // The server has accepted the PIN. Only now does the film start; it decides nothing.
+        const box = document.querySelector('#lockscreen .lock-box'); if (box) box.classList.add('ok');
+        $('pin').disabled = true; $('pin').blur();
+        const open = () => { $('lockscreen').hidden = true; if (box) box.classList.remove('ok'); $('pin-go').disabled = false; busy = false; unlockWait = null; resolve(); };
+        if (window.VaultCutscene) {
+          const me = S.me || {};
+          let opened = false; const openOnce = () => { if (!opened) { opened = true; open(); } };
+          // the dashboard loads behind the film once the screen is dark, and is there when it fades away
+          VaultCutscene.play({ name: me.username || '', role: me.role === 'owner' || S.owner ? 'OWNER' : 'ADMIN', onBlack: openOnce }).then(openOnce, openOnce);
+        } else open();
       };
       $('pin-go').onclick = go;
       $('pin').onkeydown = (e) => { if (e.key === 'Enter') go(); };
@@ -1905,6 +1922,7 @@
       const ok = await fetch('/api/auth/admin/pin-unlock', { method: 'POST', credentials: 'same-origin', headers: { 'X-Vault-Token': token() } }).then((r) => r.ok).catch(() => false);
       if (!ok) await lock();
     }
+    const arr = $('zv-arrive-name'); if (arr) { arr.textContent = String(S.me.username || '').toUpperCase(); $('zv-arrive-role').textContent = S.owner ? 'OWNER' : 'ADMIN'; }
     await loadAccess();
     renderNav();
     document.querySelectorAll('#ranges button').forEach((b) => b.classList.toggle('on', b.dataset.r === S.range));
@@ -1939,6 +1957,7 @@
     }, 30000);
     setInterval(refreshTop, 60000);
     await route();
+    arrival(true);
     refreshTop();
   }
   boot();

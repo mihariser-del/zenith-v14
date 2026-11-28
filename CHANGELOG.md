@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.7 — Cosmic Ascension (Vault entrance)
+
+- Three.js/WebGL cinematic with bloom, adaptive quality, reduced-motion and no-WebGL fallbacks, mute/volume/fullscreen/skip, full resource clean-up.
+- Web Audio soundtrack synchronised to the shot timeline.
+- Fixed duplicate playback / double PIN submission; film only starts after server-side PIN success; seamless hand-over to the dashboard via an arrival frame.
+
 ## 26.6.11 — Vault cutscene: full spinning door, glitches, hyperspace, new sound
 
 - New background-removed door image that spins; pixel glitch overlay; denser additive hyperspace; rebuilt WebAudio score.

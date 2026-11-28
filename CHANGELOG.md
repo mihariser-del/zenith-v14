@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.4.5 — Whole files, picture Open
+
+- `ai.py`: `_codeish` (script/code/python/pack/shader/continue/fix…) or a recent assistant `<zfile` raises `max_tokens` to `FILE_MAX_TOKENS` (8000). The stream records `finish_reason`; on `length` with more `<zfile` than `</zfile>`, up to two streamed continuation rounds append the rest. `_finish` initialised before both answer paths.
+- `ai.py`: FOLLOW THROUGH rule — make the fix in the same reply, and files must be complete.
+- `chat.js`: `_openImageTab()` — lightbox Open turns `data:` images into a blob URL (Chrome blocks top-level `data:` navigation → `about:blank#blocked`).
+
 ## 26.4.4 — App mode, copyright and AI notice
 
 - New `appmode.py`: `inject()` puts a small script + style at the top of `<head>` on every served page (`_shell`, `_static_page`, legal pages, share page, `/download`). It adds `zp-in-app` plus `zp-in-desktop` / `zp-in-android` to `<html>` from the user agent (`ZelpophaiDesktop/…`, `ZelpophaiAndroid/…`), hides `#get-app-btn`, `.web-only` and links to `/download` in the apps, shows `.app-only`, and fills `.zp-year`.

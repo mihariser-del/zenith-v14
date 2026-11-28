@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4.4"
+VERSION = "26.4.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.4.5 Fixed: long files (like a 170-line script) could stop half way and come out broken — Zelpophai now gives code and file requests far more room, and if a file still runs out of space it keeps writing until it's finished. It also now just makes the fix instead of saying \"I can replace that…\" and stopping. Also fixed: \"Open\" on a picture you attached showed a blank \"blocked\" page — it now opens the picture in a new tab",
     "26.4.4 Inside the Windows and Android apps, the \"Get the app\" buttons and links are gone — you already have it (if you open the download page in the app, it tells you the app updates itself). Under the typing box there's now a small reminder: Zelpophai can make mistakes — it's an AI, so check important info. And Zelpophai now carries its copyright notice (© Zelpophai AI, all rights reserved) on every page, in About and in Settings",
     "26.4.3 Full check-up and fixes: clicking a chat in the list sometimes pressed a hidden button (like Pin or Share) instead of opening it — the extra options now live under a small ⋯ menu so the whole row opens the chat. On phones, picking a chat (or Tools, Projects, Assistants or Study) now closes the menu so you can see it. \"Save as Text\" now really saves plain text instead of Markdown. In the Vault, \"Add an admin\" and \"Add helper\" work again",
     "26.4.2 Fixed: the sidebar had grown a dozen tools in one long column, which pushed your chats almost off the bottom of the screen (on many laptops you could only see the word \"Chats\"). The tools now sit two to a row, so your chats get their space back. Also fixed: \"Phone assistant\" was showing on computers — it now only appears in the Android app, where it works",
@@ -202,6 +203,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.4.5 Owner: replies about code/files (or following a reply with a file) get at least 8000 tokens; if the model stops with finish_reason=length inside an unclosed zfile, up to two continuation requests finish it. New FOLLOW THROUGH rule in the system prompt",
     "26.4.4 Owner: new appmode.py adds a tiny script and style to every page's head that marks pages opened in the apps (by their user agent) and hides links to /download there; the Terms now include a section saying the Zelpophai name, logo, design, apps and code are yours, all rights reserved",
     "26.4.3 Owner: full system check — 1,072 API calls over 348 routes as owner, free user, guest and logged-out (no server errors), privacy tests confirming one person can't open or change another's projects, assistants, canvases, study decks, polls or chats, a safety test of the calculation engine (no file, module or hidden-attribute access; runaway loops and huge numbers stopped), and browser tests of every feature on desktop and phone. Restored the missing Vault user picker (gone since 22.4)",
     "26.4.1 Owner: the snow is one canvas drawn about 60 times a second with pre-made flake images, so it's light on phones too; it pauses when the tab is hidden and is off for anyone who has animations switched off",

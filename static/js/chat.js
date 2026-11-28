@@ -1336,13 +1336,26 @@ const Chat = {
             document.body.appendChild(lb);
             lb.addEventListener('click', (e) => { if (e.target === lb) lb.classList.remove('open'); });
             lb.querySelector('[data-act="close"]').addEventListener('click', () => lb.classList.remove('open'));
-            lb.querySelector('[data-act="open"]').addEventListener('click', (e) => { e.preventDefault(); window.open(lb.querySelector('img').src, '_blank', 'noopener'); });
+            lb.querySelector('[data-act="open"]').addEventListener('click', (e) => { e.preventDefault(); Chat._openImageTab(lb.querySelector('img').src); });
             lb.querySelector('[data-act="download"]').addEventListener('click', () => Chat._downloadImage(lb.querySelector('img').src));
             document.addEventListener('keydown', (e) => { if (e.key === 'Escape') lb.classList.remove('open'); });
         }
         lb.querySelector('img').src = src;
         lb.querySelector('[data-act="open"]').href = src;
         lb.classList.add('open');
+    },
+
+    // Browsers refuse to open data: links in a new tab (you get "about:blank#blocked"),
+    // and pictures you paste or attach are data: links. Open a blob copy instead.
+    _openImageTab(src) {
+        if (!src) return;
+        if (!/^data:/i.test(src)) { window.open(src, '_blank', 'noopener'); return; }
+        const w = window.open('', '_blank');
+        fetch(src).then(r => r.blob()).then(blob => {
+            const url = URL.createObjectURL(blob);
+            if (w) { try { w.opener = null; } catch (e) {} w.location.href = url; } else window.open(url, '_blank', 'noopener');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        }).catch(() => { if (w) w.close(); showToast('Couldn\'t open the picture — try Download', 'error'); });
     },
 
     _downloadImage(src) {

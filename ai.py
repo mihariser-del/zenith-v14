@@ -826,7 +826,11 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     _wants_file = looks_like_file_request(_user_ask)
     auto_web = (not has_images) and _needs_live_data(_user_ask) and not (
         _wants_file and "[File" in last_user_msg)
-    if _wants_file or _wants_page(_user_ask):
+    # (26.4.5) Code and file work, and "continue / fix the file" follow-ups, also
+    # need room — a 2048-token cap cut a 170-line Python script off half way.
+    _prev_file = any("<zfile" in (m.get("content") or "") for m in messages[-4:] if m.get("role") == "assistant" and isinstance(m.get("content"), str))
+    _codeish = bool(re.search(r"\b(script|code|python|program|plugin|mod|addon|add-on|resource pack|shader|html|css|javascript|\.py|\.js|continue|finish (it|the)|rewrite|fix (it|the|that))\b", _user_ask, re.I))
+    if _wants_file or _wants_page(_user_ask) or _codeish or _prev_file:
         # Whole documents and working pages need room: the default 2048 tokens
         # cuts CVs, decks and calculators off half way.
         user_max_tokens = max(user_max_tokens or 0, int(os.getenv("FILE_MAX_TOKENS", "8000")))
@@ -886,6 +890,11 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
     system_prompt += ("\n\nLANGUAGE: always reply in the same language as the user's latest message (Luganda, Swahili, "
                       "French, Arabic… whatever they wrote in), unless they ask for a different language or a translation. "
                       "If they mix languages, use the main one. Code, names and quoted text stay as they are.")
+    # 26.4.5: do the work instead of offering to.
+    system_prompt += ("\n\nFOLLOW THROUGH: if the user wants something made, fixed or improved (a file, script, pack, page), "
+                      "make it in this reply — don't end with \"I can make/replace/fix that…\" and wait. Be honest about limits "
+                      "in a sentence, then deliver the best version that is possible. Any file you write must be COMPLETE and "
+                      "runnable from top to bottom — never leave a file half-written or with placeholder lines.")
     # Project instructions & files, a custom assistant's role, and the open canvas (workspace.py).
     try:
         import workspace as _ws
@@ -1072,6 +1081,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
 
         # Exact maths first, on the calculation engine (see calcflow.py).
         _prefix = ""
+        _finish = ""
         if _engine:
             import calcflow
             yield _sse({"status": "calculating"})
@@ -1118,6 +1128,7 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
             last_error_body = ""
             last_status = 0
             streamed = False
+            _finish = ""
             for idx, _key in enumerate(keys):
                 try:
                     async with httpx.AsyncClient(timeout=120) as client:
@@ -1176,6 +1187,9 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                                     break
                                 try:
                                     obj = json.loads(data)
+                                    _fr = (obj.get("choices") or [{}])[0].get("finish_reason")
+                                    if _fr:
+                                        _finish = _fr
                                     delta = obj.get("choices", [{}])[0].get("delta", {})
                                     if "content" in delta and delta["content"]:
                                         token = process_response(delta["content"], _research)
@@ -1201,6 +1215,44 @@ async def stream_chat(chat_id: int, think: bool, images: list = None, web_search
                     else:
                         yield f"data: {json.dumps({'error': _ai_error_text(last_status, last_error_body)})}\n\n"
                     return
+
+        # (26.4.5) Ran out of room in the middle of a file: keep writing (up to two
+        # more rounds) so the file isn't left cut off and broken.
+        _rounds = 0
+        while (_finish == "length" and _rounds < 2 and full_response
+               and full_response.count("<zfile") > full_response.count("</zfile>")):
+            _rounds += 1
+            _finish = ""
+            try:
+                _more = messages + [{"role": "assistant", "content": full_response},
+                                    {"role": "user", "content": "You ran out of room in the middle of the file. Continue EXACTLY where you stopped — the very next characters, no repetition, no explanation — and finish the file and its closing </zfile> tag, then one short line on how to use it."}]
+                async with httpx.AsyncClient(timeout=150) as _cl:
+                    async with _cl.stream("POST", OPENROUTER_URL,
+                                          headers={"Authorization": f"Bearer {keys[0]}", "Content-Type": "application/json"},
+                                          json={"model": user_model, "messages": _more, "max_tokens": user_max_tokens,
+                                                "temperature": user_temperature, "stream": True}) as _r2:
+                        if _r2.status_code != 200:
+                            break
+                        async for line in _r2.aiter_lines():
+                            if not line.startswith("data: "):
+                                continue
+                            if line[6:].strip() == "[DONE]":
+                                break
+                            try:
+                                _o = json.loads(line[6:])
+                            except json.JSONDecodeError:
+                                continue
+                            _c0 = (_o.get("choices") or [{}])[0]
+                            if _c0.get("finish_reason"):
+                                _finish = _c0["finish_reason"]
+                            _t = (_c0.get("delta") or {}).get("content")
+                            if _t:
+                                _t = process_response(_t, _research)
+                                full_response += _t
+                                yield f"data: {json.dumps({'token': _t})}\n\n"
+            except Exception as _e:
+                import logging as _lg; _lg.getLogger("ai").warning("file continuation failed: %s", _e)
+                break
 
         if full_response:
             _body = full_response[len(_prefix):] if _prefix and full_response.startswith(_prefix) else full_response

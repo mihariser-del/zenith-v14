@@ -37,7 +37,7 @@ from invites import router as invites_router
 from staff import router as staff_router
 from announcements import router as announcements_router
 from billing import router as billing_router
-from google_auth import router as google_router
+from google_auth import router as google_router, page_router as google_page_router
 from system_stats import router as system_router
 from analytics import router as analytics_router
 from global_controls import router as global_controls_router
@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.5.2"
+VERSION = "26.5.3"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.5.3 Fixed: Continue with Google did nothing in the Windows and Android apps (Google doesn't allow signing in inside apps, so the result never got back). Now the app opens a Zelpophai sign-in page in your web browser and shows a 4-letter code; check the page shows the same code, continue with Google there, and the app signs you in by itself. Android needs the next app update for this",
     "26.5.2 Coding AGT. now has one look: the code editor uses the same calm colours as the agent, and both follow your Zelpophai light or dark setting (you can still pick a different theme in the editor's settings). And files your code makes while it runs — like a .zip or a Minecraft .mcaddon — now appear with a Download button right under the step that ran it (and in Output), instead of being hidden inside the browser",
     "26.5.1 Downloads for everything the AI builds. In Coding AGT. every file the agent writes has its own download button, the Files panel has Download all (.zip), and a website can be saved as one .html file with its CSS and JavaScript built in, so it works anywhere. In the chat, when an answer has several files you get Download all (.zip) with folders kept, and a web page that uses CSS or JavaScript files from the same answer now previews with them working together, with a One file button too. If a page links to a file that isn't there, you're told which one. Also fixed: pages that wrote their links without quotes (href=style.css) showed without their styling",
     "26.5 A brand-new Coding AGT. You now start with a chat: \"What should we build?\". Describe what you want and the agent works on it step by step while you watch — it makes a plan, looks at your files, writes and edits them, runs the code, reads the result and fixes errors until it works. Choose where code runs (Browser, or This computer in the Windows app), whether it asks before each change (Ask for approval) or just gets on with it (Auto), and Smart or Fast. Every change shows exactly what was added and removed, and a whole task counts as one request. Your past tasks are listed under Recents, the Preview, Files and Output open beside the chat, and the full code editor is one click away",
@@ -207,6 +208,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.5.3 Owner: app Google sign-in is a device hand-off — POST /api/auth/google/app/start (one-time code + 4-letter match code, 10 minutes), the browser page /auth/google/app runs Google's button and calls /app/complete, and the app polls /app/poll, which sets its cookie once. Windows opens the page via http:// so the existing app sends it to the browser; Android needs ZPApp.openBrowser (in the source, for the next Android build)",
     "26.5.2 Owner: coding-agent.css palette changed to the neutral greys; the agent view takes its colours from the editor variables. New theme option \"Same as Zelpophai\" (default, migrated once via ca_prefs.themeV=2) reads zenith_settings.theme and follows it live through the storage event. The Pyodide worker snapshots its folder before a run and sends back new or changed files (max 12, 40 MB) as downloads",
     "26.5.1 Owner: ZRender.bundleHtml(path, files) inlines linked stylesheets and scripts (quoted or not, ./ and ../ paths, folder-less matches) and reports used / missing files; used by chat file cards (client-side preview + One file), the Coding AGT. preview, and downloads. Chat answers with 2+ saved files get a zip bar that fetches each file and keeps its path",
     "26.5 Owner: Coding AGT. agent is now a tool-calling loop — POST /api/code/agent/step (tools: list_files, read_file, search_files, write_file, edit_file, delete_file, run, update_plan) with the tools executed in the browser / desktop app. One task ticket = one daily coding request, up to CODE_AGENT_MAX_STEPS (40) steps. Conversations are saved per project (code_projects.chat). The editor's old side agent is replaced by the new view",
@@ -401,6 +403,7 @@ app.include_router(staff_router)
 app.include_router(announcements_router)
 app.include_router(billing_router)
 app.include_router(google_router)
+app.include_router(google_page_router)
 app.include_router(system_router)
 app.include_router(analytics_router)
 app.include_router(global_controls_router)

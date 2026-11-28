@@ -317,7 +317,13 @@
             <script>
             // "Sign in with Google" only shows when the Owner has switched it on (Vault → Settings), i.e. once Google accepts this site.
             fetch('/api/admin/system/public').then(function (r) { return r.json(); }).then(function (d) {
-                if (d && d.google_signin === 'on') { document.documentElement.classList.add('google-on'); var s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.async = true; document.head.appendChild(s); }
+                if (d && d.google_signin === 'on') {
+                    document.documentElement.classList.add('google-on');
+                    // In the Windows / Android app Google's own button can't work (26.5.3): use the app sign-in.
+                    var s = document.createElement('script'); s.async = true;
+                    s.src = /ZelpophaiDesktop|ZelpophaiAndroid/.test(navigator.userAgent) ? '/static/js/google-app.js' : 'https://accounts.google.com/gsi/client';
+                    document.head.appendChild(s);
+                }
             }).catch(function () {});
             </script>
         </div>

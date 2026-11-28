@@ -79,6 +79,22 @@ public class MainActivity extends BridgeActivity {
 
     /** Lets the site offer "Use Zelpophai like Siri" set-up from inside the app. */
     private class AppBridge {
+        // Google sign-in (1.3.0): Google won't sign in inside apps, so the sign-in page
+        // opens in the phone's browser and the app picks up the result. Only our own pages.
+        @JavascriptInterface
+        public void openBrowser(String url) {
+            try {
+                Uri u = Uri.parse(url);
+                String h = u.getHost() == null ? "" : u.getHost().toLowerCase();
+                if (!("http".equals(u.getScheme()) || "https".equals(u.getScheme()))) return;
+                if (!(h.equals("zelpophai.com") || h.equals("www.zelpophai.com") || h.equals("zelpophai.up.railway.app"))) return;
+                Uri safe = u.buildUpon().scheme("https").build();
+                runOnUiThread(() -> {
+                    try { startActivity(new Intent(Intent.ACTION_VIEW, safe).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); }
+                    catch (Exception e) { Toast.makeText(MainActivity.this, "No web browser found to sign in with Google.", Toast.LENGTH_LONG).show(); }
+                });
+            } catch (Exception ignored) { }
+        }
         @JavascriptInterface
         public String status() {
             String a = Settings.Secure.getString(getContentResolver(), "assistant");

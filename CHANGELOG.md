@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.5.3 — Google sign-in in the apps
+
+- `google_auth.py`: verification and find-or-create moved into `_google_user()`; new `/api/auth/google/app/start`, `/app/complete`, `/app/poll` and the browser page `/auth/google/app` (in-memory, single-use, 10-minute codes with a 4-character match code shown in both places).
+- New `static/js/google-app.js`: in the apps the login page loads it instead of Google's script and swaps in an app "Continue with Google" button with the waiting dialog.
+- `android-app/native/MainActivity.java`: `ZPApp.openBrowser(url)` (zelpophai hosts only, opened as https) for the next Android build.
+
 ## 26.5.2 — One theme for Coding AGT., files made by your code
 
 - `coding-agent.css`: neutral palette (dark #1a1a1a / light #faf9f7) shared with the agent view (`--cx-*` now derive from the editor variables); logo and empty-state colours follow the theme.

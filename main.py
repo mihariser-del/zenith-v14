@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.5.5"
+VERSION = "26.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6 Coding AGT. got much smarter and can now work on your PC. It thinks before it acts, reads your files before changing them, follows your project's style, looks things up on the web instead of guessing (you'll see \"Searched the web\"), makes several edits at once, checks its work by running it and keeps going for longer tasks. And in the Windows app (version 1.6.0) press Open a folder: Coding AGT. can then read, create and change the real files in that folder and run things itself — .py, .bat, .ps1, .js and commands like pip install — showing the output as it goes. It only ever works inside the folder you chose, deleted files go to the Recycle Bin, and it asks before running anything (and warns you about anything that looks risky)",
     "26.5.5 Fixed: the browser page for signing in to the app with Google showed the code but no working Continue with Google button",
     "26.5.3 Fixed: Continue with Google did nothing in the Windows and Android apps (Google doesn't allow signing in inside apps, so the result never got back). Now the app opens a Zelpophai sign-in page in your web browser and shows a 4-letter code; check the page shows the same code, continue with Google there, and the app signs you in by itself. Android needs the next app update for this",
     "26.5.2 Coding AGT. now has one look: the code editor uses the same calm colours as the agent, and both follow your Zelpophai light or dark setting (you can still pick a different theme in the editor's settings). And files your code makes while it runs — like a .zip or a Minecraft .mcaddon — now appear with a Download button right under the step that ran it (and in Output), instead of being hidden inside the browser",
@@ -209,6 +210,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6 Owner: agent prompt rewritten (understand → explore → plan → change → verify → look up → finish); new tools multi_edit, web_search (POST /api/code/agent/search, max 12 per task, same task allowance), run_command (folder mode only); smart model gets reasoning effort medium (CODE_AGENT_EFFORT); 60 steps per task. Desktop 1.6.0 adds localfs.js: folder ids from a Windows folder picker, every path resolved inside the folder (no .., absolute paths or links out), Recycle Bin deletes, cmd.exe commands with time limits, a native prompt before the first command per folder and before anything that looks destructive",
     "26.5.3 Owner: app Google sign-in is a device hand-off — POST /api/auth/google/app/start (one-time code + 4-letter match code, 10 minutes), the browser page /auth/google/app runs Google's button and calls /app/complete, and the app polls /app/poll, which sets its cookie once. Windows opens the page via http:// so the existing app sends it to the browser; Android needs ZPApp.openBrowser (in the source, for the next Android build)",
     "26.5.2 Owner: coding-agent.css palette changed to the neutral greys; the agent view takes its colours from the editor variables. New theme option \"Same as Zelpophai\" (default, migrated once via ca_prefs.themeV=2) reads zenith_settings.theme and follows it live through the storage event. The Pyodide worker snapshots its folder before a run and sends back new or changed files (max 12, 40 MB) as downloads",
     "26.5.1 Owner: ZRender.bundleHtml(path, files) inlines linked stylesheets and scripts (quoted or not, ./ and ../ paths, folder-less matches) and reports used / missing files; used by chat file cards (client-side preview + One file), the Coding AGT. preview, and downloads. Chat answers with 2+ saved files get a zip bar that fetches each file and keeps its path",

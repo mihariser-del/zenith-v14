@@ -19,4 +19,16 @@ contextBridge.exposeInMainWorld('zelpophaiDesktop', {
     run: (req) => ipcRenderer.invoke('zp-run', req),
     stop: () => ipcRenderer.invoke('zp-stop'),
     onOutput: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },
+    // 1.6.0: Coding AGT. in a folder you choose (it can't reach anything else)
+    fs: {
+        pick: (opts) => ipcRenderer.invoke('zp-fs-pick', opts || {}),
+        list: (id, sub, opts) => ipcRenderer.invoke('zp-fs-list', id, sub || '', opts || {}),
+        read: (id, rel) => ipcRenderer.invoke('zp-fs-read', id, rel),
+        write: (id, rel, content) => ipcRenderer.invoke('zp-fs-write', id, rel, content),
+        remove: (id, rel) => ipcRenderer.invoke('zp-fs-delete', id, rel),
+        open: (id, rel, how) => ipcRenderer.invoke('zp-fs-open', id, rel, how || ''),
+        exec: (id, command, opts) => ipcRenderer.invoke('zp-fs-exec', id, command, opts || {}),
+        stop: () => ipcRenderer.invoke('zp-fs-stop'),
+        commandFor: (rel) => ipcRenderer.invoke('zp-fs-command-for', rel),
+    },
 });

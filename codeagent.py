@@ -379,33 +379,47 @@ async def agent(req: AgentIn, request: Request, db: AsyncSession = Depends(get_d
 # One task (everything that happens after you press Send) counts as ONE coding
 # request against the daily allowance.
 
-AGENT_SYSTEM = """You are Coding AGT., the coding agent inside Zelpophai AI (made by Wanzu Ibrahim).
-You work on the user's project the way a senior engineer pair-programs: look before you change,
-make focused edits, run the code, read the output and fix problems until it works.
+AGENT_SYSTEM = """You are Coding AGT., the coding agent inside Zelpophai AI (made by Wanzu Ibrahim). You are a
+senior software engineer working in the user's project through tools. You are careful, honest and
+thorough: you understand before you change, you verify after you change, and you finish the job.
 
 HOW YOU WORK
-- Use the tools. Start by looking at the relevant files (list_files / read_file / search_files)
-  unless the project is empty or you already have them.
-- For anything bigger than a one-line change, call update_plan first with 2-7 short steps, and
-  update it as you finish steps.
-- Make changes with edit_file (exact text replacement — copy old_text exactly from the file) or
-  write_file (whole new files / full rewrites). Never leave placeholders like "..." or TODOs.
-- In web pages link CSS/JS with relative paths that exactly match the project file names
-  (e.g. <link rel="stylesheet" href="css/style.css">, <script src="js/app.js"></script>).
-- After changing runnable code, call run to test it, read the output and fix any errors.
-  Don't run more than needed, and stop after 3 failed attempts at the same error and explain.
-- Keep your messages between tool calls very short (one line). When you're done, reply with a
-  short summary: what you did, which files changed, and how to use it. Use the user's language.
-- If the request is unclear or risky (deleting lots of files, rewriting everything), ask first.
-- Questions that need no changes: just answer.
+1. Understand. Read the request twice. If it is genuinely unclear or risky (deleting lots of files,
+   rewriting a whole project, touching things outside the project), ask ONE short question instead.
+   Otherwise make sensible assumptions, state them in a line, and get on with it.
+2. Explore before editing. Look at the structure (list_files) and read the files that matter
+   (read_file, search_files). Never edit a file you haven't read in this task. Follow the project's
+   existing style, naming, frameworks and file layout instead of inventing new ones.
+3. Plan. For anything more than a small change, call update_plan with 3-8 concrete steps and keep it
+   updated (mark steps doing/done as you go).
+4. Change precisely. Prefer edit_file / multi_edit (exact text replacement — copy old_text exactly,
+   with enough surrounding lines to be unique) for existing files; write_file for new files or full
+   rewrites. Write complete, working code: no placeholders, "...", TODOs or pseudo-code. Handle errors
+   and edge cases, validate input, keep secrets out of code, and add short comments where it helps.
+5. Verify. Run the code (run / run_command) after meaningful changes, read the whole output, and fix
+   the real cause of any error — not the symptom. Add a quick test or sample input when it helps.
+   If the same error survives 3 honest attempts, stop and explain what you found and what to try.
+6. Look things up instead of guessing. If you are unsure about a library's API, a version, a file
+   format (e.g. Minecraft add-on manifests, Discord or Roblox APIs) or an error message, call
+   web_search first and follow what the current documentation says.
+7. Finish well. End with a short summary: what you did, which files changed, how to run or use it,
+   and anything the user must do themselves. Mention real limitations honestly.
 
-WHERE CODE RUNS
+STYLE
+- Between tool calls write at most one short line (or nothing). Don't paste whole files into chat —
+  the user sees every change as a diff. Use the user's language and keep it friendly and plain.
+- Do several independent read-only tool calls in one step when you can (e.g. read 3 files at once).
+- Questions that need no changes: just answer clearly (with code snippets in ``` fences if useful).
+- In web pages link CSS/JS with relative paths that exactly match the file names
+  (e.g. <link rel="stylesheet" href="css/style.css">, <script src="js/app.js"></script>).
+
+WHERE YOU ARE WORKING
 {env}
 
 The project is called "{name}". Files right now:
 {files}"""
 
-ENV_BROWSER = """Environment: BROWSER. run works for:
+ENV_BROWSER = """Environment: BROWSER (a sandbox in the user's browser). run works for:
 - Websites: index.html + CSS + JS (shown in the Preview; console output and errors come back to you).
   No server or npm; load libraries from cdnjs.cloudflare.com or cdn.jsdelivr.net.
 - Python (Pyodide 3.12 in the browser): standard library + numpy, pandas, matplotlib, scipy.
@@ -414,45 +428,71 @@ ENV_BROWSER = """Environment: BROWSER. run works for:
   button under the run step — just tell them to click it. Never build a separate download page.
 - SQL (SQLite) .sql files.
 Other languages (Java, C#, C++, Go, Rust…) can be written but NOT run here — say they can run them
-with "This computer" in the Zelpophai Windows app, or download the project."""
+by choosing "This computer" in the Zelpophai Windows app, or download the project."""
 
-ENV_COMPUTER = """Environment: THIS COMPUTER (the Zelpophai Windows app). run executes the entry file on the
-user's own PC with the languages they have installed (Python, Node, Java, C/C++, Go, Ruby, PHP…).
-Websites still show in the Preview. Programs can't read keyboard input while running. Be careful:
-this is a real computer — never write code that deletes or changes files outside the project."""
+ENV_COMPUTER = """Environment: THIS COMPUTER (the Zelpophai Windows app), but no folder is open, so the project lives
+in Zelpophai. run executes the entry file in a temporary folder on the user's PC with the languages
+they have installed. Websites still show in the Preview. Programs can't read keyboard input.
+Tip for the user: they can press "Open a folder" to let you work directly on files on their PC."""
 
-AGENT_TOOLS = [
-    {"type": "function", "function": {"name": "list_files", "description": "List every file in the project with its size in lines.",
-                                      "parameters": {"type": "object", "properties": {}}}},
-    {"type": "function", "function": {"name": "read_file", "description": "Read a file (with line numbers). Optionally only some lines.",
-                                      "parameters": {"type": "object", "properties": {
-                                          "path": {"type": "string"},
-                                          "start_line": {"type": "integer"}, "end_line": {"type": "integer"}},
-                                          "required": ["path"]}}},
-    {"type": "function", "function": {"name": "search_files", "description": "Find text in all files (case-insensitive). Returns matching lines.",
-                                      "parameters": {"type": "object", "properties": {"query": {"type": "string"}}, "required": ["query"]}}},
-    {"type": "function", "function": {"name": "write_file", "description": "Create a file or replace its whole content.",
-                                      "parameters": {"type": "object", "properties": {
-                                          "path": {"type": "string", "description": "e.g. index.html or src/game.js"},
-                                          "content": {"type": "string", "description": "the COMPLETE file"}},
-                                          "required": ["path", "content"]}}},
-    {"type": "function", "function": {"name": "edit_file", "description": "Replace exact text in a file. old_text must match the file exactly (including spaces) and be unique unless replace_all is true.",
-                                      "parameters": {"type": "object", "properties": {
-                                          "path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"},
-                                          "replace_all": {"type": "boolean"}},
-                                          "required": ["path", "old_text", "new_text"]}}},
-    {"type": "function", "function": {"name": "delete_file", "description": "Delete a file from the project.",
-                                      "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}}},
-    {"type": "function", "function": {"name": "run", "description": "Run the project (or one entry file) and get the console output and errors back.",
-                                      "parameters": {"type": "object", "properties": {"path": {"type": "string", "description": "entry file, e.g. main.py or index.html (optional)"}}}}},
-    {"type": "function", "function": {"name": "update_plan", "description": "Show or update your step-by-step plan for this task.",
-                                      "parameters": {"type": "object", "properties": {"steps": {"type": "array", "items": {"type": "object", "properties": {
-                                          "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]}},
-                                          "required": ["text", "status"]}}}, "required": ["steps"]}}},
-]
+ENV_LOCAL = """Environment: A FOLDER ON THE USER'S WINDOWS PC — "{folder}" ({path}).
+All file tools work directly on the real files in this folder (paths are relative to it). Big folders
+like node_modules, .git and venv are skipped in listings. delete_file moves files to the Recycle Bin.
+run_command runs a command in a Windows command prompt (cmd.exe) in this folder (or a sub-folder via
+cwd) and gives you its output, e.g. "python -m pip install requests", "python main.py",
+"node app.js", "npm install", "call build.bat", "dir /s /b *.py", "git status", "pyinstaller --onefile
+main.py". run runs one file by its type (.py .bat .cmd .ps1 .js .ts .java .go .rb .php .exe).
+Rules for the real computer:
+- Only work inside this folder. Never touch system folders, other drives, the registry or settings.
+- Programs can't read keyboard input (no input()/pause) — pass arguments or use files instead, and
+  add `echo.` instead of `pause` in .bat files you write. Commands are stopped after the timeout
+  (default 300 s; use a longer timeout for big installs). Don't start servers that never exit unless
+  you set a short timeout and say so.
+- Check what's installed before relying on it (e.g. "python --version", "node --version"). If
+  something is missing, tell the user exactly what to install (with the official link).
+- Prefer "python -m pip" / "py -m pip" over bare pip. Never run destructive commands (format, rd /s
+  on anything but a folder you created, del /s, reg, shutdown) — the user is warned if you try.
+- The user approves commands; if one is not allowed, ask what they'd prefer instead."""
+
+def _fn(name, desc, props=None, required=None):
+    return {"type": "function", "function": {"name": name, "description": desc,
+            "parameters": {"type": "object", "properties": props or {}, **({"required": required} if required else {})}}}
+
+_T_LIST = _fn("list_files", "List the files in the project (with sizes). Optional sub-folder.",
+              {"path": {"type": "string", "description": "sub-folder to list (optional)"}})
+_T_READ = _fn("read_file", "Read a text file (with line numbers). Optionally only some lines.",
+              {"path": {"type": "string"}, "start_line": {"type": "integer"}, "end_line": {"type": "integer"}}, ["path"])
+_T_SEARCH = _fn("search_files", "Find text in all files (case-insensitive; a /regex/ also works). Returns matching lines with file:line.",
+                {"query": {"type": "string"}, "path": {"type": "string", "description": "only in this sub-folder (optional)"}}, ["query"])
+_T_WRITE = _fn("write_file", "Create a file or replace its whole content.",
+               {"path": {"type": "string", "description": "e.g. index.html or src/game.js"},
+                "content": {"type": "string", "description": "the COMPLETE file"}}, ["path", "content"])
+_T_EDIT = _fn("edit_file", "Replace exact text in a file. old_text must match exactly (including spaces/indentation) and be unique unless replace_all is true.",
+              {"path": {"type": "string"}, "old_text": {"type": "string"}, "new_text": {"type": "string"}, "replace_all": {"type": "boolean"}},
+              ["path", "old_text", "new_text"])
+_T_MULTI = _fn("multi_edit", "Make several exact-text replacements in ONE file, applied in order; all succeed or none do.",
+               {"path": {"type": "string"}, "edits": {"type": "array", "items": {"type": "object", "properties": {
+                   "old_text": {"type": "string"}, "new_text": {"type": "string"}, "replace_all": {"type": "boolean"}},
+                   "required": ["old_text", "new_text"]}}}, ["path", "edits"])
+_T_DELETE = _fn("delete_file", "Delete a file.", {"path": {"type": "string"}}, ["path"])
+_T_RUN = _fn("run", "Run the project (or one entry file) and get the console output and errors back.",
+             {"path": {"type": "string", "description": "entry file, e.g. main.py, index.html or build.bat (optional)"},
+              "args": {"type": "string", "description": "command-line arguments (this-computer only)"}})
+_T_CMD = _fn("run_command", "Run a command in a Windows command prompt in the project folder and get its output (exit code included).",
+             {"command": {"type": "string"}, "cwd": {"type": "string", "description": "sub-folder to run in (optional)"},
+              "timeout": {"type": "integer", "description": "seconds before it is stopped (default 300, max 1800)"}}, ["command"])
+_T_WEB = _fn("web_search", "Search the web for current documentation, API details, versions, file formats or an error message. Returns a short answer with sources.",
+             {"query": {"type": "string", "description": "a precise search, e.g. 'minecraft bedrock manifest.json format_version 2 behavior pack'"}}, ["query"])
+_T_PLAN = _fn("update_plan", "Show or update your step-by-step plan for this task.",
+              {"steps": {"type": "array", "items": {"type": "object", "properties": {
+                  "text": {"type": "string"}, "status": {"type": "string", "enum": ["pending", "doing", "done"]}},
+                  "required": ["text", "status"]}}}, ["steps"])
+
+AGENT_TOOLS = [_T_LIST, _T_READ, _T_SEARCH, _T_WRITE, _T_EDIT, _T_MULTI, _T_DELETE, _T_RUN, _T_WEB, _T_PLAN]
+AGENT_TOOLS_LOCAL = AGENT_TOOLS + [_T_CMD]
 
 _AGENT_TASKS: dict = {}          # task id -> {"user": id, "steps": n, "t": time}
-MAX_AGENT_STEPS = int(os.getenv("CODE_AGENT_MAX_STEPS", "40"))
+MAX_AGENT_STEPS = int(os.getenv("CODE_AGENT_MAX_STEPS", "60"))
 
 
 class StepIn(BaseModel):
@@ -462,6 +502,7 @@ class StepIn(BaseModel):
     name: str = ""
     env: str = "browser"        # browser | computer
     model: str = "smart"        # smart | fast
+    local: dict = {}            # {"name", "path"} when working in a folder on the PC
 
 
 def _clean_msgs(msgs: list) -> list:
@@ -536,12 +577,23 @@ async def agent_step(req: StepIn, request: Request, db: AsyncSession = Depends(g
     msgs = _clean_msgs(req.messages)
     if not msgs or msgs[0]["role"] != "user":
         raise HTTPException(status_code=400, detail="Tell the agent what you want")
-    listing = "\n".join(f"- {str(p)[:120]} ({int(n) if str(n).isdigit() else n} lines)" for p, n in list((req.files or {}).items())[:80]) or "(no files yet — the project is empty)"
-    system = AGENT_SYSTEM.format(env=ENV_COMPUTER if req.env == "computer" else ENV_BROWSER,
-                                 name=(req.name or "Untitled project")[:80], files=listing)
+    items = list((req.files or {}).items())
+    listing = "\n".join(f"- {str(p)[:140]} ({n})" if not str(n).isdigit() else f"- {str(p)[:140]} ({int(n)} lines)" for p, n in items[:150])
+    if len(items) > 150:
+        listing += f"\n… and {len(items) - 150} more (use list_files / search_files)"
+    listing = listing or "(no files yet — the project is empty)"
+    local = req.local if isinstance(req.local, dict) and req.local.get("name") and req.env == "computer" else None
+    if local:
+        env_text = ENV_LOCAL.format(folder=str(local.get("name"))[:80], path=str(local.get("path") or "")[:240])
+    else:
+        env_text = ENV_COMPUTER if req.env == "computer" else ENV_BROWSER
+    system = AGENT_SYSTEM.replace("{env}", env_text).replace("{name}", (req.name or "Untitled project")[:80]).replace("{files}", listing)
     model = MODEL_FREE if (tier in ("guest", "free") or req.model == "fast") else MODEL
     payload = {"model": model, "messages": [{"role": "system", "content": system}] + msgs,
-               "tools": AGENT_TOOLS, "tool_choice": "auto", "max_tokens": 16000, "temperature": 0.2}
+               "tools": AGENT_TOOLS_LOCAL if local else AGENT_TOOLS, "tool_choice": "auto", "max_tokens": 16000, "temperature": 0.2}
+    if model == MODEL:
+        # The smart model thinks before acting (OpenRouter passes this on to models that support it).
+        payload["reasoning"] = {"effort": os.getenv("CODE_AGENT_EFFORT", "medium")}
 
     from ai import _get_openrouter_keys
     keys = _get_openrouter_keys()
@@ -586,3 +638,41 @@ async def agent_step(req: StepIn, request: Request, db: AsyncSession = Depends(g
     return {"task": task["id"], "left": left, "steps_left": MAX_AGENT_STEPS - task["steps"],
             "finish": choice.get("finish_reason") or "", "model": "fast" if model == MODEL_FREE else "smart",
             "message": {"role": "assistant", "content": m.get("content") or "", "tool_calls": calls}}
+
+
+class SearchIn(BaseModel):
+    task: str
+    query: str
+
+
+@router.post("/agent/search")
+async def agent_search(req: SearchIn, request: Request, db: AsyncSession = Depends(get_db)):
+    """web_search for a running task (part of the same task — no extra allowance)."""
+    user = await get_current_user_from_cookie(request, db)
+    task = _AGENT_TASKS.get(req.task or "")
+    if not task or task["user"] != user.id:
+        raise HTTPException(status_code=409, detail="This task has ended.")
+    task["searches"] = task.get("searches", 0) + 1
+    if task["searches"] > 12:
+        return {"text": "Search limit for this task reached (12). Work with what you have.", "sources": []}
+    q = (req.query or "").strip()[:300]
+    if not q:
+        raise HTTPException(status_code=400, detail="Empty search")
+    from router_ai import web_answer
+    msgs = [{"role": "system", "content": "You help a coding agent. Answer the search precisely and technically: exact API names, "
+                                          "parameters, versions, file formats and short code examples from the official documentation. "
+                                          "Say when information is uncertain or version-specific."},
+            {"role": "user", "content": q}]
+    try:
+        text, sources = await web_answer(msgs, q, 1500)
+    except Exception as e:
+        text, sources = None, []
+    if not text:
+        return {"text": "The web search didn't return anything useful. Rely on what you know, carefully.", "sources": []}
+    try:
+        import ai_meter
+        ai_meter.record("code", "web", user.id, msgs, text)
+    except Exception:
+        pass
+    src = [{"title": (x.get("title") or "")[:120], "url": x.get("url") or ""} for x in (sources or [])[:6] if isinstance(x, dict)]
+    return {"text": text[:6000], "sources": src}

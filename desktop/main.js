@@ -231,6 +231,57 @@ ipcMain.handle('zp-run', async (e, req) => {
 });
 ipcMain.handle('zp-stop', () => runner.stop());
 
+/* ── 1.6.0: Coding AGT. working in a folder on this PC (see localfs.js) ── */
+const localfs = require('./localfs');
+const trustedRoots = new Set();       // folders where commands may run without asking again (this session)
+const guard = (e) => { if (!isOurs(e.senderFrame.url)) throw new Error('Not allowed'); };
+ipcMain.handle('zp-fs-pick', async (e, opts) => {
+    guard(e);
+    const r = await dialog.showOpenDialog(win, {
+        title: 'Choose a folder for Coding AGT. to work in',
+        buttonLabel: 'Use this folder',
+        defaultPath: opts && typeof opts.defaultPath === 'string' ? opts.defaultPath : app.getPath('documents'),
+        properties: ['openDirectory', 'createDirectory'],
+    });
+    if (r.canceled || !r.filePaths[0]) return { cancelled: true };
+    return localfs.addRoot(r.filePaths[0]);
+});
+ipcMain.handle('zp-fs-list', (e, id, sub, opts) => { guard(e); return localfs.list(id, sub, opts); });
+ipcMain.handle('zp-fs-read', (e, id, rel) => { guard(e); return localfs.read(id, rel); });
+ipcMain.handle('zp-fs-write', (e, id, rel, content) => { guard(e); if (typeof content !== 'string' || content.length > 5e6) throw new Error('Too big'); return localfs.write(id, rel, content); });
+ipcMain.handle('zp-fs-delete', (e, id, rel) => { guard(e); return localfs.remove(id, rel, (abs) => shell.trashItem(abs)); });
+ipcMain.handle('zp-fs-open', async (e, id, rel, how) => {
+    guard(e);
+    const abs = localfs.resolve(id, rel || '');
+    if (how === 'show') { shell.showItemInFolder(abs); return { ok: true }; }
+    // Opening a file with its program: only documents, never programs or scripts.
+    if (/\.(exe|bat|cmd|ps1|vbs|js|jse|wsf|msi|com|scr|lnk|reg|hta|jar)$/i.test(abs)) { shell.showItemInFolder(abs); return { ok: true, shown: true }; }
+    const err = await shell.openPath(abs);
+    return { ok: !err, error: err || undefined };
+});
+ipcMain.handle('zp-fs-exec', async (e, id, command, opts) => {
+    guard(e);
+    command = String(command || '').trim();
+    if (!command || command.length > 4000) throw new Error('Bad command');
+    const r0 = localfs.root(id);
+    const risky = localfs.dangerous(command);
+    if (risky || !trustedRoots.has(id)) {
+        const r = await dialog.showMessageBox(win, {
+            type: risky ? 'warning' : 'question',
+            buttons: risky ? ['Run it', 'Cancel'] : ['Run', 'Cancel'], defaultId: risky ? 1 : 0, cancelId: 1,
+            title: risky ? 'This command could delete or change things' : 'Let Coding AGT. run a command?',
+            message: command.length > 400 ? command.slice(0, 400) + '…' : command,
+            detail: `In the folder: ${r0.real}${risky ? '\n\nThis looks like it could delete files or change system settings. Only run it if you are sure.' : '\n\nOnly allow commands you understand or trust.'}`,
+            checkboxLabel: risky ? undefined : 'Don\'t ask again for this folder (until the app closes)', checkboxChecked: false,
+        });
+        if (r.response !== 0) return { cancelled: true };
+        if (!risky && r.checkboxChecked) trustedRoots.add(id);
+    }
+    return localfs.exec(id, command, opts, (chunk) => { if (!e.sender.isDestroyed()) e.sender.send('zp-run-output', chunk); });
+});
+ipcMain.handle('zp-fs-stop', (e) => { guard(e); return localfs.stop(); });
+ipcMain.handle('zp-fs-command-for', (e, rel) => { guard(e); return localfs.commandFor(String(rel || '')); });
+
 app.whenReady().then(async () => {
     Menu.setApplicationMenu(null);
     // Start every launch with fresh pages, scripts and styles from the website

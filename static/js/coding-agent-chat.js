@@ -39,6 +39,8 @@
         dl: sv('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/>'),
         home: sv('<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5M21 12H9"/>'),
         menu: sv('<path d="M4 6h16M4 12h16M4 18h16"/>'),
+        term: sv('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M12 15h5"/>'),
+        folder: sv('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'),
         attach: sv('<path d="M21 11l-9 9a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/>'),
     };
     const IS_APP = !!(window.zelpophaiDesktop && window.zelpophaiDesktop.run);
@@ -117,6 +119,7 @@
                   <button type="button" class="cx-ib" id="cx-attach" title="Add files to the project">${I.plus}</button>
                   <button type="button" class="cx-chip" id="cx-env" title="Where code runs"></button>
                   <button type="button" class="cx-chip" id="cx-mode" title="Ask before changing files, or let the agent work"></button>
+                  <button type="button" class="cx-chip folder" id="cx-folder" title="Work on a folder on your PC" hidden></button>
                   <span class="cx-flex"></span>
                   <button type="button" class="cx-chip quiet" id="cx-model" title="Which AI model"></button>
                   <button type="button" class="cx-ib" id="cx-mic" title="Speak">${I.mic}</button>
@@ -187,7 +190,28 @@
         $('cx-model').innerHTML = `<b>${P.model === 'fast' ? 'Fast' : 'Smart'}</b>` + I.chev;
         $('cx-env-card').innerHTML = e[1] + `<span>${e[0]}</span>` + I.chev;
         $('cx-env-sub').textContent = e[2] + (IS_APP || P.env === 'computer' ? '' : ' Get the Windows app to run code on your own PC.');
+        // 26.6: a folder on the PC (Windows app 1.6+)
+        const f = $('cx-folder');
+        f.hidden = !(IS_APP && P.env === 'computer');
+        if (isLocal()) f.innerHTML = I.folder + `<span>${esc(X.local.name)}</span><i class="cx-fx" title="Close folder">×</i>`;
+        else f.innerHTML = I.folder + '<span>Open a folder</span>';
+        f.classList.toggle('on', isLocal());
+        $('cx').classList.toggle('local', isLocal());
+        if (isLocal()) $('cx-env-sub').textContent = 'Working directly in ' + X.local.path + ' — the agent can read, change and run files there (it asks first).';
     }
+    async function pickFolder(defaultPath) {
+        if (!LFS()) { toast('Update the Zelpophai Windows app (Settings → About → Check for updates) to work with folders on your PC', 'error'); return; }
+        if (X.busy) { toast('Wait for the agent to finish, or press Stop', 'error'); return; }
+        try {
+            const r = await LFS().pick(defaultPath ? { defaultPath } : {});
+            if (!r || r.cancelled) return;
+            X.local = r; P.env = 'computer'; savePrefs();
+            try { await B.list(''); } catch (e) {}
+            paintChips(); paintFiles(); paintThread();
+            toast('Coding AGT. can now work in ' + r.name);
+        } catch (e) { toast(ipcMsg(e), 'error'); }
+    }
+    function closeFolder() { X.local = null; X.localList = null; paintChips(); paintFiles(); paintThread(); }
     function openMenu(anchor, opts, onPick) {
         const m = $('cx-menu');
         m.innerHTML = opts.map(o => `<button data-v="${o.v}" class="${o.on ? 'on' : ''}" ${o.off ? 'disabled' : ''}>${o.icon || ''}<span><b>${esc(o.t)}</b><small>${esc(o.d || '')}</small></span>${o.on ? I.check : ''}</button>`).join('');
@@ -269,13 +293,21 @@
         saveChatSoon();
         return el;
     }
-    const TOOL_LABEL = { list_files: 'Looked at the files', read_file: 'Read', search_files: 'Searched for', write_file: 'Wrote', edit_file: 'Edited', delete_file: 'Deleted', run: 'Ran', update_plan: 'Plan' };
-    const TOOL_ICON = { list_files: I.list, read_file: I.eye, search_files: I.search, write_file: I.file, edit_file: I.pen, delete_file: I.trash, run: I.play };
+    const TOOL_LABEL = { list_files: 'Looked at the files', read_file: 'Read', search_files: 'Searched for', write_file: 'Wrote', edit_file: 'Edited', multi_edit: 'Edited', delete_file: 'Deleted', run: 'Ran', run_command: 'Ran', web_search: 'Searched the web', update_plan: 'Plan' };
+    const TOOL_ICON = { list_files: I.list, read_file: I.eye, search_files: I.search, write_file: I.file, edit_file: I.pen, multi_edit: I.pen, delete_file: I.trash, run: I.play, run_command: I.term, web_search: I.globe };
     function itemEl(it) {
         const d = document.createElement('div');
         if (it.t === 'user') { d.className = 'cx-u'; d.innerHTML = `<div class="cx-u-b"></div>`; d.firstChild.textContent = it.text; return d; }
         if (it.t === 'ai') { d.className = 'cx-a'; md(d, it.text); return d; }
         if (it.t === 'note') { d.className = 'cx-n'; d.textContent = it.text; return d; }
+        if (it.t === 'folder') {
+            d.className = 'cx-fold';
+            const live = X.local && X.local.path === it.path;
+            d.innerHTML = `${I.folder}<span>Working in <b>${esc(it.name)}</b> <small>${esc(it.path)}</small></span>`;
+            if (!live && LFS()) { const b = document.createElement('button'); b.className = 'cx-btn'; b.textContent = 'Reconnect folder'; b.onclick = () => pickFolder(it.path); d.appendChild(b); }
+            else if (!LFS()) { const sm = document.createElement('small'); sm.textContent = '(open the Windows app to keep working there)'; d.appendChild(sm); }
+            return d;
+        }
         if (it.t === 'error') {
             d.className = 'cx-err'; d.innerHTML = `<span>${esc(it.text)}</span>`;
             if (it.retry) { const b = document.createElement('button'); b.className = 'cx-btn'; b.textContent = 'Retry'; b.onclick = () => { d.remove(); X.items = X.items.filter(x => x !== it); loop(); }; d.appendChild(b); }
@@ -303,7 +335,7 @@
                 });
                 d.appendChild(box);
             }
-            if (it.path && (it.name === 'write_file' || it.name === 'edit_file') && it.status !== 'denied' && it.status !== 'err') {
+            if (it.path && !it.local && (it.name === 'write_file' || it.name === 'edit_file') && it.status !== 'denied' && it.status !== 'err') {
                 const dl = document.createElement('button'); dl.className = 'cx-ib sm cx-tool-dl'; dl.title = 'Download ' + it.path.split('/').pop(); dl.innerHTML = I.dl;
                 dl.onclick = (e) => { e.stopPropagation(); downloadFile(it.path); };
                 d.querySelector('.cx-tool-h').insertBefore(dl, d.querySelector('.cx-tool-h > svg:last-child') || null);
@@ -315,7 +347,12 @@
             }
             if (it.path && (it.name === 'write_file' || it.name === 'edit_file' || it.name === 'read_file')) {
                 const p = d.querySelector('.cx-tool-p'); p.classList.add('link'); p.title = 'Open in the code editor';
-                p.onclick = (e) => { e.stopPropagation(); if (it.path in S.project.files) { showChat(false); CA.openFile(it.path); } };
+                p.onclick = (e) => {
+                    e.stopPropagation();
+                    if (it.local) { if (isLocal()) LFS().open(X.local.id, it.path).catch(() => {}); return; }
+                    if (it.path in S.project.files) { showChat(false); CA.openFile(it.path); }
+                };
+                if (it.local) p.title = 'Open with its program on your PC';
             }
             return d;
         }
@@ -398,31 +435,112 @@
     }
 
     /* ───────────── tools ───────────── */
+    // Two places the agent can work: the project kept in Zelpophai (S.project.files), or — in the
+    // Windows app 1.6+ — a real folder on the PC that the person picked (X.local).
     const files = () => S.project.files;
+    const LFS = () => (window.zelpophaiDesktop && window.zelpophaiDesktop.fs) || null;
+    const isLocal = () => !!(X.local && X.local.id && LFS());
     const cleanPath = (p) => String(p || '').trim().replace(/\\/g, '/').replace(/^\.?\/+/, '');
-    const okPath = (p) => /^[\w\-. ()]+(\/[\w\-. ()]+)*$/.test(p) && !p.includes('..') && p.length <= 120;
+    const okPath = (p) => /^[\w\-. ()\[\]&+,@'!~#$%=]+(\/[\w\-. ()\[\]&+,@'!~#$%=]+)*$/.test(p) && !p.split('/').includes('..') && p.length <= 240;
+    const ipcMsg = (e) => String((e && e.message) || e).replace(/^Error invoking remote method '[^']+': (Error: )?/, '');
+    const kb = (n) => n > 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round((n || 0) / 1024)) + ' KB';
+    const TEXTY = /\.(txt|md|py|pyw|js|mjs|cjs|ts|tsx|jsx|json|html?|css|scss|less|xml|ya?ml|toml|ini|cfg|conf|bat|cmd|ps1|sh|java|kt|cs|cpp|cc|c|h|hpp|go|rs|rb|php|lua|sql|csv|env|gitignore|mcmeta|mcfunction|lang|properties|gradle|vue|svelte|dart|swift|r|m|pl|vb|vbs|rst|tex|svg)$/i;
+    const B = {
+        async list(sub) {
+            if (isLocal()) {
+                const r = await LFS().list(X.local.id, sub || '', { max: 2000 });
+                X.localList = r.files;
+                return r;
+            }
+            const F = files(), pre = sub ? cleanPath(sub).replace(/\/?$/, '/') : '';
+            return { files: Object.keys(F).sort().filter(p => !pre || p.startsWith(pre)).map(p => ({ path: p, lines: F[p].split('\n').length })) };
+        },
+        // the text of a file, or null if it doesn't exist (throws for binary / too big)
+        async read(p) {
+            if (isLocal()) {
+                let r;
+                try { r = await LFS().read(X.local.id, p); } catch (e) { if (/ENOENT|doesn't exist|no such file/i.test(ipcMsg(e))) return null; throw new Error(ipcMsg(e)); }
+                if (r.binary) throw new Error(`${p} is not a text file (${kb(r.size)}) — it can't be read or edited as text`);
+                if (r.tooBig) throw new Error(`${p} is too big to read (${kb(r.size)})`);
+                return r.text;
+            }
+            return p in files() ? files()[p] : null;
+        },
+        async write(p, text) { if (isLocal()) { await LFS().write(X.local.id, p, text); return; } CA.writeFile(p, text); },
+        async remove(p) { if (isLocal()) { await LFS().remove(X.local.id, p); return; } CA.removeFile(p); },
+    };
+    function applyEdits(old, edits, p) {
+        let cur = old;
+        for (const [i, ed] of edits.entries()) {
+            const o = String(ed.old_text == null ? '' : ed.old_text), n = String(ed.new_text == null ? '' : ed.new_text);
+            const tag = edits.length > 1 ? ` (edit ${i + 1})` : '';
+            if (!o) throw new Error('old_text is empty' + tag);
+            const count = cur.split(o).length - 1;
+            if (!count) {
+                // forgive line-ending differences (Windows files use \r\n)
+                if (cur.includes('\r\n') && cur.split(o.replace(/\r?\n/g, '\r\n')).length > 1) { cur = cur.split(o.replace(/\r?\n/g, '\r\n')).join(n.replace(/\r?\n/g, '\r\n')); continue; }
+                throw new Error(`old_text wasn't found in ${p}${tag}. Read the file again and copy the text exactly.`);
+            }
+            if (count > 1 && !ed.replace_all) throw new Error(`old_text appears ${count} times in ${p}${tag}. Include more surrounding lines so it's unique, or set replace_all.`);
+            cur = ed.replace_all ? cur.split(o).join(n) : cur.replace(o, () => n);
+        }
+        return cur;
+    }
+    // Run a command in the open folder, showing its output live in the Output panel.
+    async function execLocal(command, opts, label) {
+        const out = [];
+        const box = $('cx-out'); box.textContent = '$ ' + command + '\n'; panel('output');
+        // colour codes (\x1b[31m…) would show as junk
+        const off = window.zelpophaiDesktop.onOutput((c) => { const t = String(c.text || '').replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, ''); out.push(t); box.textContent += t; box.scrollTop = box.scrollHeight; });
+        let r;
+        try { r = await LFS().exec(X.local.id, command, opts || {}); }
+        catch (e) { r = { ok: false, error: ipcMsg(e) }; }
+        finally { off(); }
+        if (r.cancelled) { push({ t: 'tool', name: 'run_command', label, status: 'denied', local: true }); return { denied: true }; }
+        let text = out.join('');
+        if (text.length > 9000) text = text.slice(0, 2500) + '\n… (middle cut) …\n' + text.slice(-6000);
+        const code = r.error && r.code == null ? r.error : 'exit code ' + r.code + (r.seconds != null ? ` · ${r.seconds}s` : '');
+        return { ok: !!r.ok, text, code };
+    }
     async function runTool(name, a) {
         a = a || {};
-        const F = files();
+        const local = isLocal();
         if (name === 'list_files') {
-            const list = Object.keys(F).sort();
-            push({ t: 'tool', name, label: list.length + ' file' + (list.length === 1 ? '' : 's') });
-            return list.length ? list.map(p => `${p} (${F[p].split('\n').length} lines)`).join('\n') : 'The project is empty.';
+            const r = await B.list(a.path ? cleanPath(a.path) : '');
+            const fl = r.files.filter(f => !f.dir);
+            push({ t: 'tool', name, label: (a.path ? cleanPath(a.path) + ' · ' : '') + fl.length + ' file' + (fl.length === 1 ? '' : 's'), local });
+            if (!r.files.length) return 'The folder is empty.';
+            return r.files.map(f => f.dir ? `${f.path} (${f.skipped ? 'skipped — big tool folder' : 'not listed — list it to see inside'})` : f.lines != null ? `${f.path} (${f.lines} lines)` : `${f.path} (${kb(f.size)})`).join('\n') + (r.truncated ? '\n… (more files — list a sub-folder)' : '');
         }
         if (name === 'read_file') {
             const p = cleanPath(a.path);
-            if (!(p in F)) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: there's no file called ${p}. Files: ${Object.keys(F).join(', ') || 'none'}`; }
-            const lines = F[p].split('\n');
+            let text;
+            try { text = await B.read(p); } catch (e) { push({ t: 'tool', name, label: p, status: 'err', local }); return 'Error: ' + e.message; }
+            if (text == null) { push({ t: 'tool', name, label: p, status: 'err', local }); return `Error: there's no file called ${p}. Use list_files to see what exists.`; }
+            const lines = text.split(/\r?\n/);
             const s = Math.max(1, +a.start_line || 1), e = Math.min(lines.length, +a.end_line || lines.length, s + 1999);
-            push({ t: 'tool', name, label: p + (a.start_line || a.end_line ? ` (lines ${s}–${e})` : ''), path: p });
+            push({ t: 'tool', name, label: p + (a.start_line || a.end_line ? ` (lines ${s}–${e})` : ''), path: p, local });
             let txt = lines.slice(s - 1, e).map((l, i) => `${String(s + i).padStart(4)}  ${l}`).join('\n');
             if (txt.length > 60000) txt = txt.slice(0, 60000) + '\n… (cut — read fewer lines)';
             return txt + (e < lines.length ? `\n(${lines.length - e} more lines — read with start_line=${e + 1})` : '');
         }
         if (name === 'search_files') {
-            const q = String(a.query || '').toLowerCase(); const hits = [];
-            if (q) Object.keys(F).forEach(p => F[p].split('\n').forEach((l, i) => { if (hits.length < 120 && l.toLowerCase().includes(q)) hits.push(`${p}:${i + 1}: ${l.trim().slice(0, 200)}`); }));
-            push({ t: 'tool', name, label: `"${a.query || ''}" · ${hits.length} found` });
+            const raw = String(a.query || ''); const hits = [];
+            let test;
+            const rx = /^\/(.+)\/([gimsuy]*)$/.exec(raw);
+            try { test = rx ? ((re) => (l) => re.test(l))(new RegExp(rx[1], rx[2].replace('g', '') || 'i')) : ((q) => (l) => l.toLowerCase().includes(q))(raw.toLowerCase()); }
+            catch (e) { return 'Error: that regular expression is not valid.'; }
+            if (raw) {
+                const r = await B.list(a.path ? cleanPath(a.path) : '');
+                const cands = r.files.filter(f => !f.dir && (f.lines != null || (TEXTY.test(f.path) && (f.size || 0) < 600000))).slice(0, 500);
+                for (const f of cands) {
+                    if (hits.length >= 150) break;
+                    let t; try { t = await B.read(f.path); } catch (e) { continue; }
+                    if (t == null) continue;
+                    t.split(/\r?\n/).forEach((l, i) => { if (hits.length < 150 && test(l)) hits.push(`${f.path}:${i + 1}: ${l.trim().slice(0, 220)}`); });
+                }
+            }
+            push({ t: 'tool', name, label: `"${raw}" · ${hits.length} found`, local });
             return hits.join('\n') || 'No matches.';
         }
         if (name === 'update_plan') {
@@ -431,48 +549,92 @@
             else push({ t: 'plan', steps, task: X.task });
             return 'Plan updated.';
         }
-        if (name === 'write_file' || name === 'edit_file') {
+        if (name === 'web_search') {
+            const q = String(a.query || '').trim();
+            working(true, 'Searching the web');
+            let d;
+            try { d = await api('/api/code/agent/search', { method: 'POST', body: JSON.stringify({ task: X.task, query: q }) }); }
+            catch (e) { push({ t: 'tool', name, label: q, status: 'err' }); return 'Error: ' + (e.message || 'search failed'); }
+            const src = (d.sources || []).map((s, i) => `[${i + 1}] ${s.title || s.url} — ${s.url}`).join('\n');
+            push({ t: 'tool', name, label: q, detail: d.text + (src ? '\n\nSources:\n' + src : '') });
+            return d.text + (src ? '\n\nSources:\n' + src : '');
+        }
+        if (name === 'write_file' || name === 'edit_file' || name === 'multi_edit') {
             const p = cleanPath(a.path);
-            if (!okPath(p)) { push({ t: 'tool', name, label: p || '(no name)', status: 'err' }); return 'Error: use a short file name with letters, numbers, dots, dashes and / for folders.'; }
-            const old = p in F ? F[p] : null;
+            if (!okPath(p)) { push({ t: 'tool', name, label: p || '(no name)', status: 'err', local }); return 'Error: use a relative file name with letters, numbers, dots, dashes and / for folders.'; }
+            let old;
+            try { old = await B.read(p); } catch (e) { push({ t: 'tool', name, label: p, status: 'err', local }); return 'Error: ' + e.message; }
             let next;
             if (name === 'write_file') next = String(a.content == null ? '' : a.content);
             else {
-                if (old == null) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: ${p} doesn't exist. Use write_file to create it.`; }
-                const o = String(a.old_text == null ? '' : a.old_text), n = String(a.new_text == null ? '' : a.new_text);
-                if (!o) { push({ t: 'tool', name, label: p, status: 'err' }); return 'Error: old_text is empty.'; }
-                const count = old.split(o).length - 1;
-                if (!count) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: old_text wasn't found in ${p}. Read the file again and copy the text exactly.`; }
-                if (count > 1 && !a.replace_all) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: old_text appears ${count} times in ${p}. Include more surrounding lines so it's unique, or set replace_all.`; }
-                next = a.replace_all ? old.split(o).join(n) : old.replace(o, () => n);
+                if (old == null) { push({ t: 'tool', name, label: p, status: 'err', local }); return `Error: ${p} doesn't exist. Use write_file to create it.`; }
+                const edits = name === 'multi_edit' ? (Array.isArray(a.edits) ? a.edits : []) : [a];
+                if (!edits.length) { push({ t: 'tool', name, label: p, status: 'err', local }); return 'Error: no edits given.'; }
+                try { next = applyEdits(old, edits, p); } catch (e) { push({ t: 'tool', name, label: p, status: 'err', local }); return 'Error: ' + e.message; }
             }
-            if (next && !next.endsWith('\n')) next += '\n';
-            const dh = diffHtml(old, next);
-            const it = { t: 'tool', name, label: p, path: p, add: dh.add, del: dh.del, detail: dh.html, diff: true, ask: (old == null ? 'Create ' : 'Edit ') + p };
+            if (next && !next.endsWith('\n')) next += old && old.includes('\r\n') ? '\r\n' : '\n';
+            if (old === next) return `No change: ${p} already has that content.`;
+            const dh = diffHtml(old == null ? null : old.replace(/\r\n/g, '\n'), next.replace(/\r\n/g, '\n'));
+            const it = { t: 'tool', name: name === 'multi_edit' ? 'edit_file' : name, label: p, path: p, add: dh.add, del: dh.del, detail: dh.html, diff: true, local, ask: (old == null ? 'Create ' : 'Edit ') + p + (local ? ' on your PC' : '') };
             if (!(await approve(it, dh.html))) { push({ ...it, status: 'denied', detail: '' }); return 'The user did not allow this change. Ask what they would like instead, or try a different approach.'; }
-            CA.writeFile(p, next);
+            try { await B.write(p, next); } catch (e) { push({ ...it, status: 'err', detail: '' }); return 'Error: couldn\'t save it — ' + ipcMsg(e); }
             delete it.ask; push(it); paintFiles(); paintTitle();
             return `${old == null ? 'Created' : 'Updated'} ${p} (${next.split('\n').length} lines).`;
         }
         if (name === 'delete_file') {
             const p = cleanPath(a.path);
-            if (!(p in F)) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: ${p} doesn't exist.`; }
-            const it = { t: 'tool', name, label: p, ask: 'Delete ' + p };
+            let old; try { old = await B.read(p); } catch (e) { old = ''; }
+            if (old == null) { push({ t: 'tool', name, label: p, status: 'err', local }); return `Error: ${p} doesn't exist.`; }
+            const it = { t: 'tool', name, label: p, local, ask: 'Delete ' + p + (local ? ' (it goes to the Recycle Bin)' : '') };
             if (!(await approve(it, ''))) { push({ ...it, status: 'denied' }); return 'The user did not allow deleting this file.'; }
-            CA.removeFile(p); delete it.ask; push(it); paintFiles();
-            return 'Deleted ' + p + '.';
+            try { await B.remove(p); } catch (e) { push({ ...it, status: 'err' }); return 'Error: ' + ipcMsg(e); }
+            delete it.ask; push(it); paintFiles();
+            return 'Deleted ' + p + (local ? ' (moved to the Recycle Bin).' : '.');
+        }
+        if (name === 'run_command') {
+            if (!local) { push({ t: 'tool', name, label: '', status: 'err' }); return 'Error: run_command only works when a folder on the PC is open.'; }
+            const cmd = String(a.command || '').trim();
+            if (!cmd) return 'Error: no command given.';
+            if (!(await approve({ name: 'run', ask: 'Run this command in ' + X.local.name + ':' }, esc(cmd)))) { push({ t: 'tool', name, label: cmd, status: 'denied', local }); return 'The user did not allow this command.'; }
+            working(true, 'Running ' + cmd.slice(0, 60));
+            const r = await execLocal(cmd, { cwd: a.cwd ? cleanPath(a.cwd) : '', timeout: a.timeout }, cmd);
+            if (r.denied) return 'The user did not allow this command (it was cancelled in the Windows prompt). Ask what they would prefer.';
+            push({ t: 'tool', name, label: cmd, status: r.ok ? '' : 'err', detail: (r.text || '(no output)') + '\n— ' + r.code, open: !r.ok, local });
+            paintFiles();
+            return `${r.code}\nOutput:\n${r.text || '(no output)'}`;
         }
         if (name === 'run') {
             const p = a.path ? cleanPath(a.path) : '';
+            if (local) {
+                if (!p) return 'Error: say which file to run (path), or use run_command.';
+                let exists; try { exists = await B.read(p); } catch (e) { exists = ''; }
+                if (exists == null) { push({ t: 'tool', name, label: p, status: 'err', local }); return `Error: ${p} doesn't exist.`; }
+                if (/\.html?$/i.test(p)) {
+                    await LFS().open(X.local.id, p);
+                    push({ t: 'tool', name, label: p + ' in your browser', local });
+                    return 'Opened it in the user\'s web browser. You can\'t see its console from here — ask the user what they see if needed.';
+                }
+                const base = await LFS().commandFor(p);
+                if (!base) { push({ t: 'tool', name, label: p, status: 'err', local }); return `Error: I don't know how to run ${p}. Use run_command with the right command.`; }
+                const cmd = base + (a.args ? ' ' + String(a.args) : '');
+                if (!(await approve({ name, ask: 'Run ' + p + ' on your PC:' }, esc(cmd)))) { push({ t: 'tool', name, label: p, status: 'denied', local }); return 'The user did not allow running it.'; }
+                working(true, 'Running ' + p);
+                const r = await execLocal(cmd, {}, p);
+                if (r.denied) return 'The user did not allow running it.';
+                push({ t: 'tool', name, label: p + ' on your PC', status: r.ok ? '' : 'err', detail: (r.text || '(no output)') + '\n— ' + r.code, open: !r.ok, local });
+                paintFiles();
+                return `${r.code}\nOutput:\n${r.text || '(no output)'}`;
+            }
+            const F = files();
             if (p && !(p in F)) { push({ t: 'tool', name, label: p, status: 'err' }); return `Error: ${p} doesn't exist.`; }
             const kind = CA.kindFor(p || null);
-            const local = P.env === 'computer' && IS_APP && kind !== 'web';
-            const label = (p || 'the project') + (local ? ' on this computer' : kind === 'web' ? ' in the Preview' : '');
-            if (local && !(await approve({ name, ask: 'Run ' + (p || 'the project') + ' on this computer' }, ''))) { push({ t: 'tool', name, label, status: 'denied' }); return 'The user did not allow running it on their computer.'; }
+            const onPc = P.env === 'computer' && IS_APP && kind !== 'web';
+            const label = (p || 'the project') + (onPc ? ' on this computer' : kind === 'web' ? ' in the Preview' : '');
+            if (onPc && !(await approve({ name, ask: 'Run ' + (p || 'the project') + ' on this computer' }, ''))) { push({ t: 'tool', name, label, status: 'denied' }); return 'The user did not allow running it on their computer.'; }
             working(true, 'Running ' + (p || 'the project'));
             if (kind === 'web') { panel('preview'); $('cx-pempty').hidden = true; }
             const seen = new Set((S.made || []).map(x => x.url));
-            const r = await CA.runCapture(p || null, { frame: $('cx-frame'), local });
+            const r = await CA.runCapture(p || null, { frame: $('cx-frame'), local: onPc });
             const out = String(r.output || '').slice(-8000);
             $('cx-out').textContent = out;
             const made = (S.made || []).filter(x => !seen.has(x.url)).map(x => ({ path: x.path, size: x.size, url: x.url }));
@@ -493,7 +655,11 @@
         b.setAttribute('aria-label', on ? 'Stop' : 'Send');
         if (!on) working(false);
     }
-    function fileSizes() { const o = {}; Object.keys(files()).forEach(p => { o[p] = files()[p].split('\n').length; }); return o; }
+    function fileSizes() {
+        const o = {};
+        if (isLocal()) { (X.localList || []).forEach(f => { o[f.path] = f.dir ? (f.skipped ? 'folder, skipped' : 'folder') : kb(f.size); }); return o; }
+        Object.keys(files()).forEach(p => { o[p] = files()[p].split('\n').length; }); return o;
+    }
     async function send(text) {
         text = (text || '').trim();
         if (!text) return;
@@ -503,6 +669,11 @@
         if (!X.items.length && (S.project.name === 'New task' || S.project.name === 'Untitled project' || !S.project.name)) {
             S.project.name = text.replace(/\s+/g, ' ').replace(/^(please|can you|could you|can u|make me|build me|create)\s+/i, '').slice(0, 48).replace(/^./, c => c.toUpperCase());
             const nm = $('ca-name'); if (nm) nm.value = S.project.name; paintTitle();
+        }
+        if (isLocal()) {
+            const lastF = [...X.items].reverse().find(x => x.t === 'folder');
+            if (!lastF || lastF.path !== X.local.path) push({ t: 'folder', name: X.local.name, path: X.local.path });
+            try { await B.list(''); } catch (e) {}
         }
         push({ t: 'user', text });
         X.llm.push({ role: 'user', content: text });
@@ -522,7 +693,7 @@
                 try {
                     const res = await fetch('/api/code/agent/step', {
                         method: 'POST', credentials: 'same-origin', signal: X.ctrl.signal, headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ task: X.task, messages: X.llm, files: fileSizes(), name: S.project.name, env: P.env, model: P.model }),
+                        body: JSON.stringify({ task: X.task, messages: X.llm, files: fileSizes(), name: S.project.name, env: isLocal() ? 'computer' : P.env, model: P.model, local: isLocal() ? { name: X.local.name, path: X.local.path } : {} }),
                     });
                     d = await res.json().catch(() => ({}));
                     if (!res.ok) {
@@ -580,6 +751,7 @@
         if (X.ctrl) try { X.ctrl.abort(); } catch (e) {}
         if (X.waitDeny) X.waitDeny();
         CA.stop();
+        if (isLocal()) LFS().stop().catch(() => {});
     }
 
     /* ───────────── downloads (26.5.1) ───────────── */
@@ -625,8 +797,15 @@
     document.addEventListener('ca:made', paintMade);
 
     /* ───────────── side bits ───────────── */
+    async function paintLocalFiles(ul) {
+        let r; try { r = await LFS().list(X.local.id, '', { max: 800 }); X.localList = r.files; } catch (e) { ul.innerHTML = `<li class="cx-muted">${esc(ipcMsg(e))}</li>`; return; }
+        ul.innerHTML = `<li class="cx-files-top"><span class="cx-fold-n">${I.folder}<b>${esc(X.local.name)}</b></span><button class="cx-btn" data-lf="show">Show in File Explorer</button><button class="cx-btn" data-lf="change">Change folder</button><button class="cx-btn" data-lf="close">Close</button></li>` +
+            (r.files.filter(f => !f.dir).map(f => `<li data-lp="${esc(f.path)}">${I.file}<span>${esc(f.path)}</span><small>${kb(f.size)}</small><button class="cx-ib sm" data-lopen="${esc(f.path)}" title="Open with its program">${I.eye}</button></li>`).join('')
+             || '<li class="cx-muted">This folder is empty — files appear here as the agent writes them.</li>') + (r.truncated ? '<li class="cx-muted">…and more files</li>' : '');
+    }
     function paintFiles() {
         const ul = $('cx-files'); if (!ul || !S.project) return;
+        if (isLocal()) { paintLocalFiles(ul); return; }
         const list = Object.keys(S.project.files).sort();
         const head = list.length ? `<li class="cx-files-top"><button class="cx-btn" data-all="zip">${I.dl}Download all (.zip)</button>${htmlFiles().length ? `<button class="cx-btn" data-all="one">${I.globe}Website as one file</button>` : ''}</li>` : '';
         ul.innerHTML = head + list.map(p => {
@@ -725,6 +904,18 @@
         $('cx-panel-b').onclick = () => ($('cx-panel').hidden ? panel('preview') : panel(false));
         $('cx-panel-x').onclick = () => panel(false);
         $('cx-panel').querySelector('.cx-ptabs').onclick = (e) => { const b = e.target.closest('[data-p]'); if (b) panel(b.dataset.p); };
+        $('cx-folder').onclick = (e) => {
+            if (e.target.closest('.cx-fx')) { closeFolder(); return; }
+            if (isLocal()) { panel('files'); return; }
+            pickFolder();
+        };
+        $('cx-files').addEventListener('click', (e) => {
+            if (!isLocal()) return;
+            const lf = e.target.closest('[data-lf]');
+            if (lf) { e.stopImmediatePropagation(); if (lf.dataset.lf === 'show') LFS().open(X.local.id, '', 'show'); else if (lf.dataset.lf === 'change') pickFolder(X.local.path); else closeFolder(); return; }
+            const lo = e.target.closest('[data-lopen]') || e.target.closest('[data-lp]');
+            if (lo) { e.stopImmediatePropagation(); LFS().open(X.local.id, lo.dataset.lopen || lo.dataset.lp, lo.dataset.lopen ? '' : 'show').catch((er) => toast(ipcMsg(er), 'error')); }
+        }, true);
         $('cx-files').onclick = (e) => {
             const d = e.target.closest('[data-dl]'); if (d) { downloadFile(d.dataset.dl); return; }
             const o = e.target.closest('[data-one]'); if (o) { downloadOne(o.dataset.one); return; }

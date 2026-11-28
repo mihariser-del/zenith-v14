@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.6 — Smarter Coding AGT., and your PC's folders (Windows app 1.6.0)
+
+- `codeagent.py`: new `AGENT_SYSTEM` working method; tools rebuilt with `_fn()`; added `multi_edit`, `web_search`, `run_command` (only with a local folder, `AGENT_TOOLS_LOCAL`); `ENV_LOCAL` rules for real-PC work; `reasoning.effort` for the smart model; `CODE_AGENT_MAX_STEPS` default 60; `POST /api/code/agent/search` uses `router_ai.web_answer`.
+- `coding-agent-chat.js`: tool layer `B` works on the Zelpophai project or a PC folder (`window.zelpophaiDesktop.fs`); `applyEdits()` (multi-edit, forgives CRLF); `execLocal()` streams output (colour codes stripped); folder chip / pick / reconnect; Files panel for folders (open, show in Explorer, change, close); tasks remember their folder.
+- Desktop 1.6.0: `localfs.js` + IPC `zp-fs-*` in `main.js` and `zelpophaiDesktop.fs` in `preload.js`.
+
 ## 26.5.5
 
 - `google_auth.py`: the app sign-in page sent `Referrer-Policy: no-referrer`; Google's button checks the requesting origin and refused ("origin is not allowed"). Now `strict-origin` (origin only, never the code in the address).

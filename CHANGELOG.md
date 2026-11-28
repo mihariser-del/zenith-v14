@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.7.1 — Owner soundtrack for Cosmic Ascension
+
+- Plays `static/audio/cosmic-ascension.mp3`, aligned to the shot timeline; falls back to the Web Audio score.
+
 ## 26.7 — Cosmic Ascension (Vault entrance)
 
 - Three.js/WebGL cinematic with bloom, adaptive quality, reduced-motion and no-WebGL fallbacks, mute/volume/fullscreen/skip, full resource clean-up.

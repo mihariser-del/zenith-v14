@@ -25,6 +25,7 @@ import { Score } from './cosmic-audio.js';
 const ART = '/static/img/cosmic/';
 export const T = { fade: 0.8, reveal: 0.8, accel: 3.0, hyper: 5.0, hyperPeak: 6.3, emerge: 7.4, approach: 9.6, open: 10.5, enter: 11.2, command: 12.4, welcome: 13.0, name: 13.6, handover: 15.4, end: 16.2 };
 export const ASSETS = ['nebula.jpg', 'galaxy.webp', 'planet.webp', 'station.webp', 'command.jpg', 'emblem.png'];
+export const TRACK = '/static/audio/cosmic-ascension.mp3?v=1';   // the owner's soundtrack (rights confirmed by the owner)
 
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const lerp = (a, b, k) => a + (b - a) * k;
@@ -35,7 +36,9 @@ const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&':
 
 /* ───────────────────────────── assets ───────────────────────────── */
 const imgCache = new Map();
+let trackP = null;
 export function preload() {
+    if (!trackP) trackP = fetch(TRACK, { cache: 'force-cache' }).then((r) => r.ok && r.arrayBuffer()).catch(() => null);   // warm the browser cache
     return Promise.all(ASSETS.map((f) => {
         if (imgCache.has(f)) return imgCache.get(f);
         const p = new Promise((res) => { const i = new Image(); i.decoding = 'async'; i.onload = () => res(i); i.onerror = () => res(null); i.src = ART + f; });
@@ -428,7 +431,7 @@ async function run(opts) {
     try { prevFocus && prevFocus.blur && prevFocus.blur(); } catch (e) {}
 
     // sound
-    const score = new Score({ volume: +(store('zv_cine_vol') ?? 60) / 100, muted: store('zv_cine_mute') === '1', timeline: T, reduced: reduce, track: opts.track || window.ZV_CINE_TRACK || null });
+    const score = new Score({ volume: +(store('zv_cine_vol') ?? 60) / 100, muted: store('zv_cine_mute') === '1', timeline: T, reduced: reduce, track: opts.track || window.ZV_CINE_TRACK || TRACK });
     const muteB = $('[data-mute]'), vol = $('[data-vol]'), hint = $('[data-hint]');
     vol.value = Math.round(score.volume * 100);
     const paintMute = () => { muteB.innerHTML = score.muted ? ICON.mute : ICON.snd; muteB.setAttribute('aria-label', score.muted ? 'Unmute' : 'Mute'); };

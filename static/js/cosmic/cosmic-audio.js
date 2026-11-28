@@ -7,8 +7,8 @@
  *
  * Quiet by default, with spatial "space wind" and a long reverb for depth. Muting and the
  * volume slider act on one master gain; the end fades out smoothly.
- * If a licensed track URL is supplied (opts.track), it is played instead of the music layer,
- * with the ambience kept underneath.
+ * The owner's licensed soundtrack (static/audio/cosmic-ascension.mp3) is played when available,
+ * with the ambience kept quietly underneath; the built-in score is the fallback.
  */
 const NOTE = (n) => 440 * Math.pow(2, (n - 69) / 12);   // MIDI → Hz
 const E = { E2: 40, B2: 47, C3: 48, D3: 50, E3: 52, G3: 55, A3: 57, B3: 59, C4: 60, D4: 62, E4: 64, Fs4: 66, G4: 67, A4: 69, B4: 71, D5: 74, E5: 76, Fs5: 78, G5: 79, A5: 81, B5: 83, D6: 86, E6: 88 };
@@ -49,7 +49,7 @@ export class Score {
         try {
             this._ambience(a, t0);
             if (this.reduced) { this._chord(a, t0 + 0.3, 3.0, [E.E3, E.B3, E.G4, E.B4, E.Fs5], 0.05); }
-            else if (this.track) { await this._trackLayer(a, t0).catch(() => this._music(a, t0)); }
+            else if (this.track) { this._trackLayer(a, t0).catch((e) => { console.warn('[cosmic] track unavailable, using the built-in score', e); if (!this.closed) this._music(a, t0); }); }
             else this._music(a, t0);
         } catch (e) { console.warn('[cosmic] sound', e); }
         return a.state === 'running';
@@ -108,8 +108,9 @@ export class Score {
         const bp = a.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 0.5;
         const lfo = a.createOscillator(), lg = a.createGain(); lfo.frequency.value = 0.07; lg.gain.value = 500; lfo.connect(lg); lg.connect(bp.frequency);
         const g = a.createGain(); const T = this.T;
-        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.025, t0 + 2.5);
-        g.gain.setValueAtTime(0.025, t0 + T.handover); g.gain.exponentialRampToValueAtTime(0.0001, t0 + T.end + 0.4);
+        const amb = this.track ? 0.012 : 0.025;
+        g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(amb, t0 + 2.5);
+        g.gain.setValueAtTime(amb, t0 + T.handover); g.gain.exponentialRampToValueAtTime(0.0001, t0 + T.end + 0.4);
         let node = g;
         if (a.createStereoPanner) { const p = a.createStereoPanner(), pl = a.createOscillator(), pg = a.createGain(); pl.frequency.value = 0.11; pg.gain.value = 0.7; pl.connect(pg); pg.connect(p.pan); g.connect(p); node = p; pl.start(t0); pl.stop(t0 + T.end + 0.5); }
         n.connect(bp); bp.connect(g); node.connect(this.bus);
@@ -159,11 +160,18 @@ export class Score {
         // hand-over: everything settles and fades into the dashboard
         this.master.gain.setValueAtTime(1, t0 + T.handover); this.master.gain.linearRampToValueAtTime(0.0001, t0 + T.end + 0.3);
     }
+    // The licensed soundtrack. The file is cut so that its own sudden silence lands just before we
+    // drop out of hyperspace (T.emerge), its quiet dip on the command-centre reveal and its swell on
+    // the name; file time 0 is film time -0.8 s (it starts as the screen goes dark).
     async _trackLayer(a, t0) {
-        const r = await fetch(this.track); if (!r.ok) throw new Error('no track');
+        const r = await fetch(this.track, { cache: 'force-cache' }); if (!r.ok) throw new Error('no track (' + r.status + ')');
         const buf = await a.decodeAudioData(await r.arrayBuffer());
-        const src = a.createBufferSource(); src.buffer = buf; const g = a.createGain(); g.gain.value = 0.8;
-        src.connect(g); g.connect(this.master); src.start(Math.max(a.currentTime, t0));
+        if (this.closed) return;
+        const src = a.createBufferSource(); src.buffer = buf;
+        const g = a.createGain(); g.gain.value = 0.28;
+        src.connect(g); g.connect(this.master);
+        const zero = t0 - 0.8, now = a.currentTime + 0.02;
+        src.start(Math.max(now, zero), Math.max(0, now - zero));      // stay in sync even if it arrived late
         this.master.gain.setValueAtTime(1, t0 + this.T.handover); this.master.gain.linearRampToValueAtTime(0.0001, t0 + this.T.end + 0.3);
     }
 }

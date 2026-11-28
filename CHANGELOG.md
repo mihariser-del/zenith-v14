@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.6.10 — Image-based 7-second Vault cutscene
+
+- Real door, locking wheel and vault corridor pictures in `/static/img/vault/`; cutscene lengthened to ~7 s.
+
 ## 26.6.9 — Vault unlock cutscene
 
 - New `vault-cutscene.js` plays after a correct PIN on both the sign-in page and the /vault lock screen.

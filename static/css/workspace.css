@@ -209,3 +209,22 @@ body.zcv-on .main { margin-right: min(720px, 52vw); transition: margin .25s ease
 .zpl-f { font-size: 12px; opacity: .8; }
 .zpl-f a { color: inherit; }
 @media (max-width: 600px) { .zt-manual .zt-cost { grid-template-columns: 1fr 1fr; } }
+
+/* 26.4 */
+.zw-check { display: flex; align-items: center; gap: 8px; margin: 12px 0 4px; font-size: 13.5px; }
+.msg-wrapper.zt-queued .msg-bubble { opacity: .6; }
+.msg-wrapper.zt-queued::after { content: "⏳ Waiting for internet — will send by itself"; display: block; text-align: right; font-size: 11.5px; opacity: .7; margin-top: 4px; }
+.zt-rec { display: flex; align-items: center; gap: 12px; }
+.zt-rect { color: #ef4444; font-weight: 700; font-size: 13px; }
+.zt-tx { margin: 10px 0; } .zt-tx pre { white-space: pre-wrap; max-height: 260px; overflow: auto; font-size: 12.5px; padding: 10px; border-radius: 10px; background: var(--soft); }
+.zt-lvl { padding: 14px; border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--a) 18%, transparent), transparent); border: 1px solid var(--line); margin-bottom: 14px; }
+.zt-lvn { font-size: 22px; font-weight: 800; }
+.zt-xp { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin: 8px 0 6px; }
+.zt-xp i { display: block; height: 100%; background: linear-gradient(90deg, #f59e0b, #ec4899); }
+.zt-lvl small { color: var(--dim); font-size: 12.5px; }
+.zt-badges { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.zt-badge { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 3px; padding: 12px 8px; border-radius: 14px; border: 1px solid var(--line); opacity: .45; filter: grayscale(1); }
+.zt-badge.got { opacity: 1; filter: none; border-color: color-mix(in srgb, #f59e0b 50%, transparent); background: color-mix(in srgb, #f59e0b 8%, transparent); }
+.zt-badge span { font-size: 28px; }
+.zt-badge b { font-size: 13px; }
+.zt-badge small { font-size: 11.5px; color: var(--dim); }

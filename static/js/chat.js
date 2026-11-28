@@ -1987,6 +1987,34 @@ const Chat = {
         });
     },
 
+    _outbox() { try { return JSON.parse(localStorage.getItem('zp_outbox') || '[]'); } catch (e) { return []; } },
+    _saveOutbox(q) { try { localStorage.setItem('zp_outbox', JSON.stringify(q)); } catch (e) {} },
+    _queueOffline(text) {
+        const q = this._outbox();
+        q.push({ chat: this.activeId || null, text: text.slice(0, 20000), at: Date.now() });
+        this._saveOutbox(q);
+        const input = $('user-input'); input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true }));
+        const b = this.appendMessage('user', text);
+        if (b && b.parentElement) { b.parentElement.classList.add('zt-queued'); b.parentElement.dataset.queued = '1'; }
+        showToast('You\u2019re offline — this will send by itself when you\u2019re back online', 'info');
+    },
+    async _flushOutbox() {
+        if (!navigator.onLine || this._flushing) return;
+        const q = this._outbox(); if (!q.length) return;
+        this._flushing = true;
+        showToast(`Back online — sending ${q.length} saved message${q.length === 1 ? '' : 's'}`, 'success');
+        try {
+            while (q.length) {
+                const item = q.shift(); this._saveOutbox(q);
+                if (item.chat && this.chats[item.chat] && this.activeId !== item.chat) await this.switchTo(item.chat);
+                document.querySelectorAll('.msg-wrapper.zt-queued').forEach(w => w.remove());
+                const input = $('user-input'); input.value = item.text;
+                await this.send();
+                for (let i = 0; i < 600 && (this.isStreaming || this._sending); i++) await new Promise(r => setTimeout(r, 200));
+            }
+        } finally { this._flushing = false; }
+    },
+
     async send() {
         const input = $('user-input');
         const text = input.value.trim();
@@ -1996,6 +2024,8 @@ const Chat = {
         if (this.attachments.some(a => a.uploading)) return; // wait until every file is fully loaded
         if (this._limitBlocked) return; // messaging auto-disabled while a limit cooldown banner is live
         if (window.__msgBlocked === true) return; // global messaging off → send button does nothing
+        // 26.4: no internet → keep it as a draft and send it by itself when the connection is back.
+        if (!navigator.onLine && text && this.attachments.length === 0) { this._queueOffline(text); return; }
         if (!this.activeId) await this.create();
 
         const think = $('think-btn').classList.contains('active');

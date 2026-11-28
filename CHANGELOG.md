@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 26.4 — Twelve more tools, music, invoices, meeting notes, MP3 answers, offline drafts
+
+- **`static/js/tools2.js`** (new): Recipe from your fridge, Exam revision planner (also makes a Study deck per subject), Language lessons (lesson count + streak in `user_data.prefs`), Story mode, Logo & poster maker, CV & job matcher, Spreadsheet helper (attaches the file and uses the existing Pyodide path), Characters (role-play; historical figures only, never living people), Make music, Invoices & quotes, Meeting notes (in-browser recording or upload), Rewards. Tools window now grouped into sections.
+- **`tools.py`**: `POST /api/tools/speech` (gpt-audio-mini → MP3; markdown/tags stripped), `POST /api/tools/music` (Lyria 3 clip/pro; per-plan daily allowance via `UsageLog action=music`; files in `UPLOAD_DIR/audio`, served only to their owner by `GET /api/tools/audio/{name}`), a robust audio extractor (non-streaming reply shapes, then streamed PCM16 → WAV) and ffmpeg MP3 conversion; `POST /api/tools/invoice` (Decimal sums, running numbers per kind, PDF/Word via docgen); `POST /api/tools/meeting` (ffmpeg → 10-min 16 kHz MP3 pieces → audio-model transcripts → notes); `GET /api/tools/rewards` (17 badges + level from existing data).
+- Chat: **Save as → Audio (.mp3)** on every answer; **offline drafts** (`zp_outbox` in the browser, sent in order on `online`).
+
 ## 26.3 — A better Christmas, Tools, explain levels, translate, polls and games
 
 - **Christmas** (`christmas.js/.css`): countdown pill (Christmas → Boxing Day → New Year), Advent calendar (24 doors + a warm-up door; opens by date, remembered per browser; each door → a prompt in a new chat), Santa's sleigh every 3–6 min (tap: +3 baubles), snow caps on the composer and New Chat button, Christmas ideas on the welcome screen (MutationObserver), card maker, snow amount off/light/lots (`zp_xmas_snow`). All respect reduced motion / animations off.

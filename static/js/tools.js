@@ -38,24 +38,30 @@
 
     /* ═════════════ the Tools window ═════════════ */
     const TOOLS = [
-        ['day', '☀️', 'Your day', 'Weather, news and everything on your list, in one short briefing.'],
-        ['reply', '💬', 'Reply writer', 'Paste a message you got and pick from three ready-to-send replies.'],
-        ['money', '💰', 'Budget & spending', 'Plan a monthly budget and track what you spend — snap receipts to add them.'],
-        ['homework', '📒', 'Homework helper', 'Hints first, then the next step — so you learn it, not just copy it.'],
-        ['translate', '🌍', 'Translate', 'Translate any text, keeping its formatting.'],
-        ['study', '🎓', 'Study', 'Flashcards and quizzes that bring back what you find hard.'],
+        ['day', '☀️', 'Your day', 'Weather, news and everything on your list, in one short briefing.', 'Everyday'],
+        ['reply', '💬', 'Reply writer', 'Paste a message you got and pick from three ready-to-send replies.', 'Everyday'],
+        ['money', '💰', 'Budget & spending', 'Plan a monthly budget and track what you spend — snap receipts to add them.', 'Everyday'],
+        ['translate', '🌍', 'Translate', 'Translate any text, keeping its formatting.', 'Everyday'],
+        ['homework', '📒', 'Homework helper', 'Hints first, then the next step — so you learn it, not just copy it.', 'Learn'],
+        ['study', '🎓', 'Study', 'Flashcards and quizzes that bring back what you find hard.', 'Learn'],
     ];
+    const SECTIONS = ['Christmas', 'Everyday', 'Learn', 'Create', 'Work', 'Fun'];
     const Tools = {
+        extra: [],            // [id, emoji, name, description, section, open()] added by the 26.4 tools below
         open() {
-            const m = Z.modal({ id: 'zt-tools', title: 'Tools', sub: 'Handy helpers for everyday things', icon: 'bolt', wide: true });
-            const list = TOOLS.slice();
+            const m = Z.modal({ id: 'zt-tools', title: 'Tools', sub: 'Handy helpers for everyday things', icon: 'bolt', wide: true, tall: true });
+            let list = TOOLS.concat(this.extra);
             if (window.Christmas && Christmas.inSeason && Christmas.inSeason() && document.documentElement.classList.contains('christmas')) {
-                list.unshift(['advent', '🎁', 'Advent calendar', 'A little surprise behind a new door every day until Christmas.'], ['card', '💌', 'Christmas card', 'Make a picture card and the words to go with it.']);
+                list = [['advent', '🎁', 'Advent calendar', 'A little surprise behind a new door every day until Christmas.', 'Christmas'], ['card', '💌', 'Christmas card', 'Make a picture card and the words to go with it.', 'Christmas']].concat(list);
             }
-            m.body.innerHTML = `<div class="zt-grid">${list.map(t => `<button class="zt-card" data-t="${t[0]}"><span class="zt-e">${t[1]}</span><b>${esc(t[2])}</b><small>${esc(t[3])}</small></button>`).join('')}</div>`;
+            m.body.innerHTML = SECTIONS.map(sec => {
+                const items = list.filter(t => (t[4] || 'Everyday') === sec);
+                return items.length ? `<label class="zu-l">${sec}</label><div class="zt-grid">${items.map(t => `<button class="zt-card" data-t="${t[0]}"><span class="zt-e">${t[1]}</span><b>${esc(t[2])}</b><small>${esc(t[3])}</small></button>`).join('')}</div>` : '';
+            }).join('');
             m.body.querySelectorAll('[data-t]').forEach(b => b.onclick = () => { m.close(); this.run(b.dataset.t); });
         },
         run(t) {
+            const x = this.extra.find(e => e[0] === t); if (x) return x[5]();
             if (t === 'day') return Day.open();
             if (t === 'reply') return Reply.open();
             if (t === 'money') return Money.open();
@@ -299,6 +305,22 @@
         const tr = document.createElement('button'); tr.type = 'button'; tr.dataset.action = 'translate'; tr.title = 'Translate this answer';
         tr.innerHTML = '🌍<span>Translate</span>';
         actions.insertBefore(lv, more); actions.insertBefore(tr, more);
+        const sm = more && more.querySelector('.zr-menu');
+        if (sm) {
+            const au = document.createElement('button'); au.type = 'button'; au.setAttribute('role', 'menuitem'); au.textContent = 'Audio (.mp3) — read aloud';
+            au.addEventListener('click', async (e) => {
+                e.stopPropagation(); sm.hidden = true;
+                toast('Recording it as audio… (a few seconds)', 'info');
+                try {
+                    const r = await fetch('/api/tools/speech', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: content }) });
+                    if (!r.ok) { const d = await r.json().catch(() => ({})); throw new Error(d.detail || 'Couldn\u2019t make the audio'); }
+                    const blob = await r.blob(); const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob); a.download = 'zelpophai-answer.' + (/wav/.test(blob.type) ? 'wav' : 'mp3');
+                    document.body.appendChild(a); a.click(); a.remove();
+                } catch (err) { toast(err.message, 'error'); }
+            });
+            sm.appendChild(au);
+        }
         const menu = lv.querySelector('.zr-menu');
         lv.querySelector('[data-action=level]').addEventListener('click', (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; });
         document.addEventListener('click', () => { menu.hidden = true; });
@@ -384,6 +406,9 @@
 
     window.ZTools = { Tools, Day, Reply, Money, Translate, decorateActions, pollCard, groupTools, sendText, newChatWith };
     function boot() {
+        // Offline drafts: send them when the connection comes back (and on load, in case it already has).
+        window.addEventListener('online', () => { const ch = C(); if (ch && ch._flushOutbox) ch._flushOutbox(); });
+        setTimeout(() => { const ch = C(); if (ch && ch._flushOutbox && navigator.onLine) ch._flushOutbox(); }, 6000);
         const b = $('tools-btn');
         if (b) b.addEventListener('click', () => { Tools.open(); if (typeof closeSidebar === 'function' && window.innerWidth < 900) { try { closeSidebar(); } catch (e) {} } });
     }

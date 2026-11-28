@@ -50,7 +50,7 @@
         var l = document.createElement('link');
         l.id = 'xm-font';
         l.rel = 'stylesheet';
-        l.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap';
+        l.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,800&family=Dancing+Script:wght@700&display=swap';
         document.head.appendChild(l);
     }
 
@@ -168,7 +168,7 @@
                      ph: Math.random() * 6.28, sw: 8 + Math.random() * 22, a: 0.35 + d * 0.6, vx: 0 };
         }
         // 26.6.3: snow that already lies on things — lumpy and uneven, with icicles.
-        var LEDGES = { '.composer-box': 22, '#new-chat-btn': 15, '.zp-greetcard': 16, '.sidebar .chat-list': 13, '.sidebar .bottom-bar': 12, '.xm-count': 7 };
+        var LEDGES = { '.composer-box': 22, '#new-chat-btn': 15, '.zp-greetcard': 16, '.sidebar .chat-list': 13, '.sidebar .bottom-bar': 9, '.xm-count': 7 };
         function profile(n, maxH) {
             var a = new Array(n).fill(maxH * 0.32);
             var lumps = Math.max(3, Math.round(n / 9));
@@ -475,6 +475,38 @@
             sub.dataset.xm = '1';
             sub.textContent = pick(GREETS) + '! What shall we make today?';
         }
+        patchHero();
+    }
+    /* 26.6.5: the new-chat screen as a Christmas card — glowing Z, "Merry Christmas, NAME!",
+       a garland with a bow and bells, then the ideas. (The normal heading hides while it's up.) */
+    function heroName() {
+        var u = window.user || {};
+        if (!u.username || /^guest_/.test(u.username)) return '';
+        return String(u.display_name || u.username).trim().slice(0, 28);
+    }
+    function patchHero() {
+        if (!isOn()) return;
+        var w = document.querySelector('#chat-container .welcome-message');
+        if (!w || w.querySelector('.zw-hero')) return;
+        var name = heroName(), h = w.querySelector('.xm-hero');
+        if (h && h.dataset.name === name) return;
+        if (!h) {
+            h = document.createElement('div');
+            h.className = 'xm-hero';
+            var logo = w.querySelector('.welcome-z-logo');
+            w.insertBefore(h, logo ? logo.nextSibling : w.firstChild);
+        }
+        h.dataset.name = name;
+        var flake = '<img class="xm-flake" src="' + IMG + 'flake.webp" alt="" decoding="async">';
+        var esc = function (t) { var d = document.createElement('div'); d.textContent = t; return d.innerHTML; };
+        h.innerHTML =
+            '<div class="xm-brand">Zelpophai <span>AI</span></div>' +
+            '<div class="xm-rule" aria-hidden="true"><i></i>' + flake + '<i></i></div>' +
+            '<h2 class="xm-merry">' + flake.replace('xm-flake', 'xm-flake xm-side') +
+                '<span class="xm-script">Merry Christmas' + (name ? ',' : '!') + '</span>' +
+                (name ? '<span class="xm-name">' + esc(name) + '!</span>' : '') +
+                flake.replace('xm-flake', 'xm-flake xm-side') + '</h2>' +
+            '<img class="xm-swag" src="' + IMG + 'swag.webp" alt="" decoding="async">';
     }
 
     /* ───────────── turning it on and off ───────────── */
@@ -690,15 +722,16 @@
         if (!w || w.querySelector('.xm-ideas') || w.querySelector('.zw-hero')) return;
         var box = document.createElement('div');
         box.className = 'xm-ideas';
-        box.innerHTML = '<span class="xm-ideas-t">' + ic('tree') + 'Christmas Ideas' + ic('tree') + '</span>' + IDEAS.map(function (x, i) { return '<button type="button" data-i="' + i + '">' + ic(x[0]) + x[1] + '</button>'; }).join('') +
-            '<button type="button" data-a="advent">' + ic('advent') + 'Advent calendar</button>';
+        box.innerHTML = '<span class="xm-ideas-t"><i></i>' + ic('gift') + 'Christmas Ideas' + ic('gift') + '<i></i></span>' + IDEAS.map(function (x, i) { return '<button type="button" data-i="' + i + '">' + ic(x[0]) + x[1] + '</button>'; }).join('') +
+            '<button type="button" data-a="advent">' + ic('tree') + 'Advent calendar</button>';
         box.addEventListener('click', function (e) {
             var b = e.target.closest('button'); if (!b) return;
             if (b.dataset.a === 'advent') return advent();
             var inp = document.getElementById('user-input'); if (!inp) return;
             inp.value = IDEAS[+b.dataset.i][2]; inp.dispatchEvent(new Event('input', { bubbles: true })); inp.focus();
         });
-        w.appendChild(box);
+        var gc = w.querySelector('.zp-greetcard');
+        w.insertBefore(box, gc || null);   // the ideas sit right under the garland, the welcome-back card after
     }
     function watchWelcome() {
         var c = document.getElementById('chat-container');
@@ -708,6 +741,7 @@
         new MutationObserver(function () { if (isOn()) { patchIdeas(); patchWelcome(); dim(); } }).observe(c, { childList: true });
         dim();
         patchIdeas();
+        setTimeout(function () { if (isOn()) patchHero(); }, 1500);   // the name arrives a moment after the page
     }
     // typing shakes a little snow off the typing box; sending knocks a big puff off
     var shakeWired = false, keyN = 0;
@@ -728,7 +762,7 @@
     function extrasOff() {
         clearTimeout(sleighTimer);
         ['xm-count'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });
-        document.querySelectorAll('.xm-ideas,.xm-sleigh').forEach(function (el) { el.remove(); });
+        document.querySelectorAll('.xm-ideas,.xm-sleigh,.xm-hero').forEach(function (el) { el.remove(); });
     }
 
     window.Christmas = {

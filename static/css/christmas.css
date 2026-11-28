@@ -446,3 +446,71 @@ html.christmas body .sidebar .chat-list::before {
 @media (max-width: 768px) { html.christmas body .sidebar { background: linear-gradient(180deg, rgba(40, 8, 12, .78), rgba(8, 14, 30, .86)) !important; } }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { html.christmas body .sidebar { background: rgba(10, 14, 28, .92) !important; } }
 html.christmas #xm-snowcv { z-index: 105; }   /* the sidebar is z-index 100: snow lies on it too */
+
+/* ============ 26.6.5: the new-chat screen as a Christmas card ============ */
+html.christmas body .sidebar .bottom-bar { margin-top: 20px; }   /* room for its snow, so it doesn't sit on the chat list */
+.xm-hero { display: none; }
+html.christmas body .welcome-message:has(.xm-hero) > h2:not(.xm-merry),
+html.christmas body .welcome-message:has(.xm-hero) > .welcome-sub { display: none !important; }
+html.christmas body .welcome-message:has(.xm-hero) .welcome-z-logo {
+    background: radial-gradient(circle at 50% 35%, #4a0d12, #1a0507 75%) !important; color: #ff3b30 !important;
+    border: 3px solid #ff5a4c; text-shadow: 0 0 10px rgba(255, 60, 50, .85);
+    box-shadow: 0 0 0 2px rgba(255, 90, 76, .25), 0 0 26px rgba(255, 60, 50, .75), 0 0 60px rgba(255, 60, 50, .35), inset 0 0 18px rgba(255, 60, 50, .35) !important;
+}
+html.christmas body .xm-hero { display: flex; flex-direction: column; align-items: center; margin: 10px auto 0; max-width: 760px; text-align: center; }
+.xm-brand { font: 800 26px/1.1 Inter, system-ui, sans-serif; color: #fff; letter-spacing: .2px; text-shadow: 0 2px 10px rgba(0, 0, 0, .6); }
+.xm-brand span { color: #ff4a3d; text-shadow: 0 0 12px rgba(255, 60, 50, .6); }
+.xm-rule { display: flex; align-items: center; gap: 10px; margin: 8px 0 2px; }
+.xm-rule i { display: block; width: 150px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, #ff4a3d); box-shadow: 0 0 8px rgba(255, 60, 50, .8); }
+.xm-rule i:last-child { transform: scaleX(-1); }
+.xm-flake { width: 26px; height: 26px; object-fit: contain; filter: drop-shadow(0 0 6px rgba(255, 230, 180, .8)); }
+html.christmas body h2.xm-merry { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 0 64px; font-weight: normal; line-height: 1; }
+.xm-merry .xm-side { position: absolute; top: 50%; width: 48px; height: 48px; transform: translateY(-50%); }
+.xm-merry .xm-side:first-child { left: 0; } .xm-merry .xm-side:last-child { right: 0; }
+html.christmas body .welcome-message h2.xm-merry .xm-script { font: 700 62px/1.05 'Dancing Script', 'Brush Script MT', cursive; color: #ffd36b;
+    background: linear-gradient(180deg, #fff1b8, #ffc24a 55%, #e8901c) !important; -webkit-background-clip: text !important; background-clip: text !important; -webkit-text-fill-color: transparent !important; animation: none !important;
+    filter: drop-shadow(0 0 10px rgba(255, 170, 40, .55)) drop-shadow(0 3px 2px rgba(0, 0, 0, .6)); padding: 0 6px; }
+html.christmas body .welcome-message h2.xm-merry .xm-name { background: none !important; -webkit-text-fill-color: #fff !important; animation: none !important; font: italic 800 50px/1.1 'Playfair Display', Georgia, serif; color: #fff; text-transform: uppercase; letter-spacing: .5px; word-break: break-word;
+    text-shadow: 0 0 14px rgba(255, 60, 50, .75), 0 3px 0 #9b1a17, 0 6px 14px rgba(0, 0, 0, .6); }
+.xm-swag { display: block; width: min(520px, 88%); height: auto; margin: -2px 0 0; filter: drop-shadow(0 6px 10px rgba(0, 0, 0, .55)); pointer-events: none; }
+html.christmas body .xm-hero ~ .xm-ideas { margin-top: 4px; }
+html.christmas body .xm-hero ~ .xm-ideas .xm-ideas-t { font: italic 800 22px 'Playfair Display', Georgia, serif !important; color: #ffd36b; text-shadow: 0 0 10px rgba(255, 170, 40, .5); gap: 12px; margin-bottom: 10px; }
+.xm-ideas-t i { display: block; width: 110px; height: 2px; background: linear-gradient(90deg, transparent, #ffc24a); box-shadow: 0 0 6px rgba(255, 190, 70, .8); }
+.xm-ideas-t i:last-child { transform: scaleX(-1); }
+html.christmas body .xm-hero ~ .xm-ideas { gap: 12px 14px; max-width: 900px; }
+html.christmas body .xm-hero ~ .xm-ideas button { padding: 8px 22px 8px 10px !important; font-size: 15px; border-width: 2px !important; border-radius: 14px;
+    background: rgba(40, 6, 10, .72) !important; border-color: #ff4a3d !important;
+    box-shadow: 0 0 12px rgba(255, 60, 50, .65), inset 0 0 10px rgba(255, 60, 50, .25); }
+html.christmas body .xm-hero ~ .xm-ideas button:nth-of-type(even) { background: rgba(4, 34, 18, .72) !important; border-color: #3fe07a !important;
+    box-shadow: 0 0 12px rgba(60, 220, 120, .6), inset 0 0 10px rgba(60, 220, 120, .22); }
+html.christmas body .xm-hero ~ .xm-ideas button[data-a="advent"] { background: rgba(40, 26, 4, .72) !important; border-color: #ffbf3c !important;
+    box-shadow: 0 0 12px rgba(255, 190, 60, .65), inset 0 0 10px rgba(255, 190, 60, .22); padding-left: 16px !important; padding-right: 28px !important; }
+html.christmas body .xm-hero ~ .xm-ideas button:hover { transform: translateY(-1px); filter: brightness(1.15); }
+html.christmas body .xm-hero ~ .xm-ideas button .xm-ic { height: 34px; }
+html.christmas body .xm-hero ~ .zp-greetcard { margin-top: 26px; }
+@media (max-width: 760px) {
+    .xm-brand { font-size: 20px; }
+    .xm-rule i { width: 70px; }
+    html.christmas body h2.xm-merry { padding: 0 34px; }
+    .xm-merry .xm-side { width: 28px; height: 28px; }
+    html.christmas body .welcome-message h2.xm-merry .xm-script { font-size: 40px; }
+    html.christmas body .welcome-message h2.xm-merry .xm-name { font-size: 30px; }
+    .xm-ideas-t i { width: 24px; }
+    html.christmas body .xm-hero ~ .xm-ideas .xm-ideas-t { font-size: 19px !important; white-space: nowrap; gap: 8px; }
+    html.christmas body .xm-hero ~ .xm-ideas .xm-ideas-t .xm-ic { height: 24px; }
+    html.christmas body .xm-hero ~ .xm-ideas button { font-size: 13px; padding: 6px 14px 6px 8px !important; }
+    html.christmas body .xm-hero ~ .xm-ideas button .xm-ic { height: 28px; }
+}
+/* shorter laptop screens: tighten the card so the ideas stay in view */
+@media (min-width: 761px) and (max-height: 820px) {
+    html.christmas body .xm-hero { margin-top: 2px; }
+    .xm-brand { font-size: 21px; }
+    .xm-rule { margin: 4px 0 0; }
+    html.christmas body .welcome-message h2.xm-merry .xm-script { font-size: 46px; }
+    html.christmas body .welcome-message h2.xm-merry .xm-name { font-size: 36px; }
+    .xm-merry .xm-side { width: 36px; height: 36px; }
+    .xm-swag { width: min(380px, 80%); }
+    html.christmas body .xm-hero ~ .xm-ideas .xm-ideas-t { font-size: 19px !important; margin-bottom: 6px; }
+    html.christmas body .xm-hero ~ .xm-ideas button { font-size: 14px; padding: 5px 18px 5px 8px !important; }
+    html.christmas body .xm-hero ~ .xm-ideas button .xm-ic { height: 28px; }
+}

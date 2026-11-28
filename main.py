@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.6.4"
+VERSION = "26.6.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6.5 Christmas theme: the new-chat screen is now a Christmas card — a glowing red Z in a Santa hat, \"Merry Christmas, <your name>!\" in gold, a pine garland with a red bow and golden bells, and glowing red, green and gold Christmas idea buttons. Your welcome-back card sits just below. Also fixed: the snow on the sidebar's bottom buttons overlapped the chat list above it",
     "26.6.4 Fixed: after scrolling, the snow on the greeting card could stay behind and sit across the middle of the card. Snow now follows everything it lies on as you scroll, and hides when that part is scrolled out of view",
     "26.6.3 Christmas theme: the sidebar is now themed too — see-through frosted glass with a red glow, a holly sprig, and snow resting on its panels. The garland no longer hides the chat's top buttons (model, Invite, Share), and the countdown and baubles stay out of your messages. And the snow is real now: it lies in uneven, lumpy drifts with icicles of different lengths on the typing box, New Chat, the greeting card and the sidebar — swipe across it quickly or tap it to knock it off (it tumbles down and piles at the bottom), typing shakes a little loose, sending a message knocks a big puff off, and it slowly builds back up",
     "26.6.2 Zelpophai's replies now sit on frosted glass — see-through, with the background (like the Christmas scene) softly blurred behind them, so they look lovely and stay easy to read. And the app downloads now have the version in their name, e.g. Zelpophai-Setup-V1.6.1.exe and Zelpophai-V1.3.0.apk",
@@ -214,6 +215,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6.5 Owner: christmas.js patchHero() adds .xm-hero (brand, rule, h2.xm-merry with the name from window.user, swag.webp) after .welcome-z-logo; h2/.welcome-sub hidden via :has(.xm-hero); ideas now inserted before .zp-greetcard; new images xmas/swag.webp and flake.webp; Dancing Script added to the font link; bottom-bar ledge 9 and margin-top 20px",
     "26.6.2 Owner: installers are still stored as Zelpophai-Setup.exe / Zelpophai.apk (the updaters and the Vault uploader rely on it); /downloads/win/Zelpophai-Setup-V<ver>.exe and /downloads/android/Zelpophai-V<ver>.apk serve the current build, the plain names download with the versioned file name, and /api/app/latest links the versioned names",
     "26.6.1 Owner: Christmas artwork is in /static/img/xmas/ (scene.jpg 1920 wide and scene-small.jpg for phones, the rest webp cut-outs, about 640 KB in all); christmas.css 26.6.1 section replaces the SVG hills, trees, bulbs, holly and bauble, and christmas.js uses ic() images instead of emojis",
     "26.6 Owner: agent prompt rewritten (understand → explore → plan → change → verify → look up → finish); new tools multi_edit, web_search (POST /api/code/agent/search, max 12 per task, same task allowance), run_command (folder mode only); smart model gets reasoning effort medium (CODE_AGENT_EFFORT); 60 steps per task. Desktop 1.6.0 adds localfs.js: folder ids from a Windows folder picker, every path resolved inside the folder (no .., absolute paths or links out), Recycle Bin deletes, cmd.exe commands with time limits, a native prompt before the first command per folder and before anything that looks destructive",

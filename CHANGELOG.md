@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.5 — Christmas card welcome
+
+- `christmas.js`/`christmas.css`: new-chat hero (glowing Z, "Merry Christmas, NAME!", garland with bow and bells, neon idea pills); ideas placed before the greeting card; compact sizes for phones and short screens.
+- Sidebar bottom bar gets 20px top margin and a smaller snow ledge so its snow no longer overlaps the chat list.
+
 ## 26.6.4
 
 - `christmas.js`: snow ledges keep a reference to their element and re-read its position every frame; ledges inside `#chat-container` that are scrolled out of view (or under the header) are hidden and don't catch flakes.

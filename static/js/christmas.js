@@ -88,7 +88,8 @@
 
     function teardownScene() {
         clearInterval(snowTimer); clearTimeout(baubleTimer);
-        ['xm-fx', 'xm-lights', 'xm-snow', 'xm-play', 'xm-score'].forEach(function (id) {
+        stopSnow();
+        ['xm-fx', 'xm-lights', 'xm-snow', 'xm-snowcv', 'xm-play', 'xm-score'].forEach(function (id) {
             var el = document.getElementById(id);
             if (el) el.parentNode.removeChild(el);
         });
@@ -118,14 +119,179 @@
         setTimeout(function () { if (s.parentNode) s.parentNode.removeChild(s); }, secs * 1000 + 400);
     }
     function snowLevel() { return store('zp_xmas_snow') || 'light'; }       // off | light | lots
-    function startSnow() {
-        clearInterval(snowTimer);
-        var lvl = snowLevel();
-        if (quiet() || lvl === 'off') { var l = document.getElementById('xm-snow'); if (l) l.innerHTML = ''; return; }
-        var every = lvl === 'lots' ? 160 : 420;
-        for (var i = 0; i < (lvl === 'lots' ? 30 : 14); i++) setTimeout(flake, i * 200);   // a few already falling
-        snowTimer = setInterval(flake, every);
+
+    /* ───────────── real snow ─────────────
+       Drawn on one canvas: soft round flakes at different depths (near ones are
+       bigger, faster and a little blurred), drifting on a wind that changes and
+       gusts now and then, swaying as they fall, pushed aside by your mouse or
+       finger — and settling: snow builds up along the bottom of the screen and on
+       top of the typing box and the New Chat button, then slowly melts. */
+    var SN = null;
+    function sprite(r, blur) {
+        var s = Math.ceil(r * 2 + blur * 4 + 2), c = document.createElement('canvas');
+        c.width = c.height = s;
+        var g = c.getContext('2d'), m = s / 2;
+        var gr = g.createRadialGradient(m, m, 0, m, m, r + blur * 2);
+        gr.addColorStop(0, 'rgba(255,255,255,1)');
+        gr.addColorStop(blur ? 0.35 : 0.55, 'rgba(255,255,255,.92)');
+        gr.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = gr; g.beginPath(); g.arc(m, m, r + blur * 2, 0, Math.PI * 2); g.fill();
+        return c;
     }
+    function startSnow() {
+        stopSnow();
+        var old = document.getElementById('xm-snow'); if (old) old.remove();
+        var lvl = snowLevel();
+        if (quiet() || lvl === 'off' || !document.body) return;
+        var cv = document.createElement('canvas');
+        cv.id = 'xm-snowcv'; cv.setAttribute('aria-hidden', 'true');
+        document.body.appendChild(cv);
+        var ctx = cv.getContext('2d');
+        var dpr = Math.min(2, window.devicePixelRatio || 1);
+        var W = 0, H = 0, COL = 4;
+        var sprites = [];
+        for (var i = 0; i < 12; i++) sprites.push(sprite(0.8 + i * 0.42, i > 8 ? (i - 8) * 0.9 : 0));
+        var flakes = [], ground = [], surfaces = [], mouse = { x: -999, y: -999, t: 0 };
+        var wind = 0, windTo = 0, gust = 0, t = 0, last = performance.now(), raf = 0, surfT = 0;
+        function size() {
+            W = window.innerWidth; H = window.innerHeight;
+            cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+            cv.style.width = W + 'px'; cv.style.height = H + 'px';
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            var n = Math.ceil(W / COL) + 1;
+            if (ground.length !== n) ground = new Array(n).fill(0);
+        }
+        function count() {
+            var base = (W * H) / (lvl === 'lots' ? 3800 : 9500);
+            return Math.min(lvl === 'lots' ? 520 : 220, Math.round(base * (W < 700 ? 0.6 : 1)));
+        }
+        function make(top) {
+            var d = Math.random();                 // depth: 0 far … 1 near
+            d = d * d;                              // most flakes far away
+            var si = Math.min(11, Math.floor(d * 12));
+            return { x: Math.random() * (W + 200) - 100, y: top ? -10 - Math.random() * 40 : Math.random() * H,
+                     d: d, sp: sprites[si], r: 0.8 + si * 0.42, vy: 18 + d * 70 + Math.random() * 14,
+                     ph: Math.random() * 6.28, sw: 8 + Math.random() * 22, a: 0.35 + d * 0.6, vx: 0 };
+        }
+        function findSurfaces() {
+            surfaces = [];
+            ['.composer-box', '#new-chat-btn'].forEach(function (sel) {
+                var el = document.querySelector(sel);
+                if (!el || !el.offsetParent) return;
+                var r = el.getBoundingClientRect();
+                if (r.width < 40 || r.top < 0 || r.top > H) return;
+                var prev = SN && SN.surf && SN.surf[sel];
+                var n = Math.ceil((r.width - 12) / COL) + 1;
+                var h = prev && prev.h.length === n && Math.abs(prev.left - (r.left + 6)) < 2 ? prev.h : new Array(n).fill(0);
+                var s = { sel: sel, left: r.left + 6, right: r.right - 6, top: r.top, h: h, max: sel === '#new-chat-btn' ? 7 : 11, rad: 10 };
+                surfaces.push(s);
+                SN.surf[sel] = s;
+            });
+        }
+        function land(arr, x0, x, amount, max) {
+            var i = Math.round((x - x0) / COL);
+            if (i < 0 || i >= arr.length) return;
+            for (var k = -2; k <= 2; k++) {
+                var j = i + k; if (j < 0 || j >= arr.length) continue;
+                arr[j] = Math.min(max, arr[j] + amount * (k === 0 ? 1 : k === 1 || k === -1 ? 0.55 : 0.2));
+            }
+        }
+        function settle(arr, max, melt, dt) {
+            // snow slides off steep bits (so piles look soft) and melts a little
+            for (var i = 1; i < arr.length; i++) {
+                var diff = arr[i] - arr[i - 1];
+                if (Math.abs(diff) > 0.7) { var m = diff * 0.3; arr[i] -= m; arr[i - 1] += m; }
+            }
+            if (melt) for (var j = 0; j < arr.length; j++) arr[j] = Math.max(0, arr[j] - melt * dt);
+        }
+        function drawPile(arr, x0, baseY, ends) {
+            var any = false;
+            for (var i = 0; i < arr.length; i++) if (arr[i] > 0.3) { any = true; break; }
+            if (!any) return;
+            ctx.beginPath();
+            ctx.moveTo(x0, baseY);
+            var px = x0, py = baseY;
+            for (var k = 0; k < arr.length; k++) {
+                var h = arr[k];
+                if (ends) { var e = Math.min(k, arr.length - 1 - k); if (e < 5) h *= Math.sin(e / 5 * Math.PI / 2); }   // round off the ends
+                var nx = x0 + k * COL, ny = baseY - h;
+                ctx.quadraticCurveTo(px, py, (px + nx) / 2, (py + ny) / 2);     // soft, rounded drifts
+                px = nx; py = ny;
+            }
+            ctx.lineTo(px, py);
+            ctx.lineTo(x0 + (arr.length - 1) * COL, baseY);
+            ctx.closePath();
+            var g = ctx.createLinearGradient(0, baseY - 16, 0, baseY);
+            g.addColorStop(0, 'rgba(255,255,255,.97)'); g.addColorStop(1, 'rgba(220,232,255,.92)');
+            ctx.fillStyle = g;
+            ctx.shadowColor = 'rgba(180,205,255,.55)'; ctx.shadowBlur = 6;
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+        function frame(now) {
+            raf = requestAnimationFrame(frame);
+            var dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
+            if (document.hidden) return;
+            // wind: drifts slowly, with an occasional gust
+            if (Math.random() < dt / 6) windTo = (Math.random() - 0.5) * 50;
+            if (Math.random() < dt / 25) gust = (Math.random() < 0.5 ? -1 : 1) * (60 + Math.random() * 80);
+            gust *= Math.pow(0.35, dt);
+            wind += (windTo - wind) * Math.min(1, dt * 0.6);
+            surfT -= dt; if (surfT <= 0) { surfT = 1.5; findSurfaces(); }
+            ctx.clearRect(0, 0, W, H);
+            var want = count();
+            while (flakes.length < want) flakes.push(make(flakes.length > want * 0.4));
+            if (flakes.length > want) flakes.length = want;
+            var mouseOn = now - mouse.t < 1500;
+            for (var i = 0; i < flakes.length; i++) {
+                var f = flakes[i];
+                f.ph += dt * (0.8 + f.d);
+                var w = (wind + gust) * (0.35 + f.d * 0.9);
+                f.vx += (w - f.vx) * Math.min(1, dt * 2);
+                if (mouseOn) {
+                    var dx = f.x - mouse.x, dy = f.y - mouse.y, dd = dx * dx + dy * dy;
+                    if (dd < 6400) { var push = (1 - Math.sqrt(dd) / 80) * 260 * dt; var l = Math.sqrt(dd) || 1; f.x += dx / l * push; f.y += dy / l * push * 0.6; }
+                }
+                f.x += (f.vx + Math.sin(f.ph) * f.sw * 0.6) * dt;
+                f.y += f.vy * dt;
+                // settle on a surface (typing box, New Chat button)?
+                var landed = false;
+                if (f.d > 0.15) for (var s = 0; s < surfaces.length; s++) {
+                    var S = surfaces[s];
+                    if (f.x > S.left && f.x < S.right) {
+                        var idx = Math.round((f.x - S.left) / COL), top = S.top - (S.h[idx] || 0);
+                        if (f.y >= top && f.y - f.vy * dt < top + 2) { land(S.h, S.left, f.x, 0.9 + f.r * 0.3, S.max); landed = true; break; }
+                    }
+                }
+                if (!landed) {
+                    var gi = Math.round(f.x / COL), gh = ground[gi] || 0;
+                    if (f.y >= H - gh) { if (f.d > 0.1) land(ground, 0, f.x, 0.7 + f.r * 0.25, 12); landed = true; }
+                }
+                if (landed || f.x < -120 || f.x > W + 120) { flakes[i] = make(true); continue; }
+                ctx.globalAlpha = f.a;
+                ctx.drawImage(f.sp, f.x - f.sp.width / 2, f.y - f.sp.height / 2);
+            }
+            ctx.globalAlpha = 1;
+            settle(ground, 12, 0.006, dt);
+            drawPile(ground, 0, H, false);
+            for (var q = 0; q < surfaces.length; q++) { settle(surfaces[q].h, surfaces[q].max, 0.004, dt); drawPile(surfaces[q].h, surfaces[q].left, surfaces[q].top, true); }
+        }
+        function onMove(e) { var p = e.touches ? e.touches[0] : e; if (!p) return; mouse.x = p.clientX; mouse.y = p.clientY; mouse.t = performance.now(); }
+        function onResize() { size(); findSurfaces(); }
+        SN = { cv: cv, surf: {}, stop: function () {
+            cancelAnimationFrame(raf);
+            window.removeEventListener('mousemove', onMove); window.removeEventListener('touchmove', onMove);
+            window.removeEventListener('resize', onResize);
+            if (cv.parentNode) cv.remove();
+        } };
+        size(); findSurfaces();
+        for (var n = count(), k2 = 0; k2 < n; k2++) flakes.push(make(false));
+        window.addEventListener('mousemove', onMove, { passive: true });
+        window.addEventListener('touchmove', onMove, { passive: true });
+        window.addEventListener('resize', onResize);
+        raf = requestAnimationFrame(frame);
+    }
+    function stopSnow() { clearInterval(snowTimer); if (SN) { SN.stop(); SN = null; } }
 
     /* ───────────── a bauble to catch, now and then ───────────── */
     function playLayer() {

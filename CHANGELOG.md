@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.4.1 — Real snow
+
+- `christmas.js`: the emoji flakes are replaced by one canvas (`#xm-snowcv`, z-index 40, no pointer events): 12 pre-rendered radial-gradient sprites, depth-weighted sizes/speeds/opacity (near flakes blurred), smoothly changing wind with decaying gusts, per-flake sway, mouse/touch repulsion within 80 px, and accumulation height maps (4 px columns) for the bottom of the screen (≤ 12 px) and the tops of `.composer-box` and `#new-chat-btn` (re-measured every 1.5 s), smoothed so drifts slump softly, drawn with quadratic curves, melting slowly. Flake count scales with screen area and the Off/Light/Lots setting; paused while hidden; off with reduced motion or animations off. The CSS snow caps are removed.
+
 ## 26.4 — Twelve more tools, music, invoices, meeting notes, MP3 answers, offline drafts
 
 - **`static/js/tools2.js`** (new): Recipe from your fridge, Exam revision planner (also makes a Study deck per subject), Language lessons (lesson count + streak in `user_data.prefs`), Story mode, Logo & poster maker, CV & job matcher, Spreadsheet helper (attaches the file and uses the existing Pyodide path), Characters (role-play; historical figures only, never living people), Make music, Invoices & quotes, Meeting notes (in-browser recording or upload), Rewards. Tools window now grouped into sections.

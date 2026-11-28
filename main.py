@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.4"
+VERSION = "26.4.1"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.4.1 Real snow: the Christmas snow is now soft, round flakes at different distances — close ones bigger, faster and slightly blurred, far ones tiny and slow — drifting on a wind that changes and gusts now and then. Move your mouse (or finger) through it and the flakes swirl away. And it settles: snow slowly builds up along the bottom of the screen and on top of the typing box and the New Chat button, in soft drifts, then melts away bit by bit. Choose Off, Light or Lots in the Advent calendar",
     "26.4 Twelve more tools, all in Tools: Recipe from your fridge (snap a photo or list what you have), Exam revision planner (a day-by-day timetable plus flashcards for each subject), Language lessons (a 10-minute lesson a day with practice, corrections and a streak), Story mode (write a story together chapter by chapter with a picture for each, then download it as a book), Logo & poster maker, CV & job matcher (your match score, a tailored CV and a cover letter), Spreadsheet helper (ask about an Excel or CSV file and get answers and charts), Characters (chat with a pirate, a detective, a dragon or a figure from history), and Rewards (badges, levels and streaks)",
     "26.4 Make music: describe it — \"calm afrobeat for a cooking video\" — and get a 30-second clip or a full song, instrumental or with your own lyrics, to play and download. Free accounts can make 2 a day, Pro 10, Ultimate 30",
     "26.4 Invoices & quotes: fill in your items and get a tidy PDF or Word invoice, quote or receipt with the sums, tax and discount worked out exactly and numbered for you (INV-0001, INV-0002…). Your business details are remembered for next time",
@@ -198,6 +199,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.4.1 Owner: the snow is one canvas drawn about 60 times a second with pre-made flake images, so it's light on phones too; it pauses when the tab is hidden and is off for anyone who has animations switched off",
     "26.4 Owner: music uses Google's Lyria 3 and read-aloud uses OpenAI's gpt-audio-mini, both through OpenRouter (Lyria costs about $0.04 a clip and $0.08 a song, which is why music has its own small daily allowance). Meeting notes split recordings into 10-minute pieces and transcribe each with the audio model, then the main model writes the notes. Invoices are built without AI, with exact decimal sums",
     "26.3 Owner: the Tools keep small personal stores in a new user_data table (budget, spending, preferences) and polls in a polls table. Each AI use in Tools — a briefing, replies, a receipt, a translation — counts as one message",
     "26.2 Owner: projects, assistants, canvases and study decks are new tables (projects, assistants, assistant_saves, work_items, canvases, study_decks, study_cards, study_days) plus chats.project_id and chats.assistant_id. Shared assistants never send their instructions or files to people who added them — only the name, description and starters. A custom assistant's instructions sit beside Zelpophai's own rules and can't override safety. Canvas \"change this part\" and making flashcards each count as one message",

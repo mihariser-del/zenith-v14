@@ -192,7 +192,7 @@ async def app_page(c: str = ""):
     short = entry["short"] if entry and not entry["user_id"] else ""
     import html as _h
     page = APP_PAGE.replace("{{CODE}}", _h.escape(c or "", quote=True)).replace("{{SHORT}}", _h.escape(short)).replace("{{CLIENT}}", GOOGLE_CLIENT_ID)
-    return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"})
+    return HTMLResponse(page, headers={"Cache-Control": "no-store", "Referrer-Policy": "strict-origin"})
 
 
 APP_PAGE = """<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

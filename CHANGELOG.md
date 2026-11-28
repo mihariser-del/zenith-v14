@@ -1,5 +1,9 @@
 ﻿# Changelog
 
+## 26.5.5
+
+- `google_auth.py`: the app sign-in page sent `Referrer-Policy: no-referrer`; Google's button checks the requesting origin and refused ("origin is not allowed"). Now `strict-origin` (origin only, never the code in the address).
+
 ## 26.5.4 — App Google sign-in page fix
 
 - `google_auth.py`: `APP_PAGE` script had `\'` inside a normal Python string, which became a bare apostrophe and a JavaScript syntax error, so Google's button never rendered. Uses typographic apostrophes now.

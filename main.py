@@ -47,11 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.5.4"
+VERSION = "26.5.5"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
-    "26.5.4 Fixed: the browser page for signing in to the app with Google showed the code but no Continue with Google button",
+    "26.5.5 Fixed: the browser page for signing in to the app with Google showed the code but no working Continue with Google button",
     "26.5.3 Fixed: Continue with Google did nothing in the Windows and Android apps (Google doesn't allow signing in inside apps, so the result never got back). Now the app opens a Zelpophai sign-in page in your web browser and shows a 4-letter code; check the page shows the same code, continue with Google there, and the app signs you in by itself. Android needs the next app update for this",
     "26.5.2 Coding AGT. now has one look: the code editor uses the same calm colours as the agent, and both follow your Zelpophai light or dark setting (you can still pick a different theme in the editor's settings). And files your code makes while it runs — like a .zip or a Minecraft .mcaddon — now appear with a Download button right under the step that ran it (and in Output), instead of being hidden inside the browser",
     "26.5.1 Downloads for everything the AI builds. In Coding AGT. every file the agent writes has its own download button, the Files panel has Download all (.zip), and a website can be saved as one .html file with its CSS and JavaScript built in, so it works anywhere. In the chat, when an answer has several files you get Download all (.zip) with folders kept, and a web page that uses CSS or JavaScript files from the same answer now previews with them working together, with a One file button too. If a page links to a file that isn't there, you're told which one. Also fixed: pages that wrote their links without quotes (href=style.css) showed without their styling",

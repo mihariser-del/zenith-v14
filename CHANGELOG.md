@@ -1,5 +1,10 @@
 ﻿# Changelog
 
+## 26.6.6 — Greeting in the first reply, fit-to-screen welcome
+
+- Signed-in users no longer get the greeting card; the AI's first reply to a hello greets by time of day and offers the latest recent chats.
+- Christmas welcome is zoomed to fit the chat area (no scrolling); countdown centred over the chat area; sidebar chat list shrinks on short windows so the bottom bar never overlaps the profile row.
+
 ## 26.6.5 — Christmas card welcome
 
 - `christmas.js`/`christmas.css`: new-chat hero (glowing Z, "Merry Christmas, NAME!", garland with bow and bells, neon idea pills); ideas placed before the greeting card; compact sizes for phones and short screens.

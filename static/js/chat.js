@@ -662,6 +662,8 @@ const Chat = {
             try { g = await api('/api/chats/greeting'); this._greet = { at: Date.now(), data: g }; } catch (e) { return; }
         }
         if (!document.body.contains(box)) return;
+        // 26.6.6: signed-in people get their welcome-back in the AI's first reply instead ("Good evening! …your Python script, or something new?")
+        if (!g.guest) { box.hidden = true; return; }
         const h = new Date().getHours();
         const tod = h < 5 ? 'Hey' : h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : h < 22 ? 'Good evening' : 'Hey';
         const esc = (t) => this.escapeHtml(String(t || ''));

@@ -598,7 +598,19 @@
         b.innerHTML = countdownHtml();
         b.addEventListener('click', function () { advent(); });
         document.body.appendChild(b);
+        placeCount();
+        var m = document.querySelector('.main');
+        if (m && window.ResizeObserver && !m._xmro) { m._xmro = new ResizeObserver(placeCount); m._xmro.observe(m); }
     }
+    // 26.6.6: centre the countdown over the chat area (the sidebar takes up the left part of the window)
+    function placeCount() {
+        var b = document.getElementById('xm-count'), m = document.querySelector('.main');
+        if (!b) return;
+        if (!m || window.innerWidth <= 700) { b.style.left = ''; return; }
+        var r = m.getBoundingClientRect();
+        b.style.left = Math.round(r.left + r.width / 2) + 'px';
+    }
+    window.addEventListener('resize', function () { placeCount(); });
 
     // 24 doors, plus a warm-up door before December. Each has a little fact and something to do.
     var DOORS = [
@@ -733,15 +745,35 @@
         var gc = w.querySelector('.zp-greetcard');
         w.insertBefore(box, gc || null);   // the ideas sit right under the garland, the welcome-back card after
     }
+    /* 26.6.6: the Christmas welcome always fits on one screen — no scrolling just to see it. If it's
+       taller than the space above the typing box, it's zoomed down to fit. */
+    function fitWelcome() {
+        var c = document.getElementById('chat-container');
+        var w = c && c.querySelector('.welcome-message');
+        if (!w) return;
+        if (!isOn() || !w.querySelector('.xm-hero')) { w.style.zoom = ''; return; }
+        w.style.zoom = '';
+        var cs = getComputedStyle(c);
+        var room = c.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0) - 6;
+        var need = w.offsetHeight;
+        if (need > room && room > 120) w.style.zoom = String(Math.max(0.5, Math.floor(room / need * 100) / 100));
+    }
+    var fitT = null;
+    function fitSoon() { clearTimeout(fitT); fitT = setTimeout(fitWelcome, 60); }
+    window.addEventListener('resize', fitSoon);
     function watchWelcome() {
         var c = document.getElementById('chat-container');
         if (!c || c._xmw) return;
         c._xmw = true;
         var dim = function () { var fx = document.getElementById('xm-fx'); if (fx) fx.classList.toggle('dim', !c.querySelector('.welcome-message')); };
-        new MutationObserver(function () { if (isOn()) { patchIdeas(); patchWelcome(); dim(); } }).observe(c, { childList: true });
+        new MutationObserver(function () { if (isOn()) { patchIdeas(); patchWelcome(); dim(); fitSoon(); } }).observe(c, { childList: true });
         dim();
         patchIdeas();
-        setTimeout(function () { if (isOn()) patchHero(); }, 1500);   // the name arrives a moment after the page
+        setTimeout(function () { if (isOn()) { patchHero(); fitWelcome(); } }, 1500);   // the name arrives a moment after the page
+        fitSoon();
+        // pictures and fonts change the height once they arrive
+        if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitSoon);
+        c.addEventListener('load', fitSoon, true);
     }
     // typing shakes a little snow off the typing box; sending knocks a big puff off
     var shakeWired = false, keyN = 0;
@@ -763,6 +795,7 @@
         clearTimeout(sleighTimer);
         ['xm-count'].forEach(function (id) { var el = document.getElementById(id); if (el) el.remove(); });
         document.querySelectorAll('.xm-ideas,.xm-sleigh,.xm-hero').forEach(function (el) { el.remove(); });
+        document.querySelectorAll('.welcome-message').forEach(function (el) { el.style.zoom = ''; });
     }
 
     window.Christmas = {

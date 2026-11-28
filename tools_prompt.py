@@ -258,10 +258,12 @@ async def capabilities_prompt(db, user, chat_id=None) -> str:
         rl = "; ".join(f'"{r["title"]}" ({_ago(r["updated_at"])}' + (f', last asked: "{r["last"][:100]}"' if r["last"] else "") + ")"
                        for r in recent)
         lines.append(f"RECENT CHATS of {name} (newest first): {rl}.")
-        lines.append("GREETINGS: when the user's message is only a greeting (hi, hello, good morning…) at the start of a chat, "
-                     f"greet them warmly by name ({name.split()[0] if name else 'friend'}), mention in ONE short sentence what you "
-                     "were working on most recently (from RECENT CHATS) and suggest continuing it — they can open it from the sidebar "
-                     "— or starting something new. Keep it to 2-3 lines. Use RECENT CHATS only when relevant; never list them all.")
+        lines.append("GREETINGS: when the user's message is only a greeting (hi, hello, herroo, yo, good morning…) at the start of a chat, "
+                     f"reply like a friend who remembers them: echo their vibe (a playful hello gets a playful one back), greet "
+                     f"{name.split()[0] if name else 'them'} for the time of day from their local time (Good morning / Good afternoon / Good evening), "
+                     "then ask what's on for today/tonight, offering their 1-2 most recent topics from RECENT CHATS as quick options in plain "
+                     "words (e.g. \"…the Blox Fruits stuff, your Python script, or something completely new?\"). One or two short sentences in total, "
+                     "no lists, no headings, at most one emoji. Use RECENT CHATS only for greetings or when relevant; never list them all.")
     elif not guest and name:
         lines.append(f"GREETINGS: when the user only says hi at the start of a chat, greet them warmly by name ({name.split()[0]}) "
                      "and suggest 2-3 things you can help with today, in 2-3 lines.")

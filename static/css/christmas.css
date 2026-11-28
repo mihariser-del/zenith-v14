@@ -448,7 +448,10 @@ html.christmas body .sidebar .chat-list::before {
 html.christmas #xm-snowcv { z-index: 105; }   /* the sidebar is z-index 100: snow lies on it too */
 
 /* ============ 26.6.5: the new-chat screen as a Christmas card ============ */
-html.christmas body .sidebar .bottom-bar { margin-top: 20px; }   /* room for its snow, so it doesn't sit on the chat list */
+html.christmas body .sidebar .bottom-bar { margin-top: 16px; }   /* room for its snow, so it doesn't sit on the chat list */
+/* 26.6.6: on shorter windows the chat list gives way (it scrolls) instead of pushing the buttons under your name */
+html.christmas body .sidebar .chat-list { min-height: 70px !important; flex: 1 1 0 !important; }
+html.christmas body .sidebar .sb-tools { flex-shrink: 0; }
 .xm-hero { display: none; }
 html.christmas body .welcome-message:has(.xm-hero) > h2:not(.xm-merry),
 html.christmas body .welcome-message:has(.xm-hero) > .welcome-sub { display: none !important; }
@@ -514,3 +517,6 @@ html.christmas body .xm-hero ~ .zp-greetcard { margin-top: 26px; }
     html.christmas body .xm-hero ~ .xm-ideas button { font-size: 14px; padding: 5px 18px 5px 8px !important; }
     html.christmas body .xm-hero ~ .xm-ideas button .xm-ic { height: 28px; }
 }
+
+/* 26.6.6: the countdown sits in the middle of the chat area, not the middle of the window */
+html.christmas body .welcome-message:has(.xm-hero) { padding-top: 14px; padding-bottom: 10px; }

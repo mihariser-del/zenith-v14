@@ -47,10 +47,11 @@ from audit import router as audit_router
 REFERRAL_REQUIRED = 5  # referrals needed for Pro reward
 REFERRAL_PRO_DAYS = 3  # days of Pro granted per reward
 
-VERSION = "26.6.5"
+VERSION = "26.6.6"
 
 # User-facing changelog: what actually matters to normal users (benefits, no internals).
 USER_CHANGELOG = [
+    "26.6.6 The \"Welcome back\" card is gone from the new-chat screen — instead, just say hi and Zelpophai greets you for the time of day and offers to pick up what you were last doing (\"Good evening! What's on tonight — your Python script, Blox Fruits, or something new?\"). The Christmas welcome screen now always fits on your screen with no scrolling, the Christmas countdown sits in the middle of the chat area, and the sidebar's bottom buttons no longer overlap your name on shorter windows",
     "26.6.5 Christmas theme: the new-chat screen is now a Christmas card — a glowing red Z in a Santa hat, \"Merry Christmas, <your name>!\" in gold, a pine garland with a red bow and golden bells, and glowing red, green and gold Christmas idea buttons. Your welcome-back card sits just below. Also fixed: the snow on the sidebar's bottom buttons overlapped the chat list above it",
     "26.6.4 Fixed: after scrolling, the snow on the greeting card could stay behind and sit across the middle of the card. Snow now follows everything it lies on as you scroll, and hides when that part is scrolled out of view",
     "26.6.3 Christmas theme: the sidebar is now themed too — see-through frosted glass with a red glow, a holly sprig, and snow resting on its panels. The garland no longer hides the chat's top buttons (model, Invite, Share), and the countdown and baubles stay out of your messages. And the snow is real now: it lies in uneven, lumpy drifts with icicles of different lengths on the typing box, New Chat, the greeting card and the sidebar — swipe across it quickly or tap it to knock it off (it tumbles down and piles at the bottom), typing shakes a little loose, sending a message knocks a big puff off, and it slowly builds back up",
@@ -215,6 +216,7 @@ USER_CHANGELOG = [
 # Staff/admin changelog: current + technical notes (owners & admins see these too).
 STAFF_CHANGELOG = [
     *USER_CHANGELOG,
+    "26.6.6 Owner: chat.js loadGreeting() hides the greeting card for signed-in users (guests keep theirs); tools_prompt GREETINGS rule now asks for a time-of-day, vibe-matching greeting offering the 1-2 latest RECENT CHATS topics. christmas.js fitWelcome() zooms .welcome-message to fit #chat-container; placeCount() centres #xm-count over .main (ResizeObserver); christmas chat-list min-height 70px, flex-basis 0",
     "26.6.5 Owner: christmas.js patchHero() adds .xm-hero (brand, rule, h2.xm-merry with the name from window.user, swag.webp) after .welcome-z-logo; h2/.welcome-sub hidden via :has(.xm-hero); ideas now inserted before .zp-greetcard; new images xmas/swag.webp and flake.webp; Dancing Script added to the font link; bottom-bar ledge 9 and margin-top 20px",
     "26.6.2 Owner: installers are still stored as Zelpophai-Setup.exe / Zelpophai.apk (the updaters and the Vault uploader rely on it); /downloads/win/Zelpophai-Setup-V<ver>.exe and /downloads/android/Zelpophai-V<ver>.apk serve the current build, the plain names download with the versioned file name, and /api/app/latest links the versioned names",
     "26.6.1 Owner: Christmas artwork is in /static/img/xmas/ (scene.jpg 1920 wide and scene-small.jpg for phones, the rest webp cut-outs, about 640 KB in all); christmas.css 26.6.1 section replaces the SVG hills, trees, bulbs, holly and bauble, and christmas.js uses ic() images instead of emojis",
